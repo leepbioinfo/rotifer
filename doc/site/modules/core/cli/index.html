@@ -1,0 +1,1064 @@
+
+
+
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      <meta http-equiv="x-ua-compatible" content="ie=edge">
+      
+      
+        <link rel="canonical" href="https://my.gitlab.io/mkdocs/modules/core/cli/">
+      
+      
+      
+        <meta name="lang:clipboard.copy" content="Copy to clipboard">
+      
+        <meta name="lang:clipboard.copied" content="Copied to clipboard">
+      
+        <meta name="lang:search.language" content="en">
+      
+        <meta name="lang:search.pipeline.stopwords" content="True">
+      
+        <meta name="lang:search.pipeline.trimmer" content="True">
+      
+        <meta name="lang:search.result.none" content="No matching documents">
+      
+        <meta name="lang:search.result.one" content="1 matching document">
+      
+        <meta name="lang:search.result.other" content="# matching documents">
+      
+        <meta name="lang:search.tokenizer" content="[\s\-]+">
+      
+      <link rel="shortcut icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-3.2.0">
+    
+    
+      
+        <title>CLI - Rotifer tools</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/application.572ca0f0.css">
+      
+      
+    
+    
+      <script src="../../../assets/javascripts/modernizr.8c900955.js"></script>
+    
+    
+      
+        <link href="https://fonts.gstatic.com" rel="preconnect" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,400i,700|Roboto+Mono">
+        <style>body,input{font-family:"Roboto","Helvetica Neue",Helvetica,Arial,sans-serif}code,kbd,pre{font-family:"Roboto Mono","Courier New",Courier,monospace}</style>
+      
+    
+    <link rel="stylesheet" href="../../../assets/fonts/material-icons.css">
+    
+    
+    
+  </head>
+  
+    <body dir="ltr">
+  
+    <svg class="md-svg">
+      <defs>
+        
+        
+      </defs>
+    </svg>
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" data-md-component="overlay" for="__drawer"></label>
+    
+      <a href="#command-line-interface-package" tabindex="1" class="md-skip">
+        Skip to content
+      </a>
+    
+    
+      <header class="md-header" data-md-component="header">
+  <nav class="md-header-nav md-grid">
+    <div class="md-flex">
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <a href="https://my.gitlab.io/mkdocs" title="Rotifer tools" class="md-header-nav__button md-logo">
+          
+            <i class="md-icon"></i>
+          
+        </a>
+      </div>
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <label class="md-icon md-icon--menu md-header-nav__button" for="__drawer"></label>
+      </div>
+      <div class="md-flex__cell md-flex__cell--stretch">
+        <div class="md-flex__ellipsis md-header-nav__title" data-md-component="title">
+          
+            
+              <span class="md-header-nav__topic">
+                Rotifer tools
+              </span>
+              <span class="md-header-nav__topic">
+                CLI
+              </span>
+            
+          
+        </div>
+      </div>
+      <div class="md-flex__cell md-flex__cell--shrink">
+        
+          
+            <label class="md-icon md-icon--search md-header-nav__button" for="__search"></label>
+            
+<div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="query" data-md-state="active">
+      <label class="md-icon md-search__icon" for="__search"></label>
+      <button type="reset" class="md-icon md-search__icon" data-md-component="reset" tabindex="-1">
+        &#xE5CD;
+      </button>
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="result">
+          <div class="md-search-result__meta">
+            Type to start searching
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+          
+        
+      </div>
+      
+    </div>
+  </nav>
+</header>
+    
+    <div class="md-container">
+      
+        
+      
+      
+      <main class="md-main">
+        <div class="md-main__inner md-grid" data-md-component="container">
+          
+            
+              <div class="md-sidebar md-sidebar--primary" data-md-component="navigation">
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    <nav class="md-nav md-nav--primary" data-md-level="0">
+  <label class="md-nav__title md-nav__title--site" for="__drawer">
+    <a href="https://my.gitlab.io/mkdocs" title="Rotifer tools" class="md-nav__button md-logo">
+      
+        <i class="md-icon"></i>
+      
+    </a>
+    Rotifer tools
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+
+  <li class="md-nav__item">
+    <a href="../../.." title="Rotifer" class="md-nav__link">
+      Rotifer
+    </a>
+  </li>
+
+    
+      
+      
+      
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-toggle md-nav__toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2">
+    
+    <label class="md-nav__link" for="nav-2">
+      Programs
+    </label>
+    <nav class="md-nav" data-md-component="collapsible" data-md-level="1">
+      <label class="md-nav__title" for="nav-2">
+        Programs
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../programs/rneighbors/" title="Rneighbors" class="md-nav__link">
+      Rneighbors
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../programs/acc2operon/" title="acc2operon" class="md-nav__link">
+      acc2operon
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+    
+      
+      
+      
+
+  
+
+
+  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    
+      <input class="md-toggle md-nav__toggle" data-md-toggle="nav-3" type="checkbox" id="nav-3" checked>
+    
+    <label class="md-nav__link" for="nav-3">
+      Modules
+    </label>
+    <nav class="md-nav" data-md-component="collapsible" data-md-level="1">
+      <label class="md-nav__title" for="nav-3">
+        Modules
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+  
+
+
+  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    
+      <input class="md-toggle md-nav__toggle" data-md-toggle="nav-3-1" type="checkbox" id="nav-3-1" checked>
+    
+    <label class="md-nav__link" for="nav-3-1">
+      Core
+    </label>
+    <nav class="md-nav" data-md-component="collapsible" data-md-level="2">
+      <label class="md-nav__title" for="nav-3-1">
+        Core
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../" title="Content" class="md-nav__link">
+      Content
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+  
+
+
+  <li class="md-nav__item md-nav__item--active">
+    
+    <input class="md-toggle md-nav__toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+    
+    
+      <label class="md-nav__link md-nav__link--active" for="__toc">
+        CLI
+      </label>
+    
+    <a href="./" title="CLI" class="md-nav__link md-nav__link--active">
+      CLI
+    </a>
+    
+      
+<nav class="md-nav md-nav--secondary">
+  
+  
+  
+    <label class="md-nav__title" for="__toc">Table of contents</label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#command-line-interface-package" title="Command-line interface package" class="md-nav__link">
+    Command-line interface package
+  </a>
+  
+    <nav class="md-nav">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#simple-usage" title="Simple usage:" class="md-nav__link">
+    Simple usage:
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#actions" title="Actions:" class="md-nav__link">
+    Actions:
+  </a>
+  
+    <nav class="md-nav">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#default-actions" title="Default actions:" class="md-nav__link">
+    Default actions:
+  </a>
+  
+    <nav class="md-nav">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#append" title="append:" class="md-nav__link">
+    append:
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#count" title="count" class="md-nav__link">
+    count
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#custom-actions" title="Custom actions:" class="md-nav__link">
+    Custom actions:
+  </a>
+  
+    <nav class="md-nav">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#autoload" title="autoload" class="md-nav__link">
+    autoload
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#autoopen" title="autoopen" class="md-nav__link">
+    autoopen
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#functions" title="Functions:" class="md-nav__link">
+    Functions:
+  </a>
+  
+    <nav class="md-nav">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parser" title="parser" class="md-nav__link">
+    parser
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#merge_parser" title="merge_parser" class="md-nav__link">
+    merge_parser
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parseargs" title="parseargs" class="md-nav__link">
+    parseargs
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-fun-option" title="A fun option" class="md-nav__link">
+    A fun option
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+      
+      
+      
+      
+    </ul>
+  
+</nav>
+    
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../functions/" title="Functions" class="md-nav__link">
+      Functions
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-toggle md-nav__toggle" data-md-toggle="nav-3-2" type="checkbox" id="nav-3-2">
+    
+    <label class="md-nav__link" for="nav-3-2">
+      Tools
+    </label>
+    <nav class="md-nav" data-md-component="collapsible" data-md-level="2">
+      <label class="md-nav__title" for="nav-3-2">
+        Tools
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../tools/" title="Content" class="md-nav__link">
+      Content
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../tools/search/" title="Search" class="md-nav__link">
+      Search
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../tools/domain/" title="Domain" class="md-nav__link">
+      Domain
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-toggle md-nav__toggle" data-md-toggle="nav-3-3" type="checkbox" id="nav-3-3">
+    
+    <label class="md-nav__link" for="nav-3-3">
+      Neighborhood
+    </label>
+    <nav class="md-nav" data-md-component="collapsible" data-md-level="2">
+      <label class="md-nav__title" for="nav-3-3">
+        Neighborhood
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../neighborhood/" title="Content" class="md-nav__link">
+      Content
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../neighborhood/neighborhood/" title="Neighborhood" class="md-nav__link">
+      Neighborhood
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="toc">
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+<nav class="md-nav md-nav--secondary">
+  
+  
+  
+    <label class="md-nav__title" for="__toc">Table of contents</label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#command-line-interface-package" title="Command-line interface package" class="md-nav__link">
+    Command-line interface package
+  </a>
+  
+    <nav class="md-nav">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#simple-usage" title="Simple usage:" class="md-nav__link">
+    Simple usage:
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#actions" title="Actions:" class="md-nav__link">
+    Actions:
+  </a>
+  
+    <nav class="md-nav">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#default-actions" title="Default actions:" class="md-nav__link">
+    Default actions:
+  </a>
+  
+    <nav class="md-nav">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#append" title="append:" class="md-nav__link">
+    append:
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#count" title="count" class="md-nav__link">
+    count
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#custom-actions" title="Custom actions:" class="md-nav__link">
+    Custom actions:
+  </a>
+  
+    <nav class="md-nav">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#autoload" title="autoload" class="md-nav__link">
+    autoload
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#autoopen" title="autoopen" class="md-nav__link">
+    autoopen
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#functions" title="Functions:" class="md-nav__link">
+    Functions:
+  </a>
+  
+    <nav class="md-nav">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parser" title="parser" class="md-nav__link">
+    parser
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#merge_parser" title="merge_parser" class="md-nav__link">
+    merge_parser
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parseargs" title="parseargs" class="md-nav__link">
+    parseargs
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-fun-option" title="A fun option" class="md-nav__link">
+    A fun option
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+      
+      
+      
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          <div class="md-content">
+            <article class="md-content__inner md-typeset">
+              
+                
+                
+                  <h1>CLI</h1>
+                
+                <h3 id="command-line-interface-package">Command-line interface package</h3>
+<p>This package allow you to create a complete command-line interface.</p>
+<h4 id="simple-usage">Simple usage:</h4>
+<p>The simplest usage of this package is the following:</p>
+<pre><code class="python3"># The first 3 lines the rotifer module path
+import os
+import sys
+sys.insert(0, '/home/kaihami/mymodules')
+
+# Importing the corecli package
+import rotifer.core.cli as corecli
+
+# Allow shell autocomplete
+import argcomplete
+
+__version__ = 0.01
+__authors__ = 'Author1; Author2'
+
+def parse_cli:
+   # Create multiple argument parser
+   parser = corecli.parser()
+
+   parser.add_argument('--foo') # Add your arguments here
+
+   # Add version control
+   parser.add_argument('--version',
+        action = 'version',
+        version = __version__,
+        authors = __authors__,
+        program = os.path.basename(__file__),
+        description = 'A small description'
+                      )
+
+   # Add configdump, configfile and fun
+   parser2 = corecli.config().input()
+
+   parser_merged = corecli.merge_parser( parents = [parser, parser2]) # Merge all parsers in one
+
+   argcomplete.autocomplete(parser_merged) # Allow tab autocomplete
+
+   args = corecli.parseargs(parser_merged)
+
+   return args
+</code></pre>
+
+<h3 id="actions">Actions:</h3>
+<h4 id="default-actions">Default actions:</h4>
+<p>Argparse offers a variety of default actions. The most important actions are covered here, for more information please check argparse manual.</p>
+<h5 id="append"><code>append</code>:</h5>
+<p>This action stores a list, and append an argument to the list.</p>
+<pre><code class="python3">import rotifer.core.cli as corecli
+
+parser = corecli.parser()
+
+parser.add_argument('--mylist',
+                    action = 'append')
+
+parser.parse_arg('--mylist apple --mylist banana')
+
+&gt;&gt; Namespace(mylist=['apple', 'banana'])
+</code></pre>
+
+<h5 id="count"><strong>count</strong></h5>
+<p>This action count the number of times a keyword occurred. Usefull for verbose control.</p>
+<pre><code class="python3">import rotifer.core.cli as corecli
+
+parser = corecli.parser()
+parser.add_argument('-v', '--verbose'
+                    action = 'count')
+</code></pre>
+
+<p>If the user pass in the command-line -v or --verbose it will count +1. The user can use <code>-v -v</code> or <code>-vv</code> both will result in verbose = 2.</p>
+<h4 id="custom-actions">Custom actions:</h4>
+<p>There are two custom actions, the autoload and autoopen described below.</p>
+<h5 id="autoload"><strong>autoload</strong></h5>
+<p>This action open and load a file in the memory returning a list of strings.<br />
+Also, this action can remove (or not) duplicated lines in the file (non-redundant accession for example) and accepts pipe ( '|' ) from the command-line.<br />
+To remove duplicated lines (default) set <code>duplicates = False</code>.<br />
+To keep duplicated lines set <code>duplicates = True</code>.  </p>
+<p>One important behaviour when <code>duplicates = False</code> is that the original order is not the same as the input.</p>
+<p>Usually this action is used with <code>nargs = '*'</code> as showed in the example below.</p>
+<p>Example:
+Removing duplicated lines. For example, to remove duplicated accessions from a file</p>
+<pre><code class="python3">import rotifer.core.cli as corecli
+
+def parse_cli():
+    # Create an argument parser
+    parser = corecli.parser()
+
+    # Add argument with autoload action
+    parser.add_argument('accessions',
+                        action = corecli.autoload,
+                        nargs = '*')
+
+    args = corecli.parseargs(parser)
+
+    return args
+
+if __name__ == '__main__':
+    args = parse_cli()
+    print(args.accessions)
+</code></pre>
+
+<p>Keep duplicated lines in the file. For example, when reading a fasta file (each line is an element in the list).</p>
+<pre><code class="python3">import rotifer.core.cli as corecli
+
+def parse_cli():
+    # Create an argument parser
+    parser = corecli.parser()
+
+    # Add argument with autoload action
+    parser.add_argument('fasta',
+                        nargs = '*',
+                        action = corecli.autoload,
+                        duplicates = False,
+                        )
+
+    args = corecli.parseargs(parser)
+
+    return args
+
+if __name__ == '__main__':
+    args = parse_cli()
+    print(args.fasta)
+</code></pre>
+
+<h5 id="autoopen"><code>autoopen</code></h5>
+<p>TODO</p>
+<h3 id="functions">Functions:</h3>
+<h4 id="parser">parser</h4>
+<p>Add a argument parser</p>
+<p>This function substitutes argparse.ArgumentParser().<br />
+If you decide to use this function there is no need to import argparse in the program.<br />
+The add_help is set to False. This is handy if you use <code>corecli.merge_parser</code> (see above).</p>
+<pre><code class="python">def parser(description = None):
+    return argparse.ArgumentParser(add_help = False, description = description,
+                                   formatter_class = argparse.RawTextHelpFormatter)
+</code></pre>
+
+<p>Usage example:</p>
+<pre><code class="python">import rotifer.core.cli as corecli
+
+parser = corecli.parser()
+parser.add_argument(--foo) # same syntax as argparse
+...
+
+</code></pre>
+
+<h4 id="merge_parser">merge_parser</h4>
+<p>This function merge multiple parsers in one.</p>
+<p>For example, with this function is possible to merge a custom parser with the core parser (containing configfile, configdump and fun).</p>
+<pre><code class="python3">import rotifer.core.cli as corecli
+
+def parse_cli:
+   # Create multiple argument parser
+   parser = corecli.parser()
+
+   parser.add_argument('--foo') # Add your arguments here
+
+   # Add configdump, configfile and fun
+   parser2 = corecli.config().input()
+
+   # A new parser
+   parser3 = corecli.parser()
+   parser3.add_argument('--bar')
+
+   parser_merged = corecli.merge_parser( parents = [parser, parser2, parser3]) # Merge all parsers in one
+
+   args = corecli.parseargs(parser_merged)
+
+   return args
+</code></pre>
+
+<p>In this example, three parsers were created: parser, parser2, and parser3. The arguments were merged using merge_parser() function. Usually this function is usefull to merge the rotifer cli with a program specific parser (see <a href="#simple-usage">Simple Usage</a>)</p>
+<h4 id="parseargs">parseargs</h4>
+<p>This function parse the arguments, it is important to use this function if configdump/configfile is present. It will dump/update the values.</p>
+<p>You can exclude arguments to be not present in the config file, usually a user input file. This is possible using exclude_from_dump option, the input is a list with argument to exclude.<br />
+Example:</p>
+<pre><code class="python3">import rotifer.core.cli as corecli
+
+def parse_cli():
+    # Create an argument parser
+    parser = corecli.parser()
+
+    # Add argument with autoload action
+    parser.add_argument('accessions',
+                        action = corecli.autoload,
+                        nargs = '*')
+
+    parser2 = corecli.config().input()
+
+    parser_merged = corecli.merge_parser(parents = [parser, parser2])
+
+    args = corecli.parseargs(parser,
+                            exclude_from_dump = ['accessions'])
+
+    return args
+
+if __name__ == '__main__':
+    args = parse_cli()
+    ...
+</code></pre>
+
+<h4 id="a-fun-option">A fun option</h4>
+<p>In the corecli.config().input() there is a hidden option called fun. To activate this flag the user should input <code>myscript --fun</code>. This will turn <code>args.fun == True</code> and you can print to the user two outputs (fun or nofun).</p>
+<p>Usually if the programs finished with no errors you can print the fun message, otherwise the nofun message.</p>
+<p>A simple case of fun or nofun is the following</p>
+<pre><code class="python">import sys
+import rotifer.core.cli as corecli
+
+def parse_cli():
+    # Create an argument parser
+    parser = corecli.parser()
+
+    # Add argument with autoload action
+    parser.add_argument('accessions',
+                        action = corecli.autoload,
+                        nargs = '*')
+
+    parser2 = corecli.config().input()
+
+    parser_merged = corecli.merge_parser(parents = [parser, parser2])
+
+    args = corecli.parseargs(parser,
+                            exclude_from_dump = ['accessions'])
+
+    return args
+
+if __name__ == '__main__':
+    args = parse_cli()
+    try:
+        # Long program
+        # finished everything
+        if args.fun:
+            sys.stderr.write(args.fun.fun)
+
+    except ...: # Catch some error
+        if args.fun:
+            sys.stderr.write(args.fun.nofun)
+</code></pre>
+                
+                  
+                
+              
+              
+                
+
+
+              
+            </article>
+          </div>
+        </div>
+      </main>
+      
+        
+<footer class="md-footer">
+  
+    <div class="md-footer-nav">
+      <nav class="md-footer-nav__inner md-grid">
+        
+          <a href="../" title="Content" class="md-flex md-footer-nav__link md-footer-nav__link--prev" rel="prev">
+            <div class="md-flex__cell md-flex__cell--shrink">
+              <i class="md-icon md-icon--arrow-back md-footer-nav__button"></i>
+            </div>
+            <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
+              <span class="md-flex__ellipsis">
+                <span class="md-footer-nav__direction">
+                  Previous
+                </span>
+                Content
+              </span>
+            </div>
+          </a>
+        
+        
+          <a href="../functions/" title="Functions" class="md-flex md-footer-nav__link md-footer-nav__link--next" rel="next">
+            <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
+              <span class="md-flex__ellipsis">
+                <span class="md-footer-nav__direction">
+                  Next
+                </span>
+                Functions
+              </span>
+            </div>
+            <div class="md-flex__cell md-flex__cell--shrink">
+              <i class="md-icon md-icon--arrow-forward md-footer-nav__button"></i>
+            </div>
+          </a>
+        
+      </nav>
+    </div>
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-footer-copyright">
+        
+        powered by
+        <a href="https://www.mkdocs.org">MkDocs</a>
+        and
+        <a href="https://squidfunk.github.io/mkdocs-material/">
+          Material for MkDocs</a>
+      </div>
+      
+        
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    
+      <script src="../../../assets/javascripts/application.b41f3d20.js"></script>
+      
+      <script>app.initialize({version:"1.0.4",url:{base:"../../.."}})</script>
+      
+    
+    
+      
+    
+  </body>
+</html>

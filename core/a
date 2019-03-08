@@ -1,0 +1,45 @@
+01/11/19 14:42:12	haldane	log	INFO   	:	This info
+01/11/19 14:42:12	haldane	log	WARNING	:	This is Warning
+01/11/19 14:42:12	haldane	log	DEBUG  	:	DEBUG
+01/11/19 14:42:47	haldane	log	INFO   	:	This info
+01/11/19 14:42:47	haldane	log	WARNING	:	This is Warning
+01/11/19 14:42:47	haldane	log	DEBUG  	:	DEBUG
+01/11/19 14:43:09	haldane	log	INFO   	:	This info
+01/11/19 14:43:09	haldane	log	WARNING	:	This is Warning
+01/11/19 14:43:09	haldane	log	DEBUG  	:	DEBUG
+01/11/19 14:43:22	haldane	log	INFO   	:	This info
+01/11/19 14:43:22	haldane	log	WARNING	:	This is Warning
+01/11/19 14:43:22	haldane	log	DEBUG  	:	DEBUG
+01/11/19 15:51:28	haldane	log	INFO   	:	This info
+01/11/19 15:51:28	haldane	log	WARNING	:	This is Warning
+01/11/19 15:51:28	haldane	log	DEBUG  	:	DEBUG
+01/11/19 15:52:30	haldane		INFO   	:	This info
+01/11/19 15:52:30	haldane		WARNING	:	This is Warning
+01/11/19 15:52:30	haldane		DEBUG  	:	DEBUG
+01/11/19 18:09:38	haldane	FIX THIS	INFO   	:	This info
+01/11/19 18:09:38	haldane	FIX THIS	WARNING	:	This is Warning
+01/11/19 18:09:38	haldane	FIX THIS	DEBUG  	:	DEBUG
+01/11/19 23:22:44	haldane	log.py	INFO   	:	This info
+01/11/19 23:22:44	haldane	log.py	WARNING	:	This is Warning
+01/11/19 23:22:44	haldane	log.py	DEBUG  	:	DEBUG
+01/11/19 23:23:09	haldane	log.py	INFO   	:	This info
+01/11/19 23:23:09	haldane	log.py	WARNING	:	This is Warning
+01/11/19 23:23:09	haldane	log.py	DEBUG  	:	DEBUG
+01/11/19 23:27:48	haldane	log.py	INFO   	:	This info
+01/11/19 23:27:48	haldane	log.py	WARNING	:	This is Warning
+01/11/19 23:27:48	haldane	log.py	DEBUG  	:	DEBUG
+01/11/19 23:30:42	haldane	__file__	INFO   	:	This info
+01/11/19 23:30:42	haldane	__file__	WARNING	:	This is Warning
+01/11/19 23:30:42	haldane	__file__	DEBUG  	:	DEBUG
+01/11/19 23:41:40	haldane	__main__	INFO   	:	This info
+01/11/19 23:41:40	haldane	__main__	WARNING	:	This is Warning
+01/11/19 23:41:40	haldane	__main__	DEBUG  	:	DEBUG
+01/11/19 23:50:57	haldane	__main__	INFO   	:	This info
+01/11/19 23:50:57	haldane	__main__	WARNING	:	This is Warning
+01/11/19 23:50:57	haldane	__main__	DEBUG  	:	DEBUG
+01/11/19 23:54:55	haldane	log.py	INFO   	:	This info
+01/11/19 23:54:55	haldane	log.py	WARNING	:	This is Warning
+01/11/19 23:54:55	haldane	log.py	DEBUG  	:	DEBUG
+01/14/19 11:15:53	haldane		INFO   	:	This info
+01/14/19 11:15:53	haldane		WARNING	:	This is Warning
+01/14/19 11:15:53	haldane		DEBUG  	:	DEBUG
