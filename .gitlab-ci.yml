@@ -13,6 +13,7 @@ pages:
   - mv site public
   - ls
   - ls public
+  - cat public/index.html
   artifacts:
     paths:
     - public
