@@ -1,5 +1,5 @@
 site_name: Rotifer tools
-site_url: https://my.gitlab.io/mkdocs
+# site_url: https://my.gitlab.io/mkdocs
 # theme: 'material ' #Vreadthedocs
 
 theme:
