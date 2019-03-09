@@ -1,9 +1,8 @@
 site_name: Rotifer tools
-site_url: https://psel.gitlab.io/rotifer
+site_url: https://psel.gitlab.io
 # theme: 'material ' #Vreadthedocs
 
 repo_url: https://gitlab.com/psel/rotifer
-
 
 theme:
     name: 'material'
