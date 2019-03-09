@@ -1,10 +1,13 @@
 site_name: Rotifer tools
-# site_url: https://my.gitlab.io/mkdocs
+site_url: https://psel.gitlab.io/rotifer
 # theme: 'material ' #Vreadthedocs
+
+repo_url: https://gitlab.com/psel/rotifer
+
 
 theme:
     name: 'material'
-
+    
 nav:
 - Rotifer: 'index.md'
 - Programs:
