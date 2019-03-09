@@ -10,10 +10,8 @@ pages:
   script:
   - cd doc
   - mkdocs build 
-  - mv site public
-  - ls
-  - ls public
-  - cat public/index.html
+  - mv site ../public
+  - cd ..
   artifacts:
     paths:
     - public
