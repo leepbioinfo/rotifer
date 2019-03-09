@@ -8,7 +8,7 @@ before_script:
 
 pages:
   script:
-  - mkdocs build
+  - mkdocs build ./doc
   - mv site public
   artifacts:
     paths:
