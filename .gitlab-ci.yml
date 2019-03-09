@@ -11,6 +11,8 @@ pages:
   - cd doc
   - mkdocs build 
   - mv site public
+  - ls
+  - ls public
   artifacts:
     paths:
     - public
