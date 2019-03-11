@@ -15,6 +15,8 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from rotifer.core.functions import loadClasses
 
+from Bio import SeqIO
+from io import StringIO as iStringIO
 
 __version__ = 0.10
 __authors__ = 'Gilberto Kaihami; Gianlucca Nicastro'
@@ -207,22 +209,83 @@ class MsaTable(pd.DataFrame):
 
         return ax
 
+    # def aa_frequency2(self, gap = True, **kwargs):
+    #     dc_groups = {
+    #         'a' : ['F','Y', 'W', 'H'],
+    #         'l' : ['I','V','L'],
+    #         'h' : ['F', 'Y', 'W', 'H' 'A', 'C', 'F', 'M', 'W', 'Y'],
+    #         '+' : ['H', 'K', 'R'],
+    #         '-' : [ 'D', 'E'],
+    #         'c' : ['H', 'K', 'R', 'D', 'E'],
+    #         'p' : ['H', 'K', 'R', 'D', 'E','Q', 'N', 'S', 'T','C'],
+    #         'o' : ['S','T'],
+    #         'u' : ['G', 'A', 'S'],
+    #         's' : ['G', 'A', 'S','V', 'T', 'D', 'N', 'P', 'C'],
+    #         'b' : ['K', 'F', 'I', 'L','M', 'Q', 'R', 'W', 'Y', 'E']
+    #     }
+    #
+    #     all_aa = ['G','A','V','I','L','M','F','Y',
+    #               'W','H','C','P','K','R','D','E',
+    #               'Q','N','S','T', '-']
+    #
+    #     if not isinstance(self.matrix, pd.DataFrame):
+    #         self.seq2matrix(**kwargs)
+    #
+    #     else:
+    #         pass
+    #
+    #     residue_matrix = pd.DataFrame(index=all_aa)
+    #
+    #     group_matrix=pd.DataFrame(index=['a', 'l', 'h', '+',
+    #                                  '-', 'c', 'p', 'o',
+    #                                  'u', 's', 'b'])
+    #
+    #     a = self.matrix.apply(pd.Series.value_counts)
+    #     if gap:
+    #         residue_matrix = residue_matrix.join(a)
+    #         residue_matrix = residue_matrix.rename(index={'-': '_'})
+    #
+    #     else:
+    #         residue_matrix = residue_matrix.join(a)
+    #         residue_matrix = residue_matrix.rename(index={'-': '.'})
+    #
+    #     b = self.matrix.copy()
+    #     b = b.values
+    #
+    #     for k,v in dc_groups.items():
+    #         for aa in v:
+    #             b[b == aa] = k
+    #             b = np.where(b == aa, k, b)
+    #
+    #     c =  pd.DataFrame( data = b)
+    #
+    #     group_matrix = group_matrix.join(c.apply(pd.Series.value_counts))
+    #
+    #     # Improve names
+    #     self.a = residue_matrix/(self.matrix.shape[0])
+    #     self.c = group_matrix/(self.matrix.shape[0])
+    #
     def aa_frequency(self, gap = True, **kwargs):
 
         aromatic = ['F','Y', 'W', 'H']
+
         alifatic = ['I','V','L']
         hydrophobic = alifatic + [ 'A', 'C', 'F', 'M', 'W', 'Y']
+
         positive = ['H', 'K', 'R']
         negative = [ 'D', 'E']
         charged = positive + negative
         polar = charged + ['Q', 'N', 'S', 'T','C']
+
         alcohol = ['S','T']
+
         tiny = ['G', 'A', 'S']
         small = tiny + [ 'V', 'T', 'D', 'N', 'P', 'C']
         big = ['K', 'F', 'I', 'L','M', 'Q', 'R', 'W', 'Y', 'E']
+
         all_aa = ['G','A','V','I','L','M','F','Y',
                   'W','H','C','P','K','R','D','E',
-                  'Q','N','S','T']
+                  'Q','N','S','T', '-']
 
         self.group_size = pd.DataFrame.from_dict({'a': len(aromatic),
                                              'l': len(alifatic),
@@ -235,9 +298,12 @@ class MsaTable(pd.DataFrame):
                                              'u': len(tiny),
                                              's': len(small),
                                              'b': len(big),
-                                             '.': len(all_aa)
                                             }, orient='index').rename(
                                                 {0:'size'}, axis=1)
+
+        self.group_ranking = {k:v for k,v in  enumerate(['a', 'l', 'h', '+',
+                                          '-', 'c', 'p', 'o',
+                                          'u', 's', 'b'])}
 
         if not isinstance(self.matrix, pd.DataFrame):
             self.seq2matrix(**kwargs)
@@ -249,14 +315,17 @@ class MsaTable(pd.DataFrame):
 
         group_matrix=pd.DataFrame(index=['a', 'l', 'h', '+',
                                      '-', 'c', 'p', 'o',
-                                     'u', 's', 'b', '.'])
+                                     'u', 's', 'b'])
+
         for x in range(len(self.matrix.T)):
             a = self.matrix[x].value_counts().to_frame()
 
             if gap:
                 residue_matrix = residue_matrix.join(a.rename(index={'-': '_'}))
+                residue_matrix = residue_matrix.rename(index={'-': '_'})
             else:
                 residue_matrix = residue_matrix.join(a.rename(index={'-': '.'}))
+                residue_matrix = residue_matrix.rename(index={'-': '.'})
 
             d = {
                 'a':np.where(self.matrix[x].isin(aromatic),1,0).sum(),
@@ -270,7 +339,6 @@ class MsaTable(pd.DataFrame):
                 'u':np.where(self.matrix[x].isin(tiny),1,0).sum(),
                 's':np.where(self.matrix[x].isin(small),1,0).sum(),
                 'b':np.where(self.matrix[x].isin(big),1,0).sum(),
-                '.':self.matrix[x].count()
                 }
 
             group_matrix = group_matrix.join(
@@ -280,7 +348,7 @@ class MsaTable(pd.DataFrame):
         # Improve names
         self.a = residue_matrix/len(self.matrix)
         self.c = group_matrix/len(self.matrix)
-
+        self.c = self.c.reset_index(drop = True)
 
     def consensus(self, thresholds,
                   output = 'dict',
@@ -299,26 +367,45 @@ class MsaTable(pd.DataFrame):
         if not isinstance(thresholds, (list, tuple)):
             thresholds = [thresholds]
         for threshold in thresholds:
-            residue=[]
-            freq=[]
-            group=[]
-            g_freq=[]
+            residue_matrix = self.a.fillna(0)
 
-            for x in range(len(self.a.T)):
-                aa = self.a[x].to_frame().sort_values(x, ascending=False)
-                residue.append(aa.iloc[0].name)
-                freq.append(aa.iloc[0][x])
+            residue_res=  residue_matrix[residue_matrix >= threshold].idxmax().dropna()
 
-                cc = self.c[x].to_frame()
-                cc=cc[cc[x] >= threshold].join(self.group_size).sort_values(x, ascending=False).drop_duplicates(
-                subset='size').sort_values('size').iloc[0]
-                group.append(cc.name)
-                g_freq.append(cc.iloc[0])
+            group_matrix = self.c.fillna(0)
 
-            b = pd.DataFrame({'residue':residue, 'frequency': freq, 'group': group, 'g_freq': g_freq})
+            group_res = (group_matrix[group_matrix >= threshold])
+            group_res = group_res.apply(lambda x: [idx for idx, v in enumerate(x) if pd.notnull(v) ]
+                            ).apply(lambda x: min(x) if x else np.nan).dropna()
 
-            b['consensus']= np.where(b.frequency > threshold, b.residue,np.where(b.g_freq > threshold,b.group, '.'))
-            dc[threshold] = ''.join(b.consensus.values)
+            # self.debug = group_res
+
+            group_res = group_res.map(self.group_ranking)
+
+            e = pd.DataFrame(index = [x for x in range(0, self.matrix.shape[1])])
+
+            e = e.join(pd.concat([residue_res, group_res], axis = 1 ))
+
+            e = e.fillna(-999)
+
+            e['gap'] = '.'
+
+            try:
+                res = np.where(e[0] != -999,
+                            np.where(e[0] != '_',
+                                       e[0],
+                                       np.where((e[0] == '_') & (e[1] != -999),
+                                                        e[1],
+                                                         e[0]
+                                                )
+                                     ),
+                           np.where(e[1] != -999, e[1], '.')
+                           )
+
+            except:
+                res = '.' * self.matrix.shape[1]
+
+            dc[threshold] = ''.join(res)
+
 
         if output.lower() == 'dict':
             return dc
@@ -333,7 +420,8 @@ class MsaTable(pd.DataFrame):
                                                  'sequence':[x for x in dc.values()]},
                                                 ), no_self = True)
 
-    def _load_conservation(self,sources = [],
+
+    def _load_stats(self,sources = [],
                      additional_sources = [],
                      verbose = 0,
                      log_file = '',
@@ -353,14 +441,14 @@ class MsaTable(pd.DataFrame):
             for additional_source in additional_sources:
                 self._switch_source.update(loadClasses(additional_source))
 
-    def conservation(self, metric = 'shannon_entropy',
+    def stats(self, metric = 'shannon_entropy',
                      gap_penalty = 1,
                      pseudocount = 0.0000001,
                      **kwargs
                      ):
 
         df = self
-        self._load_conservation()
+        self._load_stats()
 
         if not isinstance(self.matrix, pd.DataFrame):
             self.seq2matrix(**kwargs)
@@ -384,7 +472,7 @@ class MsaTable(pd.DataFrame):
                                            **kwargs).run()
 
     def conservation_types(self):
-        self._load_conservation()
+        self._load_stats()
         return list(self._switch_source.keys())
 
     def seq2colors(self):
@@ -447,7 +535,25 @@ class alignment:
                 return MsaTable(self.alignment, metadata = metadata)
 
         else:
-            return ''
+
+            idd=[]
+            seq=[]
+
+            if (self.input_file_checker):
+                fasta_sequences = SeqIO.parse(self.alignment, self.ipt_format)
+            else:
+                fasta_sequences = SeqIO.parse(iStringIO(self.alignment), self.ipt_format)
+
+            for fasta in fasta_sequences:
+                idd.append(fasta.id)
+                seq.append(str(fasta.seq))
+
+            data={'ID':idd, 'seq':seq}
+            z = pd.DataFrame(data=data)
+            # z['len']=z.seq.str.len()
+
+            return MsaTable(z, metadata = {'ID': 'ID',
+                                           'sequence': 'seq'})
 
     def _fasta2df(self, fi, split_seq = False):
         tmp = {}
@@ -538,7 +644,7 @@ def _colors_dict_and_cmap():
 
 if __name__ == '__main__':
     print("test read fasta")
-    a = alignment('/home/kaihami/test/fasta/chpT.fa').read()
+    a = alignment('/home/kaihami/projects/ammonium_transp/work/20190208/amt.nr.0d8.amt.domain.sliced.filtered.formated.ordered.modified.trimmed.long_branches_removed.msa').read()
 
 
     print('test read dataframe')
