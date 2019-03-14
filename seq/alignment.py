@@ -498,21 +498,7 @@ class alignment:
 
     def read(self, **kwargs):
 
-        if self.ipt_format == 'fasta':
-            if self.input_file_checker:
-                alignment = open(self.alignment).read().splitlines()
-            elif isinstance(self.alignment, str):
-                alignment = self.alignment.split('\n')
-
-            else:
-                pass
-
-            return MsaTable(self._fasta2df(alignment),
-                            metadata = {'sequence': 'sequence',
-                                        'Header': 'Header',
-                                        'ID': 'ID'})
-
-        elif self.ipt_format in ['table', 'dataframe', 'df']:
+        if self.ipt_format in ['table', 'dataframe', 'df']:
             kwargs = self.kwargs
             try:
                 metadata = kwargs.pop('metadata', None)
@@ -554,39 +540,6 @@ class alignment:
 
             return MsaTable(z, metadata = {'ID': 'ID',
                                            'sequence': 'seq'})
-
-    def _fasta2df(self, fi, split_seq = False):
-        tmp = {}
-        splitted = {}
-        y = 0
-        for x in range(0, len(fi)):
-            if fi[x].startswith('>'):
-                header = fi[x]
-                header = fi[x].replace('>', '')
-                tmp[header] = ''
-            else:
-                tmp[header] += fi[x]
-                if split_seq:
-                    for e in fi[x]:
-                        splitted[str(y)] = e
-                        y+=1
-        if split_seq:
-            df = pd.DataFrame({'Header':list(tmp.keys()),
-                               'ID': [x.split(' ')[0] for x in tmp.keys()],
-                               'sequence': list(tmp.values())})
-            df2 = df['sequence'].apply(lambda x: pd.Series(list(x)))
-            df2['Header'] = df['Header']
-            df2['ID'] = df['ID']
-            return df2
-        else:
-            df = pd.DataFrame({'Header':list(tmp.keys()),
-                               'ID': [x.split(' ')[0] for x in tmp.keys()],
-                               'sequence': list(tmp.values())})
-            df = df.astype(str)
-            # pad
-            df['sequence'] = df['sequence'].str.ljust(df['sequence'].str.len().max(), '-')
-
-        return df
 
 def _colors_dict_and_cmap():
     from matplotlib import colors as ccolors
