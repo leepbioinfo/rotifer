@@ -21,9 +21,9 @@ from io import StringIO as iStringIO
 __version__ = 0.10
 __authors__ = 'Gilberto Kaihami; Gianlucca Nicastro'
 
-class MsaTable(pd.DataFrame):
+class MSA(pd.DataFrame):
     '''
-    This class represents as a table (pandas DataFrame) all alignments
+    This class represents alignments as a table (pandas DataFrame)
     It is possible to use all power of numpy/pandas, like loc and iloc
     Also added some custom functions which includes:
         - slice
@@ -37,24 +37,45 @@ class MsaTable(pd.DataFrame):
                               )
 
     A sequence alignment need at least 2 features:
+        - sequence_id
         - sequence
-        - header/id
+
     These features are represented as metadata. If the user give this information
     it is possible to work with an n x m dimensional array, keeping all additional information (e.g. taxonomy).
+
+    To overcome some issues here we decided to use MultiIndex.
+    For example:
+
+    Given a sequence fasta:
+    >A
+    PCK-ACG-
+    >B
+    PCK-ACG-
+    >C
+    ACT-RCG-
+    >D
+    ACTDRCG-
+
+    It will be transformed as a MSA object.
+
+    +-------------+-------------------------------+
+    | sequence_id | sequence                      |
+    | name        | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+    | A           | P | C | K | - | A | C | G | - |
+    | B           | P | C | K | - | A | C | G | - |
+    | C           | A | C | T | - | R | C | G | - |
+    | D           | A | C | T | D | R | C | G | - |
+    +-------------+-------------------------------+
+
+    metadata = {'sequence_id': 'name',
+                'sequence':'sequence'}
+
+    Here the sequence_id and sequence (First row of the table) are the the first level MultiIndex
 
     This can be a major advantage since later it is possible to get some useful information from fragments of the df
     without compromissing the overall performance.
 
     For example given the following df:
-    +------+----------+-------+
-    | name | sequence | clade |
-    | A    | PCK-ACG- | 1     |
-    | B    | PCK-ACG- | 1     |
-    | C    | ACT-RCG- | 2     |
-    | D    | ACT-RCG- | 2     |
-    +------+----------+-------+
-    metadata = {'ID': 'name',
-                'sequence':'sequence'}
 
     In the former example it is clear the advantages of using a dataframe.
 
@@ -100,12 +121,106 @@ class MsaTable(pd.DataFrame):
         self.a = ''
         self.hydrophobic_matrix = ''
 
-        super(MsaTable, self).__init__(*args, **kwargs)
+        super(MSA, self).__init__(*args, **kwargs)
 
     # Pandas contructor
     @property
     def _constructor(self):
-        return MsaTable
+        return MSA
+
+    @classmethod
+    def read(cls, input_alignment, input_format = 'fasta', **kwargs):
+        '''
+        Another constructor
+        '''
+        try:
+            input_file_checker = os.path.isfile(input_alignment)
+
+        except:
+            input_file_checker = False
+        alignment = input_alignment
+
+        if input_format in ['table', 'dataframe', 'df']:
+            try:
+                metadata = kwargs.pop('metadata', None)
+
+            except:
+                pass
+
+            if input_file_checker:
+                df = pd.read_csv(alignment, **kwargs)
+                if 'sequence' in metadata.keys():
+                    df[metadata['sequence']] = df[metadata['sequence']].str.ljust(df[metadata['sequence']].str.len().max(), '-')
+
+                else:
+                    df[df.columns[1]] = df[df.columns[1]].str.ljust(df[df.columns[1]].str.len().max(), '-')
+                    metadata = {'sequence_id': df.columns[0],
+                                'sequence': df.columns[1]
+                                }
+
+            else:
+                pass
+
+            ma = _seq2matrix(df[['sequence']], metadata = metadata)
+            df = df.drop(columns = ['sequence'])
+
+            tuple_columns = ()
+
+            for col in df.columns:
+                if col == 'sequence_id':
+                    tuple_columns += ('_sequence_id', col)
+                else:
+                    tuple_columns += ('other_information', col)
+
+            df.columns = pd.MultiIndex.from_tuples(
+                                            [tuple_columns]
+                                            )
+
+            df = pd.concat([df,ma], axis = 1)
+
+            return cls(df,columns = df.columns, metadata = metadata)
+
+        else:
+
+            idd=[]
+            seq=[]
+
+            if (input_file_checker):
+                fasta_sequences = SeqIO.parse(alignment, input_format)
+
+            else:
+                fasta_sequences = SeqIO.parse(iStringIO(alignment), input_format)
+
+            for fasta in fasta_sequences:
+                idd.append(fasta.id)
+                seq.append(str(fasta.seq))
+
+            data={'sequence_id':idd, 'sequence':seq}
+
+            df = pd.DataFrame(data=data)
+            df['sequence'] = df['sequence'].str.ljust(df['sequence'].str.len().max(), '-')
+            metadata = {'sequence_id': 'sequence_id',
+                        'sequence': 'sequence'}
+
+            ma = _seq2matrix(df[['sequence']], metadata = metadata)
+            df = df.drop(columns = ['sequence'])
+
+            tuple_columns = ()
+
+            for col in df.columns:
+                if col == 'sequence_id':
+                    tuple_columns += ('_sequence_id', col)
+                else:
+                    tuple_columns += ('other_information', col)
+
+            df.columns = pd.MultiIndex.from_tuples(
+                                            [tuple_columns]
+                                            )
+
+            df = pd.concat([df,ma], axis = 1)
+
+            return cls(df,columns = df.columns, metadata = metadata)
+
 
     def slice(self, seq_col = '', start = 0, end = 0, **kwargs):
         '''
@@ -120,19 +235,6 @@ class MsaTable(pd.DataFrame):
 
         return df[seq_col].str[start:end]
 
-    def seq2matrix(self, seq_col = '',df = '', no_self = False,  **kwargs):
-        if isinstance(df, str):
-            df = self
-
-        if 'sequence' in self.metadata.keys():
-            seq_col = self.metadata['sequence']
-        else:
-            seq_col = seq_col
-        if no_self:
-            return df[seq_col].map(lambda x: list(x)).apply(pd.Series)
-
-        else:
-            self.matrix = df[seq_col].map(lambda x: list(x)).apply(pd.Series)
 
     def hydrophobic(self, **kwargs):
         '''
@@ -481,66 +583,31 @@ class MsaTable(pd.DataFrame):
         _ = list(df['sequence'].map(lambda x: [int(colors[y])for y in x]))
         return (_, cmap, bounds, norm)
 
+
+def _seq2matrix(df, seq_col = '', **kwargs):
+
+    try:
+        metadata = kwargs['metadata']
+    except:
+        metadata = {}
+
+    if 'sequence' in metadata.keys():
+        seq_col = metadata['sequence']
+    else:
+        seq_col = seq_col
+    df = df[seq_col].map(lambda x: list(x)).apply(pd.Series)
+    df.columns = pd.MultiIndex.from_tuples([
+                                ('_rotifer.sequence', col) for col in df.columns
+                                        ]
+                                    )
+    return df
+
+
+
+
 class alignment:
     import warnings
     warnings.filterwarnings('ignore')
-    def __init__(self, alignment, ipt_format = 'fasta',
-                 **kwargs):
-
-        # Check if alignment is file
-        try:
-            self.input_file_checker = os.path.isfile(alignment)
-        except:
-            self.input_file_checker = False
-        self.alignment = alignment
-        self.ipt_format = ipt_format
-        self.kwargs = kwargs
-
-    def read(self, **kwargs):
-
-        if self.ipt_format in ['table', 'dataframe', 'df']:
-            kwargs = self.kwargs
-            try:
-                metadata = kwargs.pop('metadata', None)
-
-            except:
-                pass
-
-            if self.input_file_checker:
-                df = pd.read_csv(self.alignment, **self.kwargs)
-                if 'sequence' in metadata.keys():
-                    df[metadata['sequence']] = df[metadata['sequence']].str.ljust(df[metadata['sequence']].str.len().max(), '-')
-
-                else:
-                    df[df.columns[1]] = df[df.columns[1]].str.ljust(df[df.columns[1]].str.len().max(), '-')
-
-
-                return MsaTable(df,
-                                metadata = metadata)
-            else:
-                return MsaTable(self.alignment, metadata = metadata)
-
-        else:
-
-            idd=[]
-            seq=[]
-
-            if (self.input_file_checker):
-                fasta_sequences = SeqIO.parse(self.alignment, self.ipt_format)
-            else:
-                fasta_sequences = SeqIO.parse(iStringIO(self.alignment), self.ipt_format)
-
-            for fasta in fasta_sequences:
-                idd.append(fasta.id)
-                seq.append(str(fasta.seq))
-
-            data={'ID':idd, 'seq':seq}
-            z = pd.DataFrame(data=data)
-            # z['len']=z.seq.str.len()
-
-            return MsaTable(z, metadata = {'ID': 'ID',
-                                           'sequence': 'seq'})
-
 def _colors_dict_and_cmap():
     from matplotlib import colors as ccolors
     colors = {'A':1,
@@ -597,17 +664,6 @@ def _colors_dict_and_cmap():
 
 if __name__ == '__main__':
     print("test read fasta")
-    a = alignment('/home/kaihami/projects/ammonium_transp/work/20190208/amt.nr.0d8.amt.domain.sliced.filtered.formated.ordered.modified.trimmed.long_branches_removed.msa').read()
 
 
-    print('test read dataframe')
-    try:
-        b = alignment('/home/kaihami/test/fasta/chpT.df', ipt_format = 'df', sep = '\t').read()
-
-    except:
-        pass
-
-    b = alignment('/home/kaihami/test/fasta/chpT.df', ipt_format = 'df', header = None,
-                 # columns = ['pid', 'seq'],
-                  metadata = {},
-                  sep = '\t').read()
+    a = MSA.read('/home/kaihami/projects/ammonium_transp/work/20190208/amt.nr.0d8.amt.domain.sliced.filtered.formated.ordered.modified.trimmed.long_branches_removed.msa')

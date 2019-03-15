@@ -25,13 +25,13 @@ def parse_cli():
                 long_arg = '--output',
                 helper = 'Output redundant (all) or non-redundant accessions (nr) [Default = all]',
                 default = 'all')
-    parser.add(long_arg = '--version',
-                action = 'version',
-                        version = corecli.version(program = 'uniprot2gi',
-                                                  version = __version__,
-                                                  authors = __authors__,
-                                                  description = 'Convert UniprotID to NCBI accession')
-                        )
+    # parser.add(long_arg = '--version',
+    #             action = 'version',
+    #                     version = corecli.version(program = 'uniprot2gi',
+    #                                               version = __version__,
+    #                                               authors = __authors__,
+    #                                               description = 'Convert UniprotID to NCBI accession')
+    #                     )
 
     parser.add(long_arg = '-nr',
                         helper = 'Return non-redundant accessions (same effect as -o nr)',
