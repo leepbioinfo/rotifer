@@ -422,7 +422,8 @@ def yaml_search(string,path):
 
 def loadClasses(load,
         user_path = os.path.expanduser(os.path.join(*['~', '.rotifer', 'config'])),
-        system_path = os.path.join(os.path.realpath(os.path.join( os.path.abspath(__file__), '..', '..')), 'config')):
+        system_path = os.path.join(os.path.realpath(os.path.join( os.path.abspath(__file__),
+                                                                 '..', '..','..', '..')), 'etc/config')):
     '''
     This function list all classes and methods
     The main problem is the import
