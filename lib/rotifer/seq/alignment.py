@@ -2,6 +2,9 @@
 
 import os
 import sys
+# TESTING LINES
+sys.path.insert(0, '/home/kaihami/local/modified_structure/rotifer/lib')
+
 from subprocess import Popen, PIPE, STDOUT
 from tempfile import mkstemp
 import rotifer.core.functions as rcf
@@ -19,7 +22,69 @@ from Bio import SeqIO
 from io import StringIO as iStringIO
 
 __version__ = 0.10
-__authors__ = 'Gilberto Kaihami; Gianlucca Nicastro'
+__authors__ = 'Gilberto Kaihami; Gianlucca Nicastro; Robson Souza'
+
+
+class IO:
+    def __init__(self, input_alignment, input_format = '', **kwargs):
+        self._pos = 0
+        self._load_io()
+        self.input_format = input_format
+        self._kwargs = kwargs
+
+        if isinstance(input_alignment, str):
+            self.input_alignment = [iStringIO(input_alignment)]
+
+        else:
+            self.input_alignment = []
+            for aln in input_alignment:
+                if isinstance(aln, str) and not os.path.isfile(aln):
+                    self.input_alignment.append(iStringIO(aln))
+                else:
+                    self.input_alignment.append(aln)
+
+    def _load_io(self,sources = [],
+                     additional_sources = [],
+                     verbose = 0,
+                     log_file = '',
+                     **kwargs):
+
+        try:
+            base = os.path.join(os.path.realpath(os.path.join(os.path.abspath(__file__), '..', '..') ), 'seq')
+
+        except:
+            base = os.path.dirname(os.path.realpath(__name__))
+
+        self._verbose = verbose
+        self._log_file = log_file
+        self.sources =[]
+        self.sources.extend(sources)
+        self.config = {}
+        self._switch_source = loadClasses( base+'.alignment.io')
+        if additional_sources:
+            for additional_source in additional_sources:
+                self._switch_source.update(loadClasses(additional_source))
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        try:
+            alignment = self.input_alignment[self._pos]
+
+        except IndexError:
+            raise StopIteration
+        self._pos += 1
+
+        df, metadata = self._switch_source[self.input_format](alignment,
+                                                 input_format = self.input_format,
+                                                 **self._kwargs
+                                                ).run()
+
+        return MSA(df, metadata = metadata)
+
+    def show_options(self):
+        print(self._switch_source)
 
 class MSA(pd.DataFrame):
     '''
