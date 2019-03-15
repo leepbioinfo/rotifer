@@ -503,7 +503,6 @@ def loadClasses(load,
                             pass
 
         if search_file:
-            print(search_file)
             while ls:
                 if ls[0]+'.py' in os.listdir(path):
                     load_class = ls[0]
