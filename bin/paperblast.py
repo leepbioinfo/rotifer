@@ -7,7 +7,6 @@ warnings.filterwarnings("ignore")
 import os
 import argparse
 import sys
-sys.path.insert(0, '/home/kaihami/mymodules')
 
 import rotifer.core.cli as corecli
 

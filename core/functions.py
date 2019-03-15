@@ -369,6 +369,7 @@ def loadConfig(load = '',
     '''
 
     expand_load = load.replace(':','')
+    print(system_path)
 
     # Loading user configuration
     user_local_config = ''
@@ -501,7 +502,6 @@ def loadClasses(load,
                             pass
 
         if search_file:
-            print(search_file)
             while ls:
                 if ls[0]+'.py' in os.listdir(path):
                     load_class = ls[0]

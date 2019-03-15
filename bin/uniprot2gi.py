@@ -3,7 +3,6 @@
 import os
 import subprocess
 import sys
-sys.path.insert(0, os.path.join('/home/kaihami/mymodules'))
 import rotifer.core.cli as corecli
 import urllib.request
 from Bio import SwissProt

@@ -3,8 +3,6 @@
 import os
 import argparse
 import sys
-sys.path.insert(0, '/home/kaihami/mymodules')
-
 import threading
 from threading import Thread
 import rotifer.core.cli as corecli

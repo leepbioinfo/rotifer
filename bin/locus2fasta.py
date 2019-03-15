@@ -2,7 +2,6 @@
 import subprocess
 import argparse
 import sys
-sys.path.insert(0, '/home/kaihami/mymodules')
 import rotifer.core.cli as corecli
 import tqdm
 

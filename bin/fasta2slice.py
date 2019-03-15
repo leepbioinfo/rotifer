@@ -3,7 +3,6 @@
 import os
 import pandas as pd
 import sys
-sys.path.insert(0, os.path.join('/home/kaihami/mymodules'))
 
 ### Import core cli
 import rotifer.core.cli as corecli

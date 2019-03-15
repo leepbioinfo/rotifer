@@ -1,0 +1,7 @@
+accession:
+  dest: 'accession'
+  type: []
+  helper: 'Input an accession file(s)'
+  action: action.autoload
+  nargs: '*'
+

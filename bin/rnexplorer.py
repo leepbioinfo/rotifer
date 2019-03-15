@@ -3,7 +3,6 @@
 import pandas as pd
 import sys
 import os
-sys.path.insert(0, os.path.join('/home/kaihami/mymodules'))
 import rotifer.core.cli as corecli
 import rotifer.core.functions as cf
 import rotifer.neighborhood.neighborhood as nh

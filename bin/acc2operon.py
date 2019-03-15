@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 import os
 import sys
-sys.path.insert(0, os.path.join('/home/kaihami/mymodules'))
 import rotifer.core.cli as corecli
 import rotifer.core.functions as rcf
 from rotifer.core.log import log
 from rotifer.neighborhood import neighborhood
 from rotifer.alchemy.connect import clickhouse
+
 
 import subprocess
 import pandas as pd

@@ -4,7 +4,6 @@ __version__ = '0.01'
 __author__ = "Gilberto Kaihami"
 import os
 import sys
-sys.path.insert(0, os.path.join('/home/kaihami/mymodules'))
 
 ### Import core cli
 import rotifer.core.time as coretime

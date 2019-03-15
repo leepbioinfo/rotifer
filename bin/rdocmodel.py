@@ -2,7 +2,6 @@
 
 import sys
 import os
-sys.path.insert(0, '/home/kaihami/mymodules')
 import rotifer.core.functions as cf
 import subprocess
 import argparse

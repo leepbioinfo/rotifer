@@ -2,7 +2,6 @@
 
 import os
 import sys
-sys.path.insert(0, '/home/kaihami/mymodules')
 
 import rotifer.core.cli as corecli
 from rotifer.tools.search import search as rsearch

@@ -2,7 +2,6 @@
 
 import sys
 sys.setrecursionlimit(10000)
-sys.path.insert(0,'/home/kaihami/mymodules/')
 from rotifer import taxonomy as taxon
 import rotifer.neighborhood.neighborhood as nh
 import pandas as pd
