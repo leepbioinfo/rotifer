@@ -27,6 +27,8 @@ __authors__ = 'Gilberto Kaihami; Gianlucca Nicastro; Robson Souza'
 
 class IO:
     def __init__(self, input_alignment, input_format = '', **kwargs):
+        import warnings
+        warnings.filterwarnings("ignore")
         self._pos = 0
         self._load_io()
         self.input_format = input_format
@@ -177,6 +179,8 @@ class MSA(pd.DataFrame):
                  'hydrophobic_matrix']
 
     def __init__(self, *args, **kwargs):
+        import warnings
+        warnings.filterwarnings("ignore")
         self.alignment = kwargs.pop('alignment', None)
         self.verbose = kwargs.pop('verbose', None)
         self.log_file = kwargs.pop('log_file', None)
@@ -197,7 +201,10 @@ class MSA(pd.DataFrame):
     def read(cls, input_alignment, input_format = 'fasta', **kwargs):
         '''
         Another constructor
+        We need to decide if we are going to remove this method.
+        Since we have aligment.IO
         '''
+
         try:
             input_file_checker = os.path.isfile(input_alignment)
 
@@ -289,7 +296,8 @@ class MSA(pd.DataFrame):
 
     def slice(self, seq_col = '', start = 0, end = 0, **kwargs):
         '''
-        Slice an alignment
+        Slice the object, could be axis = 0 or axis = 1,
+        TODO
         '''
         df = self
         if 'sequence' in self.metadata.keys():
@@ -304,10 +312,13 @@ class MSA(pd.DataFrame):
     def hydrophobic(self, **kwargs):
         '''
         # Data derived from AAIndex:
-        # # http://www.genome.jp/dbget-bin/www_bget?aaindex:ARGP820101
+        # http://www.genome.jp/dbget-bin/www_bget?aaindex:ARGP820101
         '''
         import numpy as np
         from collections import defaultdict
+
+        df = self
+
         self._hydrophobicity_idx = defaultdict(lambda: np.nan)
         self._hydrophobicity_idx.update({'A': 0.61, 'L': 1.53, 'R': 0.60, 'K': 1.15, 'N': 0.06, 'M': 1.18,
                                   'D': 0.46, 'F': 2.02, 'C': 1.07, 'P': 1.95, 'Q': 0., 'S': 0.05,
@@ -315,13 +326,8 @@ class MSA(pd.DataFrame):
                                   'I': 2.22, 'V': 1.32, '-': 1.15 })
         self._hydrophobicity_labels=['Hydrophilic', 'Medium', 'Hydrophobic']
 
-        if not isinstance(self.matrix, pd.DataFrame):
-            self.seq2matrix(**kwargs)
 
-        else:
-            pass
-
-        self.hydrophobic_matrix =  self.matrix.apply(lambda x: [self._hydrophobicity_idx[y] for y in x])
+        self.hydrophobic_matrix =  df['_rotifer.sequence'].apply(lambda x: [self._hydrophobicity_idx[y] for y in x])
 
         self.hydrophobic_matrix = self.hydrophobic_matrix.fillna(1.15)
 
@@ -335,6 +341,7 @@ class MSA(pd.DataFrame):
                          slice = ()
                          ):
         from matplotlib import colors, cm
+
         self.hydrophobic()
 
         df = self
@@ -351,7 +358,7 @@ class MSA(pd.DataFrame):
 
         values = list(self._hydrophobicity_idx.values())
 
-        ax.set_xticks(range(self.matrix.loc[:, slice[0]:slice[1]].shape[1]))
+        ax.set_xticks(range(df['_rotifer.sequence'].loc[:, slice[0]:slice[1]].shape[1]))
 
         # Need to fix this
 
@@ -434,6 +441,8 @@ class MSA(pd.DataFrame):
     #
     def aa_frequency(self, gap = True, **kwargs):
 
+        df = self
+
         aromatic = ['F','Y', 'W', 'H']
 
         alifatic = ['I','V','L']
@@ -472,11 +481,6 @@ class MSA(pd.DataFrame):
                                           '-', 'c', 'p', 'o',
                                           'u', 's', 'b'])}
 
-        if not isinstance(self.matrix, pd.DataFrame):
-            self.seq2matrix(**kwargs)
-
-        else:
-            pass
 
         residue_matrix = pd.DataFrame(index=all_aa)
 
@@ -484,8 +488,8 @@ class MSA(pd.DataFrame):
                                      '-', 'c', 'p', 'o',
                                      'u', 's', 'b'])
 
-        for x in range(len(self.matrix.T)):
-            a = self.matrix[x].value_counts().to_frame()
+        for x in range(len(df['_rotifer.sequence'].T)):
+            a = df['_rotifer.sequence'][x].value_counts().to_frame()
 
             if gap:
                 residue_matrix = residue_matrix.join(a.rename(index={'-': '_'}))
@@ -495,17 +499,17 @@ class MSA(pd.DataFrame):
                 residue_matrix = residue_matrix.rename(index={'-': '.'})
 
             d = {
-                'a':np.where(self.matrix[x].isin(aromatic),1,0).sum(),
-                'l':np.where(self.matrix[x].isin(alifatic),1,0).sum(),
-                'h':np.where(self.matrix[x].isin(hydrophobic),1,0).sum(),
-                '+':np.where(self.matrix[x].isin(positive),1,0).sum(),
-                '-':np.where(self.matrix[x].isin(negative),1,0).sum(),
-                'c':np.where(self.matrix[x].isin(charged),1,0).sum(),
-                'p':np.where(self.matrix[x].isin(polar),1,0).sum(),
-                'o':np.where(self.matrix[x].isin(alcohol),1,0).sum(),
-                'u':np.where(self.matrix[x].isin(tiny),1,0).sum(),
-                's':np.where(self.matrix[x].isin(small),1,0).sum(),
-                'b':np.where(self.matrix[x].isin(big),1,0).sum(),
+                'a':np.where(df['_rotifer.sequence'][x].isin(aromatic),1,0).sum(),
+                'l':np.where(df['_rotifer.sequence'][x].isin(alifatic),1,0).sum(),
+                'h':np.where(df['_rotifer.sequence'][x].isin(hydrophobic),1,0).sum(),
+                '+':np.where(df['_rotifer.sequence'][x].isin(positive),1,0).sum(),
+                '-':np.where(df['_rotifer.sequence'][x].isin(negative),1,0).sum(),
+                'c':np.where(df['_rotifer.sequence'][x].isin(charged),1,0).sum(),
+                'p':np.where(df['_rotifer.sequence'][x].isin(polar),1,0).sum(),
+                'o':np.where(df['_rotifer.sequence'][x].isin(alcohol),1,0).sum(),
+                'u':np.where(df['_rotifer.sequence'][x].isin(tiny),1,0).sum(),
+                's':np.where(df['_rotifer.sequence'][x].isin(small),1,0).sum(),
+                'b':np.where(df['_rotifer.sequence'][x].isin(big),1,0).sum(),
                 }
 
             group_matrix = group_matrix.join(
@@ -513,8 +517,8 @@ class MSA(pd.DataFrame):
                     )
 
         # Improve names
-        self.a = residue_matrix/len(self.matrix)
-        self.c = group_matrix/len(self.matrix)
+        self.a = residue_matrix/len(df['_rotifer.sequence'])
+        self.c = group_matrix/len(df['_rotifer.sequence'])
         self.c = self.c.reset_index(drop = True)
 
     def consensus(self, thresholds,
@@ -524,10 +528,11 @@ class MSA(pd.DataFrame):
         output: dict/dataframe/matrix
         '''
 
+        df = self
+
         if isinstance(self.a, pd.DataFrame):
             pass
         else:
-            # print('Running')
             self.aa_frequency(**kwargs)
 
         dc = {}
@@ -548,7 +553,7 @@ class MSA(pd.DataFrame):
 
             group_res = group_res.map(self.group_ranking)
 
-            e = pd.DataFrame(index = [x for x in range(0, self.matrix.shape[1])])
+            e = pd.DataFrame(index = [x for x in range(0, df['_rotifer.sequence'].shape[1])])
 
             e = e.join(pd.concat([residue_res, group_res], axis = 1 ))
 
@@ -569,7 +574,7 @@ class MSA(pd.DataFrame):
                            )
 
             except:
-                res = '.' * self.matrix.shape[1]
+                res = '.' * df['_rotifer.sequence'].shape[1]
 
             dc[threshold] = ''.join(res)
 
@@ -617,9 +622,6 @@ class MSA(pd.DataFrame):
         df = self
         self._load_stats()
 
-        if not isinstance(self.matrix, pd.DataFrame):
-            self.seq2matrix(**kwargs)
-
         # Some shortcuts
 
         if metric == 'se':
@@ -633,7 +635,7 @@ class MSA(pd.DataFrame):
         elif metric == 're':
             metric = 'relative_entropy'
 
-        return self._switch_source[metric](df['sequence'], self.matrix,
+        return self._switch_source[metric](df['sequence'], df['_rotifer.sequence'],
                                            gap_penalty = gap_penalty,
                                            pseudocount = pseudocount,
                                            **kwargs).run()
@@ -667,12 +669,6 @@ def _seq2matrix(df, seq_col = '', **kwargs):
                                     )
     return df
 
-
-
-
-class alignment:
-    import warnings
-    warnings.filterwarnings('ignore')
 def _colors_dict_and_cmap():
     from matplotlib import colors as ccolors
     colors = {'A':1,

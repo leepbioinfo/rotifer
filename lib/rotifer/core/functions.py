@@ -3,7 +3,6 @@
 from datetime import datetime as dt
 import os
 import sys
-sys.path.insert(0, '/home/kaihami/mymodules')
 # import mdv
 import argparse
 from os.path import expanduser
@@ -475,7 +474,7 @@ def loadClasses(load,
         while ls:
             if os.path.isdir( path):
                 for ele in os.listdir(path):
-                    if ls[0] in ele:
+                    if ele.startswith(ls[0]):
                         if os.path.isdir(os.path.join(path,ele)):
                             path = os.path.join(path, ele)
                         else:
