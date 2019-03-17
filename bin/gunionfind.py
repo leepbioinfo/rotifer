@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
 
-# For now, we use this as part of our script's template
+# Rotifer's imports
 import os
 import sys
-_add_path = [ os.path.join(os.path.dirname(os.path.dirname(__file__)), "lib"),
-        os.path.join(os.path.dirname(os.path.dirname(__file__)), "lib", "python" + str(sys.version_info.major) + "." + str(sys.version_info.minor), "site-packages")
-        ]
-for _d in _add_path:
+_d = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+for _d in [ os.path.join(_d, "lib"), os.path.join(_d, "lib", "python" + str(sys.version_info.major) + "." + str(sys.version_info.minor), "site-packages") ]:
     if os.path.exists(_d):
         sys.path.insert(0,_d)
-
+import rotifer.core.cli as corecli
 import rotifer.algorithm.unionfind as union
 #import rotifer.algorithm.pure.unionfind as union
 
+# Other imports
 import pandas as pd
 import time
+
+# Main program
 if __name__ == '__main__':
     df = pd.read_csv(sys.argv[1], sep = '\t', header = None)
 #    print(df.head())
