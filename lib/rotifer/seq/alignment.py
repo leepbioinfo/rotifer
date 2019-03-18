@@ -383,30 +383,100 @@ class MSA(pd.DataFrame):
 
         return ax
 
+    def aa_frequency(self, gap = True, **kwargs):
+        df = self
+
+        dc_groups = {
+            'a' : ['F','Y', 'W', 'H'],
+            'l' : ['I','V','L'],
+            'h' : ['F', 'Y', 'W', 'H' 'A', 'C', 'F', 'M', 'W', 'Y'],
+            '+' : ['H', 'K', 'R'],
+            '-' : [ 'D', 'E'],
+            'c' : ['H', 'K', 'R', 'D', 'E'],
+            'p' : ['H', 'K', 'R', 'D', 'E','Q', 'N', 'S', 'T','C'],
+            'o' : ['S','T'],
+            'u' : ['G', 'A', 'S'],
+            's' : ['G', 'A', 'S','V', 'T', 'D', 'N', 'P', 'C'],
+            'b' : ['K', 'F', 'I', 'L','M', 'Q', 'R', 'W', 'Y', 'E']
+        }
+
+        all_aa = ['G','A','V','I','L','M','F','Y',
+                  'W','H','C','P','K','R','D','E',
+                  'Q','N','S','T', '-']
+
+
+        residue_matrix = pd.DataFrame(index=all_aa)
+
+        self.group_size = pd.DataFrame(columns = ['a','l','h',
+                                                '+', '-', 'c',
+                                                'p', 'o',
+                                                'u', 's', 'b'])
+
+        self.group_ranking = {k:v for k,v in  enumerate(['a', 'l', 'h', '+',
+                                          '-', 'c', 'p', 'o',
+                                          'u', 's', 'b'])}
+
+        a = df['_rotifer.sequence'].apply(pd.Series.value_counts)
+
+        if gap:
+            residue_matrix = residue_matrix.join(a)
+            residue_matrix = residue_matrix.rename(index={'-': '_'})
+
+        else:
+            residue_matrix = residue_matrix.join(a)
+            residue_matrix = residue_matrix.rename(index={'-': '.'})
+
+        for group, values in dc_groups.items():
+            #group is g
+            self.group_size[group] =df['_rotifer.sequence'].isin(values).sum()
+
+        # Improve names
+        self.a = residue_matrix/len(df['_rotifer.sequence'])
+        self.c = self.group_size.T/len(df['_rotifer.sequence'])
+        self.c = self.c.reset_index(drop = True)
+
     # def aa_frequency2(self, gap = True, **kwargs):
-    #     dc_groups = {
-    #         'a' : ['F','Y', 'W', 'H'],
-    #         'l' : ['I','V','L'],
-    #         'h' : ['F', 'Y', 'W', 'H' 'A', 'C', 'F', 'M', 'W', 'Y'],
-    #         '+' : ['H', 'K', 'R'],
-    #         '-' : [ 'D', 'E'],
-    #         'c' : ['H', 'K', 'R', 'D', 'E'],
-    #         'p' : ['H', 'K', 'R', 'D', 'E','Q', 'N', 'S', 'T','C'],
-    #         'o' : ['S','T'],
-    #         'u' : ['G', 'A', 'S'],
-    #         's' : ['G', 'A', 'S','V', 'T', 'D', 'N', 'P', 'C'],
-    #         'b' : ['K', 'F', 'I', 'L','M', 'Q', 'R', 'W', 'Y', 'E']
-    #     }
+    #
+    #     df = self
+    #
+    #     aromatic = ['F','Y', 'W', 'H']
+    #
+    #     alifatic = ['I','V','L']
+    #     hydrophobic = alifatic + [ 'A', 'C', 'F', 'M', 'W', 'Y']
+    #
+    #     positive = ['H', 'K', 'R']
+    #     negative = [ 'D', 'E']
+    #     charged = positive + negative
+    #     polar = charged + ['Q', 'N', 'S', 'T','C']
+    #
+    #     alcohol = ['S','T']
+    #
+    #     tiny = ['G', 'A', 'S']
+    #     small = tiny + [ 'V', 'T', 'D', 'N', 'P', 'C']
+    #     big = ['K', 'F', 'I', 'L','M', 'Q', 'R', 'W', 'Y', 'E']
     #
     #     all_aa = ['G','A','V','I','L','M','F','Y',
     #               'W','H','C','P','K','R','D','E',
     #               'Q','N','S','T', '-']
     #
-    #     if not isinstance(self.matrix, pd.DataFrame):
-    #         self.seq2matrix(**kwargs)
+    #     self.group_size = pd.DataFrame.from_dict({'a': len(aromatic),
+    #                                          'l': len(alifatic),
+    #                                          'h': len(hydrophobic),
+    #                                          '+': len(positive),
+    #                                          '-': len(negative),
+    #                                          'c': len(charged),
+    #                                          'p': len(polar),
+    #                                          'o': len(alcohol),
+    #                                          'u': len(tiny),
+    #                                          's': len(small),
+    #                                          'b': len(big),
+    #                                         }, orient='index').rename(
+    #                                             {0:'size'}, axis=1)
     #
-    #     else:
-    #         pass
+    #     self.group_ranking = {k:v for k,v in  enumerate(['a', 'l', 'h', '+',
+    #                                       '-', 'c', 'p', 'o',
+    #                                       'u', 's', 'b'])}
+    #
     #
     #     residue_matrix = pd.DataFrame(index=all_aa)
     #
@@ -414,113 +484,39 @@ class MSA(pd.DataFrame):
     #                                  '-', 'c', 'p', 'o',
     #                                  'u', 's', 'b'])
     #
-    #     a = self.matrix.apply(pd.Series.value_counts)
-    #     if gap:
-    #         residue_matrix = residue_matrix.join(a)
-    #         residue_matrix = residue_matrix.rename(index={'-': '_'})
+    #     for x in range(len(df['_rotifer.sequence'].T)):
+    #         a = df['_rotifer.sequence'][x].value_counts().to_frame()
     #
-    #     else:
-    #         residue_matrix = residue_matrix.join(a)
-    #         residue_matrix = residue_matrix.rename(index={'-': '.'})
+    #         if gap:
+    #             residue_matrix = residue_matrix.join(a.rename(index={'-': '_'}))
+    #             residue_matrix = residue_matrix.rename(index={'-': '_'})
+    #         else:
+    #             residue_matrix = residue_matrix.join(a.rename(index={'-': '.'}))
+    #             residue_matrix = residue_matrix.rename(index={'-': '.'})
     #
-    #     b = self.matrix.copy()
-    #     b = b.values
+    #         d = {
+    #             'a':np.where(df['_rotifer.sequence'][x].isin(aromatic),1,0).sum(),
+    #             'l':np.where(df['_rotifer.sequence'][x].isin(alifatic),1,0).sum(),
+    #             'h':np.where(df['_rotifer.sequence'][x].isin(hydrophobic),1,0).sum(),
+    #             '+':np.where(df['_rotifer.sequence'][x].isin(positive),1,0).sum(),
+    #             '-':np.where(df['_rotifer.sequence'][x].isin(negative),1,0).sum(),
+    #             'c':np.where(df['_rotifer.sequence'][x].isin(charged),1,0).sum(),
+    #             'p':np.where(df['_rotifer.sequence'][x].isin(polar),1,0).sum(),
+    #             'o':np.where(df['_rotifer.sequence'][x].isin(alcohol),1,0).sum(),
+    #             'u':np.where(df['_rotifer.sequence'][x].isin(tiny),1,0).sum(),
+    #             's':np.where(df['_rotifer.sequence'][x].isin(small),1,0).sum(),
+    #             'b':np.where(df['_rotifer.sequence'][x].isin(big),1,0).sum(),
+    #             }
     #
-    #     for k,v in dc_groups.items():
-    #         for aa in v:
-    #             b[b == aa] = k
-    #             b = np.where(b == aa, k, b)
-    #
-    #     c =  pd.DataFrame( data = b)
-    #
-    #     group_matrix = group_matrix.join(c.apply(pd.Series.value_counts))
+    #         group_matrix = group_matrix.join(
+    #             pd.DataFrame.from_dict(d,orient='index').rename({0:x}, axis=1)
+    #                 )
     #
     #     # Improve names
-    #     self.a = residue_matrix/(self.matrix.shape[0])
-    #     self.c = group_matrix/(self.matrix.shape[0])
+    #     self.a = residue_matrix/len(df['_rotifer.sequence'])
+    #     self.c = group_matrix/len(df['_rotifer.sequence'])
+    #     self.c = self.c.reset_index(drop = True)
     #
-    def aa_frequency(self, gap = True, **kwargs):
-
-        df = self
-
-        aromatic = ['F','Y', 'W', 'H']
-
-        alifatic = ['I','V','L']
-        hydrophobic = alifatic + [ 'A', 'C', 'F', 'M', 'W', 'Y']
-
-        positive = ['H', 'K', 'R']
-        negative = [ 'D', 'E']
-        charged = positive + negative
-        polar = charged + ['Q', 'N', 'S', 'T','C']
-
-        alcohol = ['S','T']
-
-        tiny = ['G', 'A', 'S']
-        small = tiny + [ 'V', 'T', 'D', 'N', 'P', 'C']
-        big = ['K', 'F', 'I', 'L','M', 'Q', 'R', 'W', 'Y', 'E']
-
-        all_aa = ['G','A','V','I','L','M','F','Y',
-                  'W','H','C','P','K','R','D','E',
-                  'Q','N','S','T', '-']
-
-        self.group_size = pd.DataFrame.from_dict({'a': len(aromatic),
-                                             'l': len(alifatic),
-                                             'h': len(hydrophobic),
-                                             '+': len(positive),
-                                             '-': len(negative),
-                                             'c': len(charged),
-                                             'p': len(polar),
-                                             'o': len(alcohol),
-                                             'u': len(tiny),
-                                             's': len(small),
-                                             'b': len(big),
-                                            }, orient='index').rename(
-                                                {0:'size'}, axis=1)
-
-        self.group_ranking = {k:v for k,v in  enumerate(['a', 'l', 'h', '+',
-                                          '-', 'c', 'p', 'o',
-                                          'u', 's', 'b'])}
-
-
-        residue_matrix = pd.DataFrame(index=all_aa)
-
-        group_matrix=pd.DataFrame(index=['a', 'l', 'h', '+',
-                                     '-', 'c', 'p', 'o',
-                                     'u', 's', 'b'])
-
-        for x in range(len(df['_rotifer.sequence'].T)):
-            a = df['_rotifer.sequence'][x].value_counts().to_frame()
-
-            if gap:
-                residue_matrix = residue_matrix.join(a.rename(index={'-': '_'}))
-                residue_matrix = residue_matrix.rename(index={'-': '_'})
-            else:
-                residue_matrix = residue_matrix.join(a.rename(index={'-': '.'}))
-                residue_matrix = residue_matrix.rename(index={'-': '.'})
-
-            d = {
-                'a':np.where(df['_rotifer.sequence'][x].isin(aromatic),1,0).sum(),
-                'l':np.where(df['_rotifer.sequence'][x].isin(alifatic),1,0).sum(),
-                'h':np.where(df['_rotifer.sequence'][x].isin(hydrophobic),1,0).sum(),
-                '+':np.where(df['_rotifer.sequence'][x].isin(positive),1,0).sum(),
-                '-':np.where(df['_rotifer.sequence'][x].isin(negative),1,0).sum(),
-                'c':np.where(df['_rotifer.sequence'][x].isin(charged),1,0).sum(),
-                'p':np.where(df['_rotifer.sequence'][x].isin(polar),1,0).sum(),
-                'o':np.where(df['_rotifer.sequence'][x].isin(alcohol),1,0).sum(),
-                'u':np.where(df['_rotifer.sequence'][x].isin(tiny),1,0).sum(),
-                's':np.where(df['_rotifer.sequence'][x].isin(small),1,0).sum(),
-                'b':np.where(df['_rotifer.sequence'][x].isin(big),1,0).sum(),
-                }
-
-            group_matrix = group_matrix.join(
-                pd.DataFrame.from_dict(d,orient='index').rename({0:x}, axis=1)
-                    )
-
-        # Improve names
-        self.a = residue_matrix/len(df['_rotifer.sequence'])
-        self.c = group_matrix/len(df['_rotifer.sequence'])
-        self.c = self.c.reset_index(drop = True)
-
     def consensus(self, thresholds,
                   output = 'dict',
                   **kwargs):
@@ -635,7 +631,7 @@ class MSA(pd.DataFrame):
         elif metric == 're':
             metric = 'relative_entropy'
 
-        return self._switch_source[metric](df['sequence'], df['_rotifer.sequence'],
+        return self._switch_source[metric](df['_sequence_id'], df['_rotifer.sequence'],
                                            gap_penalty = gap_penalty,
                                            pseudocount = pseudocount,
                                            **kwargs).run()
@@ -650,6 +646,35 @@ class MSA(pd.DataFrame):
         _ = list(df['sequence'].map(lambda x: [int(colors[y])for y in x]))
         return (_, cmap, bounds, norm)
 
+    def plot_logo(self, font_family = 'Arial',
+                        data_type='bits',
+                        seq_type='dna',
+                        yaxis='bits',
+                        colorscheme='classic',
+                        nrows=1,
+                        # ncols=1,
+                        padding=0,
+                        draw_range=None,
+                        coordinate_type='data',
+                        draw_axis=False,
+                        fontfamily='Arial',
+                        debug=False,
+                        ax=None,
+                        dpi = 96):
+
+
+        import math
+        import seaborn
+        import matplotlib.pyplot as plt
+        import matplotlib.patheffects
+        import matplotlib as mpl
+        from matplotlib.font_manager import FontProperties
+        from matplotlib import transforms
+
+        df = self
+        bits = self.stats('bit_score')
+
+        # Fix this
 
 def _seq2matrix(df, seq_col = '', **kwargs):
 
@@ -728,3 +753,8 @@ if __name__ == '__main__':
 
 
     a = MSA.read('/home/kaihami/projects/ammonium_transp/work/20190208/amt.nr.0d8.amt.domain.sliced.filtered.formated.ordered.modified.trimmed.long_branches_removed.msa')
+
+    b = MSA.read('/home/kaihami/test/fasta/chpT.fa')
+
+
+

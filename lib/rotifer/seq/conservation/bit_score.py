@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 import math
 import numpy as np
+import pandas as pd
 ##
-class shannon_entropy:
+class bit_score:
     def __init__(self,aln, matrix, gap_penalty = 0, pseudocount = 0.0000001,
                  z_score = False,
                  **kwargs):
@@ -20,6 +21,14 @@ class shannon_entropy:
                                    0.024, 0.044, 0.043,
                                    0.059, 0.055, 0.014,
                                    0.034, 0.072]
+
+
+        # Ri = log2(20) -(Hi - en)
+        # i: position in the aln, Hi (Shannon entropy), en:The approximation for the small-sample correction
+        # Hi = - (sum (f(b,i) * log2(f(b,i))) b is the aa/base i is the position
+        # en = (1/ln2) * (s-1)/(2n) where s = 4 for DNA/RNA 20 for aa n the number of sequences
+        # the height for a given aa is:
+        # f(b,i) * Ri where the height will be for base b.
 
     def run(self,
              **kwargs):
@@ -41,27 +50,23 @@ class shannon_entropy:
         fc = con.weighted_freq_count_pseudocount()
         res = []
 
+        en_1 = (1/math.log(2))
+        en_2 = ( 19 / 2 * self.aln.shape[1])
+        en = en_1/en_2
+        fc = fc.drop('-')
+
+        df = pd.DataFrame(index = fc.index)
         for col in range(self.matrix.shape[1]):
+            Hi = fc[col].apply(lambda x: x * math.log2(x)).sum()
+            Hi = (-1) * Hi
+            corrected_Hi = Hi+en
+            Ri = (math.log2(20)) - (corrected_Hi)
+            bits = fc[col].apply(lambda x: x * Ri)
+            df = df.join(bits)
 
-            h = 0.
-            for i in range(len(fc[col])):
-                if fc[col][i] != 0:
-                    h += fc[col][i] * math.log(fc[col][i])
+        return df
 
-            #h /= math.log(len(fc))
-            h /= math.log(min(len(fc[col]), self.matrix.shape[0]))
 
-            inf_score = 1 - (-1 * h)
 
-            if self.gap_penalty == 1:
-                res.append(inf_score * con._weighted_gap_penalty(col))
-            else:
-                res.append(inf_score)
-
-        if self.z_score:
-            return np.array(con._zscore(res))
-
-        else:
-            return np.array(res)
 
 
