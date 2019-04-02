@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 import os
 import sys
-sys.path.insert(0, os.path.join('/home/kaihami/mymodules'))
 import rotifer.core.cli as corecli
 import rotifer.core.functions as rcf
 from rotifer.core.log import log
 from rotifer.neighborhood import neighborhood
 from rotifer.alchemy.connect import clickhouse
+
 
 import subprocess
 import pandas as pd
@@ -33,12 +33,16 @@ from tqdm import tqdm
 
 warnings.filterwarnings('ignore')
 
-__version__ = 0.58
+__version__ = 0.59
 __authors__ = 'Gilberto Kaihami, Aureliano Guedes, Gabriel Hueck'
 
 ########
 # New features
 ########
+
+# In version 0.59
+# Added minimal intergenic distance (mid) option
+
 # In version 0.58
 # Removed some redundant code
 # Fixed duplicated output
@@ -117,6 +121,33 @@ def parse_cli():
                 dest = 'progress',
                 helper = 'Show progress bar',
                 action = 'store_true'
+                )
+
+    parser.add( long_arg = '--minimal_intergenic_distance',
+                short_arg = '-mid',
+                dest = 'distance',
+               helper ='''Minimal intergenic distance between two queries. (Default: 0)
+Example:
+if the distance is set 0 (default) and -a and -b options are set 0, this setting can be thought as continous segments
+This will generate one block,
+block 1:
+--> query_A
+--> query_B
+if the distance is set -1 (at least one gene overlapping between each block),
+The same query will generate two blocks
+block 1:
+--> query_A
+block 2:
+--> query_B
+if the distance is set with positive values (higher than 0) it means the minimun distance between two blocks.
+Like, -mid 2, and -a 0, -b 0.
+block 1:
+--> query_A
+--  protein_1
+--  protein_2
+--> query_B
+               ''',
+                default = 0,
                 )
 
     # parser.add(long_arg = '--missing',
@@ -807,7 +838,7 @@ def cleanUp(folder):
 
 ###################################
 
-def intervals(accs = '', above = 3, below = 3,
+def block_intervals(accs = '', above = 3, below = 3,
               distance = 0, block_id = 0, of = 'table',
               conn = '',
               nucleotide = '',
@@ -1097,6 +1128,7 @@ if __name__ == '__main__':
     verbose = args.verbose             # Verbose
     outformat = args.outformat.lower() # Output format (Table or gi2operon)
     db = makeDB(verbose)
+    distance = int(args.distance) * (-1)
 
     search = args.search
     if verbose:
@@ -1168,11 +1200,12 @@ if __name__ == '__main__':
 
             if args.progress:
                 for nucleotide, nuc_asm in tqdm(nucleotide_in_db):
-                    block_id = intervals(accs = accs, above = above, below = below, block_id = block_id, of = outformat,
+                    block_id = block_intervals(accs = accs, above = above, below = below, block_id = block_id, of = outformat,
                                          conn = conn,
                                          nucleotide = nucleotide,
                                          nuc_asm = nuc_asm,
-                                         other_info = other_info
+                                         other_info = other_info,
+                                               distance = distance
                                          )
                     left_group +=1
 
@@ -1181,11 +1214,12 @@ if __name__ == '__main__':
 
             else:
                 for nucleotide, nuc_asm in nucleotide_in_db:
-                    block_id = intervals(accs = accs, above = above, below = below, block_id = block_id, of = outformat,
+                    block_id = block_intervals(accs = accs, above = above, below = below, block_id = block_id, of = outformat,
                                          conn = conn,
                                          nucleotide = nucleotide,
                                          nuc_asm = nuc_asm,
-                                         other_info = other_info
+                                         other_info = other_info,
+                                         distance = distance
                                          )
 
                     left_group +=1
@@ -1345,12 +1379,13 @@ if __name__ == '__main__':
                     try:
                         original = df_ann[df_ann['nucleotide'] == nucleotide][['acc', 'original']]
 
-                        block_id = intervals(accs = accs_in_db, above = above, below = below, block_id = block_id, of = outformat,
+                        block_id = block_intervals(accs = accs_in_db, above = above, below = below, block_id = block_id, of = outformat,
                                              conn = conn,
                                              nucleotide = nucleotide,
                                              nuc_asm = nuc_asm,
                                              other_info = other_info,
-                                             original_acc = original
+                                             original_acc = original,
+                                             distance = distance
                                              )
 
                     except:
@@ -1363,12 +1398,13 @@ if __name__ == '__main__':
                     try:
                         original = df_ann[df_ann['nucleotide'] == nucleotide][['acc', 'original']]
 
-                        block_id = intervals(accs = accs_in_db, above = above, below = below, block_id = block_id, of = outformat,
+                        block_id = block_intervals(accs = accs_in_db, above = above, below = below, block_id = block_id, of = outformat,
                                              conn = conn,
                                              nucleotide = nucleotide,
                                              nuc_asm = nuc_asm,
                                              other_info = other_info,
-                                             original_acc = original
+                                             original_acc = original,
+                                             distance = distance
                                              )
 
 
