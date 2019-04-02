@@ -579,7 +579,7 @@ class MSA(pd.DataFrame):
             return dc
 
         elif output.lower() in ['df', 'dataframe', 'data frame']:
-            return MsaTable(pd.DataFrame({'consensus_level': [x for x in dc.keys()],
+            return MSA(pd.DataFrame({'consensus_level': [x for x in dc.keys()],
                                           'sequence':[x for x in dc.values()]}),
                             metadata = self.metadata)
 
@@ -643,7 +643,7 @@ class MSA(pd.DataFrame):
     def seq2colors(self):
         df = self
         colors, cmap, bounds, norm = _colors_dict_and_cmap()
-        _ = list(df['sequence'].map(lambda x: [int(colors[y])for y in x]))
+        _ = list(df['_rotifer.sequence'].map(lambda x: [int(colors[y])for y in x]))
         return (_, cmap, bounds, norm)
 
     def plot_logo(self, font_family = 'Arial',

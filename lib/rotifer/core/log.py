@@ -79,7 +79,6 @@ def log(message = {}, level = 0, log_file = '', name = ''):
     else:
         name = (os.path.basename(name))
 
-
     col_len = _collen(now, hostname, name)
     try:
         for x in range(1,level+1):
@@ -92,6 +91,7 @@ def log(message = {}, level = 0, log_file = '', name = ''):
                     msg_print = message[x].strip()
 
                 s = [now, hostname, name, _debug_switch[x],':', msg_print]
+
                 if not log_file:
                     to_print = [s[int(i)].ljust(col_len[int(i)]) for i in range(0, len(s))]
                     sys.stderr.write('\t'.join(to_print) + '\n')
@@ -100,6 +100,7 @@ def log(message = {}, level = 0, log_file = '', name = ''):
                     with open(log_file, 'a') as f:
                         to_print = [s[int(i)].ljust(col_len[int(i)]) for i in range(0, len(s))]
                         f.write('\t'.join(to_print) + '\n')
+
             except:
                 pass
 
