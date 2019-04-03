@@ -62,8 +62,8 @@ option_list = list(
     make_option(
         c("-c", "--chunks"),
         type="integer",
-        default=1,
-        help="Number of residues per plot (it will split the alignment) [default=%default]",
+        default=26,
+        help="Number of residues per plot (it will split the alignment) [default=%default] seams be a very nice legth to plot",
         metavar="number"
     ),
     make_option(
@@ -74,13 +74,34 @@ option_list = list(
         metavar="number"
     ),
     make_option(
-        c("-nc", "--numcols"),
+        c("-C", "--numcols"),
         type="integer",
         default=2,
         help="Number of columns on final plot (only work if chunks >= 2) [default=%default]",
         metavar="number"
+    ),
+    make_option(
+        c("-W", "--width"),
+        type="integer",
+        default=20,
+        help="Final plot width [default=%default]",
+        metavar="number"
+    ),
+    make_option(
+        c("-H", "--height"),
+        type="integer",
+        default=30,
+        help="Final plot height [default=%default]",
+        metavar="number"
+    ),
+    make_option(
+        c("-P", "--pointsize"),
+        type="integer",
+        default=2,
+        help="Final plot parameter [default=%default]",
+        metavar="number"
     )
-);
+)
 
 opt_parser = OptionParser(usage = "%prog [options] file",
                           option_list=option_list,
@@ -163,6 +184,7 @@ out_plot <- function(data, split = 1, mstart = 1, mend = 0,
     base_plot(data[,mstart:mend], "aa") + 
       scale_x_discrete(limit = seq(mend-mstart+1), 
                        labels = xln[mstart:mend]) + 
+      ylim(0, 4.5) +
       theme(axis.text.x = element_text(angle = angle))
   } else {
     t <- split - 1
@@ -171,6 +193,7 @@ out_plot <- function(data, split = 1, mstart = 1, mend = 0,
              base_plot( as.matrix(data[, x[1]:x[2] ]) , "aa" ) + 
                 scale_x_discrete(  limit = seq(x[2] - x[1] + 1), 
                                   labels = xln[ x[1]:x[2] ] ) + 
+                ylim(0, 4.5) +
                 theme( axis.text.x = element_text(angle = angle) )
            }
            )
@@ -188,10 +211,11 @@ if ( end == 0){
   end = ncol(con)
 }
 
-svg(opt$options$output)
+svg(opt$options$output,width=opt$options$width,
+    height=opt$options$height,pointsize=opt$options$pointsize)
 out_plot(aln_consensus,
                 mstart = opt$options$ini,
-                mend = end,
+                mend =   opt$options$end,
                 split = opt$options$chunks,
                 angle = opt$options$angle,
                 xln = x_label_name,
