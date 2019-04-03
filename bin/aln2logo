@@ -1,0 +1,205 @@
+#!/home/linuxbrew/anaconda3/bin/Rscript --vanilla
+
+check_lib <- function(mypkg, install_pkg=1){
+        if(is.element(mypkg, installed.packages()[,1])){
+                suppressMessages(library(mypkg, character.only=TRUE))
+        }
+        else{
+                if(install_pkg == 1){
+                        install.packages(mypkg, character.only=TRUE, repos="http://vps.fmvz.usp.br/CRAN/")
+                        suppressMessages(library(mypkg, character.only=TRUE))
+                }
+                else{
+                        stop(paste("Missing package:", mypkg, sep=" "), call.=FALSE)
+                }
+        }
+}
+
+check_lib("optparse")
+
+option_list = list(
+    make_option(
+        c("-o", "--output"), 
+        type="character", 
+        help="dataset file name", 
+        metavar="character"
+    ),
+    make_option(
+        c("-f", "--format"), 
+        type="character", 
+        default="fasta",
+        help="output file name [default= %default]", 
+        metavar="character"
+    ),
+    make_option(
+        c("-s", "--seqtype"),
+        type="character",
+        default="aa",
+        help="Sequence type (dna,rna,aa)[default=%default]",
+        metavar="character"
+    ),
+     make_option(
+        c("-r", "--reference"),
+        type="character",
+        default="",
+        help="Sequence to set reference positions to x-label",
+        metavar="character"
+    ),
+     make_option(
+        c("-i", "--ini"),
+        type="integer",
+        default=1,
+        help="Start position of alignment to be ploted [default=%default]",
+        metavar="number"
+    ),
+     make_option(
+        c("-e", "--end"),
+        type="integer",
+        default=0,
+        help="Stop position of alignment to be ploted (0 means size of columns of alignment) [default=%default]",
+        metavar="number"
+    ),
+    make_option(
+        c("-c", "--chunks"),
+        type="integer",
+        default=1,
+        help="Number of residues per plot (it will split the alignment) [default=%default]",
+        metavar="number"
+    ),
+    make_option(
+        c("-a", "--angle"),
+        type="integer",
+        default=0,
+        help="Angle to x-label names[default=%default]",
+        metavar="number"
+    ),
+    make_option(
+        c("-nc", "--numcols"),
+        type="integer",
+        default=2,
+        help="Number of columns on final plot (only work if chunks >= 2) [default=%default]",
+        metavar="number"
+    )
+);
+
+opt_parser = OptionParser(usage = "%prog [options] file",
+                          option_list=option_list,
+                          add_help_option = TRUE);
+opt = parse_args(opt_parser,  positional_arguments = TRUE);
+
+print(opt)
+
+check_lib("seqinr")
+check_lib("tidyverse")
+check_lib("ggseqlogo")
+check_lib("gridExtra")
+#check_lib("gridSVG")
+
+alignment <- read.alignment(opt$args, format = opt$options$format)
+alignment$seq <- toupper(alignment$seq)
+con <- consensus(alignment, method = "profile")
+
+aln_consensus <- consensus(alignment, method = "profile")
+
+xlabelname <- function(data, seqref){  
+  a <- as.matrix(data) %>% as_tibble() %>% cbind(seqname=data$nam, .)
+  
+  b <- a %>% 
+    filter(seqname==seqref) %>% 
+    gather(key = "seqposition", value="seqchar", -seqname)
+  
+  b <-bind_rows( b %>% filter(seqchar != '-') %>% 
+                   mutate(seqindex = row_number(), 
+                          seqlabel = case_when( 
+                            seqchar == '-' ~ seqposition, 
+                            TRUE ~ paste(seqposition,"(",seqchar,seqindex,")", sep = ''))),
+                 b %>% filter(seqchar == '-')) 
+  b <- b %>% 
+    mutate( 
+      seqlabel = if_else(is.na(seqlabel), as.character(seqposition), seqlabel),
+      seqposition = as.numeric(seqposition)
+    ) %>% 
+    arrange(seqposition)
+  return( b %>% pull(seqlabel) )
+}
+
+
+base_plot <- function(mymatrix, sequence_type = opt$options$seqtype){
+  chemistry = make_col_scheme(
+    chars = c("G", "S", "T", "Y", "C", "N", "Q", "K", 
+              "R", "H", "D", "E", "P", "A", "W", "F", 
+              "L", "I", "M", "V"),
+    group = c(rep("Polar", 5), rep("Neutral", 2), 
+              rep("Basic", 3), rep("Acidic",2), rep("Hydrophobic", 8)), 
+    cols = c(rep("#109648", 5), rep("#5E239D", 2), 
+             rep("#255C99", 3), rep("#D62839", 2), rep("#221E22", 8)) 
+  )
+  ggplot() + 
+    geom_logo(
+      mymatrix, 
+      seq_type = "aa", col_scheme = chemistry) +  
+    theme_logo()
+}
+myranges <- function(start, end, step){
+  starts <- seq(start, end, step+1)
+  ends <- pmin(starts + step, end)
+  data.frame(a = starts, b = ends)
+  #mapply(list, starts, ends, SIMPLIFY = FALSE)
+}
+
+
+out_plot <- function(data, split = 1, mstart = 1, mend = 0, 
+                     xln = 0, angle = 0,  numofcol = 2, pstype = "aa"){
+  if ( mend == FALSE){
+    mend = ncol(data)
+  }
+  
+  if ( xln == 0){
+    xln = colnames(data)
+    print(xln)
+  }
+  tsplit <- split - 1
+  if (split == 1){
+    base_plot(data[,mstart:mend], "aa") + 
+      scale_x_discrete(limit = seq(mend-mstart+1), 
+                       labels = xln[mstart:mend]) + 
+      theme(axis.text.x = element_text(angle = angle))
+  } else {
+    t <- split - 1
+    p_list <- apply(myranges(mstart, mend, split), 1,
+           function(x){
+             base_plot( as.matrix(data[, x[1]:x[2] ]) , "aa" ) + 
+                scale_x_discrete(  limit = seq(x[2] - x[1] + 1), 
+                                  labels = xln[ x[1]:x[2] ] ) + 
+                theme( axis.text.x = element_text(angle = angle) )
+           }
+           )
+    do.call(gridExtra::grid.arrange, c(p_list, ncol=2))
+  }
+}
+
+if( opt$options$reference == ""){
+  x_label_name = colnames(aln_consensus)
+} else {
+  x_label_name = xlabelname(alignment, opt$options$reference) 
+}
+end = opt$options$end
+if ( end == 0){
+  end = ncol(con)
+}
+
+svg(opt$options$output)
+out_plot(aln_consensus,
+                mstart = opt$options$ini,
+                mend = end,
+                split = opt$options$chunks,
+                angle = opt$options$angle,
+                xln = x_label_name,
+                pstype = str(opt$options$seqtype),
+                numofcol = opt$options$numcols
+)
+
+#svg(opt$options$output)
+#p
+dev.off()
+
