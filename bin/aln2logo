@@ -120,7 +120,6 @@ option_list = list(
         help= "Enter the higher value in y-axis.",
         metavar="number"
     )
-    
 )
 
 opt_parser = OptionParser(usage = "%prog [options] file",
@@ -128,7 +127,6 @@ opt_parser = OptionParser(usage = "%prog [options] file",
                           add_help_option = TRUE);
 opt = parse_args(opt_parser,  positional_arguments = TRUE);
 
-print(opt)
 
 check_lib("seqinr")
 check_lib("tidyverse")
@@ -177,17 +175,21 @@ base_plot <- function(mymatrix, sequence_type = opt$options$seqtype,
     cols = c(rep("#109648", 5), rep("#5E239D", 2),
              rep("#255C99", 3), rep("#D62839", 2), rep("#221E22", 8))
   )
-  ggplot() +
+    options(warn = -1)
+    ggplot() +
     geom_logo(
         mymatrix,
         seq_type = "aa",
-        col_scheme = chemistry) +
+        col_scheme = chemistry
+    ) +
     theme_logo() +
     scale_x_discrete(
         limit = seq(mend-mstart+1),
-        labels = xln[mstart:mend]) +
-            ylim(ymin, ymax) +
-        theme(axis.text.x = element_text(angle = angle))
+        labels = xln[mstart:mend]
+    ) +
+    ylim(ymin, ymax) +
+    theme(axis.text.x = element_text(angle = angle))
+    options(warn = 0)
 }
 
 myranges <- function(start, end, step){
@@ -204,20 +206,21 @@ out_plot <- function(data, split = 1, mstart = 1, mend = 0,
         mend = ncol(data)
     }
 
-    if ( xln == ''){
-        xln = colnames(data)
-        print(xln)
-    }
     tsplit <- split - 1
     if (split == 1){
-        base_plot(data[,mstart:mend], "aa") + 
-            scale_x_discrete(limit = seq(mend-mstart+1), 
-                labels = xln[mstart:mend]) + 
-            ylim(0, 4.5) +
-        theme(axis.text.x = element_text(angle = angle))
-  } else {
+    base_plot(
+        as.matrix(data[, mstart:mend]),
+        "aa",
+        mstart = mstart,
+        mend = mend,
+        angle = angle,
+        xln = xln,
+        ymin = ymin,
+        ymax = ymax)
+        } else {
     t <- split - 1
-    p_list <- apply(myranges(mstart, mend, split), 1,
+    p_list <- apply(
+        myranges(mstart, mend, split), 1,
         function(x){
             base_plot(
                 as.matrix(data[, x[1]:x[2]]),
@@ -228,13 +231,8 @@ out_plot <- function(data, split = 1, mstart = 1, mend = 0,
                 xln = xln,
                 ymin = ymin,
                 ymax = ymax)
-#            base_plot( as.matrix(data[, x[1]:x[2] ]) , "aa" ) + 
-#                    scale_x_discrete(  limit = seq(x[2] - x[1] + 1), 
-#                                  labels = xln[ x[1]:x[2] ] ) + 
-#                ylim(0, 4.5) +
-#                theme( axis.text.x = element_text(angle = angle) )
-           }
-           )
+        }
+    )
     do.call(gridExtra::grid.arrange, c(p_list, ncol=2))
   }
 }
