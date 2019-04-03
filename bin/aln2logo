@@ -81,14 +81,14 @@ option_list = list(
     make_option(
         c("-W", "--width"),
         type="integer",
-        default=20,
-        help="Final plot width [default=%default]",
+        default=0,
+        help="Final plot width [default=%default], 0 means autosize.",
         metavar="number"
     ),
     make_option(
         c("-H", "--height"),
         type="integer",
-        default=30,
+        default=0,
         help="Final plot height [default=%default]",
         metavar="number"
     ),
@@ -175,7 +175,7 @@ base_plot <- function(mymatrix, sequence_type = opt$options$seqtype,
     cols = c(rep("#109648", 5), rep("#5E239D", 2),
              rep("#255C99", 3), rep("#D62839", 2), rep("#221E22", 8))
   )
-    options(warn = -1)
+#    options(warn = -1)
     ggplot() +
     geom_logo(
         mymatrix,
@@ -189,7 +189,7 @@ base_plot <- function(mymatrix, sequence_type = opt$options$seqtype,
     ) +
     ylim(ymin, ymax) +
     theme(axis.text.x = element_text(angle = angle))
-    options(warn = 0)
+#    options(warn = 0)
 }
 
 myranges <- function(start, end, step){
@@ -251,16 +251,31 @@ if ( end == 0){
   end = ncol(con)
 }
 
-svg(opt$options$output,width=opt$options$width,
-    height=opt$options$height,pointsize=opt$options$pointsize)
+ncols = as.integer(opt$options$numcols)
+nchunk =  as.integer(opt$options$chunks)
+
+if (opt$options$width == 0){
+    wd = as.integer(0.47 * ncols * nchunk)
+} else {
+    wd = opt$options$width
+}
+
+if(opt$options$height == 0){
+    ht = as.integer((ncol(con)/(ncols*nchunk)) * 3.5 )
+} else {
+    ht = opt$options$height
+}
+
+svg(opt$options$output,width=wd,
+    height=ht,pointsize=opt$options$pointsize)
 out_plot(aln_consensus,
                 mstart = opt$options$ini,
                 mend =   opt$options$end,
-                split = opt$options$chunks,
+                split = nchunk,
                 angle = opt$options$angle,
                 xln = x_label_name,
                 pstype = str(opt$options$seqtype),
-                numofcol = opt$options$numcols,
+                numofcol = ncols,
                 ymin = opt$options$ymin,
                 ymax = opt$options$ymax
 )
