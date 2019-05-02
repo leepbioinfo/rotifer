@@ -328,7 +328,7 @@ def loadAPI(username = ''):
     Load NCBI API key
     '''
     home = expanduser('~')
-    db_local_path = os.path.join(home, '.rotifer/config/api_key.config')
+    db_local_path = os.path.join(home, '.rotifer/etc/rotifer/api_key.config')
     try:
         db_local = yaml.load(open(db_local_path))
 
@@ -350,9 +350,9 @@ def loadAPI(username = ''):
     return api_key
 
 def loadConfig(load = '',
-        user_path = os.path.expanduser(os.path.join(*['~', '.rotifer', 'config'])),
+        user_path = os.path.expanduser(os.path.join(*['~', '.rotifer', 'etc', 'rotifer'])),
         system_path = os.path.join(os.path.realpath(os.path.join( os.path.abspath(__file__),
-                                                                 '..', '..','..', '..')), 'etc/config')
+                                                                 '..', '..','..', '..')), 'etc/rotifer/')
                ):
     '''
     load: Use ':' annotation
@@ -420,9 +420,9 @@ def yaml_search(string,path):
 
 
 def loadClasses(load,
-        user_path = os.path.expanduser(os.path.join(*['~', '.rotifer', 'config'])),
+        user_path = os.path.expanduser(os.path.join(*['~', '.rotifer', 'etc', 'rotifer'])),
         system_path = os.path.join(os.path.realpath(os.path.join( os.path.abspath(__file__),
-                                                                 '..', '..','..', '..')), 'etc/config')):
+                                                                 '..', '..','..', '..')), 'etc/rotifer')):
     '''
     This function list all classes and methods
     The main problem is the import
