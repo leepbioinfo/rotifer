@@ -1,0 +1,9 @@
+# Rsync rules file (see 'man rsync')
+
+# Include some top-level directories
++ /*.Linux.gz
++ /edirect.tar.gz
++ /README*
+
+# Exclude all other files/directories at the source's root
+- /*

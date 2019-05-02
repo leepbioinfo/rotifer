@@ -1,0 +1,3 @@
+# Exclude some directories
+- ASN_*
+- GENE_INFO

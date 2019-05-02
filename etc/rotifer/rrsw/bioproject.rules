@@ -1,0 +1,5 @@
+# Rsync rules file (see 'man rsync')
+
+# Include some top-level directories
+- OLD_XML
+

@@ -1,0 +1,22 @@
+# Environment variables for Rotifer at host macbobs2
+#
+# Child process initiated by rotifer components will
+# able to access the values of environment variables
+# set here
+
+# YAML block header (don't change, don't add another!)
+---
+
+# DATA
+# Uncomment and set the path to your data
+ROTIFER_DATA: /Users/rfsouza/projects/databases/data
+
+# PATH
+# Where else should I search for installed programs?
+#
+# This block helps preventing failures caused by incomplete
+# shells environments like those that may be set for cron
+# jobs or remote sessions
+#
+PATH:
+ - /opt/local/bin

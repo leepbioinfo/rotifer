@@ -1,0 +1,6605 @@
+format-version: 1.2
+date: 13:04:2010 18:17
+saved-by: lakshmin
+auto-generated-by: OBO-Edit 2.1-beta3
+default-namespace: file:H:/projects/databases/data/local/profiledb_function.obo
+
+[Term]
+id: ID:0000000
+name: Functional Classification
+creation_date: 2009-12-02T06:17:56Z
+
+[Term]
+id: ID:0000001
+name: Adhesion
+is_a: ID:0000000 ! Functional Classification
+created_by: desouza
+creation_date: 2009-12-02T06:19:17Z
+
+[Term]
+id: ID:0000002
+name: Alveolate specific domains
+is_a: ID:0000000 ! Functional Classification
+created_by: desouza
+creation_date: 2009-12-02T06:19:17Z
+
+[Term]
+id: ID:0000003
+name: Cell wall biosynthesis
+is_a: ID:0000000 ! Functional Classification
+created_by: desouza
+creation_date: 2009-12-02T06:19:17Z
+
+[Term]
+id: ID:0000004
+name: Chromatin
+is_a: ID:0000922 ! Nucleus
+created_by: desouza
+creation_date: 2009-12-02T06:19:17Z
+
+[Term]
+id: ID:0000005
+name: Cytoskeleton
+is_a: ID:0000000 ! Functional Classification
+created_by: desouza
+creation_date: 2009-12-02T06:19:17Z
+
+[Term]
+id: ID:0000006
+name: DNA Pumps/ Packaging
+is_a: ID:0000000 ! Functional Classification
+created_by: desouza
+creation_date: 2009-12-02T06:19:17Z
+
+[Term]
+id: ID:0000007
+name: 2C
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000008
+name: Helix Turn Helix (HTH)
+is_a: ID:0000000 ! Functional Classification
+is_a: ID:0000015 ! Transcription Factor
+is_a: ID:0000033 ! One component system
+created_by: desouza
+creation_date: 2009-12-02T06:19:17Z
+
+[Term]
+id: ID:0000009
+name: Miscellaneous
+is_a: ID:0000000 ! Functional Classification
+created_by: desouza
+creation_date: 2009-12-02T06:19:17Z
+
+[Term]
+id: ID:0000010
+name: RNA Metabolism
+synonym: "RNA metabolic activity" RELATED []
+is_a: ID:0000000 ! Functional Classification
+intersection_of: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T06:19:17Z
+
+[Term]
+id: ID:0000011
+name: Signaling
+is_a: ID:0000000 ! Functional Classification
+created_by: desouza
+creation_date: 2009-12-02T06:19:17Z
+
+[Term]
+id: ID:0000012
+name: Small molecule binding domains
+is_a: ID:0000000 ! Functional Classification
+created_by: desouza
+creation_date: 2009-12-02T06:19:17Z
+
+[Term]
+id: ID:0000013
+name: Toxin-Antitoxin
+is_a: ID:0000000 ! Functional Classification
+created_by: desouza
+creation_date: 2009-12-02T06:19:17Z
+
+[Term]
+id: ID:0000014
+name: Transcription
+is_a: ID:0000000 ! Functional Classification
+created_by: desouza
+creation_date: 2009-12-02T06:19:17Z
+
+[Term]
+id: ID:0000015
+name: Transcription Factor
+is_a: ID:0000014 ! Transcription
+created_by: desouza
+creation_date: 2009-12-02T06:19:17Z
+
+[Term]
+id: ID:0000016
+name: Translation
+is_a: ID:0000000 ! Functional Classification
+created_by: desouza
+creation_date: 2009-12-02T06:19:17Z
+
+[Term]
+id: ID:0000017
+name: Replication/Repair
+is_a: ID:0000922 ! Nucleus
+created_by: desouza
+creation_date: 2009-12-02T06:19:17Z
+
+[Term]
+id: ID:0000018
+name: ubiquitin
+is_a: ID:0000000 ! Functional Classification
+created_by: desouza
+creation_date: 2009-12-02T06:19:17Z
+
+[Term]
+id: ID:0000019
+name: Accessories of apoptosis pathways
+is_a: ID:0000011 ! Signaling
+created_by: desouza
+creation_date: 2009-12-02T06:50:08Z
+
+[Term]
+id: ID:0000020
+name: CNMP dependent Signaling
+is_a: ID:0000011 ! Signaling
+created_by: desouza
+creation_date: 2009-12-02T06:50:08Z
+
+[Term]
+id: ID:0000021
+name: Calcium Signaling
+is_a: ID:0000011 ! Signaling
+created_by: desouza
+creation_date: 2009-12-02T06:50:08Z
+
+[Term]
+id: ID:0000022
+name: Caspases and APATPase and STAND and Apoptotic
+is_a: ID:0000011 ! Signaling
+created_by: desouza
+creation_date: 2009-12-02T06:50:08Z
+
+[Term]
+id: ID:0000023
+name: CnMP phosphodiesterase
+is_a: ID:0000011 ! Signaling
+created_by: desouza
+creation_date: 2009-12-02T06:50:08Z
+
+[Term]
+id: ID:0000024
+name: Diguanylate Binding Domains
+is_a: ID:0000011 ! Signaling
+created_by: desouza
+creation_date: 2009-12-02T06:50:08Z
+
+[Term]
+id: ID:0000025
+name: GTPase Signaling
+is_a: ID:0000011 ! Signaling
+created_by: desouza
+creation_date: 2009-12-02T06:50:08Z
+
+[Term]
+id: ID:0000026
+name: Heme and iron sensors
+is_a: ID:0000011 ! Signaling
+created_by: desouza
+creation_date: 2009-12-02T06:50:08Z
+
+[Term]
+id: ID:0000027
+name: Ion Transport-channel
+is_a: ID:0000011 ! Signaling
+created_by: desouza
+creation_date: 2009-12-02T06:50:08Z
+
+[Term]
+id: ID:0000028
+name: Lipid signaling
+is_a: ID:0000011 ! Signaling
+created_by: desouza
+creation_date: 2009-12-02T06:50:08Z
+
+[Term]
+id: ID:0000029
+name: Methyl accepting chemotaxis
+is_a: ID:0000011 ! Signaling
+created_by: desouza
+creation_date: 2009-12-02T06:50:08Z
+
+[Term]
+id: ID:0000030
+name: Signaling Domains (miscellaneous)
+is_a: ID:0000011 ! Signaling
+created_by: desouza
+creation_date: 2009-12-02T06:50:08Z
+
+[Term]
+id: ID:0000031
+name: Transmembrane Receptors
+is_a: ID:0000011 ! Signaling
+created_by: desouza
+creation_date: 2009-12-02T06:50:08Z
+
+[Term]
+id: ID:0000032
+name: Miscellaneous Signaling Pathways (proteases)
+is_a: ID:0000011 ! Signaling
+created_by: desouza
+creation_date: 2009-12-02T06:50:08Z
+
+[Term]
+id: ID:0000033
+name: One component system
+is_a: ID:0000011 ! Signaling
+created_by: desouza
+creation_date: 2009-12-02T06:50:08Z
+
+[Term]
+id: ID:0000034
+name: Phospho Transfer System
+is_a: ID:0000011 ! Signaling
+created_by: desouza
+creation_date: 2009-12-02T06:50:08Z
+
+[Term]
+id: ID:0000035
+name: Phosphorylation based cascade
+is_a: ID:0000011 ! Signaling
+created_by: desouza
+creation_date: 2009-12-02T06:50:08Z
+
+[Term]
+id: ID:0000036
+name: Protein-protein interaction domains
+is_a: ID:0000011 ! Signaling
+created_by: desouza
+creation_date: 2009-12-02T06:50:08Z
+
+[Term]
+id: ID:0000037
+name: Sensor Domains
+is_a: ID:0000011 ! Signaling
+is_a: ID:0000012 ! Small molecule binding domains
+created_by: desouza
+creation_date: 2009-12-02T06:50:08Z
+
+[Term]
+id: ID:0000038
+name: Adaptors
+is_a: ID:0000004 ! Chromatin
+created_by: desouza
+creation_date: 2009-12-02T07:45:39Z
+
+[Term]
+id: ID:0000039
+name: Chromatin-related Enzymatic Domains
+is_a: ID:0000004 ! Chromatin
+created_by: desouza
+creation_date: 2009-12-02T07:45:39Z
+
+[Term]
+id: ID:0000040
+name: Carbohydrate metabolism
+is_a: ID:0000000 ! Functional Classification
+created_by: desouza
+creation_date: 2009-12-02T07:46:08Z
+
+[Term]
+id: ID:0000041
+name: Protein metabolism
+is_a: ID:0000000 ! Functional Classification
+created_by: desouza
+creation_date: 2009-12-02T07:46:08Z
+
+[Term]
+id: ID:0000042
+name: Viral packaging
+is_a: ID:0000006 ! DNA Pumps/ Packaging
+created_by: desouza
+creation_date: 2009-12-02T08:23:22Z
+
+[Term]
+id: ID:0000043
+name: MerR
+is_a: ID:0000008 ! Helix Turn Helix (HTH)
+created_by: desouza
+creation_date: 2009-12-02T08:24:39Z
+
+[Term]
+id: ID:0000044
+name: winged HTH
+is_a: ID:0000008 ! Helix Turn Helix (HTH)
+created_by: desouza
+creation_date: 2009-12-02T08:24:39Z
+
+[Term]
+id: ID:0000045
+name: Viral Specific Uncharacterized Domain
+is_a: ID:0000009 ! Miscellaneous
+created_by: desouza
+creation_date: 2009-12-02T08:24:52Z
+
+[Term]
+id: ID:0000046
+name: RNA Metabolism Enzyme
+is_a: ID:0000010 ! RNA Metabolism
+created_by: desouza
+creation_date: 2009-12-02T08:25:28Z
+
+[Term]
+id: ID:0000047
+name: RBD
+is_a: ID:0000010 ! RNA Metabolism
+created_by: desouza
+creation_date: 2009-12-02T08:25:28Z
+
+[Term]
+id: ID:0000048
+name: Carbohydrate binding
+is_a: ID:0000012 ! Small molecule binding domains
+created_by: desouza
+creation_date: 2009-12-02T08:26:04Z
+
+[Term]
+id: ID:0000049
+name: Helicase
+is_a: ID:0000014 ! Transcription
+created_by: desouza
+creation_date: 2009-12-02T08:26:43Z
+
+[Term]
+id: ID:0000050
+name: Splicing
+is_a: ID:0000014 ! Transcription
+created_by: desouza
+creation_date: 2009-12-02T08:26:43Z
+
+[Term]
+id: ID:0000051
+name: Eukaryotic Transcription Factors
+is_a: ID:0000015 ! Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T08:27:12Z
+
+[Term]
+id: ID:0000052
+name: Prokaryotic Transcription Factor
+is_a: ID:0000015 ! Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T08:27:12Z
+
+[Term]
+id: ID:0000053
+name: Viral specific
+is_a: ID:0000015 ! Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T08:27:12Z
+
+[Term]
+id: ID:0000054
+name: Eukaryotic Transcription Factor (basal)
+is_a: ID:0000051 ! Eukaryotic Transcription Factors
+created_by: desouza
+creation_date: 2009-12-02T08:27:12Z
+
+[Term]
+id: ID:0000055
+name: Eukaryotic Transcription Factor (mediator)
+is_a: ID:0000051 ! Eukaryotic Transcription Factors
+created_by: desouza
+creation_date: 2009-12-02T08:27:12Z
+
+[Term]
+id: ID:0000056
+name: AraC-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T09:51:57Z
+
+[Term]
+id: ID:0000057
+name: Elongation
+is_a: ID:0000016 ! Translation
+created_by: desouza
+creation_date: 2009-12-02T08:27:26Z
+
+[Term]
+id: ID:0000058
+name: Single-strand binding
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T08:28:02Z
+
+[Term]
+id: ID:0000059
+name: DNA Binding
+is_a: ID:0000038 ! Adaptors
+created_by: desouza
+creation_date: 2009-12-02T08:28:46Z
+
+[Term]
+id: ID:0000060
+name: Protein Binding
+is_a: ID:0000038 ! Adaptors
+created_by: desouza
+creation_date: 2009-12-02T08:28:46Z
+
+[Term]
+id: ID:0000061
+name: General protein binding
+is_a: ID:0000060 ! Protein Binding
+created_by: desouza
+creation_date: 2009-12-02T08:29:06Z
+
+[Term]
+id: ID:0000062
+name: Modified peptide binding
+is_a: ID:0000060 ! Protein Binding
+created_by: desouza
+creation_date: 2009-12-02T08:29:06Z
+
+[Term]
+id: ID:0000063
+name: Chromatin Enzymatic Domain (DNA Modification)
+is_a: ID:0000039 ! Chromatin-related Enzymatic Domains
+created_by: desouza
+creation_date: 2009-12-02T08:29:26Z
+
+[Term]
+id: ID:0000064
+name: Chromatin Enzymatic Domain (Protein Modification)
+is_a: ID:0000039 ! Chromatin-related Enzymatic Domains
+created_by: desouza
+creation_date: 2009-12-02T08:29:26Z
+
+[Term]
+id: ID:0000065
+name: Protein/Peptide modification
+is_a: ID:0000041 ! Protein metabolism
+created_by: desouza
+creation_date: 2009-12-02T08:29:39Z
+
+[Term]
+id: ID:0000066
+name: Winged HTH (miscellaneous)
+is_a: ID:0000044 ! winged HTH
+created_by: desouza
+creation_date: 2009-12-02T08:30:00Z
+
+[Term]
+id: ID:0000067
+name: RNA Nucleases
+is_a: ID:0000046 ! RNA Metabolism Enzyme
+created_by: desouza
+creation_date: 2009-12-02T08:30:20Z
+
+[Term]
+id: ID:0000068
+name: Four helical bundle
+is_a: ID:0000008 ! Helix Turn Helix (HTH)
+created_by: desouza
+creation_date: 2009-12-02T08:31:23Z
+
+[Term]
+id: ID:0000069
+name: L11
+is_a: ID:0000008 ! Helix Turn Helix (HTH)
+created_by: desouza
+creation_date: 2009-12-02T08:31:23Z
+
+[Term]
+id: ID:0000070
+name: Multi helical bundle
+is_a: ID:0000008 ! Helix Turn Helix (HTH)
+created_by: desouza
+creation_date: 2009-12-02T08:31:23Z
+
+[Term]
+id: ID:0000071
+name: Trihelical bundle
+is_a: ID:0000008 ! Helix Turn Helix (HTH)
+created_by: desouza
+creation_date: 2009-12-02T08:31:23Z
+
+[Term]
+id: ID:0000072
+name: LRP-like
+is_a: ID:0000044 ! winged HTH
+created_by: desouza
+creation_date: 2009-12-02T08:31:48Z
+
+[Term]
+id: ID:0000073
+name: Winged HTH with C-terminal helix extension
+is_a: ID:0000044 ! winged HTH
+created_by: desouza
+creation_date: 2009-12-02T08:31:48Z
+
+[Term]
+id: ID:0000074
+name: Eukaryotic-type Serine Threonine Kinase
+is_a: ID:0000034 ! Phospho Transfer System
+created_by: desouza
+creation_date: 2009-12-02T08:32:43Z
+
+[Term]
+id: ID:0000075
+name: Phosphatase
+is_a: ID:0000034 ! Phospho Transfer System
+created_by: desouza
+creation_date: 2009-12-02T08:32:43Z
+
+[Term]
+id: ID:0000076
+name: C1
+is_a: ID:0000923 ! Lipid Binding
+created_by: desouza
+creation_date: 2009-12-02T08:36:58Z
+
+[Term]
+id: ID:0000077
+name: HD
+is_a: ID:0000030 ! Signaling Domains (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T08:36:58Z
+
+[Term]
+id: ID:0000078
+name: WhiB
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T08:36:58Z
+
+[Term]
+id: ID:0000079
+name: FrmR
+is_a: ID:0000030 ! Signaling Domains (miscellaneous)
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T08:36:58Z
+
+[Term]
+id: ID:0000080
+name: Accessory Domains of Serine/Threonine Kinases
+is_a: ID:0000074 ! Eukaryotic-type Serine Threonine Kinase
+created_by: desouza
+creation_date: 2009-12-02T08:37:35Z
+
+[Term]
+id: ID:0000081
+name: FHA
+is_a: ID:0000080 ! Accessory Domains of Serine/Threonine Kinases
+created_by: desouza
+creation_date: 2009-12-02T08:39:40Z
+
+[Term]
+id: ID:0000082
+name: SH2
+is_a: ID:0000080 ! Accessory Domains of Serine/Threonine Kinases
+created_by: desouza
+creation_date: 2009-12-02T08:39:40Z
+
+[Term]
+id: ID:0000083
+name: CYCLIN
+is_a: ID:0000080 ! Accessory Domains of Serine/Threonine Kinases
+created_by: desouza
+creation_date: 2009-12-02T08:39:40Z
+
+[Term]
+id: ID:0000084
+name: Accessory Domain of Two Component Systems
+is_a: ID:0000035 ! Phosphorylation based cascade
+created_by: desouza
+creation_date: 2009-12-02T08:42:35Z
+
+[Term]
+id: ID:0000085
+name: Two-Component System
+is_a: ID:0000035 ! Phosphorylation based cascade
+created_by: desouza
+creation_date: 2009-12-02T08:42:35Z
+
+[Term]
+id: ID:0000086
+name: REC
+is_a: ID:0000085 ! Two-Component System
+created_by: desouza
+creation_date: 2009-12-02T08:42:51Z
+
+[Term]
+id: ID:0000087
+name: HISKIN
+is_a: ID:0000085 ! Two-Component System
+created_by: desouza
+creation_date: 2009-12-02T08:42:51Z
+
+[Term]
+id: ID:0000088
+name: SHELIX
+is_a: ID:0000084 ! Accessory Domain of Two Component Systems
+created_by: desouza
+creation_date: 2009-12-02T08:43:05Z
+
+[Term]
+id: ID:0000089
+name: HPT
+is_a: ID:0000084 ! Accessory Domain of Two Component Systems
+created_by: desouza
+creation_date: 2009-12-02T08:43:05Z
+
+[Term]
+id: ID:0000090
+name: HAMP
+is_a: ID:0000084 ! Accessory Domain of Two Component Systems
+created_by: desouza
+creation_date: 2009-12-02T08:43:05Z
+
+[Term]
+id: ID:0000091
+name: BarAN
+is_a: ID:0000084 ! Accessory Domain of Two Component Systems
+created_by: desouza
+creation_date: 2009-12-02T08:43:05Z
+
+[Term]
+id: ID:0000092
+name: STYKIN
+is_a: ID:0000074 ! Eukaryotic-type Serine Threonine Kinase
+created_by: desouza
+creation_date: 2009-12-02T08:43:26Z
+
+[Term]
+id: ID:0000093
+name: Extracellular
+is_a: ID:0000037 ! Sensor Domains
+created_by: desouza
+creation_date: 2009-12-02T08:44:59Z
+
+[Term]
+id: ID:0000094
+name: Intracellular
+is_a: ID:0000037 ! Sensor Domains
+created_by: desouza
+creation_date: 2009-12-02T08:44:59Z
+
+[Term]
+id: ID:0000095
+name: DISCOIDIN
+is_a: ID:0000048 ! Carbohydrate binding
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T08:47:03Z
+
+[Term]
+id: ID:0000096
+name: ASRAH
+is_a: ID:0000048 ! Carbohydrate binding
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T08:47:03Z
+
+[Term]
+id: ID:0000097
+name: IONCHANNEL
+is_a: ID:0000027 ! Ion Transport-channel
+created_by: desouza
+creation_date: 2009-12-02T08:47:59Z
+
+[Term]
+id: ID:0000098
+name: ARTLGIC
+is_a: ID:0000027 ! Ion Transport-channel
+created_by: desouza
+creation_date: 2009-12-02T08:47:59Z
+
+[Term]
+id: ID:0000099
+name: SM-MscS
+is_a: ID:0000027 ! Ion Transport-channel
+created_by: desouza
+creation_date: 2009-12-02T08:47:59Z
+
+[Term]
+id: ID:0000100
+name: HNOB
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000101
+name: HNOBA
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000102
+name: UTRA
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000103
+name: PocR
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000104
+name: PocRN
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000105
+name: MEDS
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000106
+name: ACT
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000107
+name: CBS
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000108
+name: GAF
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000109
+name: PAS
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000110
+name: TIG
+is_a: ID:0000094 ! Intracellular
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000111
+name: STAS
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000112
+name: PP2C
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000113
+name: DeoRC
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000114
+name: V4R
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000115
+name: BLBD
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000116
+name: DSBH
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000117
+name: ATPcone
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000118
+name: HMA
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000119
+name: NifX
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000120
+name: 3H
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000121
+name: DM13
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000122
+name: DOMON
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000123
+name: START
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000124
+name: TrkAC
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000125
+name: TrkAN
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000126
+name: T-OB
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000127
+name: SLBB
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000128
+name: CCTBP
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000129
+name: NTF2
+is_a: ID:0000094 ! Intracellular
+created_by: desouza
+creation_date: 2009-12-02T09:12:05Z
+
+[Term]
+id: ID:0000130
+name: ARSR-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000073 ! Winged HTH with C-terminal helix extension
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000131
+name: ANK
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000132
+name: ArgR-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000072 ! LRP-like
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000133
+name: BirA-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000073 ! Winged HTH with C-terminal helix extension
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000134
+name: CHTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000135
+name: CITB-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000073 ! Winged HTH with C-terminal helix extension
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000136
+name: DEOR-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000072 ! LRP-like
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000137
+name: DNAA-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000138
+name: DPRA-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000066 ! Winged HTH (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000139
+name: DTXR-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000073 ! Winged HTH with C-terminal helix extension
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000140
+name: FIS-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000141
+name: FURR-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000073 ! Winged HTH with C-terminal helix extension
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000142
+name: ANTHRAXPAG-N
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000143
+name: GDRESOLVASE-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000144
+name: GNTR-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000073 ! Winged HTH with C-terminal helix extension
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000145
+name: HCRA-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000073 ! Winged HTH with C-terminal helix extension
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000146
+name: HIN-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000147
+name: HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000148
+name: ICLR-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000066 ! Winged HTH (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000149
+name: LACI-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000150
+name: LAMBDATERM-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000151
+name: LRP-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000072 ! LRP-like
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000152
+name: LexA-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000066 ! Winged HTH (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000153
+name: LuxR-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000154
+name: LysR-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000073 ! Winged HTH with C-terminal helix extension
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000155
+name: MODE-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000073 ! Winged HTH with C-terminal helix extension
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000156
+name: MU-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000157
+name: MUC-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000158
+name: MarR-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000073 ! Winged HTH with C-terminal helix extension
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000159
+name: MerR-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000160
+name: MetJarc-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000161
+name: O6MGT-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000066 ! Winged HTH (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000162
+name: OmpR-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000066 ! Winged HTH (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000163
+name: PADR-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000073 ! Winged HTH with C-terminal helix extension
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000164
+name: PLASMIDREP-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000165
+name: REPTERMINATOR-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000166
+name: RPB10-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000167
+name: RRF2-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000073 ! Winged HTH with C-terminal helix extension
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000168
+name: RuvB-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000073 ! Winged HTH with C-terminal helix extension
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000169
+name: SCPB-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000073 ! Winged HTH with C-terminal helix extension
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000170
+name: SIGMA-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000171
+name: SpoA-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000172
+name: TFIIB-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000173
+name: TFIIE-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000073 ! Winged HTH with C-terminal helix extension
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000174
+name: TFIIF-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000073 ! Winged HTH with C-terminal helix extension
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000175
+name: TRPR-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000176
+name: TetR-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000177
+name: APPLE
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000178
+name: XIS-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000179
+name: YTCD-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000073 ! Winged HTH with C-terminal helix extension
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000180
+name: ZDNA-HTH
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000072 ! LRP-like
+created_by: desouza
+creation_date: 2009-12-02T09:18:16Z
+
+[Term]
+id: ID:0000181
+name: KDWK
+is_a: ID:0000059 ! DNA Binding
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T09:43:50Z
+
+[Term]
+id: ID:0000182
+name: Eukaryotic Transcription Factor (specific)
+is_a: ID:0000051 ! Eukaryotic Transcription Factors
+created_by: desouza
+creation_date: 2009-12-02T09:48:18Z
+
+[Term]
+id: ID:0000183
+name: ASH-IG
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000184
+name: BACTERIALFRINGE
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000185
+name: BULBLECTIN
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000186
+name: BetaPropeller
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000187
+name: CADHERIN
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000188
+name: CLECTIN
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000189
+name: CLOSTRIPAIN
+is_a: ID:0000001 ! Adhesion
+is_a: ID:0000022 ! Caspases and APATPase and STAND and Apoptotic
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000190
+name: MYB
+is_a: ID:0000059 ! DNA Binding
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-03T05:19:33Z
+
+[Term]
+id: ID:0000191
+name: CUB
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000192
+name: EGF
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000193
+name: FAINT-TASH
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000194
+name: FASCICILIN
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000195
+name: FN2
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000196
+name: FN3
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000197
+name: FRINGE
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000198
+name: FUKUTIN
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000199
+name: IG
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000200
+name: INTEGRINBETA
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000201
+name: KAZAL
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000202
+name: KELCH
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000203
+name: KRINGLE
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000204
+name: LAMG
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000205
+name: LCCL
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000206
+name: LEVANB
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000207
+name: LIM
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000208
+name: LINK
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000209
+name: LRR
+is_a: ID:0000001 ! Adhesion
+is_a: ID:0000606 ! Supersecondary structure repeats
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000210
+name: MACPERFORIN
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000211
+name: MAM
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000212
+name: NEC
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000213
+name: PTX
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000214
+name: RICIN
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000215
+name: SCP
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000216
+name: SEA
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000217
+name: SRDOMAIN
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000218
+name: SUSHI
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000219
+name: TOX1
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000220
+name: TPR
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000221
+name: TSP1
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000222
+name: VIT
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000223
+name: VWA
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000224
+name: WCAK
+is_a: ID:0000001 ! Adhesion
+created_by: desouza
+creation_date: 2009-12-02T10:06:00Z
+
+[Term]
+id: ID:0000225
+name: PRESAN
+is_a: ID:0000002 ! Alveolate specific domains
+created_by: desouza
+creation_date: 2009-12-02T10:06:33Z
+
+[Term]
+id: ID:0000226
+name: RIFIN
+is_a: ID:0000002 ! Alveolate specific domains
+created_by: desouza
+creation_date: 2009-12-02T10:06:33Z
+
+[Term]
+id: ID:0000227
+name: SFI-Repeat
+is_a: ID:0000002 ! Alveolate specific domains
+created_by: desouza
+creation_date: 2009-12-02T10:06:33Z
+
+[Term]
+id: ID:0000228
+name: TSRP
+is_a: ID:0000002 ! Alveolate specific domains
+created_by: desouza
+creation_date: 2009-12-02T10:06:33Z
+
+[Term]
+id: ID:0000229
+name: VAR
+is_a: ID:0000002 ! Alveolate specific domains
+created_by: desouza
+creation_date: 2009-12-02T10:06:33Z
+
+[Term]
+id: ID:0000230
+name: DADA-Ligase
+is_a: ID:0000003 ! Cell wall biosynthesis
+created_by: desouza
+creation_date: 2009-12-02T10:06:58Z
+
+[Term]
+id: ID:0000231
+name: GLYCO
+is_a: ID:0000003 ! Cell wall biosynthesis
+created_by: desouza
+creation_date: 2009-12-02T10:06:58Z
+
+[Term]
+id: ID:0000232
+name: POLYSACPOLYMERASE
+is_a: ID:0000003 ! Cell wall biosynthesis
+created_by: desouza
+creation_date: 2009-12-02T10:06:58Z
+
+[Term]
+id: ID:0000233
+name: Chromatin (miscellaneous)
+is_a: ID:0000004 ! Chromatin
+created_by: desouza
+creation_date: 2009-12-02T10:07:39Z
+
+[Term]
+id: ID:0000234
+name: ASF1
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000235
+name: BEN
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000236
+name: BRD2C
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000237
+name: BRK
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000238
+name: CDC73
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000239
+name: CS
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000240
+name: DDT
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000241
+name: ELM2
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000242
+name: ELYS
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000243
+name: EP1
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000244
+name: EP2
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000245
+name: FKBP
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000246
+name: HORMA
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000247
+name: HSA
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000248
+name: HTL1
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000249
+name: IES1
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000250
+name: IES3
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000251
+name: IES4
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000252
+name: IES5
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000253
+name: ING1N
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000254
+name: JORN
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000255
+name: MAELC
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000256
+name: MH2
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000257
+name: MND1
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000258
+name: NAP
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000259
+name: NASP
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000260
+name: PCC1
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000261
+name: PLUS3
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000262
+name: RSC14
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000263
+name: RSC9-SWI1C
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000264
+name: RTT102
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000265
+name: SANTA
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000266
+name: SIN18
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000267
+name: SMC-HINGE
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000268
+name: SNF5
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000269
+name: SNF6
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000270
+name: SWC3
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000271
+name: SWC5
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000272
+name: SWC7
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000273
+name: SWIB
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000274
+name: SWP82-RSC7
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000275
+name: TAF1
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000276
+name: TF2SDOMAIN2
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000277
+name: WW
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000278
+name: YEATS
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000279
+name: ZFCW
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000280
+name: ZZ
+is_a: ID:0000233 ! Chromatin (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:08:16Z
+
+[Term]
+id: ID:0000281
+name: ATHOOK
+is_a: ID:0000059 ! DNA Binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:08Z
+
+[Term]
+id: ID:0000282
+name: BEDFINGER
+is_a: ID:0000059 ! DNA Binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:08Z
+
+[Term]
+id: ID:0000283
+name: BRIGHT
+is_a: ID:0000059 ! DNA Binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:08Z
+
+[Term]
+id: ID:0000284
+name: CXC
+is_a: ID:0000059 ! DNA Binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:08Z
+
+[Term]
+id: ID:0000285
+name: CXXC
+is_a: ID:0000059 ! DNA Binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:08Z
+
+[Term]
+id: ID:0000286
+name: H1
+is_a: ID:0000059 ! DNA Binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:08Z
+
+[Term]
+id: ID:0000287
+name: H2a
+is_a: ID:0000059 ! DNA Binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:08Z
+
+[Term]
+id: ID:0000288
+name: H2b
+is_a: ID:0000059 ! DNA Binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:08Z
+
+[Term]
+id: ID:0000289
+name: H3
+is_a: ID:0000059 ! DNA Binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:08Z
+
+[Term]
+id: ID:0000290
+name: H4
+is_a: ID:0000059 ! DNA Binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:08Z
+
+[Term]
+id: ID:0000291
+name: HC1-Chlam
+is_a: ID:0000059 ! DNA Binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:08Z
+
+[Term]
+id: ID:0000292
+name: HIRAN
+is_a: ID:0000059 ! DNA Binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:08Z
+
+[Term]
+id: ID:0000293
+name: HISFOLD
+is_a: ID:0000059 ! DNA Binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:08Z
+
+[Term]
+id: ID:0000294
+name: HMG
+is_a: ID:0000059 ! DNA Binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:08Z
+
+[Term]
+id: ID:0000295
+name: HOP2
+is_a: ID:0000059 ! DNA Binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:08Z
+
+[Term]
+id: ID:0000296
+name: HU-IHF
+is_a: ID:0000059 ! DNA Binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:08Z
+
+[Term]
+id: ID:0000297
+name: LANA
+is_a: ID:0000059 ! DNA Binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:08Z
+
+[Term]
+id: ID:0000298
+name: MC1
+is_a: ID:0000059 ! DNA Binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:08Z
+
+[Term]
+id: ID:0000299
+name: PARPFIN
+is_a: ID:0000059 ! DNA Binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:08Z
+
+[Term]
+id: ID:0000300
+name: SAD
+is_a: ID:0000059 ! DNA Binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:08Z
+
+[Term]
+id: ID:0000301
+name: SAP
+is_a: ID:0000059 ! DNA Binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:08Z
+
+[Term]
+id: ID:0000302
+name: SCM3
+is_a: ID:0000059 ! DNA Binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:08Z
+
+[Term]
+id: ID:0000303
+name: TAMMBD
+is_a: ID:0000059 ! DNA Binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:08Z
+
+[Term]
+id: ID:0000304
+name: BRCT
+is_a: ID:0000061 ! General protein binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:59Z
+
+[Term]
+id: ID:0000305
+name: E2
+is_a: ID:0000061 ! General protein binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:59Z
+
+[Term]
+id: ID:0000306
+name: HD2-NUCPLAS
+is_a: ID:0000061 ! General protein binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:59Z
+
+[Term]
+id: ID:0000307
+name: HPC2
+is_a: ID:0000061 ! General protein binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:59Z
+
+[Term]
+id: ID:0000308
+name: LxCxE
+is_a: ID:0000061 ! General protein binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:59Z
+
+[Term]
+id: ID:0000309
+name: MYND
+is_a: ID:0000061 ! General protein binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:59Z
+
+[Term]
+id: ID:0000310
+name: PapilomaE7PHDlike
+is_a: ID:0000061 ! General protein binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:59Z
+
+[Term]
+id: ID:0000311
+name: SAM
+is_a: ID:0000036 ! Protein-protein interaction domains
+is_a: ID:0000061 ! General protein binding
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:09:59Z
+
+[Term]
+id: ID:0000312
+name: SWIRM
+is_a: ID:0000061 ! General protein binding
+created_by: desouza
+creation_date: 2009-12-02T10:09:59Z
+
+[Term]
+id: ID:0000313
+name: BAM
+is_a: ID:0000062 ! Modified peptide binding
+created_by: desouza
+creation_date: 2009-12-02T10:10:22Z
+
+[Term]
+id: ID:0000314
+name: BMB
+is_a: ID:0000062 ! Modified peptide binding
+created_by: desouza
+creation_date: 2009-12-02T10:10:22Z
+
+[Term]
+id: ID:0000315
+name: BROMO
+is_a: ID:0000062 ! Modified peptide binding
+created_by: desouza
+creation_date: 2009-12-02T10:10:22Z
+
+[Term]
+id: ID:0000316
+name: CHROMO
+is_a: ID:0000062 ! Modified peptide binding
+created_by: desouza
+creation_date: 2009-12-02T10:10:22Z
+
+[Term]
+id: ID:0000317
+name: PHD
+is_a: ID:0000062 ! Modified peptide binding
+created_by: desouza
+creation_date: 2009-12-02T10:10:22Z
+
+[Term]
+id: ID:0000318
+name: DINB
+is_a: ID:0000325 ! Chromatin Enzymatic Domain (other types)
+created_by: desouza
+creation_date: 2009-12-02T10:10:56Z
+
+[Term]
+id: ID:0000319
+name: HKD
+is_a: ID:0000325 ! Chromatin Enzymatic Domain (other types)
+created_by: desouza
+creation_date: 2009-12-02T10:10:56Z
+
+[Term]
+id: ID:0000320
+name: MACRODOMAIN
+is_a: ID:0000325 ! Chromatin Enzymatic Domain (other types)
+created_by: desouza
+creation_date: 2009-12-02T10:10:56Z
+
+[Term]
+id: ID:0000321
+name: MORC
+is_a: ID:0000326 ! Chromatin Remodelling Enzyme
+created_by: desouza
+creation_date: 2009-12-02T10:10:56Z
+
+[Term]
+id: ID:0000322
+name: SMC
+is_a: ID:0000326 ! Chromatin Remodelling Enzyme
+created_by: desouza
+creation_date: 2009-12-02T10:10:56Z
+
+[Term]
+id: ID:0000323
+name: SNF
+is_a: ID:0000326 ! Chromatin Remodelling Enzyme
+created_by: desouza
+creation_date: 2009-12-02T10:10:56Z
+
+[Term]
+id: ID:0000324
+name: STRAWBERRY
+is_a: ID:0000326 ! Chromatin Remodelling Enzyme
+created_by: desouza
+creation_date: 2009-12-02T10:10:56Z
+
+[Term]
+id: ID:0000325
+name: Chromatin Enzymatic Domain (other types)
+is_a: ID:0000039 ! Chromatin-related Enzymatic Domains
+created_by: desouza
+creation_date: 2009-12-02T10:11:40Z
+
+[Term]
+id: ID:0000326
+name: Chromatin Remodelling Enzyme
+is_a: ID:0000039 ! Chromatin-related Enzymatic Domains
+created_by: desouza
+creation_date: 2009-12-02T10:13:17Z
+
+[Term]
+id: ID:0000327
+name: DNAMETHYLASE
+is_a: ID:0000063 ! Chromatin Enzymatic Domain (DNA Modification)
+created_by: desouza
+creation_date: 2009-12-02T10:15:18Z
+
+[Term]
+id: ID:0000328
+name: MOM
+is_a: ID:0000063 ! Chromatin Enzymatic Domain (DNA Modification)
+created_by: desouza
+creation_date: 2009-12-02T10:15:18Z
+
+[Term]
+id: ID:0000329
+name: VRRNUC
+is_a: ID:0000063 ! Chromatin Enzymatic Domain (DNA Modification)
+created_by: desouza
+creation_date: 2009-12-02T10:15:18Z
+
+[Term]
+id: ID:0000330
+name: ACET
+is_a: ID:0000064 ! Chromatin Enzymatic Domain (Protein Modification)
+created_by: desouza
+creation_date: 2009-12-02T10:15:44Z
+
+[Term]
+id: ID:0000331
+name: AMINOXIDASE
+is_a: ID:0000064 ! Chromatin Enzymatic Domain (Protein Modification)
+created_by: desouza
+creation_date: 2009-12-02T10:15:44Z
+
+[Term]
+id: ID:0000332
+name: DEACET
+is_a: ID:0000064 ! Chromatin Enzymatic Domain (Protein Modification)
+created_by: desouza
+creation_date: 2009-12-02T10:15:44Z
+
+[Term]
+id: ID:0000333
+name: DOT1P
+is_a: ID:0000064 ! Chromatin Enzymatic Domain (Protein Modification)
+created_by: desouza
+creation_date: 2009-12-02T10:15:44Z
+
+[Term]
+id: ID:0000334
+name: HISRMET
+is_a: ID:0000064 ! Chromatin Enzymatic Domain (Protein Modification)
+created_by: desouza
+creation_date: 2009-12-02T10:15:44Z
+
+[Term]
+id: ID:0000335
+name: JOR
+is_a: ID:0000064 ! Chromatin Enzymatic Domain (Protein Modification)
+created_by: desouza
+creation_date: 2009-12-02T10:15:44Z
+
+[Term]
+id: ID:0000336
+name: PARP
+is_a: ID:0000064 ! Chromatin Enzymatic Domain (Protein Modification)
+created_by: desouza
+creation_date: 2009-12-02T10:15:44Z
+
+[Term]
+id: ID:0000337
+name: SET
+is_a: ID:0000064 ! Chromatin Enzymatic Domain (Protein Modification)
+created_by: desouza
+creation_date: 2009-12-02T10:15:44Z
+
+[Term]
+id: ID:0000338
+name: SIR2
+is_a: ID:0000064 ! Chromatin Enzymatic Domain (Protein Modification)
+created_by: desouza
+creation_date: 2009-12-02T10:15:44Z
+
+[Term]
+id: ID:0000339
+name: DOUBLECORTIN
+is_a: ID:0000005 ! Cytoskeleton
+created_by: desouza
+creation_date: 2009-12-02T10:16:01Z
+
+[Term]
+id: ID:0000340
+name: A32
+is_a: ID:0000042 ! Viral packaging
+created_by: desouza
+creation_date: 2009-12-02T10:16:29Z
+
+[Term]
+id: ID:0000341
+name: AdenovirusIVA2
+is_a: ID:0000042 ! Viral packaging
+created_by: desouza
+creation_date: 2009-12-02T10:16:29Z
+
+[Term]
+id: ID:0000342
+name: Adenovirusportal
+is_a: ID:0000042 ! Viral packaging
+created_by: desouza
+creation_date: 2009-12-02T10:16:29Z
+
+[Term]
+id: ID:0000343
+name: MuF
+is_a: ID:0000042 ! Viral packaging
+created_by: desouza
+creation_date: 2009-12-02T10:16:29Z
+
+[Term]
+id: ID:0000344
+name: Phi29ATPase
+is_a: ID:0000042 ! Viral packaging
+created_by: desouza
+creation_date: 2009-12-02T10:16:29Z
+
+[Term]
+id: ID:0000345
+name: Portal
+is_a: ID:0000042 ! Viral packaging
+created_by: desouza
+creation_date: 2009-12-02T10:16:29Z
+
+[Term]
+id: ID:0000346
+name: Terminase
+is_a: ID:0000042 ! Viral packaging
+created_by: desouza
+creation_date: 2009-12-02T10:16:29Z
+
+[Term]
+id: ID:0000347
+name: Metabolism (generic enzymes)
+is_a: ID:0000000 ! Functional Classification
+created_by: desouza
+creation_date: 2009-12-02T10:17:04Z
+
+[Term]
+id: ID:0000348
+name: CUAMINEOXIDASE
+is_a: ID:0000347 ! Metabolism (generic enzymes)
+created_by: desouza
+creation_date: 2009-12-02T10:17:32Z
+
+[Term]
+id: ID:0000349
+name: DEHYDROGENASE
+is_a: ID:0000347 ! Metabolism (generic enzymes)
+created_by: desouza
+creation_date: 2009-12-02T10:17:32Z
+
+[Term]
+id: ID:0000350
+name: ENOYCOADEHYD
+is_a: ID:0000347 ! Metabolism (generic enzymes)
+created_by: desouza
+creation_date: 2009-12-02T10:17:32Z
+
+[Term]
+id: ID:0000351
+name: GUKINASE
+is_a: ID:0000347 ! Metabolism (generic enzymes)
+created_by: desouza
+creation_date: 2009-12-02T10:17:32Z
+
+[Term]
+id: ID:0000352
+name: MONOXYGENASE
+is_a: ID:0000347 ! Metabolism (generic enzymes)
+created_by: desouza
+creation_date: 2009-12-02T10:17:32Z
+
+[Term]
+id: ID:0000353
+name: FTRNABeta-HTH
+is_a: ID:0000043 ! MerR
+created_by: desouza
+creation_date: 2009-12-02T10:19:25Z
+
+[Term]
+id: ID:0000354
+name: FTSK-HTH
+is_a: ID:0000066 ! Winged HTH (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:19:48Z
+
+[Term]
+id: ID:0000355
+name: Vesicular transport
+is_a: ID:0000000 ! Functional Classification
+created_by: lakshmin
+creation_date: 2009-12-16T03:26:45Z
+
+[Term]
+id: ID:0000356
+name: ATP-LIGASE
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:20:30Z
+
+[Term]
+id: ID:0000357
+name: CYSARC
+is_a: ID:0000009 ! Miscellaneous
+created_by: desouza
+creation_date: 2009-12-02T10:20:30Z
+
+[Term]
+id: ID:0000358
+name: Cornase
+is_a: ID:0000392 ! RNA Metabolism Enzyme (other)
+created_by: desouza
+creation_date: 2009-12-02T10:20:30Z
+
+[Term]
+id: ID:0000359
+name: GDSL
+is_a: ID:0000009 ! Miscellaneous
+created_by: desouza
+creation_date: 2009-12-02T10:20:30Z
+
+[Term]
+id: ID:0000360
+name: GlobuloviralATPase
+is_a: ID:0000009 ! Miscellaneous
+created_by: desouza
+creation_date: 2009-12-02T10:20:30Z
+
+[Term]
+id: ID:0000361
+name: HNH
+is_a: ID:0000598 ! Transposases and Nucleases
+created_by: desouza
+creation_date: 2009-12-02T10:20:30Z
+
+[Term]
+id: ID:0000362
+name: IPP
+is_a: ID:0000009 ! Miscellaneous
+created_by: desouza
+creation_date: 2009-12-02T10:20:30Z
+
+[Term]
+id: ID:0000363
+name: LIPOX
+is_a: ID:0000009 ! Miscellaneous
+created_by: desouza
+creation_date: 2009-12-02T10:20:30Z
+
+[Term]
+id: ID:0000364
+name: MULE-TRANSPOSASE
+is_a: ID:0000598 ! Transposases and Nucleases
+created_by: desouza
+creation_date: 2009-12-02T10:20:30Z
+
+[Term]
+id: ID:0000365
+name: MglB
+is_a: ID:0000025 ! GTPase Signaling
+created_by: desouza
+creation_date: 2009-12-02T10:20:30Z
+
+[Term]
+id: ID:0000366
+name: PAP2
+is_a: ID:0000009 ! Miscellaneous
+created_by: desouza
+creation_date: 2009-12-02T10:20:30Z
+
+[Term]
+id: ID:0000367
+name: RADICAL-SAM
+is_a: ID:0000009 ! Miscellaneous
+created_by: desouza
+creation_date: 2009-12-02T10:20:30Z
+
+[Term]
+id: ID:0000368
+name: RHOD-CDC25
+is_a: ID:0000009 ! Miscellaneous
+created_by: desouza
+creation_date: 2009-12-02T10:20:30Z
+
+[Term]
+id: ID:0000369
+name: TIGGER-TRANSPOSASE
+is_a: ID:0000598 ! Transposases and Nucleases
+created_by: desouza
+creation_date: 2009-12-02T10:20:30Z
+
+[Term]
+id: ID:0000370
+name: TLD
+is_a: ID:0000009 ! Miscellaneous
+created_by: desouza
+creation_date: 2009-12-02T10:20:30Z
+
+[Term]
+id: ID:0000371
+name: YAEB
+is_a: ID:0000009 ! Miscellaneous
+created_by: desouza
+creation_date: 2009-12-02T10:20:30Z
+
+[Term]
+id: ID:0000372
+name: sGTP-MglA
+is_a: ID:0000009 ! Miscellaneous
+created_by: desouza
+creation_date: 2009-12-02T10:20:30Z
+
+[Term]
+id: ID:0000373
+name: Osv5212R
+is_a: ID:0000045 ! Viral Specific Uncharacterized Domain
+created_by: desouza
+creation_date: 2009-12-02T10:21:06Z
+
+[Term]
+id: ID:0000374
+name: PBCV1A127R
+is_a: ID:0000045 ! Viral Specific Uncharacterized Domain
+created_by: desouza
+creation_date: 2009-12-02T10:21:06Z
+
+[Term]
+id: ID:0000375
+name: PBCV1A310L
+is_a: ID:0000045 ! Viral Specific Uncharacterized Domain
+created_by: desouza
+creation_date: 2009-12-02T10:21:06Z
+
+[Term]
+id: ID:0000376
+name: PBCV1A312L
+is_a: ID:0000045 ! Viral Specific Uncharacterized Domain
+created_by: desouza
+creation_date: 2009-12-02T10:21:06Z
+
+[Term]
+id: ID:0000377
+name: PBCV1A342L
+is_a: ID:0000045 ! Viral Specific Uncharacterized Domain
+created_by: desouza
+creation_date: 2009-12-02T10:21:06Z
+
+[Term]
+id: ID:0000378
+name: PBCV1A349L
+is_a: ID:0000045 ! Viral Specific Uncharacterized Domain
+created_by: desouza
+creation_date: 2009-12-02T10:21:06Z
+
+[Term]
+id: ID:0000379
+name: PBCV1A400R
+is_a: ID:0000045 ! Viral Specific Uncharacterized Domain
+created_by: desouza
+creation_date: 2009-12-02T10:21:06Z
+
+[Term]
+id: ID:0000380
+name: PBCV1A407L
+is_a: ID:0000045 ! Viral Specific Uncharacterized Domain
+created_by: desouza
+creation_date: 2009-12-02T10:21:06Z
+
+[Term]
+id: ID:0000381
+name: PBCV1A408L
+is_a: ID:0000045 ! Viral Specific Uncharacterized Domain
+created_by: desouza
+creation_date: 2009-12-02T10:21:06Z
+
+[Term]
+id: ID:0000382
+name: PBCV1A414R
+is_a: ID:0000045 ! Viral Specific Uncharacterized Domain
+created_by: desouza
+creation_date: 2009-12-02T10:21:06Z
+
+[Term]
+id: ID:0000383
+name: PBCV1A432R
+is_a: ID:0000045 ! Viral Specific Uncharacterized Domain
+created_by: desouza
+creation_date: 2009-12-02T10:21:06Z
+
+[Term]
+id: ID:0000384
+name: PBCV1A439R
+is_a: ID:0000045 ! Viral Specific Uncharacterized Domain
+created_by: desouza
+creation_date: 2009-12-02T10:21:06Z
+
+[Term]
+id: ID:0000385
+name: PBCV1A470R
+is_a: ID:0000045 ! Viral Specific Uncharacterized Domain
+created_by: desouza
+creation_date: 2009-12-02T10:21:06Z
+
+[Term]
+id: ID:0000386
+name: PBCV1A485R
+is_a: ID:0000045 ! Viral Specific Uncharacterized Domain
+created_by: desouza
+creation_date: 2009-12-02T10:21:06Z
+
+[Term]
+id: ID:0000387
+name: PBCV1A488R
+is_a: ID:0000045 ! Viral Specific Uncharacterized Domain
+created_by: desouza
+creation_date: 2009-12-02T10:21:06Z
+
+[Term]
+id: ID:0000388
+name: PBCV1A493L
+is_a: ID:0000045 ! Viral Specific Uncharacterized Domain
+created_by: desouza
+creation_date: 2009-12-02T10:21:06Z
+
+[Term]
+id: ID:0000389
+name: PBCV1A527R
+is_a: ID:0000045 ! Viral Specific Uncharacterized Domain
+created_by: desouza
+creation_date: 2009-12-02T10:21:06Z
+
+[Term]
+id: ID:0000390
+name: PBCV1A602L
+is_a: ID:0000045 ! Viral Specific Uncharacterized Domain
+created_by: desouza
+creation_date: 2009-12-02T10:21:06Z
+
+[Term]
+id: ID:0000391
+name: PBCV1A644R
+is_a: ID:0000045 ! Viral Specific Uncharacterized Domain
+created_by: desouza
+creation_date: 2009-12-02T10:21:06Z
+
+[Term]
+id: ID:0000392
+name: RNA Metabolism Enzyme (other)
+is_a: ID:0000046 ! RNA Metabolism Enzyme
+created_by: desouza
+creation_date: 2009-12-02T10:21:57Z
+
+[Term]
+id: ID:0000393
+name: AQSYN
+is_a: ID:0000392 ! RNA Metabolism Enzyme (other)
+created_by: desouza
+creation_date: 2009-12-02T10:22:55Z
+
+[Term]
+id: ID:0000394
+name: Alba
+is_a: ID:0000392 ! RNA Metabolism Enzyme (other)
+created_by: desouza
+creation_date: 2009-12-02T10:22:55Z
+
+[Term]
+id: ID:0000395
+name: DEAM
+is_a: ID:0000392 ! RNA Metabolism Enzyme (other)
+created_by: desouza
+creation_date: 2009-12-02T10:22:55Z
+
+[Term]
+id: ID:0000396
+name: HAM
+is_a: ID:0000392 ! RNA Metabolism Enzyme (other)
+created_by: desouza
+creation_date: 2009-12-02T10:22:55Z
+
+[Term]
+id: ID:0000397
+name: LigT
+is_a: ID:0000392 ! RNA Metabolism Enzyme (other)
+created_by: desouza
+creation_date: 2009-12-02T10:22:55Z
+
+[Term]
+id: ID:0000398
+name: MAF
+is_a: ID:0000392 ! RNA Metabolism Enzyme (other)
+created_by: desouza
+creation_date: 2009-12-02T10:22:55Z
+
+[Term]
+id: ID:0000399
+name: METHYLASE
+is_a: ID:0000392 ! RNA Metabolism Enzyme (other)
+created_by: desouza
+creation_date: 2009-12-02T10:22:55Z
+
+[Term]
+id: ID:0000400
+name: PSYN
+is_a: ID:0000392 ! RNA Metabolism Enzyme (other)
+created_by: desouza
+creation_date: 2009-12-02T10:22:55Z
+
+[Term]
+id: ID:0000401
+name: RDRP
+is_a: ID:0000392 ! RNA Metabolism Enzyme (other)
+created_by: desouza
+creation_date: 2009-12-02T10:22:55Z
+
+[Term]
+id: ID:0000402
+name: RNA-Helicase
+is_a: ID:0000392 ! RNA Metabolism Enzyme (other)
+created_by: desouza
+creation_date: 2009-12-02T10:22:55Z
+
+[Term]
+id: ID:0000403
+name: SAM-methylase
+is_a: ID:0000392 ! RNA Metabolism Enzyme (other)
+created_by: desouza
+creation_date: 2009-12-02T10:22:55Z
+
+[Term]
+id: ID:0000404
+name: SPOUT
+is_a: ID:0000392 ! RNA Metabolism Enzyme (other)
+created_by: desouza
+creation_date: 2009-12-02T10:22:55Z
+
+[Term]
+id: ID:0000405
+name: TRUA
+is_a: ID:0000392 ! RNA Metabolism Enzyme (other)
+created_by: desouza
+creation_date: 2009-12-02T10:22:55Z
+
+[Term]
+id: ID:0000406
+name: 35exo
+is_a: ID:0000067 ! RNA Nucleases
+created_by: desouza
+creation_date: 2009-12-02T10:23:13Z
+
+[Term]
+id: ID:0000407
+name: CCR4
+is_a: ID:0000067 ! RNA Nucleases
+created_by: desouza
+creation_date: 2009-12-02T10:23:13Z
+
+[Term]
+id: ID:0000408
+name: HDRnase
+is_a: ID:0000067 ! RNA Nucleases
+created_by: desouza
+creation_date: 2009-12-02T10:23:13Z
+
+[Term]
+id: ID:0000409
+name: Mbetalac
+is_a: ID:0000067 ! RNA Nucleases
+created_by: desouza
+creation_date: 2009-12-02T10:23:13Z
+
+[Term]
+id: ID:0000410
+name: PIN
+is_a: ID:0000067 ! RNA Nucleases
+created_by: desouza
+creation_date: 2009-12-02T10:23:13Z
+
+[Term]
+id: ID:0000411
+name: RNASE-EG
+is_a: ID:0000067 ! RNA Nucleases
+created_by: desouza
+creation_date: 2009-12-02T10:23:13Z
+
+[Term]
+id: ID:0000412
+name: RNASEII
+is_a: ID:0000067 ! RNA Nucleases
+created_by: desouza
+creation_date: 2009-12-02T10:23:13Z
+
+[Term]
+id: ID:0000413
+name: Rat1-Kem
+is_a: ID:0000067 ! RNA Nucleases
+created_by: desouza
+creation_date: 2009-12-02T10:23:13Z
+
+[Term]
+id: ID:0000414
+name: RnaseA
+is_a: ID:0000067 ! RNA Nucleases
+created_by: desouza
+creation_date: 2009-12-02T10:23:13Z
+
+[Term]
+id: ID:0000415
+name: RnaseH
+is_a: ID:0000067 ! RNA Nucleases
+created_by: desouza
+creation_date: 2009-12-02T10:23:13Z
+
+[Term]
+id: ID:0000416
+name: RnaseHII
+is_a: ID:0000067 ! RNA Nucleases
+created_by: desouza
+creation_date: 2009-12-02T10:23:13Z
+
+[Term]
+id: ID:0000417
+name: RnaseIII
+is_a: ID:0000067 ! RNA Nucleases
+created_by: desouza
+creation_date: 2009-12-02T10:23:13Z
+
+[Term]
+id: ID:0000418
+name: RnaseP
+is_a: ID:0000067 ! RNA Nucleases
+created_by: desouza
+creation_date: 2009-12-02T10:23:13Z
+
+[Term]
+id: ID:0000419
+name: RnasePH
+is_a: ID:0000067 ! RNA Nucleases
+created_by: desouza
+creation_date: 2009-12-02T10:23:13Z
+
+[Term]
+id: ID:0000420
+name: RnaseT2
+is_a: ID:0000067 ! RNA Nucleases
+created_by: desouza
+creation_date: 2009-12-02T10:23:13Z
+
+[Term]
+id: ID:0000421
+name: Thermonuclease
+is_a: ID:0000067 ! RNA Nucleases
+created_by: desouza
+creation_date: 2009-12-02T10:23:13Z
+
+[Term]
+id: ID:0000422
+name: tRNA-Endonuclease
+is_a: ID:0000067 ! RNA Nucleases
+created_by: desouza
+creation_date: 2009-12-02T10:23:13Z
+
+[Term]
+id: ID:0000423
+name: ASCH
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000424
+name: CCCH
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000425
+name: DHH
+is_a: ID:0000023 ! CnMP phosphodiesterase
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000426
+name: A18
+is_a: ID:0000017 ! Replication/Repair
+is_a: ID:0000049 ! Helicase
+is_a: ID:0000326 ! Chromatin Remodelling Enzyme
+created_by: desouza
+creation_date: 2009-12-03T05:31:46Z
+
+[Term]
+id: ID:0000427
+name: DHHC-ZNF
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000428
+name: DSRBD
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000429
+name: EMAP
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000430
+name: EVE
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000431
+name: FDF
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000432
+name: GPATCH
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000433
+name: HxxxH
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000434
+name: IMP
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000435
+name: KH
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000436
+name: KOW
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000437
+name: LittleFinger
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000438
+name: NIC
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000439
+name: NYN
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000440
+name: Nanos
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000441
+name: PAZ
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000442
+name: PELOTA
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000443
+name: PIWI
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000444
+name: PRC
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000445
+name: PUA
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000446
+name: PUM
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000447
+name: PWI
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000448
+name: R3H
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000449
+name: RRM
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000450
+name: RhoN
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000451
+name: S1
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000452
+name: S1COLD
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000453
+name: S4
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000454
+name: SM
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000455
+name: SMPB
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000456
+name: SUA
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000457
+name: SUI
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000458
+name: SWAP
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000459
+name: Suz
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000460
+name: SuzC
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000461
+name: TGS
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000462
+name: THUMP
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000463
+name: TRAM
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000464
+name: TRANSLIN
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000465
+name: YBAK
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000466
+name: ZNKNUCK
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000467
+name: ZNR
+is_a: ID:0000047 ! RBD
+created_by: desouza
+creation_date: 2009-12-02T10:30:31Z
+
+[Term]
+id: ID:0000468
+name: BCL2
+comment: Don't iterate in prokaryotes.
+is_a: ID:0000019 ! Accessories of apoptosis pathways
+created_by: desouza
+creation_date: 2009-12-02T10:31:13Z
+
+[Term]
+id: ID:0000469
+name: BIR
+is_a: ID:0000019 ! Accessories of apoptosis pathways
+created_by: desouza
+creation_date: 2009-12-02T10:31:13Z
+
+[Term]
+id: ID:0000470
+name: CARD
+is_a: ID:0000019 ! Accessories of apoptosis pathways
+created_by: desouza
+creation_date: 2009-12-02T10:31:13Z
+
+[Term]
+id: ID:0000471
+name: CART
+is_a: ID:0000019 ! Accessories of apoptosis pathways
+created_by: desouza
+creation_date: 2009-12-02T10:31:13Z
+
+[Term]
+id: ID:0000472
+name: DEATH
+is_a: ID:0000019 ! Accessories of apoptosis pathways
+created_by: desouza
+creation_date: 2009-12-02T10:31:13Z
+
+[Term]
+id: ID:0000473
+name: PYRIN
+is_a: ID:0000019 ! Accessories of apoptosis pathways
+created_by: desouza
+creation_date: 2009-12-02T10:31:13Z
+
+[Term]
+id: ID:0000474
+name: TIR
+is_a: ID:0000019 ! Accessories of apoptosis pathways
+created_by: desouza
+creation_date: 2009-12-02T10:31:13Z
+
+[Term]
+id: ID:0000475
+name: ACYC
+is_a: ID:0000020 ! CNMP dependent Signaling
+created_by: desouza
+creation_date: 2009-12-02T10:31:43Z
+
+[Term]
+id: ID:0000476
+name: D6
+is_a: ID:0000049 ! Helicase
+is_a: ID:0000326 ! Chromatin Remodelling Enzyme
+created_by: desouza
+creation_date: 2009-12-03T05:33:27Z
+
+[Term]
+id: ID:0000477
+name: CALC
+is_a: ID:0000020 ! CNMP dependent Signaling
+created_by: desouza
+creation_date: 2009-12-02T10:31:43Z
+
+[Term]
+id: ID:0000478
+name: CNMP
+is_a: ID:0000020 ! CNMP dependent Signaling
+created_by: desouza
+creation_date: 2009-12-02T10:31:43Z
+
+[Term]
+id: ID:0000479
+name: CyaA
+is_a: ID:0000020 ! CNMP dependent Signaling
+created_by: desouza
+creation_date: 2009-12-02T10:31:43Z
+
+[Term]
+id: ID:0000480
+name: C2
+is_a: ID:0000021 ! Calcium Signaling
+is_a: ID:0000923 ! Lipid Binding
+created_by: desouza
+creation_date: 2009-12-02T10:32:04Z
+
+[Term]
+id: ID:0000481
+name: EFHAND
+is_a: ID:0000021 ! Calcium Signaling
+created_by: desouza
+creation_date: 2009-12-02T10:32:04Z
+
+[Term]
+id: ID:0000482
+name: APATPase
+is_a: ID:0000022 ! Caspases and APATPase and STAND and Apoptotic
+created_by: desouza
+creation_date: 2009-12-02T10:32:44Z
+
+[Term]
+id: ID:0000483
+name: CASPASE
+is_a: ID:0000022 ! Caspases and APATPase and STAND and Apoptotic
+created_by: desouza
+creation_date: 2009-12-02T10:32:44Z
+
+[Term]
+id: ID:0000484
+name: GlycosTransII
+is_a: ID:0000040 ! Carbohydrate metabolism
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: desouza
+creation_date: 2009-12-03T05:34:53Z
+
+[Term]
+id: ID:0000485
+name: PAIREDC-HTH
+is_a: ID:0000008 ! Helix Turn Helix (HTH)
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-03T05:37:08Z
+
+[Term]
+id: ID:0000486
+name: GINGIPAIN
+is_a: ID:0000022 ! Caspases and APATPase and STAND and Apoptotic
+created_by: desouza
+creation_date: 2009-12-02T10:32:44Z
+
+[Term]
+id: ID:0000487
+name: MNS
+is_a: ID:0000022 ! Caspases and APATPase and STAND and Apoptotic
+created_by: desouza
+creation_date: 2009-12-02T10:32:44Z
+
+[Term]
+id: ID:0000488
+name: MalT
+is_a: ID:0000022 ! Caspases and APATPase and STAND and Apoptotic
+created_by: desouza
+creation_date: 2009-12-02T10:32:44Z
+
+[Term]
+id: ID:0000489
+name: NACHT
+is_a: ID:0000022 ! Caspases and APATPase and STAND and Apoptotic
+created_by: desouza
+creation_date: 2009-12-02T10:32:44Z
+
+[Term]
+id: ID:0000490
+name: SWACOS
+is_a: ID:0000022 ! Caspases and APATPase and STAND and Apoptotic
+created_by: desouza
+creation_date: 2009-12-02T10:32:44Z
+
+[Term]
+id: ID:0000491
+name: RpA
+is_a: ID:0000017 ! Replication/Repair
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-03T05:40:01Z
+
+[Term]
+id: ID:0000492
+name: HDPDE
+is_a: ID:0000023 ! CnMP phosphodiesterase
+created_by: desouza
+creation_date: 2009-12-02T10:34:48Z
+
+[Term]
+id: ID:0000493
+name: AlphaE
+def: "Alpha-helical domain with a conserved glutamate." [PMID:20023723 "Amidoligases with ATP-grasp, glutamine synthetase-like and acetyltransferase-like domains: synthesis of novel metabolites and peptide modifications of proteins.", XX:<new dbxref>]
+comment: A poorly characterized alpha helical domain containing a highly conserved ER signature and typically\nfound as a tandem duplication. Contextual analysis suggests that it functions in a distinct peptide\nsynthesis/modification system comprising of a transglutaminase, the Anbu-like peptidase of the NTN-hydrolase\nsuperfamily, an inactive circularly permuted ATP-grasp and a transglutaminase fused N-terminal to a circularly\npermuted member of the COOH-NH2 ligase/glutamine synthetase superfamily.
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T04:49:33Z
+
+[Term]
+id: ID:0000494
+name: EAL
+is_a: ID:0000024 ! Diguanylate Binding Domains
+created_by: desouza
+creation_date: 2009-12-02T10:35:23Z
+
+[Term]
+id: ID:0000495
+name: GGDEF
+is_a: ID:0000024 ! Diguanylate Binding Domains
+created_by: desouza
+creation_date: 2009-12-02T10:35:23Z
+
+[Term]
+id: ID:0000496
+name: HDGYP
+is_a: ID:0000024 ! Diguanylate Binding Domains
+created_by: desouza
+creation_date: 2009-12-02T10:35:23Z
+
+[Term]
+id: ID:0000497
+name: FERM
+is_a: ID:0000025 ! GTPase Signaling
+created_by: desouza
+creation_date: 2009-12-02T10:35:50Z
+
+[Term]
+id: ID:0000498
+name: GALPHA
+is_a: ID:0000025 ! GTPase Signaling
+created_by: desouza
+creation_date: 2009-12-02T10:35:50Z
+
+[Term]
+id: ID:0000499
+name: RA
+is_a: ID:0000025 ! GTPase Signaling
+created_by: desouza
+creation_date: 2009-12-02T10:35:50Z
+
+[Term]
+id: ID:0000500
+name: RGS
+is_a: ID:0000025 ! GTPase Signaling
+created_by: desouza
+creation_date: 2009-12-02T10:35:50Z
+
+[Term]
+id: ID:0000501
+name: SEPTIN
+is_a: ID:0000025 ! GTPase Signaling
+created_by: desouza
+creation_date: 2009-12-02T10:35:50Z
+
+[Term]
+id: ID:0000502
+name: TBC
+is_a: ID:0000025 ! GTPase Signaling
+created_by: desouza
+creation_date: 2009-12-02T10:35:50Z
+
+[Term]
+id: ID:0000503
+name: sGTP
+is_a: ID:0000025 ! GTPase Signaling
+created_by: desouza
+creation_date: 2009-12-02T10:35:50Z
+
+[Term]
+id: ID:0000504
+name: CytC
+is_a: ID:0000026 ! Heme and iron sensors
+created_by: desouza
+creation_date: 2009-12-02T10:36:44Z
+
+[Term]
+id: ID:0000505
+name: Ferredoxin-RRM
+is_a: ID:0000026 ! Heme and iron sensors
+created_by: desouza
+creation_date: 2009-12-02T10:36:44Z
+
+[Term]
+id: ID:0000506
+name: Ferredoxin-betagrasp
+is_a: ID:0000026 ! Heme and iron sensors
+created_by: desouza
+creation_date: 2009-12-02T10:36:44Z
+
+[Term]
+id: ID:0000507
+name: Ferretin
+is_a: ID:0000026 ! Heme and iron sensors
+created_by: desouza
+creation_date: 2009-12-02T10:36:44Z
+
+[Term]
+id: ID:0000508
+name: Globin
+is_a: ID:0000026 ! Heme and iron sensors
+created_by: desouza
+creation_date: 2009-12-02T10:36:44Z
+
+[Term]
+id: ID:0000509
+name: SOUL
+is_a: ID:0000026 ! Heme and iron sensors
+created_by: desouza
+creation_date: 2009-12-02T10:36:44Z
+
+[Term]
+id: ID:0000510
+name: DAGKIN
+is_a: ID:0000028 ! Lipid signaling
+created_by: desouza
+creation_date: 2009-12-02T10:37:59Z
+
+[Term]
+id: ID:0000511
+name: PLC
+is_a: ID:0000028 ! Lipid signaling
+created_by: desouza
+creation_date: 2009-12-02T10:37:59Z
+
+[Term]
+id: ID:0000512
+name: PhospholipaseD
+is_a: ID:0000028 ! Lipid signaling
+created_by: desouza
+creation_date: 2009-12-02T10:37:59Z
+
+[Term]
+id: ID:0000513
+name: pi3KINASE
+is_a: ID:0000028 ! Lipid signaling
+created_by: desouza
+creation_date: 2009-12-02T10:37:59Z
+
+[Term]
+id: ID:0000514
+name: CheB-Methylesterase
+is_a: ID:0000029 ! Methyl accepting chemotaxis
+created_by: desouza
+creation_date: 2009-12-02T10:38:34Z
+
+[Term]
+id: ID:0000515
+name: CheD
+is_a: ID:0000029 ! Methyl accepting chemotaxis
+created_by: desouza
+creation_date: 2009-12-02T10:38:34Z
+
+[Term]
+id: ID:0000516
+name: CheR-Methylase
+is_a: ID:0000029 ! Methyl accepting chemotaxis
+created_by: desouza
+creation_date: 2009-12-02T10:38:34Z
+
+[Term]
+id: ID:0000517
+name: CheRN-Alpha
+is_a: ID:0000029 ! Methyl accepting chemotaxis
+created_by: desouza
+creation_date: 2009-12-02T10:38:34Z
+
+[Term]
+id: ID:0000518
+name: MA
+is_a: ID:0000029 ! Methyl accepting chemotaxis
+created_by: desouza
+creation_date: 2009-12-02T10:38:34Z
+
+[Term]
+id: ID:0000519
+name: MCP-N
+is_a: ID:0000029 ! Methyl accepting chemotaxis
+created_by: desouza
+creation_date: 2009-12-02T10:38:34Z
+
+[Term]
+id: ID:0000520
+name: 5TMR-LYT
+is_a: ID:0000031 ! Transmembrane Receptors
+created_by: desouza
+creation_date: 2009-12-02T10:39:41Z
+
+[Term]
+id: ID:0000521
+name: 7TMEUK
+is_a: ID:0000031 ! Transmembrane Receptors
+created_by: desouza
+creation_date: 2009-12-02T10:39:41Z
+
+[Term]
+id: ID:0000522
+name: 7TMR-DISM
+is_a: ID:0000031 ! Transmembrane Receptors
+created_by: desouza
+creation_date: 2009-12-02T10:39:41Z
+
+[Term]
+id: ID:0000523
+name: 7TMR-HD
+is_a: ID:0000031 ! Transmembrane Receptors
+created_by: desouza
+creation_date: 2009-12-02T10:39:41Z
+
+[Term]
+id: ID:0000524
+name: 8TMR-UT
+is_a: ID:0000031 ! Transmembrane Receptors
+created_by: desouza
+creation_date: 2009-12-02T10:39:41Z
+
+[Term]
+id: ID:0000525
+name: MHYT
+is_a: ID:0000031 ! Transmembrane Receptors
+created_by: desouza
+creation_date: 2009-12-02T10:39:41Z
+
+[Term]
+id: ID:0000526
+name: ASTACIN
+is_a: ID:0000032 ! Miscellaneous Signaling Pathways (proteases)
+created_by: desouza
+creation_date: 2009-12-02T10:41:06Z
+
+[Term]
+id: ID:0000527
+name: Carboxypeptidase
+is_a: ID:0000032 ! Miscellaneous Signaling Pathways (proteases)
+created_by: desouza
+creation_date: 2009-12-02T10:41:06Z
+
+[Term]
+id: ID:0000528
+name: DISIN
+is_a: ID:0000032 ! Miscellaneous Signaling Pathways (proteases)
+created_by: desouza
+creation_date: 2009-12-02T10:41:06Z
+
+[Term]
+id: ID:0000529
+name: HINT
+is_a: ID:0000032 ! Miscellaneous Signaling Pathways (proteases)
+created_by: desouza
+creation_date: 2009-12-02T10:41:06Z
+
+[Term]
+id: ID:0000530
+name: RHOMBOID
+is_a: ID:0000032 ! Miscellaneous Signaling Pathways (proteases)
+created_by: desouza
+creation_date: 2009-12-02T10:41:06Z
+
+[Term]
+id: ID:0000531
+name: S2P
+is_a: ID:0000032 ! Miscellaneous Signaling Pathways (proteases)
+created_by: desouza
+creation_date: 2009-12-02T10:41:06Z
+
+[Term]
+id: ID:0000532
+name: SERAprotease
+is_a: ID:0000032 ! Miscellaneous Signaling Pathways (proteases)
+created_by: desouza
+creation_date: 2009-12-02T10:41:06Z
+
+[Term]
+id: ID:0000533
+name: TRANSGLUTAMINASE
+is_a: ID:0000018 ! ubiquitin
+is_a: ID:0000032 ! Miscellaneous Signaling Pathways (proteases)
+created_by: desouza
+creation_date: 2009-12-02T10:41:06Z
+
+[Term]
+id: ID:0000534
+name: SbcC
+is_a: ID:0000017 ! Replication/Repair
+is_a: ID:0000326 ! Chromatin Remodelling Enzyme
+created_by: desouza
+creation_date: 2009-12-03T05:44:16Z
+
+[Term]
+id: ID:0000535
+name: TRYPSERINEPROTEASE
+is_a: ID:0000032 ! Miscellaneous Signaling Pathways (proteases)
+created_by: desouza
+creation_date: 2009-12-02T10:41:06Z
+
+[Term]
+id: ID:0000536
+name: L11-HTH
+comment: Ask Vivek whether is really a transcription factor or an elongation factor.
+is_a: ID:0000069 ! L11
+created_by: desouza
+creation_date: 2009-12-02T10:41:40Z
+
+[Term]
+id: ID:0000537
+name: S18-HTH
+is_a: ID:0000069 ! L11
+created_by: desouza
+creation_date: 2009-12-02T10:41:40Z
+
+[Term]
+id: ID:0000538
+name: IF2-HTH
+is_a: ID:0000043 ! MerR
+created_by: desouza
+creation_date: 2009-12-02T10:42:49Z
+
+[Term]
+id: ID:0000539
+name: CDC6-HTH
+is_a: ID:0000066 ! Winged HTH (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:43:29Z
+
+[Term]
+id: ID:0000540
+name: ISOFLAVOMETHYLASE-HTH
+is_a: ID:0000066 ! Winged HTH (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:43:29Z
+
+[Term]
+id: ID:0000541
+name: METPEPTIDASE-HTH
+is_a: ID:0000066 ! Winged HTH (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:43:29Z
+
+[Term]
+id: ID:0000542
+name: P4PRIMASE-HTH
+is_a: ID:0000066 ! Winged HTH (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:43:29Z
+
+[Term]
+id: ID:0000543
+name: RPA32-HTH
+is_a: ID:0000066 ! Winged HTH (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:43:29Z
+
+[Term]
+id: ID:0000544
+name: SelB-HTH
+is_a: ID:0000066 ! Winged HTH (miscellaneous)
+created_by: desouza
+creation_date: 2009-12-02T10:43:29Z
+
+[Term]
+id: ID:0000545
+name: PTS pathway
+is_a: ID:0000034 ! Phospho Transfer System
+created_by: desouza
+creation_date: 2009-12-02T10:44:09Z
+
+[Term]
+id: ID:0000546
+name: EII-GUT
+is_a: ID:0000545 ! PTS pathway
+created_by: desouza
+creation_date: 2009-12-02T10:44:56Z
+
+[Term]
+id: ID:0000547
+name: EII-Sor
+is_a: ID:0000545 ! PTS pathway
+created_by: desouza
+creation_date: 2009-12-02T10:44:56Z
+
+[Term]
+id: ID:0000548
+name: EIIA-man
+is_a: ID:0000545 ! PTS pathway
+created_by: desouza
+creation_date: 2009-12-02T10:44:56Z
+
+[Term]
+id: ID:0000549
+name: EIIBC-GUT-C
+is_a: ID:0000545 ! PTS pathway
+created_by: desouza
+creation_date: 2009-12-02T10:44:56Z
+
+[Term]
+id: ID:0000550
+name: EIIBC-GUT-N
+is_a: ID:0000545 ! PTS pathway
+created_by: desouza
+creation_date: 2009-12-02T10:44:56Z
+
+[Term]
+id: ID:0000551
+name: EIID-AGA
+is_a: ID:0000545 ! PTS pathway
+created_by: desouza
+creation_date: 2009-12-02T10:44:56Z
+
+[Term]
+id: ID:0000552
+name: Hpr-Kinase-C
+is_a: ID:0000545 ! PTS pathway
+created_by: desouza
+creation_date: 2009-12-02T10:44:56Z
+
+[Term]
+id: ID:0000553
+name: Hpr-Kinase-N
+is_a: ID:0000545 ! PTS pathway
+created_by: desouza
+creation_date: 2009-12-02T10:44:56Z
+
+[Term]
+id: ID:0000554
+name: PEP-utilisers
+is_a: ID:0000545 ! PTS pathway
+created_by: desouza
+creation_date: 2009-12-02T10:44:56Z
+
+[Term]
+id: ID:0000555
+name: PEP-utilisers-C
+is_a: ID:0000545 ! PTS pathway
+created_by: desouza
+creation_date: 2009-12-02T10:44:56Z
+
+[Term]
+id: ID:0000556
+name: PEP-utilisers-N
+is_a: ID:0000545 ! PTS pathway
+created_by: desouza
+creation_date: 2009-12-02T10:44:56Z
+
+[Term]
+id: ID:0000557
+name: PRD
+is_a: ID:0000545 ! PTS pathway
+created_by: desouza
+creation_date: 2009-12-02T10:44:56Z
+
+[Term]
+id: ID:0000558
+name: PTS-HPr
+is_a: ID:0000545 ! PTS pathway
+created_by: desouza
+creation_date: 2009-12-02T10:44:56Z
+
+[Term]
+id: ID:0000559
+name: PTSEIIA1
+is_a: ID:0000545 ! PTS pathway
+created_by: desouza
+creation_date: 2009-12-02T10:44:56Z
+
+[Term]
+id: ID:0000560
+name: PTSEIIA2
+is_a: ID:0000545 ! PTS pathway
+created_by: desouza
+creation_date: 2009-12-02T10:44:56Z
+
+[Term]
+id: ID:0000561
+name: PTSEIIB
+is_a: ID:0000545 ! PTS pathway
+created_by: desouza
+creation_date: 2009-12-02T10:44:56Z
+
+[Term]
+id: ID:0000562
+name: PTSEIIC
+is_a: ID:0000545 ! PTS pathway
+created_by: desouza
+creation_date: 2009-12-02T10:44:56Z
+
+[Term]
+id: ID:0000563
+name: PTSIIA-gutA
+is_a: ID:0000545 ! PTS pathway
+created_by: desouza
+creation_date: 2009-12-02T10:44:56Z
+
+[Term]
+id: ID:0000564
+name: PTSIIB
+is_a: ID:0000545 ! PTS pathway
+created_by: desouza
+creation_date: 2009-12-02T10:44:56Z
+
+[Term]
+id: ID:0000565
+name: PTSIIB-fruc
+is_a: ID:0000545 ! PTS pathway
+created_by: desouza
+creation_date: 2009-12-02T10:44:56Z
+
+[Term]
+id: ID:0000566
+name: PTSIIB-sorb
+is_a: ID:0000545 ! PTS pathway
+created_by: desouza
+creation_date: 2009-12-02T10:44:56Z
+
+[Term]
+id: ID:0000567
+name: DSP
+is_a: ID:0000075 ! Phosphatase
+created_by: desouza
+creation_date: 2009-12-02T10:46:09Z
+
+[Term]
+id: ID:0000568
+name: PP2A
+is_a: ID:0000075 ! Phosphatase
+created_by: desouza
+creation_date: 2009-12-02T10:46:09Z
+
+[Term]
+id: ID:0000569
+name: BBOX
+is_a: ID:0000036 ! Protein-protein interaction domains
+created_by: desouza
+creation_date: 2009-12-02T10:47:36Z
+
+[Term]
+id: ID:0000570
+name: EVH1
+is_a: ID:0000036 ! Protein-protein interaction domains
+created_by: desouza
+creation_date: 2009-12-02T10:47:36Z
+
+[Term]
+id: ID:0000571
+name: MATH
+is_a: ID:0000018 ! ubiquitin
+is_a: ID:0000036 ! Protein-protein interaction domains
+created_by: desouza
+creation_date: 2009-12-02T10:47:36Z
+
+[Term]
+id: ID:0000572
+name: TUDOR
+is_a: ID:0000047 ! RBD
+is_a: ID:0000062 ! Modified peptide binding
+created_by: desouza
+creation_date: 2009-12-03T05:46:12Z
+
+[Term]
+id: ID:0000573
+name: PB1
+is_a: ID:0000036 ! Protein-protein interaction domains
+created_by: desouza
+creation_date: 2009-12-02T10:47:36Z
+
+[Term]
+id: ID:0000574
+name: PDZ
+is_a: ID:0000036 ! Protein-protein interaction domains
+created_by: desouza
+creation_date: 2009-12-02T10:47:36Z
+
+[Term]
+id: ID:0000575
+name: PH
+is_a: ID:0000923 ! Lipid Binding
+created_by: desouza
+creation_date: 2009-12-02T10:47:36Z
+
+[Term]
+id: ID:0000576
+name: POZ
+is_a: ID:0000036 ! Protein-protein interaction domains
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:47:36Z
+
+[Term]
+id: ID:0000577
+name: AlkB-2OGFEDO
+def: "AlkB -like 2 oxoglutarate FeII dependent oxygenase." [PMID:11276424]
+synonym: "AlkB" RELATED []
+is_a: ID:0000017 ! Replication/Repair
+created_by: lakshmin
+creation_date: 2009-12-08T05:42:08Z
+
+[Term]
+id: ID:0000578
+name: DNAglycofused-2OGFEDO
+comment: This family of 2OGFeDO is fused to DNA glycosylases in chlorophytes.
+xref: PMID:19411852
+is_a: ID:0000017 ! Replication/Repair
+created_by: lakshmin
+creation_date: 2009-12-08T05:55:51Z
+
+[Term]
+id: ID:0000579
+name: SH3
+is_a: ID:0000036 ! Protein-protein interaction domains
+created_by: desouza
+creation_date: 2009-12-02T10:47:36Z
+
+[Term]
+id: ID:0000580
+name: 7TMR-DISMED1
+is_a: ID:0000093 ! Extracellular
+created_by: desouza
+creation_date: 2009-12-02T10:48:11Z
+
+[Term]
+id: ID:0000581
+name: 7TMR-DISMED2
+is_a: ID:0000093 ! Extracellular
+created_by: desouza
+creation_date: 2009-12-02T10:48:11Z
+
+[Term]
+id: ID:0000582
+name: 7TMR-HDED
+is_a: ID:0000093 ! Extracellular
+created_by: desouza
+creation_date: 2009-12-02T10:48:11Z
+
+[Term]
+id: ID:0000583
+name: CACHE
+is_a: ID:0000093 ! Extracellular
+created_by: desouza
+creation_date: 2009-12-02T10:48:11Z
+
+[Term]
+id: ID:0000584
+name: CHASE
+is_a: ID:0000093 ! Extracellular
+created_by: desouza
+creation_date: 2009-12-02T10:48:11Z
+
+[Term]
+id: ID:0000585
+name: CHASE2
+is_a: ID:0000093 ! Extracellular
+created_by: desouza
+creation_date: 2009-12-02T10:48:11Z
+
+[Term]
+id: ID:0000586
+name: CHASE3
+is_a: ID:0000093 ! Extracellular
+created_by: desouza
+creation_date: 2009-12-02T10:48:11Z
+
+[Term]
+id: ID:0000587
+name: CHASE4
+is_a: ID:0000093 ! Extracellular
+created_by: desouza
+creation_date: 2009-12-02T10:48:11Z
+
+[Term]
+id: ID:0000588
+name: NarQ
+is_a: ID:0000093 ! Extracellular
+created_by: desouza
+creation_date: 2009-12-02T10:48:11Z
+
+[Term]
+id: ID:0000589
+name: PASTA
+is_a: ID:0000093 ! Extracellular
+created_by: desouza
+creation_date: 2009-12-02T10:48:11Z
+
+[Term]
+id: ID:0000590
+name: PBPB
+is_a: ID:0000093 ! Extracellular
+created_by: desouza
+creation_date: 2009-12-02T10:48:11Z
+
+[Term]
+id: ID:0000591
+name: PBPI
+is_a: ID:0000093 ! Extracellular
+created_by: desouza
+creation_date: 2009-12-02T10:48:11Z
+
+[Term]
+id: ID:0000592
+name: PBPII
+is_a: ID:0000093 ! Extracellular
+created_by: desouza
+creation_date: 2009-12-02T10:48:11Z
+
+[Term]
+id: ID:0000593
+name: TarH
+is_a: ID:0000093 ! Extracellular
+created_by: desouza
+creation_date: 2009-12-02T10:48:11Z
+
+[Term]
+id: ID:0000594
+name: R3H-2OGFEDO
+def: "2 oxoglutarate Fe II dependent dioxygenase fused to a R3H domain." [PMID:19411852]
+is_a: ID:0000063 ! Chromatin Enzymatic Domain (DNA Modification)
+is_a: ID:0000392 ! RNA Metabolism Enzyme (other)
+created_by: lakshmin
+creation_date: 2009-12-08T06:01:04Z
+
+[Term]
+id: ID:0000595
+name: TETJBP-2OGFEDO
+def: "TET-JBP like thymine and cytosine hydroxylases of 2 oxoglutarate Fe II dependent dioxygenase superfamily." [PMID:19411852]
+is_a: ID:0000063 ! Chromatin Enzymatic Domain (DNA Modification)
+created_by: lakshmin
+creation_date: 2009-12-08T06:03:16Z
+
+[Term]
+id: ID:0000596
+name: APG7N
+def: "N-terminal domain of APG7." [PMID:19089947]
+is_a: ID:0000018 ! ubiquitin
+created_by: lakshmin
+creation_date: 2009-12-08T06:06:28Z
+
+[Term]
+id: ID:0000597
+name: U5C
+def: "UBA5 C-terminal domain." [PMID:19089947]
+is_a: ID:0000018 ! ubiquitin
+created_by: lakshmin
+creation_date: 2009-12-08T06:06:28Z
+
+[Term]
+id: ID:0000598
+name: Transposases and Nucleases
+is_a: ID:0000000 ! Functional Classification
+is_a: ID:0000922 ! Nucleus
+created_by: lakshmin
+creation_date: 2009-12-08T06:39:04Z
+
+[Term]
+id: ID:0000599
+name: Tnpase-TETJBP
+def: "Transposase associated with a TET-JBP-like hydroxylase." [PMID:19411852]
+is_a: ID:0000598 ! Transposases and Nucleases
+created_by: lakshmin
+creation_date: 2009-12-08T06:39:30Z
+
+[Term]
+id: ID:0000600
+name: Tnpalpha-TETJBP
+def: "An alpha-helical domain associated with a transposase system characterized by the presence of a TET-JBP hydroxylase." [PMID:19411852]
+is_a: ID:0000598 ! Transposases and Nucleases
+created_by: lakshmin
+creation_date: 2009-12-08T06:44:11Z
+
+[Term]
+id: ID:0000601
+name: TnpCys-TETJBP
+def: "A cysteine rich domain found in a transposase system containing the TET-JBP family of hydroxylase." [PMID:19411852]
+is_a: ID:0000598 ! Transposases and Nucleases
+created_by: lakshmin
+creation_date: 2009-12-08T06:45:52Z
+
+[Term]
+id: ID:0000602
+name: Secondary metabolism
+is_a: ID:0000000 ! Functional Classification
+created_by: lakshmin
+creation_date: 2009-12-08T06:48:25Z
+
+[Term]
+id: ID:0000603
+name: McbD
+def: "An alpha/beta domain that is predicted to be a dehydratase." [PMID:19089947]
+is_a: ID:0000602 ! Secondary metabolism
+created_by: lakshmin
+creation_date: 2009-12-08T06:48:37Z
+
+[Term]
+id: ID:0000604
+name: JBP1C
+def: "A domain found C-terminal to JBP1 in kinetoplastids." [PMID:19411852]
+comment: It appears to be enzymatic or could be involved in J-base binding. We suspect it could be a glycosyltransferase.
+is_a: ID:0000325 ! Chromatin Enzymatic Domain (other types)
+created_by: lakshmin
+creation_date: 2009-12-08T06:50:55Z
+
+[Term]
+id: ID:0000605
+name: GodD-wHTH
+def: "A winged HTH fused to the N-termini of E1-like proteins involved in peptide antibiotic synthesis." [PMID:19089947]
+is_a: ID:0000044 ! winged HTH
+is_a: ID:0000602 ! Secondary metabolism
+created_by: lakshmin
+creation_date: 2009-12-08T06:53:31Z
+
+[Term]
+id: ID:0000606
+name: Supersecondary structure repeats
+is_a: ID:0000000 ! Functional Classification
+created_by: lakshmin
+creation_date: 2009-12-08T07:00:42Z
+
+[Term]
+id: ID:0000607
+name: LRRCT
+def: "C-terminal cysteine-containing LRR repeat." [PMID:17468760]
+comment: So far only found in the animals.
+is_a: ID:0000606 ! Supersecondary structure repeats
+created_by: lakshmin
+creation_date: 2009-12-08T07:45:23Z
+
+[Term]
+id: ID:0000608
+name: ATPases
+is_a: ID:0000017 ! Replication/Repair
+created_by: lakshmin
+creation_date: 2009-12-08T07:54:00Z
+
+[Term]
+id: ID:0000609
+name: C3RHD
+comment: A sporadic accessory domain that displaces the thumb domain in some TV-pol proteins.
+xref: PMID:18834537
+is_a: ID:0000017 ! Replication/Repair
+created_by: lakshmin
+creation_date: 2009-12-08T07:57:08Z
+
+[Term]
+id: ID:0000610
+name: TVPOLN
+def: "An uncharacterized globular domain present N-terminal to the TV-pol-like predicted primase polymerase." [PMID:18834537]
+is_a: ID:0000017 ! Replication/Repair
+created_by: lakshmin
+creation_date: 2009-12-08T08:09:43Z
+
+[Term]
+id: ID:0000611
+name: TVPOL
+def: "Transposon-Virus polymerase." [PMID:18834537]
+comment: A superfamily A polymerase that is predicted to function as a primpol like the AEP.
+is_a: ID:0000017 ! Replication/Repair
+created_by: lakshmin
+creation_date: 2009-12-08T08:13:30Z
+
+[Term]
+id: ID:0000612
+name: PolI
+def: "Polymerase I palm domain." [PMID:18834537]
+synonym: "Polymerase I palm domain" RELATED []
+is_a: ID:0000017 ! Replication/Repair
+is_a: ID:0000612 ! PolI
+created_by: lakshmin
+creation_date: 2009-12-08T08:22:46Z
+
+[Term]
+id: ID:0000613
+name: T7RNApol
+def: "T7-like RNA polymerase of the Superfamily A polymerase superfamily involved in transcription." [PMID:18834537]
+is_a: ID:0000392 ! RNA Metabolism Enzyme (other)
+created_by: lakshmin
+creation_date: 2009-12-08T09:08:47Z
+
+[Term]
+id: ID:0000614
+name: DnaA-AAA
+def: "DnaA-like AAA+ ATPase." [PMID:15037234 "Evolutionary history and higher order classification of AAA+ ATPases."]
+is_a: ID:0000608 ! ATPases
+created_by: lakshmin
+creation_date: 2009-12-09T07:54:10Z
+
+[Term]
+id: ID:0000615
+name: MCM-AAA
+def: "MCM-like AAA+ ATPase." [PMID:15037234 "Evolutionary history and higher order classification of AAA+ ATPases."]
+is_a: ID:0000608 ! ATPases
+created_by: lakshmin
+creation_date: 2009-12-11T08:14:20Z
+
+[Term]
+id: ID:0000616
+name: ORC-AAA
+def: "ORC/CDC6-like AAA+ ATPase." [PMID:15037234 "Evolutionary history and higher order classification of AAA+ ATPases."]
+is_a: ID:0000608 ! ATPases
+created_by: lakshmin
+creation_date: 2009-12-11T08:14:20Z
+
+[Term]
+id: ID:0000617
+name: RFC-AAA
+def: "Replication Factor C (RFC)-like AAA+ ATPase." [PMID:15037234 "Evolutionary history and higher order classification of AAA+ ATPases."]
+is_a: ID:0000608 ! ATPases
+created_by: lakshmin
+creation_date: 2009-12-11T08:14:20Z
+
+[Term]
+id: ID:0000618
+name: viral-AAA
+def: "Viral SF3-like AAA+ ATPase." [PMID:15037234 "Evolutionary history and higher order classification of AAA+ ATPases."]
+is_a: ID:0000608 ! ATPases
+created_by: lakshmin
+creation_date: 2009-12-11T08:14:20Z
+
+[Term]
+id: ID:0000619
+name: RuvB-AAA
+def: "RuvB-like AAA+ ATPase." [PMID:15037234 "Evolutionary history and higher order classification of AAA+ ATPases."]
+is_a: ID:0000608 ! ATPases
+created_by: lakshmin
+creation_date: 2009-12-11T08:14:20Z
+
+[Term]
+id: ID:0000620
+name: TIP49-AAA
+def: "TIP49-like AAA+ ATPase." [PMID:15037234 "Evolutionary history and higher order classification of AAA+ ATPases."]
+is_a: ID:0000608 ! ATPases
+created_by: lakshmin
+creation_date: 2009-12-11T08:14:20Z
+
+[Term]
+id: ID:0000621
+name: Protein folding and turnover
+is_a: ID:0000041 ! Protein metabolism
+created_by: lakshmin
+creation_date: 2009-12-11T08:20:47Z
+
+[Term]
+id: ID:0000622
+name: AFG1-AAA
+def: "AFG1-like AAA+ ATPase." [PMID:15037234 "Evolutionary history and higher order classification of AAA+ ATPases."]
+is_a: ID:0000621 ! Protein folding and turnover
+created_by: lakshmin
+creation_date: 2009-12-11T08:21:28Z
+
+[Term]
+id: ID:0000623
+name: Classical-AAA
+def: "Classical AAA-like AAA+ ATPase." [PMID:15037234 "Evolutionary history and higher order classification of AAA+ ATPases."]
+is_a: ID:0000621 ! Protein folding and turnover
+created_by: lakshmin
+creation_date: 2009-12-11T08:21:28Z
+
+[Term]
+id: ID:0000624
+name: ClpABC-AAA
+def: "ClpAB-C terminal domain like AAA+ ATPase." [PMID:15037234 "Evolutionary history and higher order classification of AAA+ ATPases."]
+is_a: ID:0000621 ! Protein folding and turnover
+created_by: lakshmin
+creation_date: 2009-12-11T08:21:28Z
+
+[Term]
+id: ID:0000625
+name: ABF1
+def: "ABF1-like AAA+ ATPase." [PMID:15037234 "Evolutionary history and higher order classification of AAA+ ATPases."]
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000626
+name: AP2
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000627
+name: APSES
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000628
+name: BHLH
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000629
+name: BZIP
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000630
+name: C6FUNFIN
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000631
+name: CBF
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000632
+name: CENPB
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000633
+name: CUFIST
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000634
+name: DM
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000635
+name: DP1
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000636
+name: DWB
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000637
+name: E2F
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000638
+name: ETS
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000639
+name: FKH
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000640
+name: GATA
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000641
+name: GCR1
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000642
+name: GRAINYHEAD
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000643
+name: GTF2I
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000644
+name: HOMEO
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000645
+name: HSF
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000646
+name: IRF
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000647
+name: KRAB
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000648
+name: KU
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000649
+name: LAG1
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000650
+name: MADS
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000651
+name: MEDUSA-FUNGI
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000652
+name: MRG
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000653
+name: NAC
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000654
+name: NDT80
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000655
+name: NFKBDNABD
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000656
+name: NHR
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000657
+name: ORANGE
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000658
+name: P53
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000659
+name: P53CYTF
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000660
+name: PBFP24
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000661
+name: PIPSQUEAK
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000662
+name: POU
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000663
+name: ClpABN-AAA
+def: "ClpAB N-terminal AAA+ ATPase." [PMID:15037234 "Evolutionary history and higher order classification of AAA+ ATPases."]
+is_a: ID:0000621 ! Protein folding and turnover
+created_by: lakshmin
+creation_date: 2009-12-11T08:21:28Z
+
+[Term]
+id: ID:0000664
+name: HslUClpX-AAA
+def: "HslU and ClpX-like AAA+ ATPase." [PMID:15037234 "Evolutionary history and higher order classification of AAA+ ATPases."]
+is_a: ID:0000621 ! Protein folding and turnover
+created_by: lakshmin
+creation_date: 2009-12-11T08:21:28Z
+
+[Term]
+id: ID:0000665
+name: RB
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000666
+name: RUNT
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000667
+name: LON-AAA
+def: "LON-like AAA+ ATPase." [PMID:15037234 "Evolutionary history and higher order classification of AAA+ ATPases."]
+is_a: ID:0000621 ! Protein folding and turnover
+created_by: lakshmin
+creation_date: 2009-12-11T08:21:28Z
+
+[Term]
+id: ID:0000668
+name: SAND
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000669
+name: SCARECROW
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000670
+name: SJA
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000671
+name: SMAD
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000672
+name: STAT
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000673
+name: STE
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000674
+name: TAZ
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000675
+name: TBOX
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000676
+name: TEA
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000677
+name: THAP
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000678
+name: DYN-MID-AAA
+def: "DYNEIN and MIDASIN-like AAA+ ATPases." [PMID:15037234]
+is_a: ID:0000005 ! Cytoskeleton
+created_by: lakshmin
+creation_date: 2009-12-11T08:26:55Z
+
+[Term]
+id: ID:0000679
+name: YifB-AAA
+def: "YifB-like AAA+ATPase." [PMID:15037234]
+is_a: ID:0000621 ! Protein folding and turnover
+created_by: lakshmin
+creation_date: 2009-12-11T08:29:46Z
+
+[Term]
+id: ID:0000680
+name: TOPC
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:02Z
+
+[Term]
+id: ID:0000681
+name: TVAGHTH
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:33Z
+
+[Term]
+id: ID:0000682
+name: VP1
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:33Z
+
+[Term]
+id: ID:0000683
+name: WGR
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:33Z
+
+[Term]
+id: ID:0000684
+name: WRKY
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:33Z
+
+[Term]
+id: ID:0000685
+name: ZNF
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:49:33Z
+
+[Term]
+id: ID:0000686
+name: LYTTR
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: desouza
+creation_date: 2009-12-02T10:49:53Z
+
+[Term]
+id: ID:0000687
+name: BRLF1
+is_a: ID:0000053 ! Viral specific
+created_by: desouza
+creation_date: 2009-12-02T10:50:12Z
+
+[Term]
+id: ID:0000688
+name: TAF5N
+is_a: ID:0000054 ! Eukaryotic Transcription Factor (basal)
+created_by: desouza
+creation_date: 2009-12-02T10:51:02Z
+
+[Term]
+id: ID:0000689
+name: TBP
+is_a: ID:0000054 ! Eukaryotic Transcription Factor (basal)
+created_by: desouza
+creation_date: 2009-12-02T10:51:02Z
+
+[Term]
+id: ID:0000690
+name: TFIIF-phosphatase
+is_a: ID:0000054 ! Eukaryotic Transcription Factor (basal)
+created_by: desouza
+creation_date: 2009-12-02T10:51:02Z
+
+[Term]
+id: ID:0000691
+name: IWS1
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000692
+name: KIX
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000693
+name: MED1
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000694
+name: MED10
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000695
+name: MED11
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000696
+name: MED12
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000697
+name: MED13
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000698
+name: MED14
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000699
+name: MED15
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000700
+name: MED16
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000701
+name: MED17
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000702
+name: MED18
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000703
+name: MED19
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000704
+name: MED2
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000705
+name: MED20
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000706
+name: MED21
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000707
+name: MED22
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000708
+name: MED23
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000709
+name: MED24
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000710
+name: MED25C
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000711
+name: MED26C
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000712
+name: MED27
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000713
+name: MED28
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000714
+name: MED29
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000715
+name: MED3
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000716
+name: MED30
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000717
+name: MED31
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000718
+name: MED4
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000719
+name: MED5
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000720
+name: MED6
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000721
+name: MED7
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000722
+name: MED8
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000723
+name: MED9
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000724
+name: PAF1
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000725
+name: SRB11
+is_a: ID:0000055 ! Eukaryotic Transcription Factor (mediator)
+created_by: desouza
+creation_date: 2009-12-02T10:51:32Z
+
+[Term]
+id: ID:0000726
+name: IBD-HTH
+is_a: ID:0000182 ! Eukaryotic Transcription Factor (specific)
+created_by: desouza
+creation_date: 2009-12-02T10:51:55Z
+
+[Term]
+id: ID:0000727
+name: YTH
+is_a: ID:0000050 ! Splicing
+created_by: desouza
+creation_date: 2009-12-02T10:52:14Z
+
+[Term]
+id: ID:0000728
+name: EFTS
+is_a: ID:0000057 ! Elongation
+created_by: desouza
+creation_date: 2009-12-02T10:54:42Z
+
+[Term]
+id: ID:0000729
+name: AEPRIMASE
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000730
+name: CDC6
+is_obsolete: true
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000731
+name: CDT1
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000732
+name: D5ATPase
+is_a: ID:0000608 ! ATPases
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000733
+name: D5N
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000734
+name: ELG1
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000735
+name: GEMININ
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000736
+name: HSORC6
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000737
+name: McrB-AAA
+def: "McrB-like AAA+ATPase that works with the McrB-like nuclease." [PMID:15037234]
+is_a: ID:0000598 ! Transposases and Nucleases
+created_by: lakshmin
+creation_date: 2009-12-11T08:32:06Z
+
+[Term]
+id: ID:0000738
+name: NtrC-AAA
+def: "NtrC-like AAA+ATPase." [PMID:15037234]
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: lakshmin
+creation_date: 2009-12-11T08:33:35Z
+
+[Term]
+id: ID:0000739
+name: Chelatase-AAA
+def: "Magnesium Chelatase-like AAA+ ATPase." [PMID:15037234]
+is_a: ID:0000602 ! Secondary metabolism
+created_by: lakshmin
+creation_date: 2009-12-11T08:35:28Z
+
+[Term]
+id: ID:0000740
+name: MoxR-AAA
+def: "MoxR-like AAA+ ATPase." [PMID:15037234]
+is_a: ID:0000621 ! Protein folding and turnover
+created_by: lakshmin
+creation_date: 2009-12-11T08:36:24Z
+
+[Term]
+id: ID:0000741
+name: Prokaryotic DNA pumps
+def: "DNA pumps involved in DNA transport between cells." [PMID:15466593]
+is_a: ID:0000006 ! DNA Pumps/ Packaging
+created_by: lakshmin
+creation_date: 2009-12-14T12:50:08Z
+
+[Term]
+id: ID:0000742
+name: FTSK
+def: "DNA pump involved in bacterial cell division." [PMID:15466593]
+is_a: ID:0000741 ! Prokaryotic DNA pumps
+created_by: lakshmin
+creation_date: 2009-12-14T01:00:33Z
+
+[Term]
+id: ID:0000743
+name: HerA
+def: "HerA-like DNA pumps predicted to be involved in archaeal cell division." [PMID:15466593]
+is_a: ID:0000741 ! Prokaryotic DNA pumps
+created_by: lakshmin
+creation_date: 2009-12-14T01:01:20Z
+
+[Term]
+id: ID:0000744
+name: VirB4-FtsK
+def: "DNA pump involved in DNA transport." [PMID:15466593]
+is_a: ID:0000741 ! Prokaryotic DNA pumps
+created_by: lakshmin
+creation_date: 2009-12-14T01:02:37Z
+
+[Term]
+id: ID:0000745
+name: VirD4-FtsK
+def: "DNA pump involved in DNA transport between cells." [PMID:15466593]
+is_a: ID:0000741 ! Prokaryotic DNA pumps
+created_by: lakshmin
+creation_date: 2009-12-14T01:03:06Z
+
+[Term]
+id: ID:0000746
+name: DDRP-beta
+def: "DNA-dependent RNA polymerase-beta subunit core." [PMID:12553882, PMID:15194191]
+is_a: ID:0000014 ! Transcription
+created_by: lakshmin
+creation_date: 2009-12-14T01:09:12Z
+
+[Term]
+id: ID:0000747
+name: MEI218
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000748
+name: MGS1
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000749
+name: MMS9-N
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000750
+name: OBFOLD-NUCLEASE
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000751
+name: DDRP-betaprime
+def: "DNA-dependent RNA polymerase-betaprime subunit core." [PMID:12553882, PMID:15194191]
+is_a: ID:0000014 ! Transcription
+created_by: lakshmin
+creation_date: 2009-12-14T01:14:46Z
+
+[Term]
+id: ID:0000752
+name: DDRP-alpha
+def: "DNA-dependent RNA polymerase-alpha subunit." [PMID:12553882, PMID:15194191]
+is_a: ID:0000014 ! Transcription
+created_by: lakshmin
+creation_date: 2009-12-14T01:14:46Z
+
+[Term]
+id: ID:0000753
+name: DDRP-omega
+def: "DNA-dependent RNA polymerase-omega subunit." [PMID:12553882, PMID:15194191]
+is_a: ID:0000014 ! Transcription
+created_by: lakshmin
+creation_date: 2009-12-14T01:14:46Z
+
+[Term]
+id: ID:0000754
+name: SBHM-DDRP
+def: "Sandwich barrel hybrid motif found in DDRPs." [PMID:12553882, PMID:15194191]
+is_a: ID:0000014 ! Transcription
+created_by: lakshmin
+creation_date: 2009-12-14T01:14:46Z
+
+[Term]
+id: ID:0000755
+name: BBM1-DDRP
+def: "Beta-Betaprime module 1." [PMID:12553882, PMID:15194191]
+is_a: ID:0000014 ! Transcription
+created_by: lakshmin
+creation_date: 2009-12-14T01:14:46Z
+
+[Term]
+id: ID:0000756
+name: PCNA
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000757
+name: PriCT1
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000758
+name: PriCT2
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000759
+name: PrimaseCysclus
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000760
+name: PrimaseLS
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000761
+name: RAD18
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000762
+name: RAD4-C
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000763
+name: RDPOLYMERASE
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000764
+name: RETRO-RNASEH
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000765
+name: BBM2-DDRP
+def: "Beta-Betaprime module 2." [PMID:12553882, PMID:15194191]
+is_a: ID:0000014 ! Transcription
+created_by: lakshmin
+creation_date: 2009-12-14T01:14:46Z
+
+[Term]
+id: ID:0000766
+name: ASCR-DDRP
+def: "Alpha subunit core related." [PMID:12553882]
+is_a: ID:0000014 ! Transcription
+created_by: lakshmin
+creation_date: 2009-12-14T01:14:46Z
+
+[Term]
+id: ID:0000767
+name: AT-HOOK-like
+def: "AT-Hook-like motif found in DDRPs." [PMID:12553882]
+is_a: ID:0000014 ! Transcription
+created_by: lakshmin
+creation_date: 2009-12-14T01:14:46Z
+
+[Term]
+id: ID:0000768
+name: SAF
+def: "SAS, type III AFP and FlgA." [PMID:15146494]
+comment: Carbohydrate binding domain involved in various functional contexts.
+is_a: ID:0000048 ! Carbohydrate binding
+created_by: lakshmin
+creation_date: 2009-12-14T01:28:06Z
+
+[Term]
+id: ID:0000769
+name: hexdehydrataseC
+def: "Hexuronate dehydratase C-terminal domain." [PMID:15146494]
+is_a: ID:0000040 ! Carbohydrate metabolism
+created_by: lakshmin
+creation_date: 2009-12-14T01:29:55Z
+
+[Term]
+id: ID:0000770
+name: RUVC-HJR
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000771
+name: RecA
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000772
+name: SCORC6
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000773
+name: SCRAD24
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000774
+name: Sak4
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000775
+name: XPA-DBD
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-02T10:56:01Z
+
+[Term]
+id: ID:0000776
+name: ERF
+is_a: ID:0000058 ! Single-strand binding
+created_by: desouza
+creation_date: 2009-12-02T10:58:05Z
+
+[Term]
+id: ID:0000777
+name: GeneV
+is_a: ID:0000058 ! Single-strand binding
+created_by: desouza
+creation_date: 2009-12-02T10:58:05Z
+
+[Term]
+id: ID:0000778
+name: ICP8OBfold
+is_a: ID:0000058 ! Single-strand binding
+created_by: desouza
+creation_date: 2009-12-02T10:58:05Z
+
+[Term]
+id: ID:0000779
+name: Pf3
+is_a: ID:0000058 ! Single-strand binding
+created_by: desouza
+creation_date: 2009-12-02T10:58:05Z
+
+[Term]
+id: ID:0000780
+name: RAD52
+is_a: ID:0000058 ! Single-strand binding
+created_by: desouza
+creation_date: 2009-12-02T10:58:05Z
+
+[Term]
+id: ID:0000781
+name: RecT-Redbeta
+is_a: ID:0000058 ! Single-strand binding
+created_by: desouza
+creation_date: 2009-12-02T10:58:05Z
+
+[Term]
+id: ID:0000782
+name: SSB
+is_a: ID:0000058 ! Single-strand binding
+created_by: desouza
+creation_date: 2009-12-02T10:58:05Z
+
+[Term]
+id: ID:0000783
+name: gp2-5
+is_a: ID:0000058 ! Single-strand binding
+created_by: desouza
+creation_date: 2009-12-02T10:58:05Z
+
+[Term]
+id: ID:0000784
+name: gp32
+is_a: ID:0000058 ! Single-strand binding
+created_by: desouza
+creation_date: 2009-12-02T10:58:05Z
+
+[Term]
+id: ID:0000785
+name: AN1
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000786
+name: APG5
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000787
+name: AT23
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000788
+name: ATAXIN3
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000789
+name: ATG12
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000790
+name: C2H2ub
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000791
+name: CUE
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000792
+name: CULLIN
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000793
+name: CYLD
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000794
+name: ClpS
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000795
+name: DCN1
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000796
+name: DWNN
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000797
+name: FBOX
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000798
+name: FYVE
+is_a: ID:0000923 ! Lipid Binding
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000799
+name: HECT
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000800
+name: ICP0
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000801
+name: IKK
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000802
+name: JAB
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000803
+name: GCS2assoc-ATPgrasp
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: desouza
+creation_date: 2009-12-17T12:41:58Z
+
+[Term]
+id: ID:0000804
+name: AMIN
+is_a: ID:0000048 ! Carbohydrate binding
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000805
+name: NPL4
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000806
+name: NTN-HYDROLASE
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000807
+name: OTU
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000808
+name: PAW
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000809
+name: PINT
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000810
+name: POC2
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000811
+name: POC3
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000812
+name: POC4
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000813
+name: PPPDE
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000814
+name: PUG
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000815
+name: PUL
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000816
+name: RING
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000817
+name: RPN10
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000818
+name: RPN12
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000819
+name: RPN13
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000820
+name: SEM1
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000821
+name: SIN3A
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000822
+name: SMT4
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000823
+name: SOCS
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000824
+name: ASH
+is_obsolete: true
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000825
+name: Nucleotide metabolism
+is_a: ID:0000000 ! Functional Classification
+created_by: lakshmin
+creation_date: 2009-12-16T03:29:55Z
+
+[Term]
+id: ID:0000826
+name: TRS4C
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000827
+name: TUG
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000828
+name: UBA
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000829
+name: UBC
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000830
+name: UBHYD
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000831
+name: UBI
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000832
+name: UBP-ZNF
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000833
+name: UBP11
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000834
+name: UBP12
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000835
+name: UBR
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000836
+name: UBX
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000837
+name: UFD
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000838
+name: UFM
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000839
+name: UIM
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000840
+name: UMP1
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000841
+name: URM1
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000842
+name: UbE1
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000843
+name: WDR48
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000844
+name: WLM
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000845
+name: WWE
+is_a: ID:0000018 ! ubiquitin
+created_by: desouza
+creation_date: 2009-12-02T10:58:51Z
+
+[Term]
+id: ID:0000846
+name: Acylphosphatase
+is_a: ID:0000009 ! Miscellaneous
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000847
+name: AlcRN
+is_a: ID:0000094 ! Intracellular
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000848
+name: BLUF
+is_a: ID:0000094 ! Intracellular
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000849
+name: CheW
+is_a: ID:0000036 ! Protein-protein interaction domains
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000850
+name: DICT
+is_a: ID:0000094 ! Intracellular
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000851
+name: DOC
+is_a: ID:0000013 ! Toxin-Antitoxin
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000852
+name: Actinomycete-peptide
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:16:51Z
+
+[Term]
+id: ID:0000853
+name: Alteromonas-peptide
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:16:51Z
+
+[Term]
+id: ID:0000854
+name: GOLD
+is_a: ID:0000355 ! Vesicular transport
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000855
+name: Gar1p
+is_a: ID:0000047 ! RBD
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000856
+name: T7DNApol
+is_a: ID:0000017 ! Replication/Repair
+created_by: desouza
+creation_date: 2009-12-17T12:47:21Z
+
+[Term]
+id: ID:0000857
+name: IMM
+is_a: ID:0000347 ! Metabolism (generic enzymes)
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000858
+name: ISOCOT
+is_a: ID:0000048 ! Carbohydrate binding
+is_a: ID:0000347 ! Metabolism (generic enzymes)
+is_a: ID:0000908 ! Initiation
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000859
+name: LTD
+is_a: ID:0000911 ! Nuclear Envelope / Transport
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000860
+name: Bacteroidetes-peptide
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:16:51Z
+
+[Term]
+id: ID:0000861
+name: MOSC
+is_a: ID:0000009 ! Miscellaneous
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000862
+name: MSC-wHTH
+is_a: ID:0000044 ! winged HTH
+is_a: ID:0000911 ! Nuclear Envelope / Transport
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000863
+name: NIT
+is_a: ID:0000093 ! Extracellular
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000864
+name: NLPC
+def: "NlpC/P60-like papain fold peptidases." [PMID:12620121]
+comment: A member of the papain-like cysteine proteases. Other well characterized members of this superfamily include AcmB/LytN, eukaryotic proteins such as LRAT, Egl-26 and their relatives, amidase domains of glutathionylspermidine synthases and the predicted BtrH-like transpeptidase.
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000865
+name: NUDIX
+is_a: ID:0000825 ! Nucleotide metabolism
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000866
+name: NUDIX-DBC1
+is_a: ID:0000009 ! Miscellaneous
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000867
+name: Coli-peptide
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:16:51Z
+
+[Term]
+id: ID:0000868
+name: Frankia-peptide
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:16:51Z
+
+[Term]
+id: ID:0000869
+name: PRELI
+is_a: ID:0000009 ! Miscellaneous
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000870
+name: Phd-YefM
+is_a: ID:0000013 ! Toxin-Antitoxin
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000871
+name: PilZ
+synonym: "CDBD" RELATED []
+is_a: ID:0000024 ! Diguanylate Binding Domains
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000872
+name: RelE-ParE
+is_a: ID:0000013 ! Toxin-Antitoxin
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000873
+name: SHS2
+is_a: ID:0000036 ! Protein-protein interaction domains
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000874
+name: SRC1-CRICH
+is_a: ID:0000911 ! Nuclear Envelope / Transport
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000875
+name: SUN
+is_a: ID:0000048 ! Carbohydrate binding
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000876
+name: TF-AF0319
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000877
+name: TF-AF0608
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000878
+name: TF-Rv0623
+is_a: ID:0000052 ! Prokaryotic Transcription Factor
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000879
+name: XPC-C
+is_a: ID:0000009 ! Miscellaneous
+created_by: lakshmin
+creation_date: 2009-12-16T03:21:55Z
+
+[Term]
+id: ID:0000880
+name: Herpetosiphon-peptide
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:16:51Z
+
+[Term]
+id: ID:0000881
+name: Kordia-peptide
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:16:51Z
+
+[Term]
+id: ID:0000882
+name: Microviridin-peptide
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:16:51Z
+
+[Term]
+id: ID:0000883
+name: Pleistocystis-peptide
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:16:51Z
+
+[Term]
+id: ID:0000884
+name: Pseudomonas-peptide
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:16:51Z
+
+[Term]
+id: ID:0000885
+name: Saccharopolyspora-peptide
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:16:51Z
+
+[Term]
+id: ID:0000886
+name: Streptomyces-peptide
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:16:51Z
+
+[Term]
+id: ID:0000887
+name: ATPgraspC
+comment: ATP-grasp C-terminus that is often circularly permuted.
+is_a: ID:0000009 ! Miscellaneous
+created_by: lakshmin
+creation_date: 2009-12-16T07:18:36Z
+
+[Term]
+id: ID:0000888
+name: Purine metabolism
+is_a: ID:0000000 ! Functional Classification
+created_by: lakshmin
+creation_date: 2009-12-16T07:22:53Z
+
+[Term]
+id: ID:0000889
+name: PurD-ATPgrasp
+is_a: ID:0000888 ! Purine metabolism
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:07Z
+
+[Term]
+id: ID:0000890
+name: PurK-ATPgrasp
+is_a: ID:0000888 ! Purine metabolism
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:07Z
+
+[Term]
+id: ID:0000891
+name: PurP-ATPgrasp
+is_a: ID:0000888 ! Purine metabolism
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:07Z
+
+[Term]
+id: ID:0000892
+name: PurT-ATPgrasp
+is_a: ID:0000888 ! Purine metabolism
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:07Z
+
+[Term]
+id: ID:0000893
+name: ACC-ATPgrasp
+is_a: ID:0000347 ! Metabolism (generic enzymes)
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:11Z
+
+[Term]
+id: ID:0000894
+name: CPS-ATPgrasp
+is_a: ID:0000347 ! Metabolism (generic enzymes)
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:11Z
+
+[Term]
+id: ID:0000895
+name: Glutamine-Synthetase
+is_a: ID:0000347 ! Metabolism (generic enzymes)
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:11Z
+
+[Term]
+id: ID:0000896
+name: COOHNH2ligase
+is_a: ID:0000065 ! Protein/Peptide modification
+is_a: ID:0000347 ! Metabolism (generic enzymes)
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:11Z
+
+[Term]
+id: ID:0000897
+name: SpermGS-ATPgrasp
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:15Z
+
+[Term]
+id: ID:0000898
+name: BacD-ATPgrasp
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:15Z
+
+[Term]
+id: ID:0000899
+name: BtrJ-ATPgrasp
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:15Z
+
+[Term]
+id: ID:0000900
+name: CP-ATPgrasp
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:15Z
+
+[Term]
+id: ID:0000901
+name: Cyanophycinsyn-ATPgrasp
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:15Z
+
+[Term]
+id: ID:0000902
+name: DADALIGASE-ATPgrasp
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:15Z
+
+[Term]
+id: ID:0000903
+name: DabC-ATPgrasp
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:15Z
+
+[Term]
+id: ID:0000904
+name: Eukglutathionesyn-ATPgrasp
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:15Z
+
+[Term]
+id: ID:0000905
+name: GCS1
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:15Z
+
+[Term]
+id: ID:0000906
+name: GCS2
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:15Z
+
+[Term]
+id: ID:0000907
+name: LRRNT
+is_a: ID:0000606 ! Supersecondary structure repeats
+created_by: desouza
+creation_date: 2009-12-17T12:47:43Z
+
+[Term]
+id: ID:0000908
+name: Initiation
+is_a: ID:0000016 ! Translation
+created_by: ananthar
+creation_date: 2009-12-18T05:17:25Z
+
+[Term]
+id: ID:0000909
+name: InacCP-ATPgrasp
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:15Z
+
+[Term]
+id: ID:0000910
+name: MXAN4097-ATPgrasp
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:15Z
+
+[Term]
+id: ID:0000911
+name: Nuclear Envelope / Transport
+is_a: ID:0000922 ! Nucleus
+created_by: ananthar
+creation_date: 2009-12-18T05:22:24Z
+
+[Term]
+id: ID:0000912
+name: PUPLIGASE
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:15Z
+
+[Term]
+id: ID:0000913
+name: Prokglutathionesyn-ATPgrasp
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:15Z
+
+[Term]
+id: ID:0000914
+name: RLAN
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:15Z
+
+[Term]
+id: ID:0000915
+name: Ribopeptidemod-ATPgrasp
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:15Z
+
+[Term]
+id: ID:0000916
+name: RimK-ATPgrasp
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:15Z
+
+[Term]
+id: ID:0000917
+name: ST-ATPgrasp
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:15Z
+
+[Term]
+id: ID:0000918
+name: Synapsin-ATPgrasp
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:15Z
+
+[Term]
+id: ID:0000919
+name: TTL-ATPgrasp
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:15Z
+
+[Term]
+id: ID:0000920
+name: TupA-ATPgrasp
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:15Z
+
+[Term]
+id: ID:0000921
+name: YheCD-ATPgrasp
+is_a: ID:0000065 ! Protein/Peptide modification
+created_by: lakshmin
+creation_date: 2009-12-16T07:34:15Z
+
+[Term]
+id: ID:0000922
+name: Nucleus
+is_a: ID:0000000 ! Functional Classification
+created_by: ananthar
+creation_date: 2009-12-18T05:27:14Z
+
+[Term]
+id: ID:0000923
+name: Lipid Binding
+is_a: ID:0000012 ! Small molecule binding domains
+created_by: ananthar
+creation_date: 2009-12-18T05:34:39Z
+

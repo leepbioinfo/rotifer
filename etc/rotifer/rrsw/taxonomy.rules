@@ -1,0 +1,7 @@
+# Rsync rules for NCBI's taxonomy database files
+# Exclude some things
+- *.Z
+- *.md5
+- *.zip
+- /.tmp
+- /new_taxdump/.tmp

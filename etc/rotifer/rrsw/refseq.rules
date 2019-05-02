@@ -1,0 +1,9 @@
+# Rsync rules file (see 'man rsync')
+
+# Include some top-level directories
+
+# Exclude all other top-level directories
+- /FTP_CHANGE_NOTICE
+- .old*
+- wgs
+- removed
