@@ -17,7 +17,7 @@ __version__ = '0.04'
 __authors__ = 'Gilberto Kaihami'
 
 def parse_cli():
-    parser = corecli.parser()
+    parser = corecli.parser(description = 'Get ncbi protein accession from a list of uniprotID')
 
     parser.add(rconfig = ':cli.acc')
 
@@ -25,13 +25,6 @@ def parse_cli():
                 long_arg = '--output',
                 helper = 'Output redundant (all) or non-redundant accessions (nr) [Default = all]',
                 default = 'all')
-    parser.add(long_arg = '--version',
-                action = 'version',
-                        version = corecli.version(program = 'uniprot2gi',
-                                                  version = __version__,
-                                                  authors = __authors__,
-                                                  description = 'Convert UniprotID to NCBI accession')
-                        )
 
     parser.add(long_arg = '-nr',
                         helper = 'Return non-redundant accessions (same effect as -o nr)',
@@ -87,22 +80,6 @@ def convert(ls, of = 'all'):
             print('\t'.join([ele,ele]))
             sys.stdout.flush()
     return df
-
-
-def version():
-    s = '''{a}
-{program}
-{description}
-{version}
-{authors}
-{a}
-'''.format(a = '#'*20,
-            program = colored('uniprot2gi:','red',attrs=['bold']),
-            description = colored('Convert UniprotID to NCBI accession', 'green'),
-           version = 'Current version: {0}'.format(colored(__version__, 'cyan')),
-           authors = 'Authors: {}'.format(colored(__authors__, 'cyan'))
-            )
-    return s
 
 if __name__ == '__main__':
     args = parse_cli()

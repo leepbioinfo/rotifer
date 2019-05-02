@@ -9,14 +9,22 @@ sys.path.insert(0, os.path.join('/home/kaihami/mymodules'))
 import rotifer.core.cli as corecli
 import argparse
 import time
+
+__version__ = 0.60
+__authors__ = 'Gilberto Kaihami, Aureliano Guedes, Gabriel Hueck'
+__rdoc__ = '''
+DESCRIPTION:
+Extract sequence fragments from a fasta file
+'''
+
 def parse_cli():
-    parser = argparse.ArgumentParser(description='Extract sequence fragments from a fasta file')
-    parser.add_argument('fasta',
-                        help = 'Fasta file',
-                        nargs = '*',
-                        action = corecli.action.autoload, duplicates = False)
-    parser.add_argument('-f', '--feature',
-                        help = 'A feature table containing: Accession start end')
+    parser = corecli.parser(description='Extract sequence fragments from a fasta file')
+    parser.add('fasta',
+                helper = 'Fasta file',
+                nargs = '*',
+                action = corecli.action.autoload, duplicates = False)
+    parser.add('-f', '--feature',
+                        helper= 'A feature table containing: Accession start end')
     args = parser.parse_args()
     return args
 

@@ -146,8 +146,7 @@ def show(db, key_name ,print_all = True):
     except:
         pass
 
-    #db_local_path = os.path.join(home, '.rotifer/config/projects')
-    db_global_path = '/home/kaihami/mymodules/rotifer/config/' + db + '.config'
+    db_global_path = '/home/kaihami/mymodules/rotifer/etc/rotifer/' + db + '.config'
     db_global = yaml.load(open(db_global_path))
 
     try:
