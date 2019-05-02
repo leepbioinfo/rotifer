@@ -1,15 +1,7 @@
 #!/usr/bin/env python3
-
-# For now, we use this as part of our script's template
 import os
 import sys
-_add_path = [ os.path.join(os.path.dirname(os.path.dirname(__file__)), "lib"),
-        os.path.join(os.path.dirname(os.path.dirname(__file__)), "lib", "python" + str(sys.version_info.major) + "." + str(sys.version_info.minor), "site-packages")
-        ]
-for _d in _add_path:
-    if os.path.exists(_d):
-        sys.path.insert(0,_d)
-
+sys.path.insert(0, os.path.join('/home/kaihami/mymodules'))
 import threading
 from threading import Thread
 import rotifer.core.cli as corecli
@@ -17,6 +9,10 @@ from Bio import SeqIO
 import pandas as pd
 __version__ = 0.1
 __authors__ = 'Gianlucca Nicastro'
+__rdoc__='''
+DESCRIPTION:
+Parse sequences or aligments and transform it in different formats
+'''
 
 
 def parse_args():

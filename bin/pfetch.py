@@ -3,6 +3,8 @@
 import os
 import argparse
 import sys
+sys.path.insert(0, '/home/kaihami/mymodules')
+
 import threading
 from threading import Thread
 import rotifer.core.cli as corecli
@@ -20,6 +22,10 @@ import argcomplete
 
 __version__ = '0.5'
 __authors__ = 'Gilberto Kaihami; Aureliano Guedes'
+__rdoc__='''
+DESCRIPTION:
+Parallel esl-sfetch, with epost and efetch
+'''
 
 ################
 ### Function ###

@@ -355,6 +355,7 @@ class search:
 
             p = Popen(cmd, shell = True, stdout = PIPE, stderr = PIPE)
             out = pd.read_csv(StringIO(p.communicate()[0].decode('utf-8')), sep = '\t')
+            # add datetime column here
 
             if insert2db:
                 # Kill nice

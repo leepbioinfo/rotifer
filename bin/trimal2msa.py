@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import os
 import sys
+sys.path.insert(0, os.path.join('/home/kaihami/mymodules'))
 import argparse
 from multiprocessing import Process, Pipe
 from collections import defaultdict
@@ -14,6 +15,10 @@ import argcomplete
 
 __version__ = 0.3
 __authors__ = 'Gilberto Kaihami'
+__rdoc__='''
+DESCRIPTION:
+Get common columns in different msa
+'''
 
 def parse_cli():
     parser = corecli.parser(description = 'Get common columns in different msa')

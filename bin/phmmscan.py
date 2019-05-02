@@ -2,6 +2,7 @@
 
 import os
 import sys
+sys.path.insert(0, '/home/kaihami/mymodules')
 
 import rotifer.core.cli as corecli
 from rotifer.tools.search import search as rsearch
@@ -16,6 +17,10 @@ import re
 import time
 __version__ = '0.31'
 __authors__ = 'Gilberto Kaihami; Aureliano Guedes'
+__rdoc__='''
+DESCRIPTION:
+Parallel HMMScan
+'''
 
 # New
 #

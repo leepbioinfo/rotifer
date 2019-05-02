@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import yaml
 import sys
+sys.path.insert(0, '/home/kaihami/mymodules')
 import argparse
 import rotifer.core.cli as corecli
 from os.path import expanduser

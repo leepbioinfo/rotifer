@@ -1,15 +1,7 @@
 #!/usr/bin/env python3
-
-# For now, we use this as part of our script's template
 import os
 import sys
-_d = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-for _d in [ os.path.join(_d, "lib"), os.path.join(_d, "lib", "python" + str(sys.version_info.major) + "." + str(sys.version_info.minor), "site-packages") ]:
-    if os.path.exists(_d):
-        sys.path.insert(0,_d)
-import rotifer.core.cli as corecli
-
-# Other imports
+sys.path.insert(0, os.path.join('/home/kaihami/mymodules'))
 import threading
 from threading import Thread
 import rotifer.core.cli as corecli
@@ -19,6 +11,10 @@ import pandas as pd
 import numpy as np
 __version__ = 0.1
 __authors__ = 'Gianlucca Nicastro'
+__rdoc__='''
+DESCRIPTION:
+using alignemnt in any format as input and make a sequence consensus
+'''
 
 def parse_args():
     parser = corecli.parser( description= \

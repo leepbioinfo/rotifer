@@ -2,6 +2,7 @@
 
 import sys
 sys.setrecursionlimit(10000)
+sys.path.insert(0,'/home/kaihami/mymodules/')
 from rotifer import taxonomy as taxon
 import rotifer.neighborhood.neighborhood as nh
 import pandas as pd
@@ -11,31 +12,35 @@ import rotifer.core.cli as corecli
 
 __version__ = '0.1'
 __authors__ = 'Gilberto Kaihami'
+__rdoc__='''
+DESCRIPTION:
+Get lineage
+'''
 
 def parse_cli():
-    parser = corecli.parser()
+    parser = corecli.parser(description = 'get lineage')
     parser.add(dest = 'dataframe',
-                        helper = 'Input a table',
+                        helper = 'input a table',
                         nargs = '*',
-                        action = corecli.action.autoload, duplicates = False)
+                        action = corecli.action.autoload, duplicates = false)
 
     parser.add('--column', '-c',
                dest = 'column',
                arg_type = str,
                         default = 'classification',
-                        helper = 'Input column name containing NCBI lineage information (Default = classification)')
+                        helper = 'input column name containing ncbi lineage information (default = classification)')
 
     parser.add('--header', '-y',
                         dest = 'header',
                         action = 'append',
-                        helper = 'Output columns header (default: Classification)',
+                        helper = 'output columns header (default: classification)',
                         default = ['all'],
                         arg_type = str)
 
     parser.add('-t', '--taxonomy',
                         dest = 'taxonomy',
                         action = 'append',
-                        helper = 'Add taxonomic group in the output (Default: superkingdom, phylum, class) [Options: superkingdom, phylum, class, order, family, genus, species]',
+                        helper = 'add taxonomic group in the output (default: superkingdom, phylum, class) [options: superkingdom, phylum, class, order, family, genus, species]',
                         default = []
                         )
 

@@ -3,6 +3,7 @@
 import pandas as pd
 import sys
 import os
+sys.path.insert(0, os.path.join('/home/kaihami/mymodules'))
 import rotifer.core.cli as corecli
 import rotifer.core.functions as cf
 import rotifer.neighborhood.neighborhood as nh
@@ -20,17 +21,9 @@ import re
 __version__ = 0.18
 __authors__ = 'Gilberto Kaihami'
 
-__doc__ = '''
-NAME
-rnexplorer
-
-SYNOPSIS
+__rdoc__='''
+DESCRIPTION:
 Annotate, clean, reformat rneighbors output
-Another line
-
-DESCRIPTION
-
-AUTHOR
 '''
 
 def parse_cli():

@@ -6,6 +6,10 @@ import rotifer.core.cli as corecli
 
 __version__ = 0.001
 __authors__ = 'Gilberto Kaihami; Robson F. Souza'
+__rdoc__='''
+DESCRIPTION:
+Add color to alignment
+'''
 
 # TODO: add consensus
 # TODO: add other colors

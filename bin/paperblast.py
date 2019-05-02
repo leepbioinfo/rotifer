@@ -7,11 +7,16 @@ warnings.filterwarnings("ignore")
 import os
 import argparse
 import sys
+sys.path.insert(0, '/home/kaihami/mymodules')
 
 import rotifer.core.cli as corecli
 
 __version__ = '0.2'
 __authors__ = 'Gilberto Kaihami'
+__rdoc__='''
+DESCRIPTION:
+PaperBlast
+'''
 
 def parse_cli():
     parser = corecli.parser(description ='PaperBlast')

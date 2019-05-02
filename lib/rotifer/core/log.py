@@ -11,6 +11,22 @@ __version__ = 0.1
 __authors__ = 'Gilberto Kaihami; Robson Souza'
 import socket
 
+from functools import wraps
+
+import logging
+
+# logging.basicConfig(format='%(asctime)s\t%(levelname)-8s\t[%(filename)s:%(lineno)d]\t%(message)s',
+#                         datefmt='%Y/%m/%d %H:%M:%S')
+
+# Maybe a decorator works
+def logger(func):
+    module = (func.__module__)
+
+    @wraps(func)
+    def wrapper( *args, **kwargs):
+        return func(*args,**kwargs)
+    return wrapper
+
 def log(message = {}, level = 0, log_file = '', name = ''):
     """
     Output a message to stderr.
@@ -74,10 +90,6 @@ def log(message = {}, level = 0, log_file = '', name = ''):
         level = max_level
     else:
         pass
-    if name == '__main__':
-        name = (sys.argv[0]).replace('.py', '')
-    else:
-        name = (os.path.basename(name))
 
     col_len = _collen(now, hostname, name)
     try:
@@ -91,7 +103,6 @@ def log(message = {}, level = 0, log_file = '', name = ''):
                     msg_print = message[x].strip()
 
                 s = [now, hostname, name, _debug_switch[x],':', msg_print]
-
                 if not log_file:
                     to_print = [s[int(i)].ljust(col_len[int(i)]) for i in range(0, len(s))]
                     sys.stderr.write('\t'.join(to_print) + '\n')
@@ -100,7 +111,6 @@ def log(message = {}, level = 0, log_file = '', name = ''):
                     with open(log_file, 'a') as f:
                         to_print = [s[int(i)].ljust(col_len[int(i)]) for i in range(0, len(s))]
                         f.write('\t'.join(to_print) + '\n')
-
             except:
                 pass
 
@@ -119,34 +129,40 @@ def _collen(now, hostname, name, levels = ['INFO', 'WARNING', 'DEBUG']):
 
 if __name__ == '__main__':
     import t
-    log({1:'This is info'}, level = 1)
+    log2({1:'This is info'}, level = 1)
     print()
-    log({1: 'This info',
+    log2({1: 'This info',
           2: 'This is Warning',
           3: 'DEBUG'},
          level = 1)
 
     print()
-    log({1: 'This info',
+    log2({1: 'This info',
           2: 'This is Warning',
           3: 'DEBUG'},
          level = 2)
     #
     # # Exceed
     print()
-    log({
+    log2({
           3: 'DEBUG 3'},
          level = 3)
     print()
-    log({1: 'This info',
+    log2({1: 'This info',
           2: 'This is Warning',
           3: 'DEBUG exce'},
          level = 4)
     print()
     #
-    # # Write to log file
-    log({1: 'This info',
+    # # Write to log2 file
+    log2({1: 'This info',
           2: 'This is Warning',
           3: 'DEBUG'},
          level = 3,
-         log_file = 'a')
+         log2_file = 'a')
+
+    log2({1: 'This info',
+          2: 'This is Warning',
+          3: 'DEBUG'},
+         level = 3,
+         log2_file = 'a')

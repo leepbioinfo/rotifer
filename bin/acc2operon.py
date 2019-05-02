@@ -33,12 +33,18 @@ from tqdm import tqdm
 
 warnings.filterwarnings('ignore')
 
-__version__ = 0.59
+__version__ = 0.60
 __authors__ = 'Gilberto Kaihami, Aureliano Guedes, Gabriel Hueck'
+__rdoc__ = '''
+DESCRIPTION:
+Get gene neighborhood
+'''
 
 ########
 # New features
 ########
+# In version 0.60
+# Added rdoc
 
 # In version 0.59
 # Added minimal intergenic distance (mid) option
