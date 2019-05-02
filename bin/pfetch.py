@@ -197,7 +197,7 @@ def show():
     except:
         pass
 
-    db_global_path = '/home/kaihami/mymodules/rotifer/config/pfetch.config'
+    db_global_path = '/home/kaihami/mymodules/rotifer/etc/rotifer/pfetch.config'
     db_global = yaml.load(open(db_global_path))
 
     try:

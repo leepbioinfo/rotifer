@@ -137,7 +137,7 @@ def showdata(project, of = 'pretty'):
 
 def show(db, key_name ,print_all = True):
     home = expanduser("~")
-    db_local_path = os.path.join(home, '.rotifer/config')
+    db_local_path = os.path.join(home, '.rotifer/etc/rotifer')
 
     try:
         n = open(os.path.join(db_local_path, db+'.config'))
@@ -146,7 +146,7 @@ def show(db, key_name ,print_all = True):
     except:
         pass
 
-    db_global_path = '/home/kaihami/mymodules/rotifer/config/' + db + '.config'
+    db_global_path = '/home/kaihami/mymodules/rotifer/etc/rotifer/' + db + '.config'
     db_global = yaml.load(open(db_global_path))
 
     try:

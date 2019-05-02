@@ -22,7 +22,8 @@ def parse_cli():
     parser.add(dest = 'dataframe',
                         helper = 'input a table',
                         nargs = '*',
-                        action = corecli.action.autoload, duplicates = false)
+                        action = corecli.action.autoload,
+                        duplicates = False)
 
     parser.add('--column', '-c',
                dest = 'column',
