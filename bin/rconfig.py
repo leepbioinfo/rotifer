@@ -102,14 +102,14 @@ Usage: rconfig [program] [options]',
 
 def showproject():
     home = expanduser("~")
-    db_local_path = os.path.join(home, '.rotifer/config/projects')
+    db_local_path = os.path.join(home, '.rotifer/etc/rotifer/projects')
     for f in os.listdir(db_local_path):
         print(f.replace('.yaml',''))
 
 
 def showdata(project, of = 'pretty'):
     home = expanduser("~")
-    db_local_path = os.path.join(home, '.rotifer/config/projects')
+    db_local_path = os.path.join(home, '.rotifer/etc/rotifer/projects')
 
     try:
         n = open(os.path.join(db_local_path, project+'.yaml'))
@@ -137,7 +137,7 @@ def showdata(project, of = 'pretty'):
 
 def show(db, key_name ,print_all = True):
     home = expanduser("~")
-    db_local_path = os.path.join(home, '.rotifer/config')
+    db_local_path = os.path.join(home, '.rotifer/etc/rotifer')
 
     try:
         n = open(os.path.join(db_local_path, db+'.config'))
@@ -146,6 +146,7 @@ def show(db, key_name ,print_all = True):
     except:
         pass
 
+    #db_local_path = os.path.join(home, '.rotifer/config/projects')
     db_global_path = '/home/kaihami/mymodules/rotifer/config/' + db + '.config'
     db_global = yaml.load(open(db_global_path))
 
@@ -177,7 +178,7 @@ def adddata(s, project, fi):
     k,v = s.split(':')
     dc = {k:v}
     home = expanduser("~")
-    db_local_path = os.path.join(home, '.rotifer/config/projects')
+    db_local_path = os.path.join(home, '.rotifer/etc/rotifer/projects')
 
     try:
         db_local = yaml.load(open(os.path.join(db_local_path, project + '.yaml')))
@@ -205,7 +206,7 @@ def add2db(s,key_name , fi):
     k,v = s.split(':')
     dc = {k:v}
     home = expanduser("~")
-    db_local_path = os.path.join(home, '.rotifer/config')
+    db_local_path = os.path.join(home, '.rotifer/etc/rotifer')
     try:
         db_local = yaml.load(open(os.path.join(db_local_path, fi+'.config')))
         for k, v in dc.items():
@@ -229,7 +230,7 @@ def add2db(s,key_name , fi):
 
 def removedata(s, project, fi):
     home = expanduser("~")
-    db_local_path = os.path.join(home, '.rotifer/config/projects')
+    db_local_path = os.path.join(home, '.rotifer/etc/rotifer/projects')
     try:
         dc = {}
         db_local = yaml.load(open(os.path.join(db_local_path, project+'.yaml')))
@@ -252,7 +253,7 @@ def removedata(s, project, fi):
 def remove2db(s,key_name,fi):
 
     home = expanduser("~")
-    db_local_path = os.path.join(home, '.rotifer/config')
+    db_local_path = os.path.join(home, '.rotifer/etc/rotifer/')
     try:
         dc = {key_name:{}}
         db_local = yaml.load(open(os.path.join(db_local_path, fi+'.config')))
