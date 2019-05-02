@@ -10,6 +10,10 @@ import rotifer.core.cli as corecli
 
 __version__ = 0.001
 __authors__ = 'Gilberto Kaihami'
+__rdoc__='''
+DESCRIPTION:
+Get distance between two CA residues or the depth of a residue from pdb file
+'''
 
 def parse_cli():
     parser = corecli.parser(description = 'Get distance between two CA residues or the depth of a residue from pdb file')
