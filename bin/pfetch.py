@@ -22,6 +22,10 @@ import argcomplete
 
 __version__ = '0.5'
 __authors__ = 'Gilberto Kaihami; Aureliano Guedes'
+__rdoc__='''
+DESCRIPTION:
+Parallel esl-sfetch, with epost and efetch
+'''
 
 ################
 ### Function ###

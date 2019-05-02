@@ -6,6 +6,10 @@ import pandas as pd
 
 __version__ = 0.001
 __authors__ = 'Gilberto Kaihami'
+__rdoc__='''
+DESCRIPTION:
+Prepare data to ccmpred
+'''
 
 def parse_cli():
     parser = corecli.parser(description = 'Prepare data to ccmpred')

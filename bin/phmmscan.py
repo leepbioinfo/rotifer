@@ -17,6 +17,10 @@ import re
 import time
 __version__ = '0.31'
 __authors__ = 'Gilberto Kaihami; Aureliano Guedes'
+__rdoc__='''
+DESCRIPTION:
+Parallel HMMScan
+'''
 
 # New
 #

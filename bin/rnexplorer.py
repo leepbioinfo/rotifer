@@ -21,17 +21,9 @@ import re
 __version__ = 0.18
 __authors__ = 'Gilberto Kaihami'
 
-__doc__ = '''
-NAME
-rnexplorer
-
-SYNOPSIS
+__rdoc__='''
+DESCRIPTION:
 Annotate, clean, reformat rneighbors output
-Another line
-
-DESCRIPTION
-
-AUTHOR
 '''
 
 def parse_cli():

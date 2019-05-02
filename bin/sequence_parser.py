@@ -9,6 +9,10 @@ from Bio import SeqIO
 import pandas as pd
 __version__ = 0.1
 __authors__ = 'Gianlucca Nicastro'
+__rdoc__='''
+DESCRIPTION:
+Parse sequences or aligments and transform it in different formats
+'''
 
 
 def parse_args():

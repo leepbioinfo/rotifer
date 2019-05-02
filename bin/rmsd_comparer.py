@@ -12,6 +12,10 @@ import subprocess
 
 __version__ = '0.2'
 __authors__ = 'Gilberto Kaihami; Aureliano Guedes'
+__rdoc__='''
+DESCRIPTION:
+Get a distance between PDBs
+'''
 
 
 def parse_cli():

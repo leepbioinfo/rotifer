@@ -15,6 +15,10 @@ import argcomplete
 
 __version__ = 0.3
 __authors__ = 'Gilberto Kaihami'
+__rdoc__='''
+DESCRIPTION:
+Get common columns in different msa
+'''
 
 def parse_cli():
     parser = corecli.parser(description = 'Get common columns in different msa')

@@ -11,7 +11,10 @@ import pandas as pd
 
 __version__ = 0.3
 __authors__ = 'Gilberto Kaihami'
-
+__rdoc__='''
+DESCRIPTION:
+Extract a column from a sequence
+'''
 def parse_cli():
     parser = corecli.parser(description = 'Extract a column from a sequence')
     parser.add(

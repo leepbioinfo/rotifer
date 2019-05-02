@@ -11,6 +11,10 @@ import pandas as pd
 import numpy as np
 __version__ = 0.1
 __authors__ = 'Gianlucca Nicastro'
+__rdoc__='''
+DESCRIPTION:
+using alignemnt in any format as input and make a sequence consensus
+'''
 
 def parse_args():
     parser = corecli.parser( description= \
