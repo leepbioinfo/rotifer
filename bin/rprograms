@@ -6,6 +6,26 @@ warnings.filterwarnings("ignore")
 import sys
 from subprocess import PIPE, Popen
 from prettytable import PrettyTable
+import re
+import rotifer.core.cli as corecli
+
+__version__ = 0.10
+__authors__ = 'Gilberto Kaihami'
+
+def parse_cli():
+    parser = corecli.parser(description = 'Show rotifer programs')
+
+    # Add another options here
+
+    parser.add( long_arg = '--show',
+                short_arg = '-s',
+                dest = 'show',
+                helper = 'Show program',
+                action = "store_true"
+                )
+    args = parser.parse_args()
+
+    return args
 
 def blockPrint():
     sys.stderr = open(os.devnull, 'w')
@@ -14,47 +34,61 @@ def blockPrint():
 def enablePrint():
     sys.stdout = sys.__stdout__
 
-if os.path.islink(__file__):
-    folder = os.path.dirname(os.path.realpath(__file__))
+def show(path = __file__):
+    if os.path.islink(__file__):
+        folder = os.path.dirname(os.path.realpath(path))
+    else:
+        folder = os.path.dirname(os.path.abspath(path))
 
-else:
-    folder = os.path.dirname(os.path.abspath(__file__))
+    ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
+    t = PrettyTable(['Name', 'Description', 'Version'])
 
-t = PrettyTable(['Name', 'Description'])
-
-res = []
-for p in os.listdir(folder):
-    path = os.path.join(folder, p)
-    if os.path.isfile(path) and 'rprograms' not in p:
-        try:
-            os.chdir(folder)
+    for p in os.listdir(folder):
+        path = os.path.join(folder, p)
+        if os.path.isfile(path):
+            desc = ''
+            version = ''
+            authors = ''
             try:
-                blockPrint()
-                sub = __import__(p.replace('.py', ''), fromlist = ['__rdoc__'])
-            except:
-                pass
-            description = sub.__rdoc__.split('\n')
-            s = ''
-
-            for x in range(0, len(description)):
-                if 'DESCRIPTION' in description[x]:
-                    for y in range(x+1, len(description)):
-                        if description[y].isupper():
+                comm = Popen(f'{path} --version',stderr = PIPE, stdout = PIPE, shell = True)
+                s = comm.communicate()[0].decode('utf-8').split('\n')
+                if len(s) < 7 and len(s) > 0:
+                    ls = [x for x in s if x != '']
+                    for x in range(0, len(ls)):
+                        if 'NO INPUT' in ls[x]:
                             break
                         else:
-                            s += description[y]
-                    break
-            try:
-                res.append([p.replace('.py', ''), s])
+                            for y in range(1, len(ls)):
+
+                                string = ansi_escape.sub('', ls[y])
+                                if 'Version' in string:
+                                    version = string.replace('Version: ', '')
+                                elif 'Authors' in string:
+                                    pass
+                                #     authors = string.replace('Authors: ', '')
+                                #     print([x.split(' ') for x in authors.split(';')])
+                                else:
+                                    desc += string
+                            break
+                t.add_row([p, desc, version])
+
             except:
                 pass
+            try:
+                pass
+            except KeyboardInterrupt:
+                sys.exit(1)
+    t.sortby = "Name"
+    t.align["Name"] = "l"
+    t.align['Description'] = "l"
+    t.align['Version'] = "l"
+    # t.align['Authors'] = "l"
+    print(t)
+    sys.exit()
 
-        except:
-            pass
-    else:
-        pass
+if __name__ == '__main__':
+    args = parse_cli()
 
-enablePrint()
-for e in res:
-    t.add_row([e[0], e[1]])
-print(t)
+    show()
+
+
