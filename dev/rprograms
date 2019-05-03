@@ -4,10 +4,9 @@ import os
 import warnings
 warnings.filterwarnings("ignore")
 import sys
-import re
-from multiprocessing import Process, Manager
 from subprocess import PIPE, Popen
 from prettytable import PrettyTable
+import re
 import rotifer.core.cli as corecli
 
 __version__ = 0.10
@@ -35,11 +34,20 @@ def blockPrint():
 def enablePrint():
     sys.stdout = sys.__stdout__
 
-def search(sub_folder, res):
+def show(path = __file__):
+    if os.path.islink(__file__):
+        folder = os.path.dirname(os.path.realpath(path))
+    else:
+        folder = os.path.dirname(os.path.abspath(path))
+
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
-    for path in sub_folder:
+    print(folder)
+
+    t = PrettyTable(['Name', 'Description', 'Version'])
+
+    for p in os.listdir(folder):
+        path = os.path.join(folder, p)
         if os.path.isfile(path):
-            p = os.path.basename(path)
             desc = ''
             version = ''
             authors = ''
@@ -63,8 +71,8 @@ def search(sub_folder, res):
                                 #     print([x.split(' ') for x in authors.split(';')])
                                 else:
                                     desc += string
-
-                        break
+                            break
+                t.add_row([p, desc, version])
 
             except:
                 pass
@@ -72,40 +80,50 @@ def search(sub_folder, res):
                 pass
             except KeyboardInterrupt:
                 sys.exit(1)
-            res.append([p, desc, version])
-
-def show(path = __file__):
-    if os.path.islink(__file__):
-        folder = os.path.dirname(os.path.realpath(path))
-    else:
-        folder = os.path.dirname(os.path.abspath(path))
-
-    t = PrettyTable(['Name', 'Description', 'Version'])
-
-    ls_files = [os.path.join(folder,x) for x in os.listdir(folder) if os.path.isfile(os.path.join(folder,x))]
-
-    threads = 20
-    s = len(ls_files)//threads if len(ls_files) > 1 else 1
-    sub_folder = [ls_files[x:x+s] for x in range(0, len(ls_files), s)]
-    manager = Manager()
-    ls_res = manager.list()
-
-    jobs = []
-    for x in range(0, len(sub_folder)):
-        p = Process(target = search, args = (sub_folder[x],ls_res ))
-        p.start()
-        jobs.append(p)
-    for p in jobs:
-        p.join()
-
-    for res in ls_res:
-        t.add_row(res)
     t.sortby = "Name"
     t.align["Name"] = "l"
     t.align['Description'] = "l"
     t.align['Version'] = "l"
+    # t.align['Authors'] = "l"
     print(t)
     sys.exit()
+
+    res = []
+    for p in os.listdir(folder):
+        path = os.path.join(folder, p)
+        if os.path.isfile(path) and 'rprograms' not in p:
+            try:
+                os.chdir(folder)
+                try:
+                    blockPrint()
+                    sub = __import__(p.replace('.py', ''), fromlist = ['__rdoc__'])
+                except:
+                    pass
+                description = sub.__rdoc__.split('\n')
+                s = ''
+
+                for x in range(0, len(description)):
+                    if 'DESCRIPTION' in description[x]:
+                        for y in range(x+1, len(description)):
+                            if description[y].isupper():
+                                break
+                            else:
+                                s += description[y]
+                        break
+                try:
+                    res.append([p.replace('.py', ''), s])
+                except:
+                    pass
+
+            except:
+                pass
+        else:
+            pass
+
+    enablePrint()
+    for e in res:
+        t.add_row([e[0], e[1]])
+    print(t)
 
 if __name__ == '__main__':
     args = parse_cli()
