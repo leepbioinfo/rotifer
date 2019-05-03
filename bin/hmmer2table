@@ -1,0 +1,199 @@
+#!/usr/bin/env perl
+
+use FindBin;
+use lib "$FindBin::RealBin/../perl/lib";
+use File::Basename;
+use warnings;
+use strict;
+
+# This program parses the last row in the block below:
+#
+# Domain annotation for each sequence (and alignments):
+# >> gi|143955749|gb|EDH83793.1|  hypothetical protein GOS_533316, partial [marine metagenome]
+#    #    score  bias  c-Evalue  i-Evalue hmmfrom  hmm to    alifrom  ali to    envfrom  env to     acc
+#  ---   ------ ----- --------- --------- ------- -------    ------- -------    ------- -------    ----
+#    1 !  183.8   0.7   2.3e-57   7.4e-52      21     182 ..       3     162 ..       1     163 [. 0.96
+
+# Parsing configuration file and command line arguments
+my $CONFIG = parse_configuration();
+print join("\t",qw{sequence domain start end evalue qstart qend qcov iteration score}),"\n" if ($CONFIG->header);
+
+# Hard coded!
+my $gunzip = "gzip -dc";
+my $bunzip = "bzip2 -dc";
+
+# Parsing hmmsearch output
+foreach my $file (@ARGV) {
+    my ($query, $hit, $qlen);
+    my $iteration = 1;
+
+    my $filestr = ($file =~ /\.gz/) ? "$gunzip $file |" : ($file =~ /\.bz2/) ? "$bunzip $file |" : "<$file";
+
+    my $in_hsp_table = 0;
+    open(HMMER,"$filestr") || die "Could not open $file";
+    while (<HMMER>) {
+	chomp;
+
+	# Headers
+	/\@\@\s+Round:\s+(\d+)/          && do { $iteration = $1; next };
+	/^Query:\s+(\S+)\s+.*\[\S=(\d+)/ && do { $query = $1; $qlen = $2; $in_hsp_table = 0; next };
+	/^>> (\S+)/                      && do { $hit   = $1; next };
+
+	# HSPs
+	/Domain annotation for each/ && do { $in_hsp_table = 1; next };
+	next unless ($in_hsp_table);
+	/^\s+\d+\s+[\?\!]\s+/ && do {
+	    s/^\s+//;
+	    my @row = split(/\s+/);
+	    next if (defined $CONFIG->evalue && $row[5] > $CONFIG->evalue);
+	    warn "Unexpected number of columns at $_\n" unless (scalar(@row) == 16);
+	    my @ids = map { s/^[^\|]+\|([^\|]+)\|\S+/$1/ if ($CONFIG->clean); $_ } ($hit,$query);
+	    @ids = ($query,$hit) if ($CONFIG->swap);
+	    if (defined $CONFIG->rename_query) {
+		if (ref $CONFIG->rename_query) {
+		    $ids[1] = $CONFIG->rename_query->($ids[1], $file);
+		} else {
+		    $ids[1] = $CONFIG->rename_query;
+		}
+	    } elsif (scalar @{ $CONFIG->force_basename }) {
+		($ids[0]) = fileparse($file, @{ $CONFIG->force_basename });
+	    }
+	    my $qcov = sprintf("%.2f",($row[7]-$row[6]+1)/$qlen);
+	    print join("\t",@ids,$row[9],$row[10],$row[5],$qcov,$row[6],$row[7],$iteration,$row[2]),"\n";
+	};
+    } # while (<HMMER>)
+    close(HMMER);
+}
+
+exit 0;
+
+#
+# Subroutines
+#
+
+sub parse_configuration {
+    use Application::Config qw(:argcount GetConfig);
+
+    # Parser definition
+    my $appconfig = GetConfig(# Configuration file
+			      'header' => {
+				  ALIAS    => 'a|add_header|y',
+				  DEFAULT  => 0,
+				  ARGCOUNT => ARGCOUNT_NONE,
+				  SUMMARY  => "add column names to output",
+			      },
+
+			      'force_basename' => {
+				  DEFAULT  => [],
+				  ARGCOUNT => ARGCOUNT_LIST,
+				  ALIAS    => 'b',
+				  SUMMARY  => "Derive query name from filename by  removing suffixes",
+			      },
+
+			      'rename_query' => {
+				  ALIAS    => 'r',
+				  DEFAULT  => undef,
+				  ARGCOUNT => ARGCOUNT_ONE,
+				  SUMMARY  => "Change query idetifier: either a string or perl code defining a closure (anonymoys subroutine reference). The subroutine receives as input the query name and the input file name and should return the new query name as a string.",
+			      },
+
+			      'clean' => {
+				  ALIAS    => 'c',
+				  DEFAULT  => 0,
+				  ARGCOUNT => ARGCOUNT_NONE,
+				  SUMMARY  => "boolean, simplify sequence name to GI number",
+			      },
+
+			      'pcut' => {
+				  ALIAS    => 'e|evalue',
+				  DEFAULT  => undef,
+				  ARGCOUNT => ARGCOUNT_ONE,
+				  SUMMARY  => "set e-value cutoff for matches",
+			      },
+
+			      'extension' => {
+				  ALIAS    => 'x',
+				  DEFAULT  => '.hmmsearch',
+				  ARGCOUNT => ARGCOUNT_ONE,
+				  SUMMARY  => "suffix for HMMER3 reports",
+			      },
+
+			      'swap' => {
+				  ALIAS    => 's',
+				  DEFAULT  => 0,
+				  ARGCOUNT => ARGCOUNT_NONE,
+				  SUMMARY  => "swap query and hit output columns",
+			      },
+	);
+
+    # Compile rename_query subroutine
+    if (defined $appconfig->rename_query) {
+	my $ref = $appconfig->rename_query;
+	$ref = eval $ref if ($ref =~ /\bsub\b.+\{.+\}/);
+	die "Error compiling rename_query (option -r) subroutine: $@" if ($@);
+	$appconfig->rename_query($ref);
+    }
+
+    # Expand list of files from a directory
+    unshift(@ARGV,"-") unless ( -t STDIN );
+    my @args = @ARGV;
+    @ARGV = ();
+    foreach my $path (@args) {
+	if ( -d $path ) {
+	    push(@ARGV, glob("${path}/*".$appconfig->extension));
+	} elsif ( -f $path || $path eq '-' ) {
+	    push(@ARGV, $path);
+	} else {
+	    die "List of arguments should include directory or file names only!";
+	}
+    }
+
+    return $appconfig;
+}
+
+# MAIN PROGRAM: end
+
+####################
+
+# POD: start
+# Documentation (use option -doc or --doc to see it!)
+#
+# AppConfig::AutoDoc can automatically extract Plain Old Documentation
+# from within the caller program's, add descriptions of the options
+# created by L<define> and do some pretty formatting for output.
+# 
+# Note that POD may be added anywhere in your program, thus allowing 
+# the documentation for a program to be left side by side with the
+# function's definition.
+
+=head1 NAME
+
+ hmmer2table - convert HMMER 3 output to a domain table
+
+=head1 SYNOPSIS
+
+ # From hmmsearch to domain table (default options)
+
+ hmmer2table seq.hmmersearch.out > seq.hmmsearch.table
+
+ # From hmmscan to domain table (default options)
+
+ hmmer2table -s seq.hmmscan.out > seq.hmmscan.table
+
+=head1 DESCRIPTION
+
+This program converts the output of HMMER 3 programs to a domain
+table. Each row in a domain table describes a region in a sequence
+and has the following columns:
+
+<sequence> <domain> <start> <end> <e-value>
+
+separated by tabulations (TAB: \t).
+ 
+=head1 AUTHOR
+
+ Robson Francisco de Souza
+
+=cut
+
+# POD: end

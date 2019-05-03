@@ -1,0 +1,84 @@
+# Table of targets in YAML format (http://www.yaml.org/)
+#
+# IMPORTANT:
+#  - Rows that begin with a '#' are comments!!!!
+#  - Empty lines are ignored!
+#  - Columns are separated by commas!!!!
+#  - Identation matters: don't add spaces at the start of any row!!!!
+#
+# Spaces around commas and other elements in the table
+# (i.e. between squared brackets) are MUTE and were only
+# added to improve readability
+#
+# Columns:
+#   name, method, server, path at source, post-processor
+#
+#   <name>    is the identifier of a target and the basename for its configuration file(s)
+#   <method>  is the name of a Rotifer::Tools::Rrsw module that implements one or more download methods
+#   <server>  is the rsync server name, i.e. rsync://<server>
+#   <path>    is the path in the server, i.e. rsync://<server>/<path>
+#   <process> plugin to run after syncing
+#
+# Use the blocks below as templates:
+#
+#  keep all columns (i.e. commas), both brackets AND
+#  a "- " (dash followed by one space) at the start
+#  of each row.
+
+# Don't erase this row/block: YAML compatibility!
+# Also, don't add any other row starting with "---"
+# or you won't get a table after loading it...
+---
+
+# NCBI
+- [ NAME       , METHOD , SERVER        , PATH                                 , PROCESS        , OPTIONS                                                                                 ]
+- [ gene       , rsync  , 130.14.250.10 , gene                                 , unpack         ,                                                                                         ]
+- [ taxonomy   , rsync  , 130.14.250.11 , pub/taxonomy                         , unpack         ,                                                                                         ]
+- [ blast      , rsync  , rsync.ncbi.nlm.nih.gov, blast                                , unpack_blast   , { rsync: [ -arHv, --delete, --delete-excluded, --prune-empty-dirs, -L, --safe-links ], exclude: [ v5 ] } ]
+# [ toxins     , rsync  , 130.14.250.13 , pub/aravind/TOXIMM                   ,                ,                                                                                         ]
+- [ cdd        , rsync  , 130.14.250.10 , pub/mmdb/cdd                         , none           ,                                                                                         ]
+- [ genomes    , rsync  , 130.14.250.11 , genomes                              , none           , { rsync: [ -arHv, --delete, --prune-empty-dirs, -L, --safe-links ] }                    ]
+- [ refseq     , rsync  , 130.14.250.11 , refseq                               , none           ,                                                                                         ]
+- [ livelists  , rsync  , 130.14.250.12 , genbank/livelists                    , none           ,                                                                                         ]
+- [ bioproject , rsync  , 130.14.250.13 , bioproject                           , none           ,                                                                                         ]
+- [ biosample  , rsync  , 130.14.250.10 , biosample                            , unpack         ,                                                                                         ]
+- [ edirect    , rsync  , 130.14.250.11 , entrez/entrezdirect/versions/current , unpack_edirect , { rsync: [ -arHv, --delete, --delete-excluded, --prune-empty-dirs, -L, --copy-links ] } ]
+# EBI
+# [ NAME   , METHOD , SERVER           , PATH                               , PROCESS     ]
+- [ pfam   , ftp    , ftp.ebi.ac.uk    , pub/databases/Pfam/current_release , unpack_pfam ]
+- [ rfam   , ftp    , ftp.ebi.ac.uk    , pub/databases/Rfam/CURRENT         , unpack      ]
+- [ chebi  , ftp    , ftp.ebi.ac.uk    , pub/databases/chebi                ,             ]
+- [ chembl , ftp    , ftp.ebi.ac.uk    , pub/databases/chembl               ,             ]
+
+# Protein Ontology
+# [ NAME , METHOD , SERVER                 , PATH               , PROCESS ]
+- [ po   , ftp    , ftp.pir.georgetown.edu , databases/ontology ,         ]
+
+# Bio-mirror
+# [ NAME     , METHOD , SERVER              , PATH                   , PROCESS ]
+- [ prosite  , ftp    , ftp.expasy.org      , databases/prosite      ,         ]
+- [ enzyme   , ftp    , ftp.expasy.org      , databases/enzyme       ,         ]
+
+# Gene ontology
+# [ NAME , METHOD , SERVER               , PATH , PROCESS ]
+- [ go   , ftp    , ftp.geneontology.org , go   ,         ]
+
+# PDB
+# [ NAME , METHOD , SERVER                , PATH                            , PROCESS ]
+- [ pdb  , rsync  , "ftp.wwpdb.org:33444" , ftp/data/structures/divided/pdb ,         ]
+
+# KEGG
+# [ NAME , METHOD , SERVER                , PATH , PROCESS      ]
+- [ kegg , ftp    , ftp.bioinformatics.jp , kegg , unpack_kegg  ]
+
+# EggNOG
+# [ NAME , METHOD , SERVER                , PATH       , PROCESS ]
+- [ eggNOG , ftp  , eggnog.embl.de        , eggNOG/4.0 ,         ]
+
+# PATRIC
+# [ NAME    , METHOD , SERVER                , PATH , PROCESS, OPTIONS ]
+- [ patric  , ftp    , ftp.patricbrc.org     , /    , none   ,         ]
+
+# UniProt
+# [ NAME    , METHOD , SERVER                , PATH                                  , PROCESS ]
+- [ uniprot , ftp    , ftp.uniprot.org       , pub/databases/uniprot/current_release , unpack  ]

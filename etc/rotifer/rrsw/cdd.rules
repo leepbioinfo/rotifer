@@ -1,0 +1,10 @@
+# Include some top-level files
++ /README
++ /cdd.versions
++ /cdtrack.txt
++ /family_superfamily_links
++ /cdd.info
++ /*.gz
+
+# Exclude all other top-level items
+- /*

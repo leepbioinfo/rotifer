@@ -1,0 +1,6 @@
+#!/bin/bash
+
+#RBASHPIPE_MODULE AUTORUN: 0
+#RBASHPIPE_MODULE ORDER: 0
+
+simpledebug "$@"

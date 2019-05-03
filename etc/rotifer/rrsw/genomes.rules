@@ -1,0 +1,29 @@
+# Rsync rules file (see 'man rsync')
+
+# Include some top-level directories
+#+ /*
++ /ASSEMBLY_REPORTS
++ /TARGET
++ /README*
++ /all
++ /all/README*
+#. /databases/tmp/rrsw/genomes.rules
+
+# Excluded patterns
+- /all/*
+- assembly_status.txt
+- *.agp*
+- *.asn*
+- *_assembly_structure
+- *.fna.gz
+- *.gff.gz
+- *_genomic.gbff.gz
+- *.gpff.gz
+- *_rna.*.gz
+- *_rm.*
+- .old
+- seqs_for_alignment_pipelines.ucsc_ids
+- /*_*
+
+# Exclude all other files/directories at the source's root
+- /*
