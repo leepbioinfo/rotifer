@@ -6,6 +6,7 @@ use Rotifer;
 use Scalar::Util qw(reftype);
 use strict;
 use warnings;
+our $VERSION = "0.99.95";
 
 # Parse command line options
 my $CONFIG = parse_configuration();

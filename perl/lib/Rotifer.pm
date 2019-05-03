@@ -98,7 +98,7 @@ use warnings;
 
 # Set values to some global variables
 use vars qw($BaseConfig $RealBasename $RealBaseDir $RealScriptEtc);
-our $VERSION = "0.86";
+our $VERSION = "0.99.95";
 our ($IWD) = abs_path(getcwd());
 
 # Default Rotifer configuration

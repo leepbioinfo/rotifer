@@ -9,6 +9,7 @@ use Rotifer;
 use Rotifer::DB::NCBI::EDirect qw(get_seqids);
 use strict;
 use warnings;
+our $VERSION="0.99.95";
 # LIBRARIES and PRAGMAS: end
 
 # Parse configuration/options

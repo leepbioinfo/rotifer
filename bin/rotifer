@@ -11,15 +11,10 @@ use Rotifer::DB::Base;
 use Rotifer::Utils qw(describe_subclasses aoa2txt);
 use strict;
 use warnings;
+our $VERSION = "0.99.95";
 # LIBRARIES and PRAGMAS: end
 
 my $CONFIG = &parse_configuration();
-
-# Version
-if ($CONFIG->version) {
-    print STDERR "Rotifer Toolkit (version $Rotifer::VERSION)\n";
-    exit 0;
-}
 
 # Check request and do something
 if ($CONFIG->data) {
@@ -117,13 +112,6 @@ sub parse_configuration {
 				  DEFAULT  => 0,
 				  SUMMARY  => "Print a summary of all Rotifer tools",
 			      },
-
-			      'version' => {
-				  ALIAS    => 'v',
-				  ARGCOUNT => ARGCOUNT_NONE,
-				  DEFAULT  => 0,
-				  SUMMARY  => "Print Rotifer's version number.",
-			      },
 	);
     $appconfig->_pod(1) unless (scalar @ARGV || $had_args);
 
@@ -134,8 +122,8 @@ sub parse_configuration {
 
 =head1 NAME
 
-ROTIFER: Rapid Open-source Tools and Infrastructure For
-         data Exploration and Research
+ROTIFER - Rapid Open-source Tools and Infrastructure For
+          data Exploration and Research
 
 =head1 SYNOPSIS
 

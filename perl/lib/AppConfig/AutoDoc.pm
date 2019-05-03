@@ -191,6 +191,26 @@ our %DEFAULT_OPTIONS = (# Configuration file
         ARGCOUNT => ARGCOUNT_NONE,
         SUMMARY  => "show program documentation"
     },
+
+    # Print version
+    'version' => {
+        DEFAULT  => 0,
+        ARGCOUNT => ARGCOUNT_NONE,
+	ACTION   => sub {
+		use Rotifer;
+		use Rotifer::Utils qw(pod2summary);
+		use File::Basename;
+		my @version = ("$0:");
+		my @desc = pod2summary({ section => ["AUTHOR"] }, $0);
+		push(@version,$desc[0][1]);
+		my $versionNumber = defined($main::VERSION) ? $main::VERSION : $Rotifer::VERSION;
+		push(@version,"Version: $versionNumber");
+		push(@version,"Authors: $desc[0][2]");
+		print join("\n",@version),"\n";
+		exit 1;
+	},
+        SUMMARY  => "show program version"
+    },
 );
 
 # Default configuration parameters for new()
