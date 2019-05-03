@@ -19,14 +19,14 @@ option_list = list(
     make_option(
         c("-o", "--output"), 
         type="character", 
-        help="dataset file name", 
+        help="Output file name", 
         metavar="character"
     ),
     make_option(
         c("-f", "--format"), 
         type="character", 
         default="fasta",
-        help="output file name [default= %default]", 
+        help="Input file format [default= %default]", 
         metavar="character"
     ),
     make_option(
@@ -95,7 +95,7 @@ option_list = list(
     make_option(
         c("-P", "--pointsize"),
         type="integer",
-        default=2,
+        default=10,
         help="Final plot parameter [default=%default]",
         metavar="number"
     ),
@@ -116,7 +116,7 @@ option_list = list(
     make_option(
         c("-Y", "--ymax"),
         type="double",
-        default=4.2,
+        default=4.5,
         help= "Enter the higher value in y-axis.",
         metavar="number"
     )
@@ -152,7 +152,7 @@ xlabelname <- function(data, seqref){
             mutate(seqindex = row_number(),
             seqlabel = case_when(
             seqchar == '-' ~ seqposition,
-            TRUE ~ paste(seqposition,"(",seqchar,seqindex,")", sep = ''))),
+            TRUE ~ paste(seqposition," (",seqchar,seqindex,")", sep = ''))),
             b %>% filter(seqchar == '-'))
     b <- b %>%
         mutate(
