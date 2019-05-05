@@ -9,7 +9,7 @@ from multiprocessing import Process, Manager
 from subprocess import PIPE, Popen
 from prettytable import PrettyTable
 import rotifer.core.cli as corecli
-
+import rotifer.core.functions as rcf
 __version__ = 0.10
 __authors__ = 'Gilberto Kaihami'
 
@@ -18,11 +18,18 @@ def parse_cli():
 
     # Add another options here
 
-    parser.add( long_arg = '--show',
-                short_arg = '-s',
-                dest = 'show',
-                helper = 'Show program',
-                action = "store_true"
+    parser.add( long_arg = '--tool',
+                short_arg = '-t',
+               default = [],
+                dest = 'tool',
+                helper = 'Print a summary of all Rotifer tools',
+                action = "append"
+                )
+    parser.add( long_arg = '--tag',
+               default = [],
+                dest = 'tag',
+                helper = 'Print a summary of all Rotifer tools',
+                action = "append"
                 )
     args = parser.parse_args()
 
@@ -35,7 +42,7 @@ def blockPrint():
 def enablePrint():
     sys.stdout = sys.__stdout__
 
-def search(sub_folder, res):
+def search(sub_folder, filters, tags, tag_dc, res):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
     for path in sub_folder:
         if os.path.isfile(path):
@@ -72,18 +79,31 @@ def search(sub_folder, res):
                 pass
             except KeyboardInterrupt:
                 sys.exit(1)
-            res.append([p, desc, version])
+            if filters:
+                for fil in filters:
+                    if fil in p:
+                        if p in tag_dc.keys():
+                            res.append([p, desc, version, tag_dc[p]])
+                        else:
+                            res.append([p, desc, version, ['miscellaneous']])
 
-def show(path = __file__):
+            else:
+                if p in tag_dc.keys():
+                    res.append([p, desc, version, tag_dc[p]])
+                else:
+                    res.append([p, desc, version, ['miscellaneous']])
+
+def show(path = __file__, filters = [], tags = []):
     if os.path.islink(__file__):
         folder = os.path.dirname(os.path.realpath(path))
     else:
         folder = os.path.dirname(os.path.abspath(path))
 
-    t = PrettyTable(['Name', 'Description', 'Version'])
+    t = PrettyTable(['Name', 'Description', 'Version', 'Tags'])
 
     ls_files = [os.path.join(folder,x) for x in os.listdir(folder) if os.path.isfile(os.path.join(folder,x))]
 
+    tag_dc = rcf.loadConfig(':tools.rprograms.tags')
     threads = 20
     s = len(ls_files)//threads if len(ls_files) > 1 else 1
     sub_folder = [ls_files[x:x+s] for x in range(0, len(ls_files), s)]
@@ -92,12 +112,22 @@ def show(path = __file__):
 
     jobs = []
     for x in range(0, len(sub_folder)):
-        p = Process(target = search, args = (sub_folder[x],ls_res ))
+        p = Process(target = search, args = (sub_folder[x],filters, tags, tag_dc, ls_res))
         p.start()
         jobs.append(p)
     for p in jobs:
         p.join()
 
+    if tags:
+        res2 = []
+        dc2 = {}
+        for tag in tags:
+            for p, desc, version, tag_res in ls_res:
+                if tag in tag_res:
+                    if p not in dc2.keys():
+                        dc2[p] = 1
+                        res2.append([p, desc, version, tag_res])
+        ls_res = res2
     for res in ls_res:
         t.add_row(res)
     t.sortby = "Name"
@@ -110,6 +140,6 @@ def show(path = __file__):
 if __name__ == '__main__':
     args = parse_cli()
 
-    show()
+    show(filters = args.tool, tags = args.tag)
 
 
