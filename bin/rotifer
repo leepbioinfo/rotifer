@@ -1,164 +1,115 @@
-#!/usr/bin/env perl
+#!/usr/bin/env python3
 
-# LIBRARIES and PRAGMAS: start
-use FindBin;
-use lib "$FindBin::RealBin/../perl/lib";
-use File::Basename;
-use IPC::Run qw(run);
-use Pod::Perldoc;
-use Rotifer;
-use Rotifer::DB::Base;
-use Rotifer::Utils qw(describe_subclasses aoa2txt);
-use strict;
-use warnings;
-our $VERSION = "0.99.95";
-# LIBRARIES and PRAGMAS: end
+import os
+import warnings
+warnings.filterwarnings("ignore")
+import sys
+import re
+from multiprocessing import Process, Manager
+from subprocess import PIPE, Popen
+from prettytable import PrettyTable
+import rotifer.core.cli as corecli
 
-my $CONFIG = &parse_configuration();
+__version__ = 0.10
+__authors__ = 'Gilberto Kaihami'
 
-# Check request and do something
-if ($CONFIG->data) {
-    print join("\n",Rotifer::DB::Base->data_path(@ARGV)),"\n";
-}
+def parse_cli():
+    parser = corecli.parser(description = 'Show rotifer programs')
 
-elsif ($CONFIG->documentation) {
-    my %commands = map { (basename($_),$_) } glob("$Rotifer::RealBaseDir/bin/*");
-    @ARGV = ('rotifer') unless (scalar @ARGV);
-    if (my @cmd = grep { exists $commands{$_} } @ARGV) {
-	foreach my $arg (@ARGV) {
-	    run([ $arg, "--help" ]) if (-x $commands{$arg});
-	}
-    } elsif (my @libs = grep { !exists $commands{$_} } @ARGV) {
-	push(@libs,1) if (scalar(@libs) % 2);
-	Pod::Perldoc->run(@libs);
-    }
-}
+    # Add another options here
 
-elsif ($CONFIG->environment) {
-    @ARGV = ('all') unless (scalar @ARGV);
-    foreach my $arg (@ARGV) {
-	my $variable = "ROTIFER_".uc($arg);
-	if (exists $ENV{$variable}) {
-	    print  $ENV{$variable},"\n";
-	} elsif ($arg eq 'all') {
-	    print aoa2txt([qw/name value/], map { [ $_, $ENV{$_} ] } sort keys %ENV);
-	} elsif (exists $ENV{$arg}) {
-	    print  $ENV{$arg},"\n";
-	}
-    }
-}
+    parser.add( long_arg = '--show',
+                short_arg = '-s',
+                dest = 'show',
+                helper = 'Show program',
+                action = "store_true"
+                )
+    args = parser.parse_args()
 
-elsif ($CONFIG->library) {
-    @ARGV = ("Rotifer") unless (scalar @ARGV);
-    print describe_subclasses(@ARGV);
-}
+    return args
 
-elsif ($CONFIG->tool) {
-    @ARGV = ("*") if (!scalar @ARGV || grep { /^(all|\*)$/i } @ARGV);
-    my @cmd = grep { -r $_ } glob(join(" ",map { "$FindBin::RealBin/$_" } @ARGV));
-    if (scalar @cmd) {
-	print describe_subclasses(@cmd);
-    } else {
-	die "Rotifer component not found";
-    }
-};
+def blockPrint():
+    sys.stderr = open(os.devnull, 'w')
+    sys.stdout = open(os.devnull, 'w')
 
-# Exit
-exit 0;
-# MAIN PROGRAM: end
+def enablePrint():
+    sys.stdout = sys.__stdout__
 
-###############
-# Subroutines
+def search(sub_folder, res):
+    ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
+    for path in sub_folder:
+        if os.path.isfile(path):
+            p = os.path.basename(path)
+            desc = ''
+            version = ''
+            authors = ''
+            try:
+                comm = Popen(f'{path} --version',stderr = PIPE, stdout = PIPE, shell = True)
+                s = comm.communicate()[0].decode('utf-8').split('\n')
+                if len(s) < 7 and len(s) > 0:
+                    ls = [x for x in s if x != '']
+                    for x in range(0, len(ls)):
+                        if 'NO INPUT' in ls[x]:
+                            break
+                        else:
+                            for y in range(1, len(ls)):
 
-# Creating the configuration object
-sub parse_configuration {
-    use Application::Config qw(:argcount GetConfig);
+                                string = ansi_escape.sub('', ls[y])
+                                if 'Version' in string:
+                                    version = string.replace('Version: ', '')
+                                elif 'Authors' in string:
+                                    pass
+                                #     authors = string.replace('Authors: ', '')
+                                #     print([x.split(' ') for x in authors.split(';')])
+                                else:
+                                    desc += string
 
-    my $had_args = scalar(@ARGV);
-    my $appconfig = GetConfig({ EXPECT_INPUT   => 0,
-				IGNORE_UNKNOWN => 1,
-			      },
+                        break
 
-			      'data' => {
-				  ARGCOUNT => ARGCOUNT_NONE,
-				  DEFAULT  => 0,
-				  SUMMARY  => "Find local databases or local data directories seen by Rotifer.",
-			      },
+            except:
+                pass
+            try:
+                pass
+            except KeyboardInterrupt:
+                sys.exit(1)
+            res.append([p, desc, version])
 
-			      'documentation' => {
-				  ALIAS    => 'doc',
-				  ARGCOUNT => ARGCOUNT_NONE,
-				  DEFAULT  => 0,
-				  SUMMARY  => "Show documentation about Rotifer components and/or scripts. When this option is active, all options supported by perldoc are also available.",
-			      },
+def show(path = __file__):
+    if os.path.islink(__file__):
+        folder = os.path.dirname(os.path.realpath(path))
+    else:
+        folder = os.path.dirname(os.path.abspath(path))
 
-			      'environment' => {
-				  ALIAS    => 'env',
-				  ARGCOUNT => ARGCOUNT_NONE,
-				  DEFAULT  => 0,
-				  SUMMARY  => "Print information about the setup of Rotifer tools in your system.",
-			      },
+    t = PrettyTable(['Name', 'Description', 'Version'])
 
-			      'library' => {
-				  ALIAS    => 'lib',
-				  ARGCOUNT => ARGCOUNT_NONE,
-				  DEFAULT  => 0,
-				  SUMMARY  => "Print a summary of all Rotifer libraries",
-			      },
+    ls_files = [os.path.join(folder,x) for x in os.listdir(folder) if os.path.isfile(os.path.join(folder,x))]
 
-			      'tool' => {
-				  ALIAS    => 'cmd',
-				  ARGCOUNT => ARGCOUNT_NONE,
-				  DEFAULT  => 0,
-				  SUMMARY  => "Print a summary of all Rotifer tools",
-			      },
-	);
-    $appconfig->_pod(1) unless (scalar @ARGV || $had_args);
+    threads = 20
+    s = len(ls_files)//threads if len(ls_files) > 1 else 1
+    sub_folder = [ls_files[x:x+s] for x in range(0, len(ls_files), s)]
+    manager = Manager()
+    ls_res = manager.list()
 
-    return $appconfig;
-}
+    jobs = []
+    for x in range(0, len(sub_folder)):
+        p = Process(target = search, args = (sub_folder[x],ls_res ))
+        p.start()
+        jobs.append(p)
+    for p in jobs:
+        p.join()
 
-# POD: start
+    for res in ls_res:
+        t.add_row(res)
+    t.sortby = "Name"
+    t.align["Name"] = "l"
+    t.align['Description'] = "l"
+    t.align['Version'] = "l"
+    print(t)
+    sys.exit()
 
-=head1 NAME
+if __name__ == '__main__':
+    args = parse_cli()
 
-ROTIFER - Rapid Open-source Tools and Infrastructure For
-          data Exploration and Research
+    show()
 
-=head1 SYNOPSIS
 
- # To see the documentation
- rotifer
-
- # To get a summary of all Rotifer tools
- rotifer --tool
-
- # or
- rotifer -cmd
-
-=head1 DESCRIPTION
-
-RoTIfeR is a somewhat arbitrary collection of tools for data analysis.
-It is also an infrastructure for the development of new data analysis 
-and data management tools.
-
-Technically, RoTIfeR intends to provide a high-level application 
-development framework for computational analysis of biological sequences
-and a collection of tools based on this framework.
-
-In pratical terms it is just a collection of Perl scripts and 
-libraries I wrote for my bioinformatics research and latter organized
-and systematized. IOW, it is just my way of doing things.
-
-This script is an interface to Rotifer's fundamental libraries and can
-be used to retrieve information on Rotifer's execution environment,
-documentation, etc.
-
-See "rotifer --doc Rotifer" for more details.
-
-=head1 AUTHOR
-
- Robson Francisco de Souza
-
-=cut
-# POD: end
