@@ -1,5 +1,7 @@
 #!/home/linuxbrew/anaconda3/bin/Rscript --vanilla
 
+
+# check if a lib exist before call it and install if not exist
 check_lib <- function(mypkg, install_pkg=1){
     if(is.element(mypkg, installed.packages()[,1])){
         suppressMessages(library(mypkg, character.only=TRUE))
@@ -13,6 +15,7 @@ check_lib <- function(mypkg, install_pkg=1){
     }
 }
 
+# parse options
 check_lib("optparse")
 
 option_list = list(
@@ -132,17 +135,24 @@ check_lib("seqinr")
 check_lib("tidyverse")
 check_lib("ggseqlogo")
 check_lib("gridExtra")
+check_lib("cowplot")
 #check_lib("gridSVG")
 
+# read alignment
 alignment <- read.alignment(opt$args, format = opt$options$format)
+#pass all values to upercase
 alignment$seq <- toupper(alignment$seq)
-con <- consensus(alignment, method = "profile")
-
+# generate matrix with aa ocurrence per position
+#con <- consensus(alignment, method = "profile")
 aln_consensus <- consensus(alignment, method = "profile")
 
+
 xlabelname <- function(data, seqref){
+    #' this function generate a list with alignment size annotating aa in reference protein
     require(dplyr)
-    a <- as.matrix(data) %>% as_tibble() %>% cbind(seqname=data$nam, .)
+    a <- as.matrix(data) %>% 
+        as_tibble() %>% 
+        cbind(seqname=data$nam, .)
 
     b <- a %>%
         filter(seqname==seqref) %>%
@@ -166,7 +176,10 @@ xlabelname <- function(data, seqref){
 
 base_plot <- function(mymatrix, sequence_type = opt$options$seqtype,
                         mstart, mend, angle, xln = '', ymin = opt$options$ymin, ymax = opt$options$ymax){
+#' build base plot
+
   chemistry = make_col_scheme(
+    #create color scheme
     chars = c("G", "S", "T", "Y", "C", "N", "Q", "K",
               "R", "H", "D", "E", "P", "A", "W", "F",
               "L", "I", "M", "V"),
@@ -176,6 +189,8 @@ base_plot <- function(mymatrix, sequence_type = opt$options$seqtype,
              rep("#255C99", 3), rep("#D62839", 2), rep("#221E22", 8))
   )
 #    options(warn = -1)
+#
+#    draw plot
     ggplot() +
     geom_logo(
         mymatrix,
@@ -193,6 +208,7 @@ base_plot <- function(mymatrix, sequence_type = opt$options$seqtype,
 }
 
 myranges <- function(start, end, step){
+    # create df index to split the alignment
   starts <- seq(start, end, step+1)
   ends <- pmin(starts + step, end)
   data.frame(a = starts, b = ends)
@@ -202,12 +218,14 @@ myranges <- function(start, end, step){
 
 out_plot <- function(data, split = 1, mstart = 1, mend = 0, 
                      xln = '', angle = 0,  numofcol = 2, pstype = "aa", ymin = 0, ymax = 4.2){
+    # final plot
     if ( mend == FALSE){
         mend = ncol(data)
     }
 
-    tsplit <- split - 1
+    #tsplit <- split - 1
     if (split == 1){
+        # draw without split
     base_plot(
         as.matrix(data[, mstart:mend]),
         "aa",
@@ -218,54 +236,72 @@ out_plot <- function(data, split = 1, mstart = 1, mend = 0,
         ymin = ymin,
         ymax = ymax)
         } else {
-    t <- split - 1
+    # If draw all splits separately
+    #t <- split - 1
     p_list <- apply(
         myranges(mstart, mend, split), 1,
         function(x){
-            base_plot(
-                as.matrix(data[, x[1]:x[2]]),
-                "aa",
-                mstart = x[1],
-                mend = x[2],
-                angle = angle,
-                xln = xln,
-                ymin = ymin,
-                ymax = ymax)
+            ggdraw()+
+                draw_plot(
+                    base_plot(
+                        as.matrix(data[, x[1]:x[2]]),
+                        "aa",
+                        mstart = x[1],
+                        mend = x[2],
+                        angle = angle,
+                        xln = xln,
+                        ymin = ymin,
+                        ymax = ymax
+                    ),
+                    width = (x[2] - x[1])/split
+                )
         }
     )
-    do.call(gridExtra::grid.arrange, c(p_list, ncol=2))
+    do.call(plot_grid, c(p_list, ncol=2))
   }
 }
 
+# MAIN #
+
 if( opt$options$reference == ""){
+    # create x-axis string 
     if ( opt$options$xlabelname == '' ){
+        # if no options, use canonical x-axis
         x_label_name = colnames(aln_consensus)
     } else {
+        # use user's defined x-axis
         x_label_name = str_split(opt$options$xlabelname, ',')
     }
 } else {
+    #generate x-axis according reference
   x_label_name = xlabelname(alignment, opt$options$reference) 
 }
+
+#define length of alignment id user didn't
 end = opt$options$end
 if ( end == 0){
   end = ncol(con)
 }
 
+
+# CODE BLOCK to AUTO SIZE if user did not define plot size
 ncols = as.integer(opt$options$numcols)
 nchunk =  as.integer(opt$options$chunks)
-
+# define width
 if (opt$options$width == 0){
     wd = as.integer(0.47 * ncols * nchunk)
 } else {
     wd = opt$options$width
 }
-
+#define height
 if(opt$options$height == 0){
     ht = as.integer((ncol(con)/(ncols*nchunk)) * 3.5 )
 } else {
     ht = opt$options$height
 }
 
+
+# Finally, create plot and save
 svg(opt$options$output,width=wd,
     height=ht,pointsize=opt$options$pointsize)
 out_plot(aln_consensus,
@@ -279,8 +315,5 @@ out_plot(aln_consensus,
                 ymin = opt$options$ymin,
                 ymax = opt$options$ymax
 )
-
-#svg(opt$options$output)
-#p
 dev.off()
 
