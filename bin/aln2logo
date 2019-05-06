@@ -132,6 +132,7 @@ check_lib("seqinr")
 check_lib("tidyverse")
 check_lib("ggseqlogo")
 check_lib("gridExtra")
+check_lib("cowplot")
 #check_lib("gridSVG")
 
 alignment <- read.alignment(opt$args, format = opt$options$format)
@@ -222,15 +223,20 @@ out_plot <- function(data, split = 1, mstart = 1, mend = 0,
     p_list <- apply(
         myranges(mstart, mend, split), 1,
         function(x){
-            base_plot(
-                as.matrix(data[, x[1]:x[2]]),
-                "aa",
-                mstart = x[1],
-                mend = x[2],
-                angle = angle,
-                xln = xln,
-                ymin = ymin,
-                ymax = ymax)
+            ggdraw()+
+                draw_plot(
+                    base_plot(
+                        as.matrix(data[, x[1]:x[2]]),
+                        "aa",
+                        mstart = x[1],
+                        mend = x[2],
+                        angle = angle,
+                        xln = xln,
+                        ymin = ymin,
+                        ymax = ymax
+                    ),
+                    width = (x[2] - x[1])/split
+                )
         }
     )
     do.call(gridExtra::grid.arrange, c(p_list, ncol=2))
