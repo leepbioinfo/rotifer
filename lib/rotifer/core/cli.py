@@ -407,11 +407,17 @@ class parser:
             print('Include __version__ and/or __authors__ in the main program')
             sys.exit()
 
+        try:
+            tags = mainprog.__tags__
+        except:
+            tags = ['notag']
+
         self.add('--version',
                  action = 'version',
-                 version = version(program = mainprog.__file__,
+                 version = version(program = os.path.basename(mainprog.__file__),
                              version = mainprog.__version__,
                              authors = mainprog.__authors__,
+                             tags = tags,
                              description = self.parser.description))
 
         if '--configdump' in sys.argv or '--configfile' in sys.argv:
@@ -759,6 +765,7 @@ C(")(")
 def version(program = '',
             description = '',
             version = '',
+            tags = '',
             authors = '',
             program_attrs = {'color': 'red',
                              'attrs': ['bold']
@@ -769,6 +776,8 @@ def version(program = '',
             version_attrs = {'color': 'cyan',
                              'attrs': []
             },
+            tag_attrs = {'color': 'cyan',
+                         'attrs': []},
             authors_attrs = {'color': 'cyan',
                              'attrs': []
             }):
@@ -831,11 +840,13 @@ def version(program = '',
 {p}
 {d}
 Version: {v}
+Tags: {t}
 Authors: {a}
 '''.format(space = '#'*20,
            p = colored(program +':', program_attrs['color'], attrs = program_attrs['attrs']),
            d = colored(description, description_attrs['color'], attrs = description_attrs['attrs']),
            v = colored(version, version_attrs['color'], attrs = version_attrs['attrs']),
+           t = colored(', '.join(tags), tag_attrs['color'], attrs = tag_attrs['attrs']),
            a = colored(authors, authors_attrs['color'], attrs = authors_attrs['attrs']),
            )
     return s

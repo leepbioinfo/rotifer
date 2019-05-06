@@ -3,7 +3,7 @@
 import os
 import argparse
 import sys
-sys.path.insert(0, '/home/kaihami/mymodules')
+sys.path.insert(0, '/home/kaihami/local/rotifer/lib')
 
 import rotifer.core.cli as corecli
 import argcomplete
