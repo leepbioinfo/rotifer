@@ -98,7 +98,8 @@ def ipt_accs(accs):
 
 if __name__ == '__main__':
     try:
-        driver = webdriver.PhantomJS(executable_path='/home/kaihami/projects/gen_scripts/paperblast/phantomjs-2.1.1-linux-x86_64/bin/phantomjs')
+        driver = webdriver.PhantomJS(executable_path='/home/kaihami/projects/gen_scripts/paperblast/phantomjs-2.1.1-linux-x86_64/bin/phantomjs',
+                                     service_log_path=os.path.devnull)
         args = parse_cli()
         accs = args.accession
         print('\t'.join('Index Locus Identity Coverage Title Description Link'.split()))
