@@ -239,7 +239,7 @@ out_plot <- function(data, split = 1, mstart = 1, mend = 0,
                 )
         }
     )
-    do.call(gridExtra::grid.arrange, c(p_list, ncol=2))
+    do.call(plot_grid, c(p_list, ncol=2))
   }
 }
 
