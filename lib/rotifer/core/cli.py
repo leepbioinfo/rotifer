@@ -410,7 +410,7 @@ class parser:
         try:
             tags = mainprog.__tags__
         except:
-            tags = ['notag']
+            tags = ['no tag']
 
         self.add('--version',
                  action = 'version',

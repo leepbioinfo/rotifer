@@ -4,7 +4,6 @@ import os
 import warnings
 warnings.filterwarnings("ignore")
 import sys
-sys.path.insert(0, '/home/kaihami/local/rotifer/lib')
 import re
 from multiprocessing import Process, Manager
 from subprocess import PIPE, Popen
