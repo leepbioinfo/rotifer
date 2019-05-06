@@ -68,6 +68,9 @@ def search(sub_folder, filters, tags, tag_dc, res):
                                     pass
                                 #     authors = string.replace('Authors: ', '')
                                 #     print([x.split(' ') for x in authors.split(';')])
+                                elif 'Tags' in string:
+                                    tags = string.replace('Tags: ', '').split(', ')
+                                    print(tags)
                                 else:
                                     desc += string
 
