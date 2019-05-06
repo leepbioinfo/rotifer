@@ -85,7 +85,7 @@ def search(sub_folder, filters, tags, res):
                 sys.exit(1)
 
             if not tags_found:
-                tags_found = ['no tag']
+                tags_found = ['notag']
 
             # just convert everything to lowercase
             tags_found = [x.lower() for x in tags_found]
