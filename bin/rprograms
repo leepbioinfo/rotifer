@@ -4,6 +4,7 @@ import os
 import warnings
 warnings.filterwarnings("ignore")
 import sys
+sys.path.insert(0, '/home/kaihami/local/rotifer/lib')
 import re
 from multiprocessing import Process, Manager
 from subprocess import PIPE, Popen
@@ -12,6 +13,7 @@ import rotifer.core.cli as corecli
 import rotifer.core.functions as rcf
 __version__ = 0.10
 __authors__ = 'Gilberto Kaihami'
+__tags__ = ['Tools', 'Core']
 
 def parse_cli():
     parser = corecli.parser(description = 'Show rotifer programs')
@@ -42,7 +44,7 @@ def blockPrint():
 def enablePrint():
     sys.stdout = sys.__stdout__
 
-def search(sub_folder, filters, tags, tag_dc, res):
+def search(sub_folder, filters, tags, res):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
     for path in sub_folder:
         if os.path.isfile(path):
@@ -50,6 +52,7 @@ def search(sub_folder, filters, tags, tag_dc, res):
             desc = ''
             version = ''
             authors = ''
+            tags_found = ''
             try:
                 comm = Popen(f'{path} --version',stderr = PIPE, stdout = PIPE, shell = True)
                 s = comm.communicate()[0].decode('utf-8').split('\n')
@@ -69,8 +72,7 @@ def search(sub_folder, filters, tags, tag_dc, res):
                                 #     authors = string.replace('Authors: ', '')
                                 #     print([x.split(' ') for x in authors.split(';')])
                                 elif 'Tags' in string:
-                                    tags = string.replace('Tags: ', '').split(', ')
-                                    print(tags)
+                                    tags_found = (string.replace('Tags: ', '').replace(',', '').split())
                                 else:
                                     desc += string
 
@@ -82,19 +84,19 @@ def search(sub_folder, filters, tags, tag_dc, res):
                 pass
             except KeyboardInterrupt:
                 sys.exit(1)
+
+            if not tags_found:
+                tags_found = ['no tag']
+
+            # just convert everything to lowercase
+            tags_found = [x.lower() for x in tags_found]
             if filters:
                 for fil in filters:
                     if fil in p:
-                        if p in tag_dc.keys():
-                            res.append([p, desc, version, tag_dc[p]])
-                        else:
-                            res.append([p, desc, version, ['miscellaneous']])
+                        res.append([p, desc, version, tags_found])
 
             else:
-                if p in tag_dc.keys():
-                    res.append([p, desc, version, tag_dc[p]])
-                else:
-                    res.append([p, desc, version, ['miscellaneous']])
+                res.append([p, desc, version, tags_found])
 
 def show(path = __file__, filters = [], tags = []):
     if os.path.islink(__file__):
@@ -106,7 +108,6 @@ def show(path = __file__, filters = [], tags = []):
 
     ls_files = [os.path.join(folder,x) for x in os.listdir(folder) if os.path.isfile(os.path.join(folder,x))]
 
-    tag_dc = rcf.loadConfig(':tools.rprograms.tags')
     threads = 20
     s = len(ls_files)//threads if len(ls_files) > 1 else 1
     sub_folder = [ls_files[x:x+s] for x in range(0, len(ls_files), s)]
@@ -115,7 +116,7 @@ def show(path = __file__, filters = [], tags = []):
 
     jobs = []
     for x in range(0, len(sub_folder)):
-        p = Process(target = search, args = (sub_folder[x],filters, tags, tag_dc, ls_res))
+        p = Process(target = search, args = (sub_folder[x],filters, tags, ls_res))
         p.start()
         jobs.append(p)
     for p in jobs:
@@ -131,8 +132,9 @@ def show(path = __file__, filters = [], tags = []):
                         dc2[p] = 1
                         res2.append([p, desc, version, tag_res])
         ls_res = res2
-    for res in ls_res:
-        t.add_row(res)
+
+    for p, desc, version, tag_res in ls_res:
+        t.add_row([p, desc, version, ', '.join(tag_res)])
     t.sortby = "Name"
     t.align["Name"] = "l"
     t.align['Description'] = "l"
@@ -142,7 +144,8 @@ def show(path = __file__, filters = [], tags = []):
 
 if __name__ == '__main__':
     args = parse_cli()
+    tags = [str(x).lower() for x in args.tag]
 
-    show(filters = args.tool, tags = args.tag)
+    show(filters = args.tool, tags = tags)
 
 
