@@ -295,15 +295,17 @@ if (opt$options$width == 0){
 }
 #define height
 if(opt$options$height == 0){
-    ht = as.integer((ncol(con)/(ncols*nchunk)) * 3.5 )
+print("true")
+    ht = as.integer((ncol(aln_consensus)/(ncols*nchunk)) * 3.5 )
 } else {
+print("false")
     ht = opt$options$height
 }
 
+print(paste("width",wd,"height",ht))
 
 # Finally, create plot and save
-svg(opt$options$output,width=wd,
-    height=ht,pointsize=opt$options$pointsize)
+svg(opt$options$output,width=wd, height=ht ,pointsize=opt$options$pointsize)
 out_plot(aln_consensus,
                 mstart = opt$options$ini,
                 mend =   opt$options$end,
@@ -315,5 +317,6 @@ out_plot(aln_consensus,
                 ymin = opt$options$ymin,
                 ymax = opt$options$ymax
 )
+#ggsave(opt$options$output, width=wd, height=ht, limitsize=FALSE)
 dev.off()
 
