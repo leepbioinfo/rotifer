@@ -1,0 +1,198 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+
+import rotifer.core.cli as corecli
+from tempfile import mkstemp
+from subprocess import Popen, PIPE, check_call
+from io import StringIO
+import numpy as np
+import pandas as pd
+__version__ = 0.1
+__authors__ = 'Gilberto Kaihami, Aureliano Guedes, Gianlucca Nicastro'
+
+def parse_cli():
+    parser = corecli.parser(description = 'Find domain(s) using HHSuite')
+
+    parser.add( long_arg = '--input_directory',
+                short_arg = '-i',
+                dest = 'ipt_folder',
+                nargs = None,
+                default = '',
+                arg_type = str,
+                helper = 'Input directory containing the a3m files',
+                action = "store"
+                )
+    parser.add( long_arg = '--database',
+                short_arg = '-db',
+                dest = 'database',
+                nargs = None,
+                default = '',
+                arg_type = str,
+                helper = 'Use a HHM database (Input the database path)',
+                action = "store"
+                )
+    parser.add( long_arg = '--builddb',
+                short_arg = '-bb',
+                dest = 'build',
+                nargs = None,
+                default = '',
+                arg_type = str,
+                helper = 'Create a database (Input the database name)',
+                action = "store"
+                )
+    parser.add( long_arg = '--threshold',
+                dest = 'threshold',
+                nargs = None,
+                default = 1.0,
+                arg_type = float,
+               helper = 'Minimum number of models with a core region (Default: 1.0) [0.0-1.0]',
+                action = "store"
+                )
+
+    parser.add( long_arg = '--evalue',
+                short_arg = '-e',
+                dest = 'evalue',
+                nargs = None,
+                default = 1e-2,
+                arg_type = float,
+               helper = 'Maximum evalue (default: 0.01)',
+                action = "store"
+                )
+    parser.add( long_arg = '--search_table',
+                short_arg = '-st',
+                dest = 'mapper',
+                nargs = None,
+                default = '',
+                arg_type = str,
+                helper = 'Input a file name to Store a m8-like tsv',
+                action = "store"
+                )
+    parser.add( long_arg = '--search_columns',
+                short_arg = '-sc',
+                dest = 'mapper_columns',
+                nargs = None,
+                default = '',
+                arg_type = str,
+                helper = '''Select column if -st is set
+                            Possible columns (query, target, pct_idt, length, mismatch, gapOpen, qstart, qend, tstart, tend, eval, score)''',
+                action = "store"
+                )
+    parser.add( long_arg = '--threads',
+                short_arg = '-t',
+                dest = 'threads',
+                nargs = None,
+                default = 5,
+                arg_type = int,
+                helper = 'Base name HHM Database',
+                action = "store"
+                )
+    # Add another options here
+
+    args = parser.parse_args()
+
+    return args
+
+
+def tmp_file():
+    fd, path = mkstemp()
+    return path
+
+if __name__ == '__main__':
+    # Param ipt
+    # Create a DB
+    # Run search
+    # Min eval
+    tmp = tmp_file()
+    args = parse_cli()
+    ipt_folder = args.ipt_folder
+    threshold = args.threshold
+    threads = args.threads
+    mapper = args.mapper
+    map_cols = args.mapper_columns
+    evalue = args.evalue
+
+    database = args.database
+    build = args.build
+
+    if not ipt_folder:
+        print('ERROR: Input a valid folder.')
+        print('See help, -h/--help')
+        sys.exit()
+    if not map_cols:
+        map_cols = 'query target pct_idt length mismatch gapOpen qstart qend tstart tend eval score'.split()
+
+    # Create a DB
+#    hhsuitedb2.py --ia3m='/home/acpguedes/projects/sig_trans/work/SBP_4/hhali/a3m_base/*a3m' -o test.db --cpu 10 --force
+    if build:
+        database = build
+        # print(f'''hhsuitedb2.py --ia3m='{ipt_folder}*a3m' -o {build} --cpu {threads} --force''')
+        p = Popen(f'''hhsuitedb2.py --ia3m='{ipt_folder}*a3m' -o {build} --cpu {threads} --force''',
+              shell = True, stdout = PIPE, stderr = PIPE)
+        p.communicate()[0]
+
+    if mapper:
+        try:
+            if os.path.isfile(mapper):
+                os.remove(mapper)
+        except: pass
+
+    for f in os.listdir(ipt_folder):
+        ipt = (os.path.join(ipt_folder,f))
+
+        p = Popen(f'hhsearch -i {ipt} -d {database} -o /dev/null -blasttab {tmp}',
+                  shell = True, stdout = PIPE, stderr = PIPE)
+        s, e = (p.communicate()
+                )
+        df = pd.read_csv(tmp, sep = '\t', header = None)
+        df.columns = 'query target pct_idt length mismatch gapOpen qstart qend tstart tend eval score'.split()
+
+        df = df[df['eval'] <= evalue]
+        # Gen array
+        arr = [y for x in df.apply(lambda x: np.arange(x.qstart, x.qend+1), 1).values for y in x]
+
+        y = np.bincount(arr)/ df.shape[0]
+
+        res = []
+        start = 0
+        while start < y.shape[0]:
+            if y[start] >= threshold:
+                tt = ''
+                for end in range(start+1, y.shape[0]):
+                    if y[end] < threshold:
+                        res.append((start+1,end+1))
+                        start = end
+                        tt = 'a'
+                        break
+                if not tt:
+                    res.append((start+1, y.shape[0]))
+                    break
+            start +=1
+
+        for idx,r in enumerate(res, 1):
+            print(f + '\t'+ str(r[0])+'\t', str(r[1]), df.shape[0], idx)
+        if mapper:
+            with open(f'{mapper}', 'a') as fi:
+                pd.options.display.float_format = '${:,.2f}'.format
+                s = StringIO()
+                df.to_csv(s, sep = '\t', index = None, header = None,float_format='%.2e')
+                fi.write(s.getvalue())
+
+        # for idx, val in enumerate(y):
+        #     if val >= threshold:
+        #         sidx = idx+1
+        #         break
+        #
+        #
+        # for idx, val in enumerate(y[::-1]):
+        #     if val >= threshold:
+        #         eidx = y.shape[0]-idx
+        #         break
+        # if not eidx:
+        #     eidx = idx+1
+
+        # print(eidx, idx+1, y.shape[0])
+        # print(f+'\t'+str(sidx)+'\t'+ str(eidx))
+
+
