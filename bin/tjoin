@@ -237,7 +237,11 @@ sub hashJoin {
 	    next unless ($ok);
 
 	    # Merge row with growing joined table
-	    map { $colLength->[$_] = (!defined($colLength->[$_]) || $colLength->[$_] < length($F[$_] || '')) ? length($F[$_] || '') : $colLength->[$_] } 0..$#F;
+	    foreach (0..$#F) {
+                my $c = $F[$_] || '';
+                $c =~ s/\e\[\d*(?>(\;\d+)*)m//g; # Remove ANSI color codes
+                $colLength->[$_] = (!defined($colLength->[$_]) || $colLength->[$_] < length($c)) ? length($c) : $colLength->[$_];
+            }
 	    push(@F, @rnum); # Reload row numbers
 	    push(@$joinedTable, [ @F ]); # Store joined rows
 	}
