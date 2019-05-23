@@ -124,7 +124,7 @@ if __name__ == '__main__':
 
     threads = 8
 
-    db = ':db.models.pfam'
+    # db = ':db.models.pfam'
 
     outputargs = defaultdict(str)
     if args.outputargs:

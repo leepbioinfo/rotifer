@@ -197,11 +197,15 @@ class NeighborhoodDF(pd.DataFrame):
 
         return collen_len
 
-    def _table(self):
+    def _table(self, header = False):
+
         pass
 
     def _compact(self):
         pass
+
+    def concat(self, other):
+        return pd.concat([self, other])
 
 
 
