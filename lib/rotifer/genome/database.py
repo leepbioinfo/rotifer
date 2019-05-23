@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 import rotifer.core.log as rlog
 import pandas as pd
+import sys
+
+sys.path.insert(0, '/home/kaihami/local/rotifer/lib')
 from rotifer.core.functions import loadClasses
+from data import NeighborhoodDF
 import os
 
 
@@ -117,17 +121,23 @@ class database:
 
 
 if __name__ == '__main__':
-    from rotifer.genome.data import NeighborhoodDF
     s = database(sources = ['clickhouse'], verbose = 3)
 
-    config = {'clickhouse': ':genome.clickhouse',
+    config = {'clickhouse': {'uri': 'clickhouse://default:@localhost/rotifer',
+                             'table_name': 'genomes'},
               'gff': {'b':2}
              }
 
-    for source in s.sources:
-        s.open(source, config = config[source])
+    # Need to accept a list of modified
+    # Need to filter by best
 
-        s.submit(['GCF_000067045.1','GCF_002094795.1','B7H17_RS10940', 'a'], above = 0, below = 0, block_id = 100, input_type = ['assembly', 'nucleotide', 'locus'])
+    for source in s.sources:
+        print(config[source])
+        s.open(source, config = config[source])
+        s.submit(['WP_077633710.1'], input_type = ['protein_acc'], above = 9, below = 0,
+                 verbose = 10, filterby = {'nucleotide': ['NZ_BHFM01000049.1'],
+                                           'nuc_asm': ['GCF_900015815.1']})
+        # s.submit(['WP_12749045.1','GCF_000067045.1','GCF_002094795.1', 'a'], block_id = 100, input_type = ['assembly', 'nucleotide', 'locus'], verbose = 3)
         # s.submit(['WP_127490459.1', 'AAP99025.1', 'AAP98158.1'], input_type = ['protein_accession'])
     # a = next(s.fetch_next('block'))
     # b = NeighborhoodDF(a)
