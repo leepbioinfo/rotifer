@@ -129,12 +129,6 @@ sub parse_configuration {
 				  SUMMARY  => "suffix for HMMER3 reports",
 			      },
 
-			      'swap' => {
-				  ALIAS    => 's',
-				  DEFAULT  => 0,
-				  ARGCOUNT => ARGCOUNT_NONE,
-				  SUMMARY  => "swap query and hit output columns",
-			      },
 	);
 
     # Compile rename_query subroutine
@@ -205,26 +199,20 @@ and has the following columns:
 6-  cov       : coverage of the alignment in the query (sequence if jackhmmer and hmmscan, domain if hmmsearch)
 7-  qstart    : first state aligned in the model
 8-  qend      : last state aligned in the model
-9-  iteration : 
-10- score     :
-11- talilen   : 
-12- qlen      : 
-13- estart    : 
-14- eend      :
-
-
-1- sequence
-2- domain
-3- start
-4- end
-5- e-value
+9-  iteration : iteration number
+10- score     : alignment score
+11- talilen   : length of the region aligned in target
+12- qlen      : query full length
+13- estart    : first aligned residue in sequence given the envelope
+14- eend      : last aligned residue in sequence given the envelope
+15- program   : program name
 
 separated by tabulations (TAB: \t).
  
 =head1 AUTHOR
 
  Robson Francisco de Souza;
- Aureliano Coelho Proença Guedes;
+ Aureliano Coelho Proenca Guedes;
 
 =cut
 
