@@ -16,7 +16,7 @@ use strict;
 
 # Parsing configuration file and command line arguments
 my $CONFIG = parse_configuration();
-print join("\t",qw{sequence domain start end evalue qstart qend qcov iteration score}),"\n" if ($CONFIG->header);
+print join("\t",qw{sequence model start end evalue cov qstart qend iteration score talilen qlen estart eend program}),"\n" if ($CONFIG->header);
 
 # Hard coded!
 my $gunzip = "gzip -dc";
@@ -24,7 +24,7 @@ my $bunzip = "bzip2 -dc";
 
 # Parsing hmmsearch output
 foreach my $file (@ARGV) {
-    my ($query, $hit, $qlen);
+    my ($query, $hit, $qlen, $prog);
     my $iteration = 1;
 
     my $filestr = ($file =~ /\.gz/) ? "$gunzip $file |" : ($file =~ /\.bz2/) ? "$bunzip $file |" : "<$file";
@@ -35,6 +35,7 @@ foreach my $file (@ARGV) {
 	chomp;
 
 	# Headers
+    /^#\s(\w+)\s+\:\:/               && do { $prog = $1; next } ;
 	/\@\@\s+Round:\s+(\d+)/          && do { $iteration = $1; next };
 	/^Query:\s+(\S+)\s+.*\[\S=(\d+)/ && do { $query = $1; $qlen = $2; $in_hsp_table = 0; next };
 	/^>> (\S+)/                      && do { $hit   = $1; next };
@@ -48,8 +49,17 @@ foreach my $file (@ARGV) {
 	    next if (defined $CONFIG->evalue && $row[5] > $CONFIG->evalue);
 	    warn "Unexpected number of columns at $_\n" unless (scalar(@row) == 16);
 	    my @ids = map { s/^[^\|]+\|([^\|]+)\|\S+/$1/ if ($CONFIG->clean); $_ } ($hit,$query);
-	    @ids = ($query,$hit) if ($CONFIG->swap);
-	    if (defined $CONFIG->rename_query) {
+        
+        my $qcov; 
+	    if ($prog eq "hmmscan"){
+            @ids = ($query,$hit);
+            $qcov = sprintf("%.2f",($row[10]-$row[9]+1)/$qlen);
+        }
+        else{
+            $qcov = sprintf("%.2f",($row[7]-$row[6]+1)/$qlen);
+        }
+
+        if (defined $CONFIG->rename_query) {
 		if (ref $CONFIG->rename_query) {
 		    $ids[1] = $CONFIG->rename_query->($ids[1], $file);
 		} else {
@@ -58,8 +68,9 @@ foreach my $file (@ARGV) {
 	    } elsif (scalar @{ $CONFIG->force_basename }) {
 		($ids[0]) = fileparse($file, @{ $CONFIG->force_basename });
 	    }
-	    my $qcov = sprintf("%.2f",($row[7]-$row[6]+1)/$qlen);
-	    print join("\t",@ids,$row[9],$row[10],$row[5],$qcov,$row[6],$row[7],$iteration,$row[2]),"\n";
+        #my $qcov = sprintf("%.2f",($row[7]-$row[6]+1)/$qlen);
+        my $tali_len = $row[10] - $row[9];
+	    print join("\t",@ids,$row[9],$row[10],$row[5],$qcov,$row[6],$row[7],$iteration,$row[2],$tali_len,$qlen,$row[12],$row[13],$prog),"\n";
 	};
     } # while (<HMMER>)
     close(HMMER);
@@ -118,12 +129,6 @@ sub parse_configuration {
 				  SUMMARY  => "suffix for HMMER3 reports",
 			      },
 
-			      'swap' => {
-				  ALIAS    => 's',
-				  DEFAULT  => 0,
-				  ARGCOUNT => ARGCOUNT_NONE,
-				  SUMMARY  => "swap query and hit output columns",
-			      },
 	);
 
     # Compile rename_query subroutine
@@ -186,13 +191,28 @@ This program converts the output of HMMER 3 programs to a domain
 table. Each row in a domain table describes a region in a sequence
 and has the following columns:
 
-<sequence> <domain> <start> <end> <e-value>
+1-  sequence  : sequence identifier
+2-  model     : model identifier
+3-  start     : first aligned residue in the sequence
+4-  end       : last aligned residue in the sequence
+5-  evalue    : alignement expected value
+6-  cov       : coverage of the alignment in the query (sequence if jackhmmer and hmmscan, domain if hmmsearch)
+7-  qstart    : first state aligned in the model
+8-  qend      : last state aligned in the model
+9-  iteration : iteration number
+10- score     : alignment score
+11- talilen   : length of the region aligned in target
+12- qlen      : query full length
+13- estart    : first aligned residue in sequence given the envelope
+14- eend      : last aligned residue in sequence given the envelope
+15- program   : program name
 
 separated by tabulations (TAB: \t).
  
 =head1 AUTHOR
 
- Robson Francisco de Souza
+ Robson Francisco de Souza;
+ Aureliano Coelho Proenca Guedes;
 
 =cut
 
