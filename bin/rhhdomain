@@ -42,14 +42,33 @@ def parse_cli():
                 helper = 'Create a database (Input the database name)',
                 action = "store"
                 )
-    parser.add( long_arg = '--threshold',
-                dest = 'threshold',
-                nargs = None,
-                default = 1.0,
-                arg_type = float,
-               helper = 'Minimum number of models with a core region (Default: 1.0) [0.0-1.0]',
-                action = "store"
-                )
+    # parser.add( long_arg = '--threshold',
+    #             dest = 'threshold',
+    #             nargs = None,
+    #             default = 4,
+    #             arg_type = float,
+    #            helper = 'Z-score threshold for smoothed z-score (Default: 4)',
+    #             action = "store"
+    #             )
+    #
+    # parser.add( long_arg = '--influence',
+    #             dest = 'influence',
+    #             nargs = None,
+    #             default = 0,
+    #             arg_type = float,
+    #            helper = 'Input influence for smoothed z-score (Default: 0)',
+    #             action = "store"
+    #             )
+    #
+    # parser.add( long_arg = '--lag',
+    #             short_arg = '-l',
+    #             dest = 'lag',
+    #             nargs = None,
+    #             default = 5,
+    #             arg_type = int,
+    #            helper = 'Input lag for smoothed z-score (Default: 5)',
+    #             action = "store"
+    #             )
 
     parser.add( long_arg = '--evalue',
                 short_arg = '-e',
@@ -60,15 +79,29 @@ def parse_cli():
                helper = 'Maximum evalue (default: 0.01)',
                 action = "store"
                 )
-    parser.add( long_arg = '--search_table',
-                short_arg = '-st',
-                dest = 'mapper',
-                nargs = None,
-                default = '',
-                arg_type = str,
-                helper = 'Input a file name to Store a m8-like tsv',
-                action = "store"
+
+    parser.add( long_arg = '--program',
+                short_arg = '-p',
+                dest = 'program',
+                default = 'hhsearch',
+               helper = 'Select the program (hhsearch or hhblits) [Default: hhsearch]'
                 )
+    parser.add( long_arg = '--iteration',
+                short_arg = '-n',
+                dest = 'iteration',
+                default = 2,
+               arg_type = int,
+               helper = 'Number of iterations [1-8] (default=2)'
+                )
+    # parser.add( long_arg = '--search_table',
+    #             short_arg = '-st',
+    #             dest = 'mapper',
+    #             nargs = None,
+    #             default = '',
+    #             arg_type = str,
+    #             helper = 'Input a file name to Store a m8-like tsv',
+    #             action = "store"
+    #             )
     parser.add( long_arg = '--search_columns',
                 short_arg = '-sc',
                 dest = 'mapper_columns',
@@ -95,6 +128,7 @@ def parse_cli():
     return args
 
 def thresholding_algo(y, lag = 5, threshold = 4, influence = 0):
+    # https://ieeexplore.ieee.org/abstract/document/8541902
     signals = np.zeros(len(y))
 
     filteredY = np.array(y)
@@ -121,9 +155,26 @@ def thresholding_algo(y, lag = 5, threshold = 4, influence = 0):
             avgFilter[i] = np.mean(filteredY[(i-lag+1):i+1])
             stdFilter[i] = np.std(filteredY[(i-lag+1):i+1])
 
-    return dict(signals = np.asarray(signals),
-                avgFilter = np.asarray(avgFilter),
-                stdFilter = np.asarray(stdFilter))
+    res = []
+    start = 0
+    while start < signals.shape[0]:
+        if signals[start] ==1:
+            s = signals[start]
+            tt = ''
+            for end in range(start+1, y.shape[0]):
+                if signals[end] != s:
+                    res.append((start+1,end+1))
+                    start = end
+                    tt = 'a'
+                    break
+            if not tt:
+                res.append((start+1, y.shape[0]))
+                break
+        start +=1
+
+    # for x in range(0, len(signals)):
+    #     print(signals[x], y[x])
+    return res
 
 
 def tmp_file():
@@ -137,10 +188,11 @@ if __name__ == '__main__':
     # Min eval
     tmp = tmp_file()
     args = parse_cli()
+    program = args.program.lower()
     ipt_folder = args.ipt_folder
-    threshold = args.threshold
+    # threshold = args.threshold
     threads = args.threads
-    mapper = args.mapper
+    # mapper = args.mapper
     map_cols = args.mapper_columns
     evalue = args.evalue
 
@@ -163,17 +215,22 @@ if __name__ == '__main__':
               shell = True, stdout = PIPE, stderr = PIPE)
         p.communicate()[0]
 
-    if mapper:
-        try:
-            if os.path.isfile(mapper):
-                os.remove(mapper)
-        except: pass
+    # if mapper:
+    #     try:
+    #         if os.path.isfile(mapper):
+    #             os.remove(mapper)
+    #     except: pass
 
     for f in os.listdir(ipt_folder):
         ipt = (os.path.join(ipt_folder,f))
 
-        p = Popen(f'hhsearch -i {ipt} -d {database} -o /dev/null -blasttab {tmp}',
-                  shell = True, stdout = PIPE, stderr = PIPE)
+        if program == 'hhsearch':
+            p = Popen(f'{program} -i {ipt} -d {database} -o /dev/null -blasttab {tmp} -cpu {threads}',
+                      shell = True, stdout = PIPE, stderr = PIPE)
+        else:
+            p = Popen(f'{program} -i {ipt} -d {database} -o /dev/null -blasttab {tmp} -cpu {threads} -n {args.iteration}',
+                      shell = True, stdout = PIPE, stderr = PIPE)
+
         s, e = (p.communicate()
                 )
         df = pd.read_csv(tmp, sep = '\t', header = None)
@@ -185,47 +242,38 @@ if __name__ == '__main__':
 
         y = np.bincount(arr)/ df.shape[0]
 
-        thresholding_algo(y)
-        break
-        res = []
-        start = 0
-        while start < y.shape[0]:
-            if y[start] >= threshold:
-                tt = ''
-                for end in range(start+1, y.shape[0]):
-                    if y[end] < threshold:
-                        res.append((start+1,end+1))
-                        start = end
-                        tt = 'a'
-                        break
-                if not tt:
-                    res.append((start+1, y.shape[0]))
-                    break
-            start +=1
+        # res = (thresholding_algo(y, threshold = args.threshold,
+        #                          lag = args.lag,
+        #                          influence = args.influence))
+        # for idx,r in enumerate(res, 1):
+        #     print(f + '\t'+ str(r[0])+'\t', str(r[1]), df.shape[0], idx)
 
-        for idx,r in enumerate(res, 1):
-            print(f + '\t'+ str(r[0])+'\t', str(r[1]), df.shape[0], idx)
-        if mapper:
-            with open(f'{mapper}', 'a') as fi:
-                pd.options.display.float_format = '${:,.2f}'.format
-                s = StringIO()
-                df.to_csv(s, sep = '\t', index = None, header = None,float_format='%.2e')
-                fi.write(s.getvalue())
+        pd.options.display.float_format = '${:,.2f}'.format
+        s = StringIO()
+        df.to_csv(s, sep = '\t', index = None, header = None,float_format='%.2e')
+        print(s.getvalue()[:-1])
 
-        # for idx, val in enumerate(y):
-        #     if val >= threshold:
-        #         sidx = idx+1
-        #         break
+        # if mapper:
+        #     with open(f'{mapper}', 'a') as fi:
+        #         pd.options.display.float_format = '${:,.2f}'.format
+        #         s = StringIO()
+        #         df.to_csv(s, sep = '\t', index = None, header = None,float_format='%.2e')
+        #         fi.write(s.getvalue())
+        #
+        # # for idx, val in enumerate(y):
+        # #     if val >= threshold:
+        # #         sidx = idx+1
+        # #         break
+        # #
+        # #
+        # # for idx, val in enumerate(y[::-1]):
+        # #     if val >= threshold:
+        # #         eidx = y.shape[0]-idx
+        # #         break
+        # # if not eidx:
+        # #     eidx = idx+1
+        #
+        # # print(eidx, idx+1, y.shape[0])
+        # # print(f+'\t'+str(sidx)+'\t'+ str(eidx))
         #
         #
-        # for idx, val in enumerate(y[::-1]):
-        #     if val >= threshold:
-        #         eidx = y.shape[0]-idx
-        #         break
-        # if not eidx:
-        #     eidx = idx+1
-
-        # print(eidx, idx+1, y.shape[0])
-        # print(f+'\t'+str(sidx)+'\t'+ str(eidx))
-
-
