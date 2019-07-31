@@ -474,7 +474,7 @@ The default processing mode generates the columns listed as the default columns 
 			      },
 
 			      'column' => {
-				  DEFAULT  => [ qw(hit_name query_name hit_start hit_end evalue query_coverage query_start query_end iteration query_orig hit_orig) ],
+				  DEFAULT  => [ qw(hit_name query_name hit_start hit_end evalue query_coverage query_start query_end iteration bits hit_length) ],
 				  ARGCOUNT => ARGCOUNT_LIST,
 				  ALIAS => 'k',
 				  SUMMARY => "Enter a user defined list of columns to add to the output. Use the --mode option to enable pre-defined column sets",
