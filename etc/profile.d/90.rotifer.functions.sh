@@ -23,7 +23,7 @@ function dom_count() {
 
 function acc2pfam() {
     (
-        efetch -db protein -format fasta -id $1 | hmmscan --cpu 4 /databases/pfam/Pfam - | hmmer2table -s -c;
+        efetch -db protein -format fasta -id $1 | hmmscan --cpu 4 /databases/pfam/Pfam - | hmmer2table -c;
         efetch -db protein -format fasta -id $1 | phobius 2> /dev/null | phobius2table -e 0.0101
     ) \
     | domain2architecture -e 0.0101 \
