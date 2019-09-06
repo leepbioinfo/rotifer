@@ -1143,7 +1143,7 @@ if __name__ == '__main__':
     # Check API
     api_key = ''
     try:
-        api_key = cf.loadAPI(args.api_key)
+        api_key = rcf.loadAPI(args.api_key)
 
     except: pass
 
