@@ -1144,8 +1144,8 @@ if __name__ == '__main__':
     api_key = ''
     try:
         api_key = rcf.loadAPI(args.api_key)
-        #print(f'api: {api_key}')
-        #exit(1)
+        print(f'api: {api_key}')
+        exit(1)
 
     except: pass
 

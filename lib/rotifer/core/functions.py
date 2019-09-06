@@ -346,7 +346,7 @@ def loadAPI(username = ''):
         if username == '':
             api_key = api_dict[list(api_dict.keys())[0]]
 
-        if username in api_dict.keys()
+        if username in api_dict.keys():
             api_key = api_dict[username]
 
     except:
