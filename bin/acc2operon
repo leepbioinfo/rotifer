@@ -31,8 +31,8 @@ from tqdm import tqdm
 
 warnings.filterwarnings('ignore')
 
-__version__ = 0.60
-__authors__ = 'Gilberto Kaihami, Aureliano Guedes, Gabriel Hueck'
+__version__ = 0.61
+__authors__ = 'Gilberto Kaihami, Aureliano Guedes, Gabriel Hueck, Robson F. de Souza'
 __rdoc__ = '''
 DESCRIPTION:
 Get gene neighborhood
@@ -398,12 +398,10 @@ def long_routine(sub, gbks_folder, df_accs, df_accs2, verbose,progress,
 
         try:
             missing = set([x for x in sub if x not in df_ipgs['original'].unique()])
-
         except:
             missing = set(sub)
 
         max_tries_missing_acc = 20
-
         while tries < max_tries_missing_acc:
             try:
                 missing = [x for x in missing if x not in got_missing]
@@ -414,7 +412,6 @@ def long_routine(sub, gbks_folder, df_accs, df_accs2, verbose,progress,
                     result = Entrez.read(request)
                     webEnv = result['WebEnv']
                     querykey = result['QueryKey']
-
                     handle = Entrez.efetch(db='protein',
                                            rettype = 'ipg',
                                            retmode = 'text',
@@ -1103,7 +1100,6 @@ if __name__ == '__main__':
     outformat = args.outformat.lower() # Output format (Table or gi2operon)
     db = makeDB(verbose)
     distance = int(args.distance) * (-1)
-
     search = args.search
     if verbose:
         verbose_msg('Starting acc2operon')
