@@ -7,7 +7,6 @@ from rotifer.core.log import log
 from rotifer.neighborhood import neighborhood
 from rotifer.alchemy.connect import clickhouse
 
-
 import subprocess
 import pandas as pd
 from multiprocessing import Process, Manager
@@ -27,7 +26,6 @@ from sqlalchemy.orm import sessionmaker
 import random, string
 from clickhouse_sqlalchemy import Table, make_session, get_declarative_base, types, engines
 from pandas.compat import StringIO
-
 
 from tqdm import tqdm
 
@@ -102,25 +100,19 @@ def parse_cli():
                short_arg = '-sm',
                dest = 'search',
                helper = 'Select a search method, local or www',
-               default = 'wwww')
+               default = 'www')
 
-    # parser.add(short_arg = '-c',
-    #                     long_arg = '--cache',
-    #            dest = 'cache',
-    #                     helper = 'A folder name that all gbs will be saved',
-    #                     default = 'cache')
+    parser.add( short_arg = '-a',
+                long_arg ='--above',
+                dest = 'above',
+                helper = 'Rows above: maximum number of neighbors upstream of target loci (Default: 3)',
+                default = 3)
 
-    parser.add(short_arg = '-a',
-                        long_arg ='--above',
-               dest = 'above',
-                        helper = 'Rows above: maximum number of neighbors upstream of target loci (Default: 3)',
-                        default = 3)
-
-    parser.add(short_arg = '-b',
-                        long_arg = '--below',
-               dest = 'below',
-                        helper = 'Rows below: maximum number of neighbors downstream of target loci (Default: 3)',
-                        default = 3)
+    parser.add( short_arg = '-b',
+                long_arg = '--below',
+                dest = 'below',
+                helper = 'Rows below: maximum number of neighbors downstream of target loci (Default: 3)',
+                default = 3)
 
     parser.add( long_arg = '--progress',
                 short_arg = '-p',
@@ -132,7 +124,7 @@ def parse_cli():
     parser.add( long_arg = '--minimal_intergenic_distance',
                 short_arg = '-mid',
                 dest = 'distance',
-               helper ='''Minimal intergenic distance between two queries. (Default: 0)
+                helper ='''Minimal intergenic distance between two queries. (Default: 0)
 Example:
 if the distance is set 0 (default) and -a and -b options are set 0, this setting can be thought as continous segments
 This will generate one block,
@@ -208,10 +200,6 @@ block 1:
                dest = 'debug_dataframe',
                helper = 'Debug dataframe, will write two files end with .acc2operon.df.debug',
                        action = 'store_true')
-
-    # parser.add('--clean',
-    #                     help = 'Clean cache folder',
-    #                     action = 'store_true')
 
     argcomplete.autocomplete(parser)
 
@@ -356,13 +344,11 @@ def long_routine(sub, gbks_folder, df_accs, df_accs2, verbose,progress,
     max_tries_epost = 15
 
     while tries_epost <= max_tries_epost:
-
         try:
-            request = Entrez.epost(db = 'protein', id = ",".join(sub))
+            request = Entrez.epost(db = 'protein', api_key = api_key, id = ",".join(sub))
             result = Entrez.read(request)
             webEnv = result['WebEnv']
             querykey = result['QueryKey']
-
             handle = Entrez.efetch(db='protein',
                                    rettype = 'ipg',
                                    retmode = 'text',
@@ -370,45 +356,33 @@ def long_routine(sub, gbks_folder, df_accs, df_accs2, verbose,progress,
                                    query_key = querykey,
                                    api_key = api_key)
 
-
             if df_ipgs.empty:
                 df_ipgs = pd.read_csv(StringIO(handle.read()), sep = '\t',
                                  usecols = ['Id', 'Nucleotide Accession', 'Protein',
                                             'Assembly'])
-
                 df_ipgs.columns = ['id', 'nucleotide', 'acc', 'assembly']
-
                 found = df_ipgs[df_ipgs['acc'].isin(sub)].drop_duplicates('id')
-
                 dc_map = {k:v for k,v in zip(found['id'].values, found['acc'].values)}
-
                 df_ipgs['original'] = df_ipgs['id'].map(dc_map)
                 df_ipgs = df_ipgs[df_ipgs['original'].notnull()]
 
             else:
-                _ = pd.read_csv(StringIO(handle.read()), sep = '\t',
-                                 usecols = ['Id', 'Nucleotide Accession', 'Protein',
-                                            'Assembly'])
-
+                _ = pd.read_csv(StringIO(handle.read()), sep = '\t', usecols = ['Id','Nucleotide Accession','Protein','Assembly'])
                 _.columns = ['id', 'nucleotide', 'acc', 'assembly']
-
                 found = _[_['acc'].isin(sub)].drop_duplicates('id')
-
                 dc_map = {k:v for k,v in zip(found['id'].values, found['acc'].values)}
-
                 _['original'] = _['id'].map(dc_map)
                 _ = _[_['original'].notnull()]
-
                 df_ipgs = pd.concat([df_ipgs, _])
 
             handle.close()
             break
 
         except:
-            # if verbose:
-            #     verbose_msg(f'Epost failed, try number {tries_epost}')
+            if verbose:
+                verbose_msg(f'Epost failed, try number {tries_epost}')
             time.sleep(0.5)
-            tries_epost +=1
+            tries_epost += 1
 
     # Check if there are any missing accessions
     try:
@@ -436,7 +410,7 @@ def long_routine(sub, gbks_folder, df_accs, df_accs2, verbose,progress,
                 for missing_acc in missing:
                     # if verbose:
                     #     verbose_msg(f'Missing {missing_acc}, thread {position}')
-                    request = Entrez.epost(db = 'protein', id = missing_acc)
+                    request = Entrez.epost(db = 'protein', api_key = api_key, id = missing_acc)
                     result = Entrez.read(request)
                     webEnv = result['WebEnv']
                     querykey = result['QueryKey']
@@ -677,16 +651,14 @@ def acc2asm2gbk(accs, db, verbose, df_accs, threads = 5, api_key = '', table_nam
     accs2find = [acc for acc in accs if acc not in df_accs['acc'].values] # Ok
     subs = [accs2find[x:x+s] for x in range(0, len(accs2find), s)]        # Ok
 
-    size = len(subs)//threads if len(subs)//threads >0 else 1
+    size = len(subs)//threads if len(subs)//threads > 0 else 1
     sub_list = [subs[x:x+size] for x in range(0, len(subs), size)]
 
     manager = Manager()
     epost_list = manager.list()
 
     jobs = []
-
     for x in range(0,len(sub_list)):
-
         p = Process(target = _multiple_search, args = (sub_list[x], verbose, epost_list, x, threads, progress))
         p.start()
         jobs.append(p)
@@ -694,7 +666,6 @@ def acc2asm2gbk(accs, db, verbose, df_accs, threads = 5, api_key = '', table_nam
     try:
         for p in jobs:
             p.join()
-
     except KeyboardInterrupt:
         for p in jobs:
             p.terminate()
@@ -838,9 +809,6 @@ def _multi_ft2df(ls_gbks = [], db = '', verbose = False):
             if verbose:
                 _ = 'Error ft2df {0}'.format(gbk)
                 verbose_msg(str(_))
-
-def cleanUp(folder):
-    shutil.rmtree(folder)
 
 ###################################
 
@@ -1140,21 +1108,20 @@ if __name__ == '__main__':
     if verbose:
         verbose_msg('Starting acc2operon')
 
-    # Check API
+    # Load NCBI API key
     api_key = ''
-    try:
-        api_key = rcf.loadAPI(args.api_key)
-        #print(f'api: {api_key}')
-        #exit(1)
-
-    except: pass
-
-    if api_key == '':
+    if args.api_key:
         api_key = args.api_key
-
-    if api_key == '':
-        api_key = '935f49538aaa065207b4582a5cc4fcd59408'
-        # sys.stderr.write('Insert valid NCBI API Key\n')
+    elif "NCBI_API_KEY" in os.environ:
+        api_key = os.environ["NCBI_API_KEY"]
+    else:
+        try:
+            api_key = rcf.loadAPI(args.api_key)
+            #verbose_msg(f'api: {api_key}')
+            #exit()
+        except:
+            verbose_msg(f'No NCBI_API_KEY found. Please set your enviroment or use --api_key')
+    if args.verbose: verbose_msg(f'NCBI_API_KEY: {api_key}')
 
     # Should remove this
     # Load previous accs search table
@@ -1197,8 +1164,8 @@ if __name__ == '__main__':
 
             # nucleotide_in_db = conn.execute(f"select distinct nucleotide, nuc_asm FROM genomes where pid in ({acc_formated}) {q_asm} ").fetchall()
             nucleotide_in_db = conn.execute(f"select distinct nucleotide, nuc_asm FROM genomes where pid in ({acc_formated})").fetchall()
-            # print(nucleotide_in_db)
-            # sys.exit()
+            #print(nucleotide_in_db)
+            #sys.exit()
             e = time.time()
 
             tot_group = len(nucleotide_in_db)
@@ -1216,7 +1183,6 @@ if __name__ == '__main__':
                                                distance = distance
                                          )
                     left_group +=1
-
                 if verbose:
                     verbose_msg('Done')
 
@@ -1229,15 +1195,12 @@ if __name__ == '__main__':
                                          other_info = other_info,
                                          distance = distance
                                          )
-
                     left_group +=1
-
                     if verbose:
                         verbose_msg(f'Remaining assemblies: {tot_group-left_group}')
 
         except:
             pass
-
         finally:
             try:
                 if args.fun:
@@ -1250,7 +1213,6 @@ if __name__ == '__main__':
         table_name = ''.join(random.choices(string.ascii_letters, k=24))
 
         try:
-
             if verbose:
                 verbose_msg('Collecting ipgs and gbks')
 
@@ -1267,7 +1229,6 @@ if __name__ == '__main__':
                                  api_key = api_key, table_name = table_name, progress = args.progress)
 
             # Debug df here
-
             if args.debug_dataframe:
                 df_all.to_csv('df_all.acc2operon.dataframe.debug', sep = '\t', index = None)
                 df_ann.to_csv('df_ann.acc2operon.dataframe.debug', sep = '\t', index = None)
