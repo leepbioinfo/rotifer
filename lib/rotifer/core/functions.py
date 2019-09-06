@@ -328,7 +328,7 @@ def loadAPI(username = ''):
     Load NCBI API key
     '''
     home = expanduser('~')
-    db_local_path = os.path.join(home, '.rotifer/etc/rotifer/api_key.config')
+    db_local_path = os.path.join(home, '.rotifer/etc/api_key.config')
     try:
         db_local = yaml.load(open(db_local_path))
 
