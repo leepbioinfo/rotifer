@@ -1,0 +1,618 @@
+#!/usr/bin/env python3
+
+import argparse # Not our command line parser of choice but better than none
+import os
+import psycopg2
+from psycopg2.extras import DictCursor
+import sys
+
+#########################
+### DECLARE FUNCTIONS ###
+#########################
+
+# Send queries (somewhat like NCBI's epost)
+def post_ids(db, args, ids):
+    # Build SQL statements
+    ids=",".join(map(lambda x: str("('" + x + "')"), ids))
+    lsql = [
+        '''
+        CREATE TEMPORARY TABLE upid (product_accession varchar(64))
+        ''',
+        '''
+        CREATE TEMPORARY TABLE uquery (
+            assembly varchar(64), genomic_accession varchar(64),
+            feature varchar(64), feature_class varchar(64),
+            product_accession varchar(64), genomic_order integer
+        );
+        ''',
+        '''
+        INSERT INTO upid(product_accession) VALUES {0}
+        '''.format(*(ids,)),
+        '''
+        INSERT INTO uquery (
+            assembly, genomic_accession, feature,
+            feature_class, product_accession, genomic_order
+        )
+        SELECT
+            ft.assembly, ft.genomic_accession, ft.feature,
+            ft.feature_class, ft.product_accession, ft.genomic_order
+          FROM ftable AS ft
+         INNER JOIN upid as p USING (product_accession)
+         ORDER BY assembly, genomic_accession, genomic_order
+        '''
+    ]
+
+    # Execute SQL statements
+    cursor = db.cursor()
+    for sql in lsql: cursor.execute(sql)
+    cursor.execute("SELECT count(*) from upid")
+    if args.debug > 0: args.log.write(
+        "## Number of protein accession numbers in input: "
+        + str(cursor.fetchone()[0]) + "\n"
+    )
+    cursor.execute('''
+        SELECT count(distinct product_accession) as proteins from uquery
+    ''')
+    if args.debug > 0: args.log.write(
+        "## Number of proteins found in the SQL database: "
+        + str(cursor.fetchone()[0]) + "\n"
+    )
+
+def post_locus(db, args, ids):
+    # Build SQL statements
+    ids=",".join(map(lambda x: str("('" + x + "')"), ids))
+    lsql = [
+        '''
+        CREATE TEMPORARY TABLE ulocus (locus_tag varchar(64))
+        ''',
+        '''
+        CREATE TEMPORARY TABLE uquery (
+            assembly varchar(64), genomic_accession varchar(64),
+            feature varchar(64), feature_class varchar(64),
+            locus_tag varchar(64), genomic_order integer
+        );
+        ''',
+        '''
+        INSERT INTO ulocus(locus_tag) VALUES {0}
+        '''.format(*(ids,)),
+        '''
+        INSERT INTO uquery (
+            assembly, genomic_accession, feature,
+            feature_class, locus_tag, genomic_order
+        )
+        SELECT
+            ft.assembly, ft.genomic_accession, ft.feature,
+            ft.feature_class, ft.locus_tag, ft.genomic_order
+          FROM ftable AS ft
+         INNER JOIN ulocus as p USING (locus_tag) WHERE feature = 'gene'
+         ORDER BY assembly, genomic_order
+        '''
+    ]
+
+    # Execute SQL statements
+    cursor = db.cursor()
+    for sql in lsql: cursor.execute(sql)
+    cursor.execute("SELECT count(*) from ulocus")
+    if args.debug > 0: args.log.write(
+        "## Number of protein accession numbers in input: "
+        + str(cursor.fetchone()[0]) + "\n"
+    )
+    cursor.execute('''
+        SELECT count(distinct locus_tag) as proteins from uquery
+    ''')
+    if args.debug > 0: args.log.write(
+        "## Number of proteins found in the SQL database: "
+        + str(cursor.fetchone()[0]) + "\n"
+    )
+
+
+
+def post_ids2(db, args, ids, assembly):
+    # Build SQL statements
+    ids=",".join(map(lambda x: str("('" + x + "')"), ids))
+    assembly=",".join(map(lambda x: str("('" + x + "')"), assembly))
+    lsql = [
+        '''
+        CREATE TEMPORARY TABLE upid (product_accession varchar(64))
+        ''',
+        '''
+        CREATE TEMPORARY TABLE uasm (assembly varchar(64))
+        ''',
+        '''
+        CREATE TEMPORARY TABLE uquery (
+            assembly varchar(64), genomic_accession varchar(64),
+            feature varchar(64), feature_class varchar(64),
+            product_accession varchar(64), genomic_order integer
+        );
+        ''',
+        '''
+        INSERT INTO upid(product_accession) VALUES {0}
+        '''.format(*(ids,)),
+        '''
+        INSERT INTO uasm(assembly) VALUES {0}
+        '''.format(*(assembly,)),
+        '''
+        INSERT INTO uquery (
+            assembly, genomic_accession, feature,
+            feature_class, product_accession, genomic_order
+        )
+        SELECT
+            ft.assembly, ft.genomic_accession, ft.feature,
+            ft.feature_class, ft.product_accession, ft.genomic_order
+          FROM ftable AS ft
+         INNER JOIN uasm as a USING (assembly)
+         INNER JOIN upid as p USING (product_accession)
+         ORDER BY assembly, genomic_accession, genomic_order
+        '''
+    ]
+
+    # Execute SQL statements
+    cursor = db.cursor()
+    for sql in lsql: cursor.execute(sql)
+    cursor.execute("SELECT count(*) from upid")
+    if args.debug > 0: args.log.write(
+        "## Number of protein accession numbers in input: "
+        + str(cursor.fetchone()[0]) + "\n"
+    )
+    cursor.execute('''
+        SELECT count(distinct product_accession) as proteins from uquery
+    ''')
+    if args.debug > 0: args.log.write(
+        "## Number of proteins found in the SQL database: "
+        + str(cursor.fetchone()[0]) + "\n"
+    )
+
+def post_ids3(db, args, ids, genomic_accession):
+    # Build SQL statements
+    ids=",".join(map(lambda x: str("('" + x + "')"), ids))
+    gacc=",".join(map(lambda x: str("('" + x + "')"), genomic_accession))
+    lsql = [
+        '''
+        CREATE TEMPORARY TABLE upid (product_accession varchar(64))
+        ''',
+        '''
+        CREATE TEMPORARY TABLE ugacc (genomic_accession varchar(64))
+        ''',
+        '''
+        CREATE TEMPORARY TABLE uquery (
+            assembly varchar(64), genomic_accession varchar(64),
+            feature varchar(64), feature_class varchar(64),
+            product_accession varchar(64), genomic_order integer
+        );
+        ''',
+        '''
+        INSERT INTO upid(product_accession) VALUES {0}
+        '''.format(*(ids,)),
+        '''
+        INSERT INTO ugacc(genomic_accession) VALUES {0}
+        '''.format(*(gacc,)),
+        '''
+        INSERT INTO uquery (
+            assembly, genomic_accession, feature,
+            feature_class, product_accession, genomic_order
+        )
+        SELECT
+            ft.assembly, ft.genomic_accession, ft.feature,
+            ft.feature_class, ft.product_accession, ft.genomic_order
+          FROM ftable AS ft
+         INNER JOIN ugacc as a USING (genomic_accession)
+         INNER JOIN upid as p USING (product_accession)
+         ORDER BY assembly, genomic_accession, genomic_order
+        '''
+    ]
+
+    # Execute SQL statements
+    cursor = db.cursor()
+    for sql in lsql: cursor.execute(sql)
+    cursor.execute("SELECT count(*) from upid")
+    if args.debug > 0: args.log.write(
+        "## Number of protein accession numbers in input: "
+        + str(cursor.fetchone()[0]) + "\n"
+    )
+    cursor.execute('''
+        SELECT count(distinct product_accession) as proteins from uquery
+    ''')
+    if args.debug > 0: args.log.write(
+        "## Number of proteins found in the SQL database: "
+        + str(cursor.fetchone()[0]) + "\n"
+    )
+    
+def fetch_contigs(db):
+    cursor = db.cursor()
+    sql = '''
+    SELECT DISTINCT assembly, genomic_accession, organism_name, lineage
+      FROM uquery INNER JOIN assembly_summary using (assembly)
+     ORDER BY lineage, organism_name, assembly, genomic_accession
+    '''
+    cursor.execute(sql)
+    return cursor
+
+def fetch_intervals(cursor, ntid, above, below, method):
+    args=(ntid, above, below)
+    if (method == 'locus'):
+        sql = '''
+		SELECT genomic_accession, locus_tag, genomic_order,
+		   first_upstream_neighbor(genomic_accession, genomic_order, {1}) as gomin,
+		   last_downstream_neighbor(genomic_accession, genomic_order, {2}) as gomax
+		FROM uquery AS q
+		WHERE q.genomic_accession = '{0}'
+		ORDER BY genomic_accession, genomic_order, gomin, gomax
+		'''
+
+    elif(method == 'product'):
+        sql = '''
+			SELECT genomic_accession, product_accession, genomic_order,
+			   first_upstream_neighbor(genomic_accession, genomic_order, {1}) as gomin,
+			   last_downstream_neighbor(genomic_accession, genomic_order, {2}) as gomax
+			FROM uquery AS q
+			WHERE q.genomic_accession = '{0}'
+			ORDER BY genomic_accession, genomic_order, gomin, gomax
+		'''
+    cursor.execute(sql.format(*args))
+    return cursor
+
+def gi2operons(cursor, contig, interval, method):
+    # Prepare main query to fetch a block
+    if (method == 'locus'):
+        sql = '''
+        SELECT
+          CASE WHEN q.genomic_order IS NULL THEN '.' ELSE '-->' END AS is_query,
+          ft.gstart || '..' || gend as cds,
+          strand as dir,
+          product_length as len,
+          CASE WHEN ft.product_accession IS NULL THEN '.' ELSE ft.product_accession END as pid,
+          CASE WHEN ft.feature = 'CDS' AND ft.product_accession IS NULL THEN 'PSE' ELSE ft.feature END as type,
+          CASE WHEN ft.symbol IS NULL THEN '.' ELSE ft.symbol END as gene,
+          CASE WHEN ft.locus_tag IS NULL THEN '.' ELSE ft.locus_tag END as locus,
+          '.' as gi,
+          CASE WHEN ft.product_name IS NULL THEN '.' ELSE ft.product_name END as product
+        FROM ftable AS ft LEFT OUTER JOIN uquery AS q USING (genomic_accession, genomic_order)
+        WHERE
+            ft.genomic_accession = '{0}'
+            AND ft.feature = 'gene'
+            AND ft.genomic_order BETWEEN {1} AND {2}
+        ORDER BY ft.genomic_order
+    '''
+
+    elif (method == 'product'):
+	    sql = '''
+			SELECT
+			  CASE WHEN q.genomic_order IS NULL THEN '.' ELSE '-->' END AS is_query,
+			  ft.gstart || '..' || gend as cds,
+			  strand as dir,
+			  product_length as len,
+			  CASE WHEN ft.product_accession IS NULL THEN '.' ELSE ft.product_accession END as pid,
+			  CASE WHEN ft.feature = 'CDS' AND ft.product_accession IS NULL THEN 'PSE' ELSE ft.feature END as type,
+			  CASE WHEN ft.symbol IS NULL THEN '.' ELSE ft.symbol END as gene,
+			  CASE WHEN ft.locus_tag IS NULL THEN '.' ELSE ft.locus_tag END as locus,
+			  '.' as gi,
+			  CASE WHEN ft.product_name IS NULL THEN '.' ELSE ft.product_name END as product
+			FROM ftable AS ft LEFT OUTER JOIN uquery AS q USING (genomic_accession, genomic_order)
+			WHERE
+				ft.genomic_accession = '{0}'
+				AND ft.feature != 'gene'
+				AND ft.genomic_order BETWEEN {1} AND {2}
+			ORDER BY ft.genomic_order
+		'''
+    sql  = sql.format(*(contig['genomic_accession'], interval['gomin'], interval['gomax']))
+#    print("gi2op:sql")
+    #print ( sql)
+    # Fetch column lengths
+    sql2 = '''
+        SELECT
+            3 as is_query,
+            max(length(cds)) as cds,
+            3 as dir,
+            CASE WHEN max(length(len::text)) > 3 THEN max(length(len::text)) ELSE 3 END as len,
+            max(length(pid)) as pid,
+            CASE WHEN max(length(type))  > 4 THEN max(length(type))  ELSE 4 END as type,
+            CASE WHEN max(length(gene))  > 4 THEN max(length(gene))  ELSE 4 END as gene,
+            CASE WHEN max(length(locus)) > 5 THEN max(length(locus)) ELSE 5 END as locus,
+            2 as gi,
+            CASE WHEN max(length(product)) > 7 THEN max(length(product)) ELSE 7 END as product
+        FROM ({0}) as gi2op
+    '''
+    sql2 = sql2.format(*(sql,))
+    cursor.execute(sql2)
+    collen = cursor.fetchone() # collen is a psycopg2.extras.DictRow
+    #print (collen)
+    # Print header
+    if (method == 'product'):
+        print("ORGANISM", contig['organism_name'], "accession no is",
+          contig['genomic_accession'], "Protein is", interval['product_accession'])
+
+    elif (method == 'locus'):
+        print("ORGANISM", contig['organism_name'], "accession no is",
+          contig['genomic_accession'], "Locus tag is", interval['locus_tag'])
+
+    header = [".","cds","dir","len","pid","type","gene","locus","gi"]
+    header = [ header[i].ljust(collen[i]) for i in range(0,len(header)) ]
+    header.append('product')
+    print("  ".join(header))
+
+    # Fetch and format the block
+    cursor.execute(sql)
+    for row in cursor:
+        last = len(row)-1
+        row[last] = str(row[last])
+        for col in range(0,last):
+            if row[col] is None or len(str(row[col])) == 0:
+                row[col] = '.'
+            else:
+                row[col] = str(row[col])
+            row[col] = row[col].ljust(collen[col])
+        print("  ".join(row))
+    print("---------------------------------------")
+
+def table(cursor, contig, interval, print_header, block_id, method):
+    sql = '''
+        SELECT
+            ft.genomic_accession as nucleotide,
+            ft.gstart as start, ft.gend as end,
+            CASE WHEN ft.strand = '+' THEN 1 ELSE -1 END as strand,
+            CASE WHEN q.genomic_order IS NULL THEN '0' ELSE '1' END AS query,
+            CASE WHEN ft.product_accession IS NULL THEN '' ELSE ft.product_accession END as pid,
+            CASE WHEN ft.feature = 'CDS' AND ft.product_accession IS NULL THEN 'PSE' ELSE ft.feature END as type,
+            ft.product_length AS plen,
+            ft.locus_tag as locus, ft.seq_type, ft.assembly,
+            CASE WHEN ft.symbol IS NULL THEN '' ELSE ft.symbol END as gene,
+            CASE WHEN ft.product_name      IS NULL THEN '' ELSE ft.product_name      END as product,
+            a.organism_name AS organism, a.lineage as classification
+        FROM ftable AS ft
+            LEFT OUTER JOIN uquery AS q USING (genomic_accession, genomic_order)
+            INNER JOIN assembly_summary AS a ON (ft.assembly = a.assembly)
+        WHERE
+            ft.genomic_accession = '{1}'
+            AND ft.feature != 'gene'
+            AND ft.genomic_order BETWEEN {2} AND {3}
+        ORDER BY ft.genomic_order
+    '''
+    if (method == 'product'):
+        sql = sql.format(*(interval['product_accession'],contig['genomic_accession'],
+                       interval['gomin'], interval['gomax']))
+    elif (method == 'locus'):
+        sql = sql.format(*(interval['locus_tag'],contig['genomic_accession'],
+                       interval['gomin'], interval['gomax']))
+    cursor.execute(sql)
+    for row in cursor:
+        #row.insert(4, block_id)
+        if print_header:
+            print("\t".join( list(row.keys())[0:4]) + "\tblock_id\t" + "\t".join(list(row.keys())[4:]))
+            print_header = 0
+        row.insert(4, block_id)
+        row = [ str(row[i] or '') for i in range(0,len(row)) ]
+        print("\t".join(row) )
+    return print_header
+
+def fetch_queries(cursor):
+    cursor.execute('''
+        SELECT DISTINCT p.product_accession AS missing_queries
+        FROM upid AS p LEFT OUTER JOIN uquery AS q USING (product_accession)
+        WHERE q.product_accession IS NOT NULL;
+    ''')
+    return cursor.fetchall()
+
+def fetch_missing_queries(cursor):
+    cursor.execute('''
+        SELECT DISTINCT p.product_accession AS missing_queries
+        FROM upid AS p LEFT OUTER JOIN uquery AS q USING (product_accession)
+        WHERE q.product_accession IS NULL;
+    ''')
+    return cursor.fetchall()
+
+def parse_cli():
+    # Process the command line
+    parser = argparse.ArgumentParser(
+        description='Fetch gene neighborhoods for protein targets'
+    )
+
+    parser.add_argument(
+        "-a", "--above",
+        default=3,
+        help='Rows above: maximum number of neighbors upstream of target loci',
+        type=int
+    )
+
+    parser.add_argument(
+        "-b", "--below",
+        default=3,
+        help='Rows below: maximum number of neighbors downstream of target loci',
+        type=int
+    )
+
+    parser.add_argument(
+        "-d","--database",
+        help="Rotifer's database name",
+        default="genomes",
+        type=str
+    )
+    
+    parser.add_argument(
+        "-p", "--port",
+        help="Rotifer's database server port number",
+        default="5432",
+        type=str
+    )
+
+    parser.add_argument(
+        "--debug",
+        help='Set verbosity level for error/warnings/info messages',
+        default=0,
+        type=int
+    )
+
+    parser.add_argument(
+        "-H","--host",
+        help="Rotifer's database server name or IP address",
+        default="127.0.0.1",
+        type=str
+    )
+
+    parser.add_argument(
+        '--outformat','-of',
+        help='''Output format. Currently available formats are:
+            1) gi2operons: visual display of neighborhoods as blocks of rows (default);
+            2) table: tabular output;
+            3) missing: list of queries not present in the SQL database
+        ''',
+        default='gi2operons'
+    )
+
+    parser.add_argument(
+        '--log',
+        help='Choose destination of error, warning, info and debug messages',
+        type=argparse.FileType('w'),
+        default=sys.stderr
+    )
+
+    parser.add_argument(
+        "-u","--user",
+        help="User name to connect to Rotifer's database",
+        default='rotifer', #os.getenv('USER'),
+        type=str
+    )
+
+    parser.add_argument(
+        'file',
+        nargs="*",
+        help='Input file(s)',
+        default=[]
+    )
+
+    parser.add_argument(
+        '--method',
+        help='Choose method of search (product or locus). In this case the expected value of queries will be list of locus',
+        default='product'
+    )
+
+    parser.add_argument(
+        '-gacc', '--genomic_accession',
+        help='Insert list containign genomic_accesion required to search',
+        default=[]
+    )
+
+    parser.add_argument(
+        '-asm', '--assembly',
+        help='Insert list containign assembly required to search',
+        default=[]
+    )
+    
+    args = parser.parse_args()
+    args.file = input_to_set(parser,args.file)
+    return(args)
+
+# Load a non-redundant list of values from the input
+# list of files, strings and/or the standard error
+def input_to_set(parser,largs):
+    # Process sys.stdin
+    if sys.stdin.isatty():
+        if len(largs) == 0:
+            parser.error("No input!")
+    elif not "-" in largs:
+        largs.insert(0,sys.stdin)
+
+    # Process sys.argv
+    myset=set()
+    for iohandle in largs:
+        try:
+            iohandle = open(iohandle, mode="r")
+            myset=myset.union(iohandle.read().splitlines())
+            iohandle.close
+        except:
+            try:
+                myset=myset.union(iohandle.read().splitlines())
+            except:
+                if iohandle == "-":
+                    if sys.stdin.isatty():
+                        parser.error("No input!")
+                    else:
+                        myset=myset.union(sys.stdin.read().splitlines())
+                else:
+                    myset.add(iohandle)
+    return(myset)
+
+############################################################
+# Main program
+############################################################
+
+if __name__ == "__main__":
+    args = parse_cli()
+
+    # Connect to the database
+    try:
+        dsn = "dbname=" + args.database + " user=" + args.user + " host=" + args.host + " port=" + args.port + " application_name=rneighbors"
+        db  = psycopg2.connect(dsn, cursor_factory=DictCursor)
+    except:
+        args.log.write("I am unable to connect to the database\n")
+        exit(1)
+
+    # Send queries, fetch, merge and print neighboring loci
+    if (args.method == 'locus'):
+	    post_locus(db, args, args.file)
+    elif (args.method == 'product'):
+	    if (args.genomic_accession):
+		    gacc = [x for x in
+		    open(args.genomic_accession, 'r').read().split("\n")
+		    if x != ''
+		    ]
+		    post_ids3(db, args, args.file, gacc)
+	    elif (args.assembly):
+		    asm = [x for x in
+		    open(args.assembly, 'r').read().split("\n")
+		    if x != ''
+		    ]
+		    post_ids2(db, args, args.file, asm)
+	    else:
+		    post_ids(db, args, args.file)
+    cursor = db.cursor()
+
+    # Print any queries that were not found in the database
+    if args.outformat == 'missing':
+        lost=fetch_missing_queries(cursor)
+        lost=list(map(lambda x: str(x[0]), lost))
+        if len(lost): args.log.write("\n".join(lost) + "\n")
+
+    # Print any queries that were not found in the database
+    elif args.outformat == 'query':
+        lost=fetch_queries(cursor)
+        lost=list(map(lambda x: str(x[0]), lost))
+        if len(lost): args.log.write("\n".join(lost) + "\n")
+
+    # Formats for neighborhoods
+    else:
+        intervals = db.cursor()
+        print_header = 1
+        count = 1
+        for nt in fetch_contigs(db):
+            fetch_intervals(intervals, nt['genomic_accession'], args.above, args.below, args.method)
+            old = intervals.fetchone()
+            for new in intervals:
+                if not isinstance(new[4],(int)): args.log.write(
+                    "Last upstream neighbor for " + old["product_accession"]
+                    + " is not an integer: " + str(type(old[4])) + "\n"
+                )
+                if int(old[4])+1 >= int(new[3]):
+                    old[4] = new[4] # merge old and new intervals
+                else: # print old, put new in old
+                    if args.outformat == 'gi2operons':
+                        gi2operons(cursor, nt, old, args.method)
+                    elif args.outformat == 'table':
+                        print_header = table(cursor, nt, old, print_header, count, args.method)
+                        count += 1
+                    old = new
+            if old != []:
+                if args.outformat == 'gi2operons':
+                    #print (cursor, nt, old, args.method)
+                    gi2operons(cursor, nt, old, args.method)
+                elif args.outformat == 'table':
+                    print_header = table(cursor, nt, old, print_header, count, args.method)
+                    count += 1
+                else:
+                    args.log.write("Unsupported output format: " + args.outformat)
+        intervals.close()
+
+    # Close connection to the database
+    cursor.close()
+    db.close()
+    args.log.close()
+    sys.exit(0)
