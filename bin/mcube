@@ -1,0 +1,214 @@
+#!/usr/bin/env python3
+
+## ! /home/acpguedes/imported_bin/home/linuxbrew/anaconda3/bin/python3
+
+### Import the library to run the script ####
+import sys                                  #
+import argparse                             #
+from argparse import RawTextHelpFormatter   #
+import os                                   #
+import pandas as pd                         #
+import subprocess
+#############################################
+
+#Implementar argparse
+def parser_cli():
+    parser = argparse.ArgumentParser(description=
+                                     '''This is an wrapper script that will run the mmseqs program multiple times with different 
+parameters and will create a table with all the results together.
+ATTENTION: If you run this wraper within directory with same analisis, it will use the
+same database and prefilter previous generated unless you modify the base name. It maght
+be useful to expand cluster analisis to other parameters.
+Written by ggnicastro and acpguedes.''', formatter_class=RawTextHelpFormatter)
+    parser.add_argument("-c", "--coverage", 
+                        default=[0.8], 
+                        nargs='+', 
+                        help= '''Insert list of coverage to use on cluster separated by spaces.''')
+    parser.add_argument("-d", "--identity", 
+                        default=[0.3, 0.4, 0.5, 0.6],
+                        nargs='+', 
+                        help= '''Insert list of identity to use on cluster separated by spaces.''')
+    parser.add_argument("-e", "--evalue", 
+                        default= [0.001], 
+                        nargs='+', 
+                        help='''Insert list of e-values to use on cluster separated by spaces.''')
+    parser.add_argument("-b", "--basename", 
+                        default="cluster" , 
+                        help= '''Insert basename for the files''')
+    parser.add_argument("-i", "--input", 
+                        required=True, 
+                        help= '''Insert sequence file''')
+    parser.add_argument("-m", "--clustermode", 
+                        default=1, 
+                        help= '''Choose your cluster algorithm, see MMseqs.''')
+    parser.add_argument("-a", "--coveragemode", 
+                        default=0, 
+                        help= '''Choose your coverage mode, see MMseqs.''')
+    parser.add_argument("-s", "--sensitivity", 
+                        default=7.5, 
+                        help= '''Choose your prefilter's sensitivity, see MMseqs manual.''')
+    parser.add_argument("--cpu", 
+                        default=20, 
+                        help= '''Choose number of threads.''')
+    parser.add_argument("-l", "--clusterprogram" , 
+                        choices=['linclust', 'cluster', 'mixed', 'full'], 
+                        default='mixed',
+                        help = '''Choose which MMseqs program you want to use.
+    - linclust -> use linear time, but we strongly recommend dont use below than 50%% of identity.
+    - cluster  -> is vary fast but slower than linclust.
+    - mixed    -> (defaut) will start with linclust and below than 50%% of identity will use cluster.
+    - full     -> performe the cascaded mmseqs builtin method of cluster with cluster pipeline, linclust followed by clust for each level.
+                        ''')
+
+    args = parser.parse_args()
+    return args 
+
+
+args = parser_cli()
+#print(args)
+coverage=args.coverage
+coveragemode= args.coveragemode
+sensitivity = args.sensitivity
+#covaragemode1= '--cov-mode ' +str(covaragemode)
+clustermode = args.clustermode
+minseqid = sorted(args.identity, reverse=True)
+evalue = sorted([float(i) for i in args.evalue])
+threads = args.cpu
+fastafile = args.input
+sufix= args.basename
+linoff = args.clusterprogram
+print(coveragemode)
+### Create an enviroment to run the script #################################################
+currentdir=os.getcwd()
+def creatdir(cluster): 
+
+    """ Create the directories where each clustering condition will be performed """
+    os.mkdir(currentdir + '/' + cluster)
+
+def splitdb(sufix, cluster, previous_db, condition, threads):
+    path =os.getcwd()
+    new_db = ".".join([sufix, "db"])
+    if (not os.path.isfile(new_db)):
+        os.system(" ".join(["mmseqs createsubdb", cluster, previous_db, new_db]))
+        os.system(" ".join(["mmseqs createsubdb", cluster, previous_db + "_h", new_db + "_h"]))
+    return "/".join([path, new_db])
+
+def runlin(db, threads, sensitivity, sufix, clustermode, identity, evaluelist, cov, coveragemode, firstdb, MAX_SEQ):
+    if(not os.path.isfile('MMseqsClust')):
+        if (not os.path.isdir('tmp')):
+            os.mkdir('tmp')
+        os.system('mmseqs linclust ' + db + ' MMseqsClust tmp --threads ' + str(threads) + ' --min-seq-id ' +  str(identity) + ' --cov-mode ' + str(coveragemode) + ' -c ' + str(cov) + ' -a ' + ' -e ' +  str(evaluelist) + ' --cluster-mode ' + str(clustermode) )
+    if (not os.path.isfile('MMseqsClust.tsv')):
+        os.system('mmseqs createtsv ' + db + ' ' + db + ' MMseqsClust MMseqsClust.tsv')
+#    print("run linclust")
+    return "/".join([os. getcwd(), 'MMseqsClust'])
+
+ 
+
+def run(db, threads, sensitivity, sufix, clustermode, identity, evaluelist, cov, coveragemode, firstdb, MAX_SEQ):
+    if (not os.path.isfile('Prefilter')):
+        os.system('mmseqs prefilter --threads ' + str(threads)  + ' -s ' + str(sensitivity) + ' --max-seqs ' + MAX_SEQ + ' ' + db + ' ' + db + ' Prefilter')
+    if (not os.path.isfile('MMseqsAln')):
+        os.system('mmseqs align ' + db + ' ' + db + ' Prefilter MMseqsAln --threads ' + str(threads) + ' --min-seq-id ' +  str(identity) + ' --cov-mode ' + str(coveragemode) + ' -c ' + str(cov) + ' -a ' + ' -e ' +  str(evaluelist) )
+    if (not os.path.isfile('MMseqsClust')):
+        os.system('mmseqs clust ' + db + ' MMseqsAln MMseqsClust --cluster-mode '+ str(clustermode)+ ' --threads ' + str(threads))
+    if (not os.path.isfile('MMseqsClust.tsv')):
+        os.system('mmseqs createtsv ' + db + ' ' + db + ' MMseqsClust MMseqsClust.tsv')
+    if (not os.path.isfile('MMseqsClust.Aln.tsv')):
+        os.system('mmseqs createtsv ' + db + ' ' + db + ' MMseqsAln MMseqsClust.Aln.tsv')
+    return "/".join([os.getcwd(), "MMseqsClust"])
+
+def runfull(db, threads, sensitivity, sufix, clustermode, identity, evaluelist, cov, coveragemode, firstdb, MAX_SEQ):
+    cmd = " ".join(['mmseqs cluster', db, 'MMseqsClust tmp --cluster-mode', str(clustermode), '--threads', str(threads), '--min-seq-id',  str(identity), '--cov-mode', str(coveragemode), '-c', str(cov), '-a','-e',  str(evaluelist), '--max-seqs', str(MAX_SEQ), '-s', str(sensitivity)])
+    if(not os.path.isdir('tmp')):
+        os.mkdir('tmp')
+    if (not os.path.isfile('MMseqsClust')):
+        print(cmd)
+        os.system(cmd) 
+    if (not os.path.isfile('MMseqsClust.tsv')):
+        os.system('mmseqs createtsv ' + db + ' ' + db + ' MMseqsClust MMseqsClust.tsv')
+    return "/".join([os.getcwd(), "MMseqsClust"])
+
+
+def putsize(df, condition):
+    dfsize = pd.DataFrame({'count' : df.groupby('Cluster').size()}).sort_values(by='count', ascending=False).reset_index()
+    dfsize[condition] = dfsize.index
+    df = df.merge(dfsize, on='Cluster')
+    df.columns = ['c'+condition,'p'+condition, 'count', condition ]
+    return df[df.columns[[0,1,3]]]
+
+def merging(df1, df2, col1, col2):
+    return pd.merge(df1, df2, left_on=col1, right_on=col2)
+
+### Start to run mmseqs #######################################################
+# Check if exist database and prefilter
+firstdb = sufix+'.DB'
+if (not os.path.isfile(firstdb)):
+    os.system('mmseqs createdb '+ fastafile +' ' + firstdb)
+check_lines_comunicate = subprocess.Popen(['wc', '-l' ,firstdb], stdout = subprocess.PIPE)
+n_lines_resp = check_lines_comunicate.communicate()[0]
+n_lines = n_lines_resp.decode('utf8').split(' ')[0]
+#if (not os.path.isfile(sufix+'.Prefilter')):
+#    os.system('mmseqs prefilter --threads ' + str(threads)  + ' -s ' + str(sensitivity) + ' ' + sufix +'.Database ' +sufix+'.Database ' +sufix +'.Prefilter ')y
+
+df_final = pd.DataFrame()
+atualdb = "/".join([os.getcwd(), firstdb])
+firstdb = atualdb
+clu = str()
+prot = str()
+col_keep_ls = list()
+for cov in coverage:
+    #print (cov)
+    #if (float(cov) < 0.5):
+    #    print ("cov < 0.5")
+    for identity in minseqid:
+            for evaluelist in evalue:
+                condition=str('id_' + str(identity) + 'cov_' + str(cov) + 'evalue_' + str(evaluelist))
+                col_keep_ls.append(condition)
+                # Create directory
+                if (not os.path.isdir(condition)):
+                    creatdir(condition)
+                os.chdir(condition)
+                # Build table
+                if (linoff == 'mixed'):
+                    print('mixed mode')
+                    if(float(identity) < 0.5):# or linoff):
+                        last_cluster = run(atualdb, threads, sensitivity, sufix, clustermode, identity, evaluelist, cov, coveragemode, firstdb, n_lines)
+                    else:
+                        last_cluster = runlin(atualdb, threads, sensitivity, sufix, clustermode, identity, evaluelist, cov, coveragemode, firstdb, n_lines)
+                elif(linoff == 'linclust'):
+                    print ('linclust mode')
+                    last_cluster = runlin(atualdb, threads, sensitivity, sufix, clustermode, identity, evaluelist, cov, coveragemode, firstdb, n_lines)
+                elif(linoff == 'cluster'):
+                    print ('cluster mode')
+                    last_cluster = run(atualdb, threads, sensitivity, sufix, clustermode, identity, evaluelist, cov, coveragemode, firstdb, n_lines)
+                elif(linoff == 'full'):
+                    print('full mode')
+                    last_cluster = runfull(atualdb, threads, sensitivity, sufix, clustermode, identity, evaluelist, cov, coveragemode, firstdb, n_lines)
+
+                ds = pd.read_csv('MMseqsClust.tsv', names=['Cluster', 'Protein'] , sep='\t', index_col= False)
+                ds = putsize(ds, condition)
+#                dsize = pd.DataFrame({'count': ds.groupby('Cluster').size()}).sort_values(by='count', ascending=False).reset_index()
+ #               dsize[condition] = dsize.index
+                prot='p'+condition 
+                if (not df_final.empty):
+                    df_final = merging(df_final, ds, clu, prot) 
+                    clu = 'c' + condition 
+                    #df_final.merge(ds.merge(dsize, on='Cluster'), left_on='Cluster', right_on='Protein')
+                else:
+                    df_final = ds
+                    clu = 'c'+condition
+                #df_final = df_final.drop(['count', 'Cluster'], axis =1)
+                #clu='p'+condition
+                sys.stderr.write("cd " + currentdir + "\n")
+                atualdb = splitdb(sufix, last_cluster, atualdb, condition, threads)
+                os.chdir(currentdir)
+col_keep_ls.reverse()
+col_keep_ls.insert(0, df_final.columns[1])
+df_final = df_final[col_keep_ls]
+df_final.columns.values[0] = 'ID'
+df_final = df_final.sort_values(col_keep_ls[1:],
+                                ascending = [True]*len( col_keep_ls[1:] ) )
+df_final.to_csv(sufix +'.rawtable', index = False, sep='\t')
+
+
