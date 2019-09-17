@@ -132,7 +132,7 @@ sub hash_of_arrays_from_file {
     $new =~ s|^\~/|$ENV{HOME}/|; # ~/ doesn't work on MacOS?????
     $ref->{$col} = {}; # Unfortunately there is no way to access the previous value of this hash!
     if ( -r $new ) {
-	open(my $HoA,"<".$ref->{$col}) || die "Could not open hash file ".$ref->{$col};
+	open(my $HoA,"<$new") || die "Could not open hash file $new";
 	while (<$HoA>) {
 	    chomp; s/^\s+//; s/\s+$//;
 	    $ref->{$col}{$_} = 1;
