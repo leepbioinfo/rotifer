@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-import rotifer.core.log as rlog
-import pandas as pd
-import sys
-
-sys.path.insert(0, '/home/kaihami/local/rotifer/lib')
-from rotifer.core.functions import loadClasses
-from data import NeighborhoodDF
 import os
+import sys
+import pandas as pd
+import rotifer.core.log as rlog
+
+from rotifer.core.functions import loadClasses
+from rotifer.genome.data import NeighborhoodDF
 
 
 # Core class

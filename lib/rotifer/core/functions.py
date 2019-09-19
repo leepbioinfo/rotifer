@@ -372,7 +372,6 @@ def loadConfig(load = '',
     Example:
     ":db.pfam" => .../rotifer/config/db/pfam.yaml
     '''
-    # /home/kaihami/mymodules/rotifer/lib/rotifer/config
     expand_load = load.replace(':','')
 
     # Loading user configuration

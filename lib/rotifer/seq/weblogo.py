@@ -37,5 +37,4 @@ def create_logo(hmm, outpath = ''):
 
 if __name__ == '__main__':
     sys.stderr.write('Testing logo:\n')
-    f = '/home/ggnicastro/projects/toxin/work/20180514/T4SS_components/teste/teste.hmm'
-    create_logo(f, outpath = '/home/kaihami')
+    create_logo(sys.argv[1], outpath = '.')

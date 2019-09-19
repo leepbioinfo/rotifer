@@ -3,7 +3,7 @@
 import os
 import sys
 # TESTING LINES
-sys.path.insert(0, '/home/kaihami/local/modified_structure/rotifer/lib')
+#sys.path.insert(0, '/home/kaihami/local/modified_structure/rotifer/lib')
 
 from subprocess import Popen, PIPE, STDOUT
 from tempfile import mkstemp

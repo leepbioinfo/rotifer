@@ -313,6 +313,10 @@ or put all mapping in a file and use auto-loading, e.g.
 	    DEFAULT => { map { ($_,1) } @{$appconfig->ignore_overlap} },
 	});
 
+    # Keep defaults for advanced features
+    map { $appconfig->input_args->{$_}  = $appconfig->get_defaults("input_args")->{$_}  unless (defined $appconfig->input_args->{$_}) } keys %{$appconfig->get_defaults("input_args")};
+    map { $appconfig->output_args->{$_} = $appconfig->get_defaults("output_args")->{$_} unless (defined $appconfig->output_args->{$_}) } keys %{$appconfig->get_defaults("output_args")};
+
     # Use STDIN when no files are given
     push(@ARGV, '-') unless ( -t STDIN || scalar(grep { $_ eq "-" } @ARGV) );
 
