@@ -40,7 +40,7 @@ Get gene neighborhood
 
 def parse_cli():
 
-    parser = corecli.parser(description = 'Merge Several acc2operon files, or expand search neighborhood')
+    parser = corecli.parser(description = 'Get gene neighborhood')
 
     parser.add(dest = 'file',
                         helper = 'Input neighborhood file',
@@ -428,29 +428,15 @@ if __name__ == '__main__':
         else:
             selected_df = pd.concat([selected_df, df])
     selected_df[selected_df['assembly'] == '.']
+    if verbose:
+        verbose_msg('Loaded DF')
 
     nucleotide_in_db = []
-    n_partition = 2000
+    n_partition = 5000
 
-    nucs_found = ["'" + x + "'" for x in selected_df['assembly'].unique()]
     accs_in_db = selected_df['pid'].unique()
 
-    for x in range(0,len(accs_in_db), n_partition):
-        # acc_formated = ','.join(["'" + x +"'" for x in accs])
-        acc_formated = ','.join(["'" + z +"'" for z in accs_in_db[x:x+n_partition]])
-
-        try:
-            _ = conn.execute(f"""SELECT DISTINCT nucleotide, nuc_asm
-                                                FROM genomes
-                                                WHERE nuc_asm IN ({','.join(nucs_found)})
-                                                    AND pid IN ({acc_formated})"""
-                                        )
-
-            nucleotide_in_db.extend([(nuc, nuc_asm) for nuc, nuc_asm in _])
-        except:
-            verbose_msg('Error')
-            # print('\n'.join(accs_in_db[x:x+n_partition]))
-    nucleotide_in_db = set(nucleotide_in_db)
+    nucleotide_in_db = selected_df[['nucleotide', 'assembly']].values
     if verbose:
         verbose_msg('Ran nucleotide_in_db ok! Collected nucleotide/nuc_asm from table_name')
     e = time.time()
