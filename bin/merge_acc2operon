@@ -436,7 +436,7 @@ if __name__ == '__main__':
 
     accs_in_db = selected_df['pid'].unique()
 
-    nucleotide_in_db = selected_df[['nucleotide', 'assembly']].values
+    nucleotide_in_db = selected_df[['nucleotide', 'assembly']].drop_duplicates().values
     if verbose:
         verbose_msg('Ran nucleotide_in_db ok! Collected nucleotide/nuc_asm from table_name')
     e = time.time()
