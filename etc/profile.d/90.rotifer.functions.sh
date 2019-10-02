@@ -62,7 +62,7 @@ function aln_order_by_tree() {
 }
 
 # Export all funcions
-for f in $(grep ^function 90.rotifer.functions.sh | cut -f 2  -d " " | cut -f 1 -d '(')
+for f in $(grep ^function ${BASH_SOURCE[0]} | cut -f 2  -d " " | cut -f 1 -d '(')
 do
 	export -f $f
 done
