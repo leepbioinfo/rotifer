@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import pandas as pd
-from pandas.compat import StringIO
 import warnings
 import numpy as np
 import sys
@@ -10,6 +9,9 @@ sys.path.insert(0, os.path.join('/home/kaihami/mymodules'))
 import rotifer.core.functions as cf
 from collections import defaultdict
 import time
+
+#from pandas.compat import StringIO
+from io import StringIO
 
 warnings.filterwarnings('ignore')
 __version__ = 0.2
