@@ -1,6 +1,23 @@
 # Default runprofiles postprocessor
+sub _find_executable {
+    use File::Which qw(which);
+    my $executable = undef;
+    foreach my $name (@_) {
+        next unless (defined $name && length $name);
+        foreach my $exe (split(/\s*\,\s*/,$name), which($name)) {
+            if ( -x $exe ) {
+                $executable = $exe;
+                last;
+            }
+        }
+    }
+    return $executable;
+}
+
 sub process {
     my ($config, $target, $in, $out, $err) = @_;
+    my $blast2table = _find_executable($config->program_path->{"blast2table"}) || "blast2table";
+    my $hmmer2table = _find_executable($config->program_path->{"hmmer2table"}) || "hmmer2table";
 
     # Remove empty input files
     if ( -z $in ) {
@@ -30,24 +47,24 @@ sub process {
 
       # BLAST
       /\.(psi|t)?blast(all|pgp|n|p|x)?$/ && do {
-	  push(@command, "blast2table -r $name -t ".$config->threshold." -e ".$config->pcut." $in > $out 2> $err");
+	  push(@command, "$blast2table -r $name -t ".$config->threshold." -e ".$config->pcut." $in > $out 2> $err");
 	  last SWITCH;
       };
 
       # RPS-BLAST
       /\.rpsblast$/ && do {
 	  my $clean = /(Cdd|Pfam|Smart)/i ? 'cdd' : 'profiledb';
-	  push(@command, "blast2table -s -c $clean -t ".$config->threshold." -e ".$config->pcut." $in > $out 2> $err");
+	  push(@command, "$blast2table -s -c $clean -t ".$config->threshold." -e ".$config->pcut." $in > $out 2> $err");
 	  last SWITCH;
       };
 
       # HMMER
       /\.(hmmsearch|jackhmmer)$/ && do {
-	  push(@command, "hmmer2table -r $name -c -e ".$config->pcut." $in > $out 2> $err");
+	  push(@command, "$hmmer2table -r $name -c -e ".$config->pcut." $in > $out 2> $err");
 	  last SWITCH;
       };
       /\.hmmscan$/ && do {
-	  push(@command, "hmmer2table -c -s -e ".$config->pcut." $in > $out 2> $err");
+	  push(@command, "$hmmer2table -c -s -e ".$config->pcut." $in > $out 2> $err");
 	  last SWITCH;
       };
 
