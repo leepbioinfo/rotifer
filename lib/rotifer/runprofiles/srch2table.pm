@@ -23,7 +23,7 @@ sub same_hsp {
     # saccver: 0, qaccver: 1, sstart: 2, send: 3, evalue: 4, qcovhsp: 5, qstart: 6, qend: 7, bitscore: 8, slen: 9
 
     my $overlaps = 0; # 0 Means $array1 and $array2 are not the same
-    my $maxoverlap = $config->postprocessor_param->{'maxoverlap'};
+    my $maxoverlap = $config->postprocessor_param->{'maxoverlap'} || 0.4;
     foreach my $i (2,6) {
         my $max_start = $array1->[$i]   > $array2->[$i]   ? $array1->[$i]   : $array2->[$i];
 	my $min_end   = $array1->[$i+1] < $array2->[$i+1] ? $array1->[$i+1] : $array2->[$i+1];
