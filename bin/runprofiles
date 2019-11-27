@@ -907,6 +907,7 @@ sub get_command_line {
             my $query = $profile->file;
             $args{"-num_threads"} = number_of_processors()  unless (exists $args{'-num_threads'} && defined $args{'-num_threads'});
             $args{"-evalue"} = $profile->maximum_evalue_cutoff unless (exists $args{'-evalue'} && defined $args{'-evalue'});
+	    $args{"-outfmt"} = "'7 saccver qaccver sstart send evalue qcovhsp qstart qend bitscore slen'";
             my ($format) = exists $args{"-outfmt"} ? ($args{"-outfmt"} =~ /\b(\d+)\b/ ? $1 : 0) : 0;
             if ($format <= 4) {
                 my $nout = delete $args{"-max_target_seqs"};
@@ -1227,7 +1228,7 @@ sub parse_configuration {
 
     # Parsing command line and configuration files
     my $appconfig = GetConfig({ CASE => 1, EXPECT_INPUT => 1, EXPAND_ARGV => 0,
-            CREATE => '^(alias_|program_|profile_fetch|profile_search|library_search|database_search|database_fetch|database_format)', 
+            CREATE => '^(alias_|program_|profile_fetch|profile_search|library_search|database_search|database_fetch|database_format|postprocessor_param)', 
             GLOBAL => { ARGCOUNT => ARGCOUNT_HASH, EXPAND => EXPAND_ENV },
         }, %hash);
 

@@ -7,6 +7,28 @@ use File::Basename;
 use warnings;
 use strict;
 
+# Loading parsers
+my $parser = undef;
+my @parsers = qw(Bio::SearchIO RG::Blast::Parser);
+foreach (@parsers) {
+   eval "require $_";
+   if (!$@) {
+      $parser = $_;
+      last;
+   }
+}
+if (defined $parser) {
+   warn "Using parsing $parser";
+   no strict "refs";
+   $parser =~ tr/A-Z/a-z/;
+   $parser =~ s/::/_/g;
+   $parser = "process_$parser";
+   $parser = \&{"$parser"};
+   use strict "refs";
+} else {
+   die "No Blast parser library found! Compatible libraries are: ",join(", ",@parsers);
+}
+
 # Parse command line options
 my $CONFIG = parse_configuration();
 
@@ -14,7 +36,7 @@ my $CONFIG = parse_configuration();
 my $ColNames = $CONFIG->column;
 print join("\t",@$ColNames),"\n" if ($CONFIG->header);
 foreach my $file (@ARGV) {
-    my @parsed = process_searchio($CONFIG, $file);
+    my @parsed = $parser->($CONFIG, $file);
     foreach my $hsp (@parsed) {
 	&swap($hsp) if ($CONFIG->swap);
 	print join("\t",map { exists $hsp->{$_} && length $hsp->{$_} ? $hsp->{$_} : "" } @{$ColNames}),"\n";
@@ -42,7 +64,7 @@ sub fix_ncbi_name {
     return $data;
 }
 
-sub each_input_stream_to_bioperl {
+sub each_input_stream {
     my $input = shift;
     use Scalar::Util qw(reftype);
 
@@ -50,34 +72,54 @@ sub each_input_stream_to_bioperl {
     my $gunzip = "gzip -dc";
     my $bunzip = "bzip2 -dc";
 
-    my @hash = ();
+    # Input is a GLOB (STDIN)
     if (my $reftype = reftype($input)) {
 	if ($reftype eq "GLOB") {
-	    @hash = (-fh => $input);
+	    return($input);
 	} else {
 	    die "Unknown reference type $reftype: $input is not a GLOB.";
 	}
-    } elsif ( -f $input ) {
+    }
+    
+    # Input is a file
+    elsif ( -f $input ) {
       COMPRESSED: {
 	  $_ = $input;
 	  /\.gz/ && do {
-	      @hash = (-file => "$gunzip $_ |");
+              open(STREAM,"$gunzip $_ |") || die "Could not open file $_";
 	      last COMPRESSED;
 	  };
 	  /\.bz2/ && do {
-	      @hash = (-file => "$bunzip $_ |");
+              open(STREAM,"$bunzip $_ |") || die "Could not open file $_";
 	      last COMPRESSED;
 	  };
-	  @hash = (-file => "<$_");
+          open(STREAM,"<$_") || die "Could not open file $_";
 	};
-    } else {
+	return(\*STREAM);
+    }
+    
+    # Anything else?
+    else {
 	warn "File $input not found!";
     }
 
-    return @hash;
+    return undef;
 }
 
-sub process_searchio {
+# The function below isn't working because RG::BLAST::Parser
+# Doesn't support newer BLAST versions
+sub process_rg_blast_parser {
+    my ($conf, $file) = @_;
+    die "RG::BLAST::Parser is unable to parse blastxml!" if ($conf->format eq 'blastxml');
+    my $report = undef;
+    my $stream = each_input_stream($file);
+    eval { $report = RG::Blast::Parser->new($stream,$file) };
+    die "Failed to parse blast result $file: exception caught" if( $@ && $@ =~ /^parser error/ );
+    close($stream);
+    return @parsed;
+}
+
+sub process_bio_searchio {
     my ($conf, $file) = @_;
 
     # Columns
@@ -85,7 +127,8 @@ sub process_searchio {
 
     # Input options
     my $basename = undef;
-    my %opts = (each_input_stream_to_bioperl($file), %{ $conf->input_args });
+    my $stream = each_input_stream($file,1);
+    my %opts = ("-fh", $stream, %{ $conf->input_args });
     $opts{'-format'} = $conf->format if ($conf->format ne 'auto');
     $basename = fileparse($file, @{ $CONFIG->force_basename }) if (scalar @{ $CONFIG->force_basename });
 
@@ -306,6 +349,7 @@ sub process_searchio {
 	}
     } # while (my $result = $report->next_result)
 
+    close($stream);
     return @parsed;
 }
 
