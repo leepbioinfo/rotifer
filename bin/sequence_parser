@@ -7,12 +7,11 @@ from threading import Thread
 import rotifer.core.cli as corecli
 from Bio import SeqIO
 import pandas as pd
-__version__ = 0.1
+from ete3 import Tree
+from io import StringIO
+
+__version__ = 0.2
 __authors__ = 'Gianlucca Nicastro'
-__rdoc__='''
-DESCRIPTION:
-Parse sequences or aligments and transform it in different formats
-'''
 
 
 def parse_args():
@@ -36,12 +35,11 @@ different formats. Ex: Fasta to seqrow, aligments to ungaped fasta,etc')
                dest = 'ungap',
                action = 'store_true')
 
-    parser.add(long_arg = '--input',
-               short_arg = '-i',
-               helper = 'input file',
-               dest = 'infile',
-               action = 'store',
-               arg_type = str)
+    parser.add(helper = 'input file',
+               nargs = '*',
+               dest = 'input',
+               action = corecli.action.autoload,
+               duplicates = False)
 
     parser.add(long_arg = '--distribution',
                short_arg = '-d',
@@ -79,9 +77,40 @@ different formats. Ex: Fasta to seqrow, aligments to ungaped fasta,etc')
                action = 'store',
                default = sys.maxsize,
                arg_type = int)
-
-
-
+    parser.add(long_arg = '--seq_start',
+               short_arg = '-ss',
+               helper = 'Sequence start',
+               dest = 'seq_start',
+               action = 'store',
+               default = None,
+               arg_type = int)
+    parser.add(long_arg = '--seq_end',
+               short_arg = '-se',
+               helper = 'Sequence end',
+               dest = 'seq_end',
+               action = 'store',
+               default = None,
+               arg_type = int)
+    parser.add(long_arg = '--tree_file',
+               short_arg = '-tf',
+               helper = 'Tree_file',
+               dest = 'tree_file',
+               action = 'store',
+               default = None,
+               arg_type = str)
+    parser.add(long_arg = '--order_file',
+               short_arg = '-of',
+               helper = 'list of accession to order the aligment',
+               dest = 'order_file',
+               action = 'store',
+               default = None,
+               arg_type = str)
+    parser.add(long_arg = '--orderd_by',
+               short_arg = '-ob',
+               helper = 'Select how to sort the sequences nt(not order),tree,size,file or name',
+               dest = 'order_by',
+               action = 'store',
+               default = 'no')
 
     args = parser.parse_args()
     return(args)
@@ -89,15 +118,21 @@ different formats. Ex: Fasta to seqrow, aligments to ungaped fasta,etc')
 
 args=parse_args()
 
-infile=args.infile
+infile= '\n'.join(args.input)
 seq_type= args.format
 ungaped = args.ungap
 hist=args.hist
+seq_start = args.seq_start
+seq_end = args.seq_end
+tree_file = args.tree_file
+order_file = args.order_file
+order_by = args.order_by
+
 
 idd=[]
 seq=[]
 ung=[]
-fasta_sequences = SeqIO.parse(infile,seq_type)
+fasta_sequences = SeqIO.parse(StringIO(infile),seq_type)
 for fasta in fasta_sequences:
     idd.append(fasta.id)
     ung.append(str(fasta.seq.ungap('-')))
@@ -112,14 +147,36 @@ if ungaped:
     z = z[['ID', 'ung', 'len']].rename({'ung': 'seq'}, axis=1)
 else:
     z = z[['ID', 'seq', 'len']]
-z.sort_values('len', ascending=False, inplace=True)
+if order_by == 'tree':
+    tree = Tree(tree_file)
+    #R = tree.get_midpoint_outgroup()
+    #tree.set_outgroup(R)
+    leaves_name = [x.name for x in tree.get_leaves()]
+    leaves_name = [x.strip("'") for x in leaves_name] 
+    to = pd.DataFrame(leaves_name,columns=['ID'])
+    z = to.merge(z)
+elif order_by == 'file':
+    to =pd.read_csv(order_file, names=['ID'])
+    z = to.merge(z)
+elif order_by == 'size':
+    z.sort_values('len', ascending=False, inplace=True)
+elif order_by == 'name':
+    z.sort_values('ID', ascending=False, inplace=True)
+else:
+    pass
 if not hist:
     z = z[['ID', 'seq']]
     if args.table:
         z.to_csv(sys.stdout, sep='\t', index=None)
     else:
-        for x,y in z.iterrows():
-            print ('>{}\n{}'.format(y.ID, y.seq))
+        if seq_start:
+            for x,y in z.iterrows():
+                print ('>{}\n{}'.format(y.ID, y.seq[seq_start: seq_end]))
+        else:
+             for x,y in z.iterrows():
+                print ('>{}\n{}'.format(y.ID, y.seq))
+
+
 else:
     print('Total proteins: {}'.format(len(z)))
     from ascii_graph import Pyasciigraph
