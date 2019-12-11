@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+import os
+import sys
+sys.path.insert(0, os.path.join('/home/kaihami/mymodules'))
+import rotifer.core.cli as corecli
+from Bio import SeqIO
+from io import StringIO
+import pandas as pd
+import numpy as np
+__version__ = 0.4
+__authors__ = 'Gianlucca Nicastro'
+__rdoc__='''
+DESCRIPTION:
+Get the cordanates in the sequence that matchs with the alignment, if the query
+options is enable the cordinates will be from the query, if is not the cordinates will be calculated
+based in the first sequence
+
+'''
+pd.options.display.max_rows = 10000000
+pd.options.display.max_columns = 10000000
+pd.options.display.max_colwidth = 10000000
+pd.options.display.width = 0
+
+def parse_args():
+    parser = corecli.parser( description= \
+        'Get the cordinates from the align region')
+
+
+   # parser.add(':cli.core')
+    parser.add(long_arg = '--format',
+               short_arg = '-f',
+               helper = 'Sequence input format default = fasta',
+               dest = 'format',
+               action = 'store',
+               default = 'fasta',
+               arg_type = str)
+
+    parser.add(
+               helper = 'input file',
+               nargs = '*',
+               dest = 'input',
+               action = corecli.action.autoload,
+               duplicates = False
+              )
+    parser.add(
+               long_arg = '--seq_start',
+               short_arg = '-s',
+               helper = 'Sequence start',
+               dest = 'start',
+               action = 'store',
+               default = None,
+               arg_type = int)
+    parser.add(
+               long_arg = '--seq_end',
+               short_arg = '-e',
+               helper = 'End position',
+               dest = 'end',
+               action = 'store',
+               default = None,
+               arg_type = int)
+    parser.add(
+               long_arg = '--protein_query',
+               short_arg = '-q',
+               helper = 'Query to map to the alignment',
+               dest = 'protein',
+               action = 'store',
+               default = None,
+               arg_type = str)
+
+    parser.add(
+               long_arg = '--Slice_aligment',
+               short_arg = '-sa',
+               helper = 'Sliece aligment direct, wihtout select a standard sequence',
+               dest = 'xx',
+               action = 'store',
+               default = None,
+               arg_type = str)
+
+    args = parser.parse_args()
+    return(args)
+
+args=parse_args()
+infile= '\n'.join(args.input)
+seq_type = args.format
+start = args.start
+end = args.end
+protein = args.protein
+xx = args.xx
+
+def seq_to_seq_rows(infile, seq_type):
+    idd=[]
+    seq=[]
+    fasta_sequences = SeqIO.parse(StringIO(infile),seq_type)
+    for fasta in fasta_sequences:
+        idd.append(fasta.id)
+        seq.append(str(fasta.seq))
+    data={'ID':idd, 'seq':seq}
+    z = pd.DataFrame(data=data)
+    z['len']=z.seq.str.len()
+    return z
+
+def aln_matrix(seq_row_object):
+    df = pd.DataFrame()
+    for x in range(len(seq_row_object.iloc[0,1])):
+        df[x] = seq_row_object.iloc[:,1].str[x]
+
+    df.set_index(seq_row_object.ID,inplace=True)
+    return df
+
+a = seq_to_seq_rows(infile, 'fasta')
+b = aln_matrix(a)
+if xx:
+   print(b.iloc[:,(start)-1:end].T.sum().to_frame().rename({0:'aln'}, axis=1).to_csv(sep="\t"))
+   quit()
+
+if protein:
+    c = b.loc[protein]
+else:
+    c = b.iloc[0]
+    
+d = c[c != '-']
+p1 = d.reset_index().iloc[start -1]['index'] 
+e = ~b.loc[:, : p1].isin(['-']).T
+e = e.sum()
+p2 = d.reset_index().iloc[end -1]['index']
+f = ~b.loc[:, : p2].isin(['-']).T
+f = f.sum()
+g = pd.DataFrame([e,f]).T.rename({0:'start', 1:'end'}, axis=1)
+g['d_size'] = g.end -g.start
+## Include the unaligned sequence that was sliced
+h = g.join(a.set_index('ID'))
+h['t']  = h.seq.str.replace('-', '')
+h['unaligned_seq'] = h.apply(lambda x: x.t[x.start : x.end] , axis=1)
+h = h.join(b.loc[:,p1:p2].T.sum().to_frame().rename({0:'aln'}, axis=1))
+print (h[['start', 'end', 'd_size', 'aln']].to_csv(sep="\t"))
