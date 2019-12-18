@@ -29,7 +29,7 @@ sub genbank2table {
 
     my $taxa = join("|",qw(Bacteria Archaea Eukaryota Viruses Viroids [Uu]nclassified [Oo]ther));
 
-    my @header = qw(accver locus_tag gene sourceid sourcedb coded_by taxid bioproject biosample organism lineage classification);
+    my @header = qw(pid nucleotide start end strand locus gene length sourceid sourcedb taxid bioproject biosample organism lineage classification);
     print join("\t",@header),"\n" if ($conf->header);
 
     my $context = "none"; # Where are we?
@@ -43,12 +43,13 @@ sub genbank2table {
 	    $context = "none" if ($context eq '//');
 	}
 
-	if (/^LOCUS\s+/) { # New sequence entry: reset
+	if (/^LOCUS\s+\S*\s*(\d*)/) { # New sequence entry: reset
 	    %entry = ();
+	    $entry{'length'} = $1 if (defined $1);
 	}
 
 	elsif (/^VERSION\s+(\S+)/) {
-	    $entry{"accver"} = $1;
+	    $entry{"pid"} = $1;
 	}
 
 	elsif ($context eq "DBSOURCE") {
@@ -136,13 +137,13 @@ sub genbank2table {
 
 	elsif (/^\s+\/coded_by=\"(.+)\"?$/) {
 	    $context = "CODED_BY";
-	    $entry{"coded_by"} = $1;
+	    $entry{"nucleotide"} = $1;
 	} elsif ($context eq "CODED_BY") {
 	    if (/^\s+\/(\S+)\=/) {
 		$context = $1;
 	    } else {
 		s/^\s+//;
-		$entry{"coded_by"} .= $_;
+		$entry{"nucleotide"} .= $_;
 	    }
 	}
 
@@ -151,13 +152,39 @@ sub genbank2table {
 	}
 
 	elsif (/^\s+\/locus_tag=\"(\S+)\"/) {
-	    $entry{"locus_tag"} = $1;
+	    $entry{"locus"} = $1;
 	}
 
 	elsif (/^\/\/$/) {
-	    if (exists $entry{"coded_by"}) {
-		my %ids = map { s/:.*$//; ($_,1) } grep { /:/ } split(/[\,\(]+/,$entry{"coded_by"});
-		$entry{"coded_by"} = join(",",sort keys %ids);
+	    if (exists $entry{"nucleotide"}) {
+		my $reverse = 0;
+		$entry{"nucleotide"} =~ s/\"//;
+		$entry{'nucleotide'} =~ s/join\(//g;
+		if ($entry{"nucleotide"} =~ s/complement\(//) {
+			$entry{'strand'} = -1;
+		} else {
+			$entry{'strand'} = 1;
+		}
+		$entry{"nucleotide"} =~ s/[\)\>\<]//g;
+		$entry{'start'} = 0;
+		$entry{'end'} = 0;
+		my $nnid = 0;
+		my $nid  = $entry{'nucleotide'};
+		foreach my $region (split(",",$nid)) {
+			my @loc = split(/:|\.\./,$region);
+			if ($nnid > 0) {
+				$entry{'nucleotide'} = $nid;
+				$entry{'start'} = 0;
+				$entry{'end'} = 0;
+				last;
+			}
+			$entry{'nucleotide'} = $loc[0];
+			$entry{'start'} = ($entry{'start'} == 0 || $loc[1] < $entry{'start'}) ? $loc[1] : $entry{'start'};
+			$entry{'end'}   = $loc[2] > $entry{'end'}   ? $loc[2] : $entry{'end'};
+		}
+		#my %ids = map { ($_,1) } grep { /:/ } split(/[\,\(]+/,$entry{"coded_by"});
+		#$entry{"coded_by"} = join(",",sort keys %ids);
+	        $entry{'sourceid'} = $nid if (!exists $entry{'sourceid'} || $entry{'sourceid'} eq $entry{'nucleotide'});
 	    }
 	    if (exists $entry{"classification"}) {
 		$entry{"classification"} =~ s/\.+$//;
@@ -197,7 +224,7 @@ sub main {
 	    }
 
 	    if (!$i && $conf->header) {
-		my @header = qw(accver locus_tag gene sourceid sourcedb coded_by taxid bioproject biosample organism lineage classification);
+		my @header = qw(pid locus gene sourceid sourcedb coded_by taxid bioproject biosample organism lineage classification);
 		print join("\t",@header),"\n";
 	    }
 
