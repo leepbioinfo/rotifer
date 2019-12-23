@@ -116,7 +116,7 @@ sub process_rg_blast_parser {
     eval { $report = RG::Blast::Parser->new($stream,$file) };
     die "Failed to parse blast result $file: exception caught" if( $@ && $@ =~ /^parser error/ );
     close($stream);
-    return @parsed;
+    return undef;
 }
 
 sub process_bio_searchio {
