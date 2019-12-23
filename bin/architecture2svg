@@ -1,8 +1,8 @@
 #!/usr/bin/env perl
 
 use Getopt::Std;
-use vars qw( $opt_d $opt_s $opt_p $opt_h $opt_l $opt_t $opt_u $opt_c);
-getopts('u:hps:lc:t');
+use vars qw( $opt_d $opt_s $opt_p $opt_h $opt_f $opt_l $opt_t $opt_u $opt_c);
+getopts('u:f:hps:lc:t');
 
 if($opt_h)
 {
@@ -10,6 +10,8 @@ if($opt_h)
     Options:
 
     -h: help
+
+    -f: sequence length file, two columns: sequence ID and length, separated by TABs (Optional)
 
     -l: scaling of domain images (Optional, default is 'no')
 
@@ -219,8 +221,20 @@ else
 #####################################################################################
 ############################## SCALING BLOCK STARTS ####################################
 $rcol = "#FF0000";
+my %slen = ();
 if($opt_l)
 {
+    if ( -f $opt_f)
+    {
+       open(LEN,"<$opt_f") || die "Could not open sequence length file $opt_l";
+       while (<LEN>)
+       {
+	       chomp;
+	       my @F = split(/\t/);
+	       $slen{$F[0]} = $F[1];
+       }
+       close(LEN);
+    }
     $ee = 0;$dd = 0;$cc =0;
     foreach $array(@array)
     {
@@ -229,10 +243,15 @@ if($opt_l)
         @domains = ();
         @rang = ();
         ($gi,$domains,$ranges,@other) = split(/\s+/,$array);
-        $len = qx"gi2fasta $gi | faletters | cut -f 2";
+        if (exists $slen{$gi})
+	{
+	   $len = $slen{$gi};
+        } else {
+	  $len = qx"gi2fasta $gi | faletters | cut -f 2";
+        }
         if($opt_t)
         {
-            $tgi = qx"gi2leaf  $gi | grep '_'";
+              $tgi = qx"gi2leaf  $gi | grep '_'";
         }
         else
         {
