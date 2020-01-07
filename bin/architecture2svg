@@ -1,8 +1,8 @@
 #!/usr/bin/env perl
 
 use Getopt::Std;
-use vars qw( $opt_d $opt_s $opt_p $opt_h $opt_f $opt_l $opt_t $opt_u $opt_c);
-getopts('u:f:hps:lc:t');
+use vars qw( $opt_d $opt_s $opt_p $opt_h $opt_g $opt_f  $opt_l $opt_t $opt_u $opt_c);
+getopts('u:f:g:hps:lc:t');
 
 if($opt_h)
 {
@@ -13,9 +13,11 @@ if($opt_h)
 
     -f: sequence length file, two columns: sequence ID and length, separated by TABs (Optional)
 
-    -l: scaling of domain images (Optional, default is 'no')
+    -g: file with sequence description, two columns: sequence ID and description, separated by TABs (Optional)
 
-    -t: taxonomy information added to gis (Optional, default is 'no')
+    -l: scaling of domain images (Optional, use -f for speed, default is 'no')
+
+    -t: taxonomy information or description added to gis (Optional, use -g for speed, default is 'no')
 
     -u: base URL to be used for linking
         default is NCBI protein database
@@ -219,6 +221,21 @@ else
 @rev_col = reverse(@col);
 
 #####################################################################################
+############################## LOAD DESCRIPTIONS ####################################
+my %desc = ();
+if ( -f $opt_g)
+{
+	open(LEN,"<$opt_g") || die "Could not open description file $opt_l";
+	while (<LEN>)
+	{
+	       chomp;
+	       my @F = split(/\t/);
+	       $desc{$F[0]} = $F[1];
+	}
+	close(LEN);
+}
+
+#####################################################################################
 ############################## SCALING BLOCK STARTS ####################################
 $rcol = "#FF0000";
 my %slen = ();
@@ -251,7 +268,11 @@ if($opt_l)
         }
         if($opt_t)
         {
-              $tgi = qx"gi2leaf  $gi | grep '_'";
+              if (exists $desc{$gi}) {
+                 $tgi = $desc{$gi};
+              } else {
+                 $tgi = qx"gi2leaf  $gi | grep '_'";
+              }
         }
         else
         {
@@ -331,7 +352,11 @@ else
         $len = ((length($domains))*20);
         if($opt_t)
         {
-            $tgi = qx"gi2leaf  $gi | grep '_'";
+            if (exists $desc{$gi}) {
+               $tgi = $desc{$gi};
+            } else {
+               $tgi = qx"gi2leaf  $gi | grep '_'";
+            }
         }
         else
         {
