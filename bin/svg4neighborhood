@@ -1,0 +1,564 @@
+#!/usr/bin/env perl
+use Getopt::Std;
+use vars qw( $opt_f $opt_i $opt_h $opt_c $opt_s $opt_t $opt_w $opt_y $opt_j $opt_x);
+getopts('f:i:yjhcsxt:w');
+
+if ($opt_h) {
+	die "
+	-h: help\n
+	-f: table with data on query sequences (taxonomy, etc)\n
+	-i: input file (Compulsory)\n
+	-s: simple (faster, does not run gi2leaf and gi2gene)\n
+	-t: control for increasing height (default = 10)\n
+	-w: control for increasing width\n 
+	(if not given width will be fixed at 90px)\n
+	(if -w is given then width will be scaled to -t)\n
+	-y: includes taxnode and class after gi\n
+	-x: make ? (unannotated genes) small\n
+	-c: clean\n";
+}
+
+elsif ($opt_i =~ /[A-Za-z0-9]/) {
+	my $table = {};
+	if (defined $opt_f) {
+		open(TABLE,"<$opt_f") || die "Unable to open table $opt_f";
+		my %col = ();
+		while (<TABLE>) {
+			chomp;
+			my @F = split(/\t/);
+			if (!scalar(keys %col)) {
+				%col = map { ($F[$_],$_) } 0..$#F;
+				die "Input table for -f should contain a column named 'pid'" unless (exists $col{"pid"});
+				next;
+			}
+			$table->{$F[$col{"pid"}]} = [ @F ];
+		}
+		close(TABLE);
+	}
+	$input = $opt_i;
+	chomp($input);
+	open(FILE,"$input");
+	@lines = (<FILE>);
+	close(FILE);
+	$cl = scalar(@lines);
+	$max = 0;
+	foreach $lines(@lines)
+	{
+		chomp($_);
+		(@operons) = split(/\s+/,$lines);
+		(@ndummy) = split(//,$lines);
+		$wl = scalar(@ndummy);
+		if($wl > $max)
+		{
+			$max = $wl;
+		}
+		@opns = ();@xopns = ();$noperon = "";
+		$gi = @operons[0];
+		if($lines =~ /^#/){
+			$noperon .= "$lines"."&";
+		}
+		else
+		{
+			$noperon .= "$gi"."&";
+		}
+		#$len = qx"gi2fasta $gi | faletters";
+		#$noperon .= "$len"."&";
+		$gns = @operons[1];
+		$gnsc = pop(@operons);
+		#$gnsc =~ s/\|//g;
+		#print "$gnsc\n";
+		#############################################################
+
+		if(($gnsc =~ /\|\|/)||(($gnsc =~ /\>/)&&($gnsc =~ /\</)))
+		{
+			(@xopns)=split(/\|\|/,$gnsc);
+			foreach $xopns(@xopns)
+			{
+				#print "ABHI $xopns\n";
+				@opnsxx = ();
+				if(($xopns =~ /\>/)&&($xopns =~ /\</))
+				{
+					(@opnsxx)=split(/\>/,$xopns);
+					foreach $opnsxx(@opnsxx)
+					{
+						if($opnsxx !~ /\</)
+						{
+							$opnsxx =~ s/-//g;
+							$noperon .= "F_"."$opnsxx"."&";
+							($gix,@gnam) = split(/_/,$opnsxx);
+							$xx = "";
+							foreach $gnam(@gnam)
+							{
+								chomp($gnam);
+								$xx .= "$gnam"."_";
+							}
+							chop($xx);
+							push(@aopns,$xx);
+						}
+						else
+						{
+							@opnsxxx = ();
+							(@opnsxxx)=split(/\</,$opnsxx);
+							$junk = shift(@opnsxxx);
+							foreach $opnsxxx(@opnsxxx)
+							{
+								$opnsxxx =~ s/-//g;
+								$noperon .= "R_"."$opnsxxx"."&";
+								($gix,@gnam) = split(/_/,$opnsxxx);
+								$xx = "";
+								foreach $gnam(@gnam)
+								{
+									chomp($gnam);
+									$xx .= "$gnam"."_";
+								}
+								chop($xx);							
+								push(@aopns,$xx);
+							}
+						}
+					}
+				}
+				elsif(($xopns =~ /\</)&&($xopns !~ /\>/))
+				{
+					(@opnsx)=split(/\</,$xopns);
+					$junk = shift(@opnsx);
+					foreach $opnsx(@opnsx)
+					{
+						$opnsx =~ s/-//g;
+						$noperon .= "R_"."$opnsx"."&";
+						($gix,@gnam) = split(/_/,$opnsx);
+						$xx = "";
+						foreach $gnam(@gnam)
+						{
+							chomp($gnam);
+							$xx .= "$gnam"."_";
+						}
+						chop($xx);
+						push(@aopns,$xx);
+						#print "ABHI $xopns\n";
+					}
+				}
+				elsif(($xopns !~ /\</)&&($xopns =~ /\>/))
+				{
+					(@opnsx)=split(/\>/,$xopns);
+					foreach $opnsx(@opnsx)
+					{
+						$opnsx =~ s/-//g;
+						$noperon .= "F_"."$opnsx"."&";
+						($gix,@gnam) = split(/_/,$opnsx);
+						$xx = "";
+						foreach $gnam(@gnam)
+						{
+							chomp($gnam);
+							$xx .= "$gnam"."_";
+						}
+						chop($xx);
+						push(@aopns,$xx);
+						#print "ABHI $xopns\n";
+					}
+				}
+				else
+				{
+					#print "$xopns\n";
+				}
+
+			}
+
+		}
+		##############################################################################################
+		elsif(($gnsc =~ /\</)&&($gnsc !~ /\>/))
+		{
+			(@opns)=split(/\</,$gnsc);
+			$junk = shift(@opns);
+			foreach $opns(@opns)
+			{
+				$opns =~ s/-//g;
+				$noperon .= "R_"."$opns"."&";
+				($gix,@gnam) = split(/_/,$opns);
+				$xx = "";
+				foreach $gnam(@gnam)
+				{
+					chomp($gnam);
+					$xx .= "$gnam"."_";
+				}
+				chop($xx);
+				push(@aopns,$xx);
+			}
+			#print "HERE $xopns\n";
+		}
+		#############################################################################################
+		elsif(($gnsc =~ /\>/)&&($gnsc !~ /\</))
+		{
+			#print "HERE $operon\n";
+			(@opns)=split(/\>/,$gnsc);
+			foreach $opns(@opns)
+			{
+				$opns =~ s/-//g;
+				$noperon .= "F_"."$opns"."&";
+				($gix,@gnam) = split(/_/,$opns);
+				$xx = "";
+				foreach $gnam(@gnam)
+				{
+					chomp($gnam);
+					$xx .= "$gnam"."_";
+				}
+				chop($xx);
+				push(@aopns,$xx);
+			}
+
+		}
+		############################################################################################
+		else
+		{
+			#print "$xopns\n";
+		}
+		push(@nopns,$noperon);
+	}
+	#print "@aopns\n";
+	#print "@nopns\n";
+	@rgb = ("FF","33","66","99","CC");
+	@gbr = ("FF","33","66","99","CC");
+	@brg = ("FF","33","66","99","CC");
+	@colors = ();
+	for($r=0;$r<5;$r++)
+	{
+		for($g=1;$g<5;$g++)
+		{
+			for($b=2;$b<5;$b++)
+			{
+				$color1 = "#"."@rgb[$r]"."@gbr[$g]"."@brg[$b]";
+				$color2 = "#"."@gbr[$g]"."@brg[$b]"."@rgb[$r]";
+				$color3 = "#"."@brg[$b]"."@rgb[$r]"."@gbr[$g]";
+				push(@colors,$color1);
+				push(@colors,$color2);
+				push(@colors,$color3);
+			}
+		}
+	}
+	#unshift(@colors,"#CCCCCC");
+	#unshift(@colors,"#FFFFFF");
+	#@colors = ("#FFFFFF","#CCCCCC","#""#FF99FF","#CCFFFF","#CCFFCC","#CC99FF","#CCFF99","#FFCC99","#FFFF66","#CCCCCC","#CCCC00","#99FF33","#CC9966","#FF9999");
+	$nc = scalar(@colors);
+
+
+	$k = 1;
+	%seen = ();
+	@uniq1 = ();
+	foreach $aopns (@aopns) 
+	{
+		unless ($seen{$aopns}) 
+		{
+			# if we get here, we have not seen it before
+			$seen{$aopns} = 1;
+			if($k > $nc){ $k = 1; }
+			$dmfig = "$aopns:$k";
+			push(@uniq1, $dmfig);
+			$k++;
+		}
+	}
+	#print "@uniq1\n";	
+	#########################################################################
+	########### printing operons image starts ############################################
+	if($opt_t)
+	{
+		chomp($opt_t);
+		$tx = $opt_t;
+	}
+	else
+	{
+		$tx = 10;
+	}
+
+	$hf1 = $tx; # change this to increase or decrease width and height 10
+	$hf2 = ($hf1*2); # 20
+	if($opt_w)
+	{
+		$wf1 = (($hf1*10)-$hf2); # 80
+		$wf2 = (($hf1*10)-$hf1); # 90
+	}
+	else
+	{
+		$wf1 = 80;
+		$wf2 = 90;
+	}
+	$tf = ($hf1+5); # 15
+
+	$pheight = ($cl*50);
+	$pwidth = (($max*5)+1000);
+	$font_fam = "Verdana";
+	$tsz = "12px";
+	$bsz = "12px";
+	$msz = "9px";
+	$ssz = "6px";
+	print <<HTML;
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="$pwidth" height="$pheight" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<defs>
+<linearGradient id="MyGradient">
+<stop offset="5%" stop-color="#cc0000" />
+<stop offset="95%" stop-color="#FFFFFF" />
+</linearGradient>
+
+<style type="text/css"><![CDATA[
+text.red    { font-style:normal;font-family:$font_fam;font-size:$bsz;font-weight:bold;text-decoration:normal;fill:#FF0000}
+text.title  { font-style:normal;font-family:$font_fam;font-size:$tsz;font-weight:bold;text-decoration:normal;}
+text.big    { font-style:normal;font-family:$font_fam;font-size:$bsz;font-weight:normal;text-decoration:normal;text-anchor:middle; }
+text.medium { font-style:normal;font-family:$font_fam;font-size:$msz;font-weight:normal;text-decoration:normal;text-anchor:middle;}
+text.small  { font-style:normal;font-family:$font_fam;font-size:$ssz;font-weight:normal;text-decoration:normal;text-anchor:middle;}	
+polygon.arrow { stroke:#000000;stroke-width:0.1}
+]]></style>
+</defs>
+HTML
+	$yc = 25;
+	if($opt_y){
+		print <<HTML;
+<text class="red" id="TextElement" x="0" y="$yc">Genename_Species_GI</text>
+<text class="red" id="TextElement" x="400" y="$yc">Species</text>
+<text class="red" id="TextElement" x="850" y="$yc">Taxonomic Class</text>
+<text class="red" id="TextElement" x="1200" y="$yc">Gene Neighborhoods</text>
+HTML
+		$yc = 50;                                                 
+	}
+	elsif($opt_s)
+	{
+		print <<HTML;
+<text class="red" id="TextElement" x="0" y="$yc">GI</text>
+<text class="red" id="TextElement" x="350" y="$yc">Gene Neighborhoods</text>
+HTML
+		$yc = 50;
+	}
+	else
+	{
+		print <<HTML;
+<text class="red" id="TextElement" x="0" y="$yc">Genename_Species_GI</text>
+<text class="red" id="TextElement" x="400" y="$yc">Gene Neighborhoods</text>
+HTML
+		$yc = 50;
+	}
+	#############################################################
+	foreach $nopns(@nopns)
+	{
+		$gi = ""; $leaf = ""; $class = ""; $taxnode = "";
+		#$xc = 350;
+		@nxopns = ();
+		(@nxopns) = split(/&/,$nopns);
+		$gi = shift(@nxopns);
+
+		#$len = shift(@nxopns);
+		$no = scalar(@nxopns);
+		if($opt_s)
+		{
+			$orgn = "$gi";
+			$leaf = "$gi";
+		}
+		elsif($opt_y)
+		{
+			if($gi !~ /^#/){
+				$leaf = qx"gi2leaf $gi | grep '_'";
+				$class = qx"gi2class $gi";
+				$taxnode = qx"gi2taxnode $gi";
+			}
+			else{
+				$leaf = $gi;
+			}
+			chomp($leaf);
+			chomp($class);
+			chomp($taxnode);
+		}
+		else
+		{
+			if($gi !~ /^#/){
+				$leaf = qx"gi2leaf $gi | grep '_'";
+				$orgns = qx"gi2leaf $gi | grep ':'";
+			}
+			else{
+				$leaf = $gi;
+			}
+			chomp($leaf);
+			chomp($orgns);
+			(@dummy) = split(/:/,$orgns);
+			$orgn = pop(@dummy);
+		}
+		if($opt_s)
+		{
+			print <<HTML;
+<a xlink:title='$orgn' xlink:href="http://www.ncbi.nlm.nih.gov/entrez/viewer.fcgi?db=protein&amp;id=$gi" target="new">
+<text class="title" id="TextElement" x="0" y="$yc">$leaf</text></a>
+HTML
+			$xc = 350;
+		}
+		elsif($opt_y)
+		{
+			print <<HTML;
+<a xlink:title='$orgn' xlink:href="http://www.ncbi.nlm.nih.gov/entrez/viewer.fcgi?db=protein&amp;id=$gi" target="new">
+<text class="title" id="TextElement" x="0" y="$yc">$leaf</text></a>
+<text class="title" id="TextElement" x="400" y="$yc">$taxnode</text>
+<text class="title" id="TextElement" x="850" y="$yc">$class</text>
+HTML
+			$xc = 1200;
+		}
+		else
+		{
+			print <<HTML;
+<a xlink:title='$orgn' xlink:href="http://www.ncbi.nlm.nih.gov/entrez/viewer.fcgi?db=protein&amp;id=$gi" target="new">
+<text class="title" id="TextElement" x="0" y="$yc">$leaf</text></a>
+HTML
+			$xc = 350;
+		}
+		####################################
+		if($opt_c)
+		{
+			#@nnxopns = ();
+			$j =0;
+			while(@nxopns[$j] =~ /\?/)
+			{
+				$junk = shift(@nxopns);
+			}
+			@nnxopns = reverse(@nxopns);
+			$j =0;
+			while(@nnxopns[$j] =~ /\?/)
+			{
+				$junk = shift(@nnxopns);
+			}
+			@nxopns = reverse(@nnxopns);
+			#print "@nxopns\n";
+		}
+		####################################
+		foreach $nxopns(@nxopns)
+		{
+			($dr,$gin,@nam) = split(/_/,$nxopns);
+			$xx = "";
+			foreach $nam(@nam)
+			{
+				chomp($nam);
+				$xx .= "$nam"."_";
+			}
+			chop($xx);
+			$nam = $xx;
+			@chars = ();
+			(@chars) = split(//,$nam);
+			$nchars = scalar(@chars);
+			if($nchars > 20)
+			{
+				$size = "small";
+			}
+			elsif(($nchars > 10)&&($nchars < 21))
+			{
+				$size = "medium";
+			}
+			else
+			{
+				$size = "big";
+			}
+			#($nm) = substr($nam,0,8); 
+			$col ="#cccccc"; $fcol = "#FFFFFF";
+			foreach $uniq1(@uniq1)
+			{
+				($onam,$op)=split(/:/,$uniq1);
+				if($nam eq $onam)
+				{
+					$col = @colors[$op];
+					@acols = split(//,$col);
+					if((@acols[3] =~ /[CF9]/)&&(@acols[4] =~ /[CF9]/))
+					{
+						$fcol = "#000000";
+					}
+				}
+			}
+			if($nam =~ /\?/)
+			{
+				$col = "#cccccc";
+				$fcol = "#000000";
+			}
+			if($nam =~ /\*/)
+			{
+				$col = "#cc0000";
+				#$col = "url(#MyGradient)";
+				$fcol = "#ffffff";
+			}
+			#if($nam =~ /\?/)
+			#{
+			if($opt_s)
+			{
+				$gnam = $gin;
+			}
+			else
+			{
+				$gnam = qx"gi2gene $gin";
+				chomp($gnam);
+			}
+			#($nam,$junk)= split(/_/,$gnam);
+			#$fsz = "10px";
+			#}
+			$yp = ($yc - $tf);
+			$yt = ($yc);
+			$xt = ($xc + ($wf2/2));
+			if($dr =~ /F/)
+			{
+				$xcc1=$xc;
+				$ycc1=$yp;
+				$xcc2=($xc+$wf1);
+				$ycc2=$yp;
+				$xcc3=($xc+$wf2);
+				$ycc3=($yp+$hf1);
+				$xcc4=($xc+$wf1);
+				$ycc4=($yp+$hf2);
+				$xcc5=$xc;
+				$ycc5=($yp+$hf2);
+				if(($nam =~ /\?/)&&($opt_x))
+				{
+					$xcc2= ($xcc2-($wf1-10));
+					$xcc3= ($xcc3-($wf1-10));
+					$xcc4= ($xcc4-($wf1-10));
+					$xt = ($xt-(($wf1-10)/2));
+					$xc = ($xc-($wf1-10));
+				}
+				print <<HTML;
+<a xlink:title='$gnam' xlink:href="http://www.ncbi.nlm.nih.gov/entrez/viewer.fcgi?db=protein&amp;id=$gin"  target="new">
+<polygon class="arrow" id="polygon" points="$xcc1,$ycc1 $xcc2,$ycc2 $xcc3,$ycc3 $xcc4,$ycc4 $xcc5,$ycc5" style="fill:$col;"/><text class="$size" id="TextElement" x="$xt" y="$yt" style="fill:$fcol">$nam</text>
+</a>
+HTML
+			}
+			else
+			{
+				$xcc1=$xc;
+				$ycc1=($yp+$hf1);
+				$xcc2=($xc+$hf1);
+				$ycc2=$yp;
+				$xcc3=($xc+$wf2);
+				$ycc3=$yp;
+				$xcc4=($xc+$wf2);
+				$ycc4=($yp+$hf2);
+				$xcc5=($xc+$hf1);
+				$ycc5=($yp+$hf2);
+				if(($nam =~ /\?/)&&($opt_x))
+				{
+					#$xcc1= ($xcc1-80);
+					$xcc3= ($xcc3-($wf1-10));
+					$xcc4= ($xcc4-($wf1-10));
+					$xt = ($xt-(($wf1-10)/2));
+					$xc = ($xc-($wf1-10));
+				}
+				print <<HTML;
+<a xlink:title='$gnam' xlink:href="http://www.ncbi.nlm.nih.gov/entrez/viewer.fcgi?db=protein&amp;id=$gin" target="new">
+<polygon class="arrow" id="polygon" points="$xcc1,$ycc1 $xcc2,$ycc2 $xcc3,$ycc3 $xcc4,$ycc4 $xcc5,$ycc5" style="fill:$col;"/><text class="$size" id="TextElement" x="$xt" y="$yt" style="fill:$fcol">$nam</text>
+</a>
+HTML
+			}
+			$xc =($xc + $wf2);
+		}
+
+		$yc = ($yc + ($hf2+10));
+
+	}
+	print <<HTML;
+</svg>
+HTML
+
+	########### printing operons image finished ############################################
+}
+else
+{
+	print "NO INPUT FILE\n";
+	print "USE 'svg4operon' -h for more options\n";
+}
