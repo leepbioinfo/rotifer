@@ -6,7 +6,6 @@ import copy as _copy
 import yaml
 from collections import defaultdict
 import os
-#sys.path.insert(0, '/home/kaihami/mymodules')
 
 # from rotifer.core.loadpath import path as rpath
 
@@ -395,6 +394,7 @@ class parser:
         args = parser.parse_args(exclude_from_dump = ['file']) # File arguments not present in the output!
         return args
         '''
+
         if not exclude_core:
             self.add(':cli.core')
         else:
@@ -529,6 +529,7 @@ class parser:
                         yaml.dump(k, sys.stdout, default_flow_style = False)# default_flow_style = False))
                 quit()
             return args
+
         else:
             if sys.version_info[0] >= 3 and sys.version_info[1] >= 7:
                 args = self.parser.parse_intermixed_args()
@@ -541,8 +542,9 @@ class parser:
 
 class action:
     '''
-    Rparser custom actions!
+    Rotifer's parser custom actions!
     '''
+
     def openread(self,parser,largs):
         '''
         Open, read, and close a file. Remove duplicates
