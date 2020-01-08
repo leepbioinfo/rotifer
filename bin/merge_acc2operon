@@ -48,7 +48,6 @@ def parse_cli():
                         # required='--configdump' not in sys.argv,
                         nargs = '*')
 
-
     parser.add( short_arg = '-a',
                 long_arg ='--above',
                 dest = 'above',
@@ -407,7 +406,7 @@ def collen(df):
 
 if __name__ == '__main__':
     args = parse_cli()
-    files = args.file# List of accessions
+    files = args.file                  # List of accessions
     above = int(args.above)            # Get n neighbors upstream
     below = int(args.below)            # Get n neighbors downstream
     verbose = args.verbose             # Verbose

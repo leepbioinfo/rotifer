@@ -592,10 +592,8 @@ def _multiple_search(subs, verbose, ls, position, threads, progress = False):
             os.makedirs(gbks_folder)
         except:
             pass
-
         # Get ipgs
         if progress:
-
             for sub in tqdm(subs, position = position, leave=False, desc = f'Search ipg thread {position}'):
                 # long routine here
                 df_accs, df_accs2 = long_routine(sub, gbks_folder, df_accs, df_accs2,
@@ -603,7 +601,6 @@ def _multiple_search(subs, verbose, ls, position, threads, progress = False):
                                                  progress = progress,
                                                  position = position,
                                                  threads = threads)
-
         else:
             for sub in subs:
                 if verbose:
@@ -614,12 +611,11 @@ def _multiple_search(subs, verbose, ls, position, threads, progress = False):
                                                  progress = progress,
                                                  position = position,
                                                  threads = threads)
-
     except:
         pass
+
     try:
         engine.close()
-
     except:
         pass
 
@@ -629,7 +625,7 @@ def _multiple_search(subs, verbose, ls, position, threads, progress = False):
         ls.append((df_accs,df_accs2))
 
 
-def acc2asm2gbk(accs, db, verbose, df_accs, threads = 5, api_key = '', table_name = '', progress = False):
+def acc2asm2gbk(accs, db, verbose, df_accs, threads = 3, api_key = '', table_name = '', progress = False):
     '''
     From a acc list get genbank
     -----------
