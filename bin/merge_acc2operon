@@ -26,7 +26,8 @@ from sqlalchemy import create_engine, MetaData
 from sqlalchemy.orm import sessionmaker
 import random, string
 from clickhouse_sqlalchemy import Table, make_session, get_declarative_base, types, engines
-from pandas.compat import StringIO
+#from pandas.compat import StringIO
+from io import StringIO
 
 from tqdm import tqdm
 
