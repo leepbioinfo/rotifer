@@ -1,0 +1,492 @@
+#!/usr/bin/env python3
+import os
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[0]))), "lib"))
+import rotifer.core.cli as corecli
+import rotifer.core.functions as rcf
+from rotifer.core.log import log
+from rotifer.neighborhood import neighborhood
+from rotifer.alchemy.connect import clickhouse
+
+import subprocess
+import pandas as pd
+from multiprocessing import Process, Manager
+import datetime
+from Bio import SeqIO
+from Bio import Entrez
+import time
+import shutil
+import numpy as np
+import warnings
+from os.path import expanduser
+from datetime import datetime as dt
+import argcomplete
+from clickhouse_driver import Client
+from sqlalchemy import create_engine, MetaData
+from sqlalchemy.orm import sessionmaker
+import random, string
+from clickhouse_sqlalchemy import Table, make_session, get_declarative_base, types, engines
+from pandas.compat import StringIO
+
+from tqdm import tqdm
+
+warnings.filterwarnings('ignore')
+__version__ = 0.01
+__authors__ = 'Gilberto Kaihami, Aureliano Guedes, Gabriel Hueck, Robson F. de Souza'
+__rdoc__ = '''
+DESCRIPTION:
+Get gene neighborhood
+'''
+
+def parse_cli():
+
+    parser = corecli.parser(description = 'Get gene neighborhood')
+
+    parser.add(dest = 'file',
+                        helper = 'Input neighborhood file',
+                        # required='--configdump' not in sys.argv,
+                        nargs = '*')
+
+
+    parser.add( short_arg = '-a',
+                long_arg ='--above',
+                dest = 'above',
+                helper = 'Rows above: maximum number of neighbors upstream of target loci (Default: 3)',
+                default = 3)
+
+    parser.add( short_arg = '-b',
+                long_arg = '--below',
+                dest = 'below',
+                helper = 'Rows below: maximum number of neighbors downstream of target loci (Default: 3)',
+                default = 3)
+
+    parser.add( long_arg = '--progress',
+                short_arg = '-p',
+                dest = 'progress',
+                helper = 'Show progress bar',
+                action = 'store_true'
+                )
+
+    parser.add( long_arg = '--minimal_intergenic_distance',
+                short_arg = '-mid',
+                dest = 'distance',
+                helper ='''Minimal intergenic distance between two queries. (Default: 0)
+Example:
+if the distance is set 0 (default) and -a and -b options are set 0, this setting can be thought as continous segments
+This will generate one block,
+block 1:
+--> query_A
+--> query_B
+if the distance is set -1 (at least one gene overlapping between each block),
+The same query will generate two blocks
+block 1:
+--> query_A
+block 2:
+--> query_B
+if the distance is set with positive values (higher than 0) it means the minimun distance between two blocks.
+Like, -mid 2, and -a 0, -b 0.
+block 1:
+--> query_A
+--  protein_1
+--  protein_2
+--> query_B
+               ''',
+                default = 0,
+                )
+
+    # parser.add(long_arg = '--missing',
+    #            dest = 'missing',
+    #                     helper = 'Print missing accs',
+    #                     action = 'store_true')
+
+    # Now we have the writer columns can be added and removed
+
+    parser.add(short_arg = '-v', long_arg = '--verbose',
+               dest = 'verbose',
+                       action = 'count')
+
+    parser.add(short_arg = '-of',
+               long_arg = '--outformat',
+               dest = 'outformat',
+                        helper = 'Output format (table/gi2operon) [Default: table]',
+                        default = 'table')
+
+    parser.add(short_arg = '-y',
+               long_arg ='--header',
+                        action='append',
+                        dest = 'addinfo',
+                              helper = 'Add more information to gi2operon header. The additional information must be a valid collumn in the table format\n\
+(example: -y assembly, -y classification -y seq_type)',
+                              default = [])
+
+    parser.add(long_arg = '--debug_dataframe',
+               dest = 'debug_dataframe',
+               helper = 'Debug dataframe, will write two files end with .acc2operon.df.debug',
+                       action = 'store_true')
+
+    argcomplete.autocomplete(parser)
+
+    args = parser.parse_args()
+    return args
+
+def verbose_msg(message = ''):
+    now = dt.now().strftime('[%D %H:%M:%S]')
+    if isinstance(message, list):
+        message = ' '.join(message)
+    sys.stderr.write('## {0} {1}\n'.format(now, message))
+    sys.stderr.flush()
+
+def block_intervals(accs = '', above = 3, below = 3,
+              distance = 0, block_id = 0, of = 'table',
+              conn = '',
+              nucleotide = '',
+              nuc_asm = '',
+              other_info = [],
+              original_acc = []
+              ):
+
+    acc_formated = ','.join(["'" + x +"'" for x in accs])
+
+    accs_indexes = conn.execute(f"""SELECT feature_order from genomes
+                                where nuc_asm = '{nuc_asm}' and nucleotide = '{nucleotide}' and
+                                pid in ({acc_formated}) ORDER BY feature_order""").fetchall()
+    accs_indexes= sorted(list(zip(*accs_indexes))[0])
+
+    max_index, min_index = conn.execute(f"""SELECT
+                                        max(feature_order), min(feature_order) from genomes
+                                where nuc_asm = '{nuc_asm}' and nucleotide = '{nucleotide}' and
+                                type = 'CDS'""").fetchone()
+
+    max_internal_id, min_internal_id =  conn.execute(f"""SELECT max(internal_id), min(internal_id)
+                                         from genomes
+                                where nuc_asm = '{nuc_asm}' and nucleotide = '{nucleotide}'""").fetchone()
+
+    topology = conn.execute(f"""SELECT distinct(topology) from genomes
+                                where nuc_asm = '{nuc_asm}' and nucleotide = '{nucleotide}' and
+                                type = 'CDS'""").fetchone()[0]
+    intervals = []
+    for value in accs_indexes:
+
+        find_up = value - above
+        find_down = value + below
+        if intervals:
+            if intervals[-1][1] - find_up+1 >= distance:
+                if above+below+1 >= max_index:
+                    intervals[len(intervals)-1] = [0, max_index]
+                else:
+                    intervals[len(intervals) -1 ] = [intervals[len(intervals)-1][0], find_down]
+            else:
+                if above + below +1 >= max_index:
+                    intervals.append([0, max_index])
+                else:
+                    intervals.append([find_up, find_down])
+        else:
+            if above +below +1 >= max_index:
+                intervals.append([0, max_index])
+            else:
+                intervals.append([find_up, find_down])
+    for up_index, down_index in intervals:
+        sub_df = pd.DataFrame()
+        get_more_up = ''
+        get_more_down = ''
+        if up_index < min_index:
+            if topology != 'linear':
+                get_more_up = max_index+ up_index
+            up_index = min_index
+
+        if down_index > max_index:
+            if topology != 'linear':
+                get_more_down = down_index - max_index
+            down_index = max_index
+
+        if get_more_up:
+            _ = conn.execute(f"""
+                                SELECT internal_id from genomes
+                                WHERE nuc_asm = '{nuc_asm}' and
+                                nucleotide = '{nucleotide}' and
+                                type = 'CDS'
+                                and feature_order in ({max_index}, {get_more_up})
+                                and type in ('CDS', 'PSE', 'tRNA', 'ncRNA', 'rRNA', 'tmRNA')
+                                  """).fetchall()
+            _ = [x[0] for x in _]
+            if len (_) == 1:
+                max_order = min_order = _[0]
+                min_order = max_internal_id
+            else:
+                max_order, min_order = sorted(_)
+                min_order = max_internal_id
+
+            q = (conn.execute(f"""SELECT
+                                          internal_id,nucleotide,
+                                                   nuc_asm, topology, start, end,
+                                                   strand,pid, type, plen, locus,
+                                                   seq_type, gene, product,organism,
+                                                   taxonomy
+                                  FROM genomes where nuc_asm = '{nuc_asm}'
+                                                      and nucleotide = '{nucleotide}'
+                                                      and internal_id >= {max_order}
+                                                      and internal_id <= {min_order}
+                                  and type in ('CDS', 'PSE', 'tRNA', 'ncRNA', 'rRNA', 'tmRNA')
+                                  ORDER BY internal_id""").fetchall())
+            sub_df = pd.DataFrame(q,
+                                        columns = ['internal_id','nucleotide',
+                                                   'assembly', 'topology', 'start', 'end',
+                                                   'strand','pid', 'type', 'plen', 'locus',
+                                                   'seq_type', 'gene', 'product','organism',
+                                                   'classification', ])
+
+        if not sub_df.empty:
+            _ = conn.execute(f"""
+                                SELECT internal_id from genomes
+                                WHERE nuc_asm = '{nuc_asm}' and
+                                nucleotide = '{nucleotide}' and
+                                type = 'CDS'
+                                and feature_order in ({up_index}, {down_index})
+                                  """).fetchall()
+            _ = [x[0] for x in _]
+            if len (_) == 1:
+                max_order = min_order = _[0]
+            else:
+                max_order, min_order = sorted(_)
+
+            if get_more_up:
+                max_order = min_internal_id
+
+            if get_more_down:
+                min_order = max_internal_id
+            q = (conn.execute(f"""SELECT
+                                          internal_id,nucleotide,
+                                                   nuc_asm, topology, start, end,
+                                                   strand,pid, type, plen, locus,
+                                                   seq_type, gene, product,organism,
+                                                   taxonomy
+                                  FROM genomes where nuc_asm = '{nuc_asm}'
+                                                      and nucleotide = '{nucleotide}'
+                                                      and internal_id >= {max_order}
+                                                      and internal_id <= {min_order}
+                                  AND type in ('CDS', 'PSE', 'tRNA', 'ncRNA', 'rRNA', 'tmRNA')
+                                  ORDER BY internal_id""").fetchall())
+            t = pd.DataFrame(q,
+                                        columns = ['internal_id','nucleotide',
+                                                   'assembly', 'topology', 'start', 'end',
+                                                   'strand','pid', 'type', 'plen', 'locus',
+                                                   'seq_type', 'gene', 'product','organism',
+                                                   'classification', ])
+            sub_df = pd.concat([sub_df, t])
+
+        else:
+            _ = conn.execute(f"""
+                                SELECT internal_id from genomes
+                                WHERE nuc_asm = '{nuc_asm}' and
+                                nucleotide = '{nucleotide}' and
+                                type = 'CDS'
+                                and feature_order in ({up_index}, {down_index})
+                                  """).fetchall()
+
+            _ = [x[0] for x in _]
+
+            if len (_) == 1:
+                max_order = min_order = _[0]
+            else:
+                max_order, min_order = sorted(_)
+
+            if get_more_up:
+                max_order = min_internal_id
+
+            if get_more_down:
+                min_order = max_internal_id
+
+            q = (conn.execute(f"""SELECT
+                                          internal_id,nucleotide,
+                                                   nuc_asm, topology, start, end,
+                                                   strand,pid, type, plen, locus,
+                                                   seq_type, gene, product,organism,
+                                                   taxonomy
+                                  FROM genomes where nuc_asm = '{nuc_asm}'
+                                                      and nucleotide = '{nucleotide}'
+                                                      and internal_id >= {max_order}
+                                                      and internal_id <= {min_order}
+                                  AND type in ('CDS', 'PSE', 'tRNA', 'ncRNA', 'rRNA', 'tmRNA')
+                                  ORDER BY internal_id""").fetchall())
+
+            sub_df = pd.DataFrame(q,
+                                        columns = ['internal_id','nucleotide',
+                                                   'assembly', 'topology', 'start', 'end',
+                                                   'strand','pid', 'type', 'plen', 'locus',
+                                                   'seq_type', 'gene', 'product','organism',
+                                                   'classification'])
+
+        if get_more_down:
+
+            _ = conn.execute(f"""
+                                SELECT internal_id from genomes
+                                WHERE nuc_asm = '{nuc_asm}' and
+                                nucleotide = '{nucleotide}' and
+                                type = 'CDS'
+                                and feature_order in ({min_index},{get_more_down})
+                                  """).fetchall()
+
+            _ = [x[0] for x in _]
+            if len (_) == 1:
+                max_order = min_order = _[0]
+                max_order = min_internal_id
+            else:
+                max_order, min_order = sorted(_)
+                max_order = min_internal_id
+
+            q = (conn.execute(f"""SELECT
+                                          internal_id,nucleotide,
+                                                   nuc_asm, topology, start, end,
+                                                   strand,pid, type, plen, locus,
+                                                   seq_type, gene, product,organism,
+                                                   taxonomy
+                                  FROM genomes where nuc_asm = '{nuc_asm}'
+                                                      and nucleotide = '{nucleotide}'
+                                                      and internal_id >= {max_order}
+                                                      and internal_id <= {min_order}
+                                  AND type in ('CDS', 'PSE', 'tRNA', 'ncRNA', 'rRNA', 'tmRNA')
+                                  ORDER BY internal_id""").fetchall())
+
+            if not sub_df.empty:
+                t = pd.DataFrame(q,
+                                            columns = ['internal_id','nucleotide',
+                                                       'assembly', 'topology', 'start', 'end',
+                                                       'strand','pid', 'type', 'plen', 'locus',
+                                                       'seq_type', 'gene', 'product','organism',
+                                                       'classification'])
+
+                sub_df = pd.concat([sub_df, t])
+
+
+        if not sub_df.empty:
+            block_id +=1
+            sub_df['block_id'] = sub_df.shape[0]*[block_id]
+
+            sub_df['query'] = sub_df['pid'].map(lambda x: 1 if x in accs else 0)
+            if block_id == 1:
+                print_header = True
+            else:
+                print_header = False
+            header = 'nucleotide start end strand block_id query pid type plen locus seq_type assembly gene modified product organism classification'.split()
+            try:
+                dc = {k:v for k,v in zip(original_acc['acc'].values, original_acc['original'].values)}
+                sub_df['modified'] = sub_df['pid'].map(lambda x: dc[x] if x in dc.keys() else '.')
+                sub_df['modified'] = sub_df.apply(lambda x:'.' if x['pid'] == x['modified'] else x['modified'],1 )
+            except:
+                sub_df['modified'] = '.'
+
+            sub_df = sub_df.drop_duplicates()
+            neighborhood.writer(sub_df[header],
+                                of = of,
+                                print_header = print_header,
+                                other_info = other_info)
+
+    return block_id
+
+def collen(df):
+    df = df.astype(str)
+    q = '-->'
+
+    df['cds_loc'] = df['start'].astype(str)+'..'+df['end'].astype(str)
+    direction = len('dir')
+    len_plen = df['plen'].astype(str).str.len().max()
+    len_pid = df['pid'].str.len().max() if df['pid'].str.len().max() >= len('pid') else len('pid')
+    len_type = df['type'].str.len().max() if df['type'].str.len().max() >= len('type') else len('type')
+    len_gene = df['gene'].str.len().max() if df['gene'].str.len().max() >= len('gene') else len('gene')
+    len_cds = df['cds_loc'].str.len().max()
+    len_locus = df['locus'].str.len().max() if df['locus'].str.len().max() >= len('locus') else len('locus')
+
+    len_modified = len('gi')
+    len_product = 0
+
+    collen_len = [int(x) for x in [len(q), len_cds, len('dir'), len_plen, int(len_pid), len_type,
+                  len_gene, len_locus, len_modified, len_product]]
+    return collen_len
+
+
+if __name__ == '__main__':
+    args = parse_cli()
+    files = args.file# List of accessions
+    above = int(args.above)            # Get n neighbors upstream
+    below = int(args.below)            # Get n neighbors downstream
+    verbose = args.verbose             # Verbose
+    outformat = args.outformat.lower() # Output format (Table or gi2operon)
+    distance = int(args.distance) * (-1)
+
+    other_info = args.addinfo
+    block_id = 0
+    click = clickhouse(table_name = 'genomes')
+    conn = click.conn
+
+    # format dataframes
+    selected_df = pd.DataFrame()
+    for fi in files:
+        df = pd.read_csv(fi, sep = '\t', usecols = ['nucleotide', 'pid','query', 'modified', 'assembly', 'modified'])
+        df = df[df['query'] == 1]
+        if selected_df.empty:
+            selected_df = df
+        else:
+            selected_df = pd.concat([selected_df, df])
+    selected_df[selected_df['assembly'] == '.']
+    if verbose:
+        verbose_msg('Loaded DF')
+
+    nucleotide_in_db = []
+    n_partition = 5000
+
+    accs_in_db = selected_df['pid'].unique()
+
+    nucleotide_in_db = selected_df[['nucleotide', 'assembly']].drop_duplicates().values
+    if verbose:
+        verbose_msg('Ran nucleotide_in_db ok! Collected nucleotide/nuc_asm from table_name')
+    e = time.time()
+
+    tot_group = len(nucleotide_in_db)
+    left_group = 0
+    if verbose:
+        verbose_msg('Total assemblies: {0}'.format(str(tot_group)))
+    # acc_formated = ','.join(["'" + x +"'" for x in accs])
+    # s = time.time()
+    if args.progress:
+        for nucleotide, nuc_asm in tqdm(nucleotide_in_db):
+
+            left_group +=1
+            try:
+                original = selected_df[selected_df['nucleotide'] == nucleotide][['pid', 'modified']]
+
+                block_id = block_intervals(accs = accs_in_db, above = above, below = below, block_id = block_id, of = outformat,
+                                     conn = conn,
+                                     nucleotide = nucleotide,
+                                     nuc_asm = nuc_asm,
+                                     other_info = other_info,
+                                     original_acc = original,
+                                     distance = distance
+                                     )
+
+            except KeyboardInterrupt:
+                sys.exit()
+
+    else:
+
+        for nucleotide, nuc_asm in (nucleotide_in_db):
+            left_group +=1
+            try:
+                original = selected_df[selected_df['nucleotide'] == nucleotide][['pid', 'modified']]
+
+                block_id = block_intervals(accs = accs_in_db, above = above, below = below, block_id = block_id, of = outformat,
+                                     conn = conn,
+                                     nucleotide = nucleotide,
+                                     nuc_asm = nuc_asm,
+                                     other_info = other_info,
+                                     original_acc = original,
+                                     distance = distance
+                                     )
+
+
+                if verbose:
+                    verbose_msg(f'Remaining assemblies: {tot_group-left_group}')
+            except KeyboardInterrupt:
+                sys.exit()
+                # if verbose:
+                #     verbose_msg(f'Error {nucleotide}, {nuc_asm}')
+
