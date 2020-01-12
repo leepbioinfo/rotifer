@@ -177,13 +177,9 @@ sub parse_configuration {
 
 =head1 SYNOPSIS
 
- # From hmmsearch to domain table (default options)
+ # From HMMER to domain table (default options)
 
  hmmer2table seq.hmmersearch.out > seq.hmmsearch.table
-
- # From hmmscan to domain table (default options)
-
- hmmer2table -s seq.hmmscan.out > seq.hmmscan.table
 
 =head1 DESCRIPTION
 
