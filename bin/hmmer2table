@@ -191,21 +191,21 @@ This program converts the output of HMMER 3 programs to a domain
 table. Each row in a domain table describes a region in a sequence
 and has the following columns:
 
-1-  sequence  : sequence identifier
-2-  model     : model identifier
-3-  start     : first aligned residue in the sequence
-4-  end       : last aligned residue in the sequence
-5-  evalue    : alignement expected value
-6-  cov       : coverage of the alignment in the query (sequence if jackhmmer and hmmscan, domain if hmmsearch)
-7-  qstart    : first state aligned in the model
-8-  qend      : last state aligned in the model
-9-  iteration : iteration number
-10- score     : alignment score
-11- talilen   : length of the region aligned in target
-12- qlen      : query full length
-13- estart    : first aligned residue in sequence given the envelope
-14- eend      : last aligned residue in sequence given the envelope
-15- program   : program name
+ 1  : sequence  : sequence identifier
+ 2  : model     : model identifier
+ 3  : start     : first aligned residue in the sequence
+ 4  : end       : last aligned residue in the sequence
+ 5  : evalue    : alignement expected value
+ 6  : cov       : coverage of the alignment in the query (sequence if jackhmmer and hmmscan, domain if hmmsearch)
+ 7  : qstart    : first state aligned in the model
+ 8  : qend      : last state aligned in the model
+ 9  : iteration : iteration number
+ 10 : score     : alignment score
+ 11 : talilen   : length of the region aligned in target
+ 12 : qlen      : query full length
+ 13 : estart    : first aligned residue in sequence given the envelope
+ 14 : eend      : last aligned residue in sequence given the envelope
+ 15 : program   : program name
 
 separated by tabulations (TAB: \t).
  
