@@ -618,7 +618,7 @@ where 'column' is the name or number (starting at zero) of the column to be upda
 			      # Output options
 			      #
 			      'auto_fill' => {
-				  DEFAULT  => 1,
+				  DEFAULT  => 0,
 				  ARGCOUNT => ARGCOUNT_NONE,
 				  ALIAS    => 'af',
 				  SUMMARY  => "Automatically fill columns for non-matching rows. This feature requires that the same number of columns from each table is used for joininig (see options --column1 and --column2).",
