@@ -79,6 +79,10 @@ exit 0;
 
 sub load_targets_table {
     my $name = shift;
+    import YAML::XS;
+    $YAML::XS::LoadCode    = 1; # Enable parsing perl code from configuration
+    $YAML::XS::UseCode     = 1; # 
+    $YAML::XS::LoadBlessed = 1; # 
     my $table = Config::Any->load_files({ files => [ $name ], use_ext => 1, flatten_to_hash => 1 });
     return $table->{$name};
 }

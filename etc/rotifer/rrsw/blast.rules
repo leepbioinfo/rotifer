@@ -1,24 +1,24 @@
 # Add subdirectories
 + /db/
 # + /db/FASTA
-+ /db/cloud/
-+ /db/cloud/LATEST
-+ /db/cloud/v5/
-+ /db/cloud/v5/LATEST
+#+ /db/cloud/
+#+ /db/cloud/LATEST
+#+ /db/cloud/v5/
+#+ /db/cloud/v5/LATEST
 + /db/matrices/
 + /documents/
 
 # Choose files
-# + /db/FASTA/nr.gz
-# + /db/FASTA/env_nr.gz
+#+ /db/FASTA/nr.gz
+#+ /db/FASTA/env_nr.gz
 + /db/blastftp.txt
 + /db/cdd_delta.tar.gz*
 + /db/env_nr*.tar.gz*
 
 # Exclude other itens
-- /db/cloud/LATEST/nr.nal
-- /db/cloud/v5/*
-- /db/cloud/*
+#- /db/cloud/LATEST/nr.nal
+#- /db/cloud/v5/*
+#- /db/cloud/*
 # - /db/FASTA/*
 - /db/*
 

@@ -91,7 +91,7 @@ sub data_path {
     my @found = ();
     my $path = File::Spec->catfile(@_);
     foreach my $dir (&datadir()) {
-	my $fullpath = File::Spec->catfile($dir,$path);
+	my $fullpath = File::Spec->catfile($dir,$path || "");
 	if ( -e $fullpath ) {
 	    if (wantarray) {
 		push(@found, $fullpath);

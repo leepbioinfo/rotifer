@@ -33,7 +33,8 @@
 # NCBI
 - [ NAME       , METHOD , SERVER        , PATH                                 , PROCESS        , OPTIONS                                                                                 ]
 - [ gene       , rsync  , 130.14.250.10 , gene                                 , unpack         ,                                                                                         ]
-- [ taxonomy   , rsync  , 130.14.250.11 , pub/taxonomy                         , unpack         ,                                                                                         ]
+# [ taxonomy   , rsync  , 130.14.250.11 , pub/taxonomy                         , base           , { callback: [ coderef: !!perl/code "sub { print join(\"\n\",@_),\"\n\" }", args: [ uga ] ]} ]
+- [ taxonomy   , rsync  , 130.14.250.11 , pub/taxonomy                         , unpack        ,                                                                                                                   ]
 - [ blast      , rsync  , rsync.ncbi.nlm.nih.gov, blast                                , unpack_blast   , { rsync: [ -arHv, --delete, --delete-excluded, --prune-empty-dirs, -L, --safe-links ], exclude: [ v5 ] } ]
 # [ toxins     , rsync  , 130.14.250.13 , pub/aravind/TOXIMM                   ,                ,                                                                                         ]
 - [ cdd        , rsync  , 130.14.250.10 , pub/mmdb/cdd                         , none           ,                                                                                         ]
