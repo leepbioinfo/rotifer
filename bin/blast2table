@@ -18,7 +18,6 @@ foreach (@parsers) {
    }
 }
 if (defined $parser) {
-   warn "Using parsing $parser";
    no strict "refs";
    $parser =~ tr/A-Z/a-z/;
    $parser =~ s/::/_/g;
