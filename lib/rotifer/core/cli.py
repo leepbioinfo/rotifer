@@ -6,6 +6,7 @@ import copy as _copy
 import yaml
 from collections import defaultdict
 import os
+import tempfile
 
 # from rotifer.core.loadpath import path as rpath
 
@@ -511,6 +512,7 @@ class parser:
                 try:
                     delattr(args, 'configdump')
                 except: pass
+
                 try:
                     delattr(args, 'configfile')
                 except: pass
@@ -518,15 +520,16 @@ class parser:
                 try:
                     delattr(args, 'accession')
                 except: pass
+                
                 try:
                     delattr(args, 'fun')
                 except:
                     pass
+                
                 for arg in vars(args):
                     if getattr(args,arg) is not None:
                         k = {arg: getattr(args, arg)}
-
-                        yaml.dump(k, sys.stdout, default_flow_style = False)# default_flow_style = False))
+                        yaml.dump(k, sys.stdout, default_flow_style = False) # default_flow_style = False))
                 quit()
             return args
 
@@ -657,6 +660,43 @@ class action:
                         mylist.append(iohandle)
         return mylist
 
+    def add_stdin_to_list_of_input_files(self, parser, largs):
+        '''
+        Add the standard input, if active, to the list of input
+        files provided as arguments.
+        
+        The first element of the list that is equal to "-" is 
+        replaced by the standard input. All other ocurrences of "-"
+        are treated as a file named "-".
+
+        Only files that exist are kept in the final list
+        '''
+        j = -1 # stdin is a tty
+        mylist = list()
+        if sys.stdin.isatty():
+            # No input arguments?
+            if len(largs) == 0:
+                parser.error("No input!")
+        elif not "-" in largs:
+            # Prepend stdin
+            mylist.insert(0,sys.stdin)
+        else:
+            j = 0 # stdin is open and "-" was used
+
+        # Replace first "-" with stdin and remove all others
+        # Check if other files are valid
+        for x in largs:
+            if j == 0 and x == "-":
+                    mylist.append(sys.stdin)
+                    j = 1
+            elif not os.path.exists(x):
+                sys.stderr.write("File "+x+" doesn't exists!\n")
+            else:
+                mylist.append(x)
+        if len(mylist) == 0:
+            parser.error("No files found!")
+        return mylist
+
     class autoload(argparse.Action):
         '''
         An action to decide file type, open, and load the file into memory, close after
@@ -687,6 +727,33 @@ class action:
         '''
         def __call__(self, parser, namespace, values, option_string = None):
             f = action.openload(self, parser, values)
+            setattr(namespace, self.dest, f)
+
+    class add_stdin(argparse.Action):
+        '''
+        An action to add the standard input to a list of input files
+        and warn if any of these files cannot be read.
+        '''
+        def __call__(self, parser, namespace, values, option_string = None):
+            f = action.add_stdin_to_list_of_input_files(self, parser, values)
+            setattr(namespace, self.dest, f)
+
+    class buffer_stdin(argparse.Action):
+        '''
+        An action to save the contents of the standard input to a temporary file
+        and add this file to the list of input files, warning the user if any 
+        input file cannot be read.
+        '''
+        def __call__(self, parser, namespace, values, option_string = None):
+            f = action.add_stdin_to_list_of_input_files(self, parser, values)
+            for i in list(range(0,len(f))):
+                if f[i] == sys.stdin:
+                    tmp = tempfile.NamedTemporaryFile(mode="w", delete=True)
+                    tmp.write("\n".join(sys.stdin.readlines()))
+                    tmp.flush()
+                    f[i] = tmp.name
+                    namespace._rotifer_stdin_tempfile = tmp
+                    break
             setattr(namespace, self.dest, f)
 
     class fun(argparse.Action):
