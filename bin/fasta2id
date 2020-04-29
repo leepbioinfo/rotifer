@@ -22,7 +22,7 @@ while (<>) {
     chomp;
     next unless (/^>/);
     my ($n) = /^>(\S+)/;
-    foreach my $row (split(/\s*>/)) {
+    foreach my $row (split(/\s*[\cA>]/)) {
 	    next unless (length $row);
 	    $row =~ s/\s*]\s*$//;
 	    $row =~ s/\[([^\[]+)/\t$1/;
