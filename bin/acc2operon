@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import os
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[0]))), "lib"))
@@ -10,6 +11,7 @@ from rotifer.alchemy.connect import clickhouse
 
 import subprocess
 import pandas as pd
+import logging
 from multiprocessing import Process, Manager
 import datetime
 from Bio import SeqIO
@@ -33,7 +35,7 @@ from tqdm import tqdm
 
 warnings.filterwarnings('ignore')
 
-__version__ = 0.61
+__version__ = 0.62
 __authors__ = 'Gilberto Kaihami, Aureliano Guedes, Gabriel Hueck, Robson F. de Souza'
 __rdoc__ = '''
 DESCRIPTION:
@@ -150,10 +152,12 @@ block 1:
                 default = 0,
                 )
 
-    # parser.add(long_arg = '--missing',
-    #            dest = 'missing',
-    #                     helper = 'Print missing accs',
-    #                     action = 'store_true')
+    parser.add(long_arg = '--missing',
+               dest = 'missing',
+               helper = 'Basename to save list of protein accessions with no IPG report.',
+               short_arg = '-m',
+               default = None,
+               arg_type = str)
 
     # Now we have the writer columns can be added and removed
 
@@ -163,8 +167,8 @@ block 1:
 
     parser.add(short_arg = '-t',long_arg = '--threads',
                dest = 'threads',
-                        helper = 'Number of threads (Default: 5)',
-                        default = 5)
+                        helper = 'Number of threads (Default: 3)',
+                        default = 3)
 
     parser.add(short_arg = '-of',
                long_arg = '--outformat',
@@ -174,11 +178,11 @@ block 1:
 
     parser.add(short_arg = '-y',
                long_arg ='--header',
-                        action='append',
-                        dest = 'addinfo',
-                              helper = 'Add more information to gi2operon header. The additional information must be a valid collumn in the table format\n\
+               action='append',
+               dest = 'addinfo',
+               helper = 'Add more information to gi2operon header. The additional information must be a valid collumn in the table format\n\
 (example: -y assembly, -y classification -y seq_type)',
-                              default = [])
+               default = [])
 
     parser.add( long_arg = '--hit_method',
                 short_arg = '-hm',
@@ -198,10 +202,13 @@ block 1:
                 action = 'append'
                 )
 
-    parser.add(long_arg = '--debug_dataframe',
-               dest = 'debug_dataframe',
-               helper = 'Debug dataframe, will write two files end with .acc2operon.df.debug',
-                       action = 'store_true')
+    parser.add(long_arg = '--ipg',
+               short_arg = '-ipg',
+               dest = 'ipg',
+               default = None,
+               arg_type = str,
+               helper = 'Basename for tables with IPG report data downloaded from the NCBI.'
+               )
 
     argcomplete.autocomplete(parser)
 
@@ -253,6 +260,10 @@ def asm2ftp(gbks, db, verbose = False,progress = False, position = 0, threads = 
     db       folder to save the genbank
     verbose: verbose level
     '''
+
+    if verbose:
+        ngbks = len(gbks)
+        verbose_msg(f'Batch {position}, {threads} threads, downloading {ngbks} GBFF files...')
 
     if progress:
         for ele in tqdm(gbks, position = position, leave=False, desc = f'Downloading genomes thread {threads}'):
@@ -330,159 +341,103 @@ def asm2ftp(gbks, db, verbose = False,progress = False, position = 0, threads = 
 #                  progress = False,
 #                  position = 0,
 #                  threads = 1):
-def long_routine(sub, gbks_folder, df_accs, df_accs2, verbose,progress,
-                 position,
-                 threads,
-                 **kwargs):
-    df_ipgs = pd.DataFrame()
-    missing = []
-    x = 0
-    # Find ipgs using efetch
-    tries = 0
+def long_routine(sub, gbks_folder, df_accs, df_accs2, verbose, progress, position, threads, **kwargs):
     ## Try using epost if fail except using efetch
-    # find missing ipgs
+    nacc = len(sub)
+    if verbose:
+        verbose_msg(f'Downloading IPG reports! Batch {position}, {threads} threads, {nacc} accessions')
 
-    tries_epost = 0
-    max_tries_epost = 15
-
-    while tries_epost <= max_tries_epost:
-        try:
-            request = Entrez.epost(db = 'protein', api_key = api_key, id = ",".join(sub))
-            result = Entrez.read(request)
-            webEnv = result['WebEnv']
-            querykey = result['QueryKey']
-            handle = Entrez.efetch(db='protein',
-                                   rettype = 'ipg',
-                                   retmode = 'text',
-                                   webenv = webEnv,
-                                   query_key = querykey,
-                                   api_key = api_key)
-
-            if df_ipgs.empty:
-                df_ipgs = pd.read_csv(StringIO(handle.read()), sep = '\t',
-                                 usecols = ['Id', 'Nucleotide Accession', 'Protein',
-                                            'Assembly'])
-                df_ipgs.columns = ['id', 'nucleotide', 'acc', 'assembly']
-                found = df_ipgs[df_ipgs['acc'].isin(sub)].drop_duplicates('id')
-                dc_map = {k:v for k,v in zip(found['id'].values, found['acc'].values)}
-                df_ipgs['original'] = df_ipgs['id'].map(dc_map)
-                df_ipgs = df_ipgs[df_ipgs['original'].notnull()]
-
-            else:
-                _ = pd.read_csv(StringIO(handle.read()), sep = '\t', usecols = ['Id','Nucleotide Accession','Protein','Assembly'])
-                _.columns = ['id', 'nucleotide', 'acc', 'assembly']
-                found = _[_['acc'].isin(sub)].drop_duplicates('id')
-                dc_map = {k:v for k,v in zip(found['id'].values, found['acc'].values)}
-                _['original'] = _['id'].map(dc_map)
-                _ = _[_['original'].notnull()]
-                df_ipgs = pd.concat([df_ipgs, _])
-
-            handle.close()
-            break
-
-        except:
-            if verbose:
-                verbose_msg(f'Epost failed, try number {tries_epost}')
-            time.sleep(0.5)
-            tries_epost += 1
-
-    # Check if there are any missing accessions
+    # Fetch using Epost+Efetch (recommended by NCBI but do we need it?)
+    handle = None
     try:
-        missing = [x for x in sub if x not in df_ipgs['original'].unique()]
+        request = Entrez.epost(db = 'protein', api_key = api_key, id = ",".join(sub))
+        result = Entrez.read(request)
+        handle = Entrez.efetch(db='protein', rettype='ipg', retmode='text', api_key=api_key,
+                                webenv=result['WebEnv'], query_key=result['QueryKey'])
+    except RuntimeError:
+        verbose_msg(f'Epost+Efetch, Batch {position}, {nacc} accessions. Runtime error: '+str(sys.exc_info()[1]))
     except:
-        missing = sub
+        verbose_msg(f'Epost+Efetch, Batch {position}, {nacc} accessions. Unexpected error: '+str(sys.exc_info()[0:2]))
 
-    got_missing = []
-    if missing:
-        # if verbose:
-        #     verbose_msg(f'Getting missing accession, thead {position}')
-        #     verbose_msg(f'Total missing accession, thread {position}: {len(missing)}')
+    # Parse fetched IPG reports
+    idmap   = {}
+    df_ipgs = pd.DataFrame()
+    found   = []
+    missing = sub
+    if handle == None:
+        verbose_msg(f'Epost+Efetch, Batch {position}, {nacc} accessions: handle is undefined!')
+    else:
+        df_ipgs = pd.read_csv(handle,sep='\t',usecols=['Id','Nucleotide Accession','Protein','Assembly'])
+        df_ipgs.columns = ['id', 'nucleotide', 'acc', 'assembly']
+        queries = df_ipgs[df_ipgs['acc'].isin(sub)].drop_duplicates('id')
+        idmap = {k:v for k,v in zip(queries['id'].values, queries['acc'].values)} # Use last accession only to represente each IPG
+        df_ipgs['original'] = df_ipgs['id'].map(idmap)
+        df_ipgs = df_ipgs[df_ipgs['original'].notnull()]
+        missing = set([x for x in sub if x not in df_ipgs['original'].unique()])
+        found   = set([x for x in sub if x     in df_ipgs['original'].unique()])
+        # Close Bio.Entrez _io.TextWrapper handle
+        handle.close()
 
+    # Report on progress
+    if verbose:
+        nipgs = 0 if df_ipgs.empty else len(df_ipgs)
+        nmissing = len(missing)
+        nfound   = len(found)
+        verbose_msg(f'Epost+Efetch, Batch {position}, {nipgs} rows in IPG report, {nfound} accs found, {nmissing} missing')
+
+    # Find missing ipgs using efetch only
+    tries = 0
+    max_tries = 5
+    while missing and (tries < max_tries):
+        nmissing = len(missing)
+        if verbose:
+            verbose_msg(f'Efetch, Batch {position}, attempt {tries}, {nmissing} accessions: fetching...')
+
+        # Attempt download
+        handle = None
         try:
-            missing = set([x for x in sub if x not in df_ipgs['original'].unique()])
+            handle = Entrez.efetch(db='protein', rettype='ipg', retmode='text', api_key=api_key, id = ",".join(missing))
+        except RuntimeError:
+            verbose_msg(f'Efetch, Batch {position}, attempt {tries}, {nmissing} accessions. Runtime error: '+str(sys.exc_info()[1]))
         except:
-            missing = set(sub)
+            verbose_msg(f'Efetch, Batch {position}, attempt {tries}, {nmissing} accessions. Unexpected error: '+str(sys.exc_info()[0:2]))
 
-        max_tries_missing_acc = 20
-        while tries < max_tries_missing_acc:
-            try:
-                missing = [x for x in missing if x not in got_missing]
-                for missing_acc in missing:
-                    # if verbose:
-                    #     verbose_msg(f'Missing {missing_acc}, thread {position}')
-                    request = Entrez.epost(db = 'protein', api_key = api_key, id = missing_acc)
-                    result = Entrez.read(request)
-                    webEnv = result['WebEnv']
-                    querykey = result['QueryKey']
-                    handle = Entrez.efetch(db='protein',
-                                           rettype = 'ipg',
-                                           retmode = 'text',
-                                           webenv = webEnv,
-                                           query_key = querykey,
-                                           api_key = api_key)
+        # Merge Efetch results with Epost+Efetch results
+        if handle:
+            ipg = pd.read_csv(handle, sep='\t', usecols=['Id','Nucleotide Accession','Protein','Assembly'])
+            ipg.columns = ['id', 'nucleotide', 'acc', 'assembly']
+            queries = ipg[ipg['acc'].isin(sub)].drop_duplicates('id')
+            verbose_msg(f'Efetch, Batch {position}, attempt {tries}, {nmissing} accessions, IPG rows: '+str(len(ipg)))
+            idmap.update({k:v for k,v in zip(queries['id'].values, queries['acc'].values) if k not in idmap}) # Keep only last acc for each IPG
+            ipg['original'] = ipg['id'].map(idmap)
+            ipg = ipg[ipg['original'].notnull()]
+            if df_ipgs.empty:
+                df_ipgs = ipg
+            else:
+                df_ipgs = df_ipgs.append(ipg, ignore_index=True).drop_duplicates()
+            missing = set([x for x in sub if x not in df_ipgs['original'].unique()])
+            found   = set([x for x in sub if x     in df_ipgs['original'].unique()])
 
-                    if df_ipgs.empty:
-                        df_ipgs = pd.read_csv(StringIO(handle.read()), sep = '\t',
-                                         usecols = ['Id', 'Nucleotide Accession', 'Protein',
-                                                    'Assembly'])
-                                              # names = ['id', 'nucleotide', 'acc', 'assembly'])
-                        df_ipgs.columns = ['id', 'nucleotide', 'acc', 'assembly']
-                        got_missing.append(missing_acc)
+        # Count Efetch attempts and report progress
+        if verbose:
+            nmissing = len(missing)
+            nipgs    = len(df_ipgs)
+            verbose_msg(f'Efetch, Batch {position}, attempt {tries}, {nipgs} IPG rows fetched, {nmissing} missing accessions.')
 
-                        dc_map = {df_ipgs['id'].unique()[0]: missing_acc}
-
-                        df_ipgs['original'] = df_ipgs['id'].map(dc_map)
-
-                    else:
-                        _ = pd.read_csv(StringIO(handle.read()), sep = '\t',
-                                         usecols = ['Id', 'Nucleotide Accession', 'Protein',
-                                                    'Assembly'])
-
-                        _.columns = ['id', 'nucleotide', 'acc', 'assembly']
-                        got_missing.append(missing_acc)
-
-                        if _['id'].unique()[0] not in df_ipgs['id'].unique():
-                            _.columns = ['id', 'nucleotide', 'acc', 'assembly']
-                            dc_map = {_['id'].unique()[0]: missing_acc}
-
-                            _['original'] = _['id'].map(dc_map)
-
-                            df_ipgs = pd.concat([df_ipgs, _])
-
-                        else:
-                            pass
-
-                    handle.close()
-
-                    time.sleep(0.5)
-                break
-
-            except:
-                tries +=1
-                if tries == max_tries_missing_acc and len(missing) > 0:
-                    # verbose_msg(f'{" ".join(missing)}')
-
-                    missing = list(missing)[1:]
-                    missing = [x for x in missing if x not in got_missing]
-                    # verbose_msg(f'{" ".join(missing)}')
-                    tries = 0
-                    # Warning here
-
-                time.sleep(0.5)
-            if len(missing) == 0:
-                break
+        # Increment loop control variable
+        tries += 1
+    # while missing and (tries < max_tries):
     # //get ipgs
 
     # ASM modified:
     df_ipgs = df_ipgs.fillna('N/A')
     df_ipgs['assembly_modified'] = df_ipgs.apply(lambda x: x.assembly if x.assembly != 'N/A' else x.nucleotide, 1)
 
-
     if (isinstance(df_ipgs['original'].values[0], np.float64)):
         sys.stderr.write('No results\n')
         sys.exit()
 
-    # Is hit?
+    # Mark all rows with query proteins
     df_ipgs['hit'] = df_ipgs.apply(lambda x: 1 if x['original'] == x['acc'] else 0, 1)
 
     # best hit
@@ -510,6 +465,11 @@ def long_routine(sub, gbks_folder, df_accs, df_accs2, verbose,progress,
     # Drop nucleotides with nothing
     df2get = df2get[df2get['nucleotide'] != 'N/A']
 
+    if verbose:
+        nipgs    = len(df_ipgs)
+        nmissing = len(missing)
+        nfound = len(found)
+        verbose_msg(f'Batch {position}, {nipgs} IPG rows fetched, {nfound} accessions found, {nmissing} missing: connecting to clickhouse...')
     uri = 'clickhouse://default:@localhost/rotifer'
     engine = create_engine(uri)
     session = make_session(engine)
@@ -530,6 +490,12 @@ def long_routine(sub, gbks_folder, df_accs, df_accs2, verbose,progress,
     find_gbks = [x for x in find_gbks if x not in got_gbks]
 
     #######
+    if verbose:
+        nipgs    = len(df_ipgs)
+        nmissing = len(missing)
+        nfound = len(found)
+        ngbks = len(find_gbks)
+        verbose_msg(f'Batch {position}, {nipgs} IPG rows fetched, {nfound} accessions found, {nmissing} missing, downloading {ngbks} GBFF files...')
     asm2ftp(find_gbks, gbks_folder, verbose= False, progress = progress, position = position+threads+1, threads = position)
 
     #######
@@ -563,11 +529,9 @@ def long_routine(sub, gbks_folder, df_accs, df_accs2, verbose,progress,
     # Insert into Database raw table
     df_accs_all = df_ipgs[['id', 'acc', 'assembly', 'nucleotide', 'original', 'assembly_modified']] # copy for all accs
     df_accs_all = df_accs_all[df_accs_all['assembly_modified'] != 'N/A']
-
     if df_accs2.empty:
         df_accs2 = df_accs_all[['acc', 'original', 'nucleotide']]
         df_accs2['original'] = df_accs2['original'].astype('category')
-
     else:
         _ = df_accs_all[['acc', 'original', 'nucleotide']]
         _['original'] = _['original'].astype('category')
@@ -576,41 +540,33 @@ def long_routine(sub, gbks_folder, df_accs, df_accs2, verbose,progress,
     return (df_accs, df_accs2)
 
 def _multiple_search(subs, verbose, ls, position, threads, progress = False):
-
-    df_accs_all = pd.DataFrame()
-    df_accs = pd.DataFrame()
-
-    # Setting lists
-    # Ok here
     gbks_folder = os.path.join(db, 'gbff')
-
-    df_accs2 = pd.DataFrame()
     tot = len(subs)
+
+    # Create cache directory
+    try:
+        os.makedirs(gbks_folder)
+    except:
+        pass
+
+    # Loop over sets of accessions (subs)
+    df_accs = pd.DataFrame()
+    df_accs2 = pd.DataFrame()
     w = 0
     try:
-        try:
-            os.makedirs(gbks_folder)
-        except:
-            pass
         # Get ipgs
         if progress:
             for sub in tqdm(subs, position = position, leave=False, desc = f'Search ipg thread {position}'):
                 # long routine here
-                df_accs, df_accs2 = long_routine(sub, gbks_folder, df_accs, df_accs2,
-                                                 verbose,
-                                                 progress = progress,
-                                                 position = position,
-                                                 threads = threads)
+                df_accs,df_accs2 = long_routine(sub, gbks_folder, df_accs, df_accs2, verbose,
+                                   progress = progress, position = position, threads = threads)
         else:
             for sub in subs:
                 if verbose:
-                    w +=1
-                    verbose_msg(f'There are {tot -w} epost left, total is {tot}, thread {position}')
-                df_accs, df_accs2 = long_routine(sub, gbks_folder, df_accs, df_accs2,
-                                                 verbose,
-                                                 progress = progress,
-                                                 position = position,
-                                                 threads = threads)
+                    verbose_msg(f'There are {tot-w} epost left, total is {tot}, thread {position}')
+                    w += 1
+                df_accs,df_accs2 = long_routine(sub, gbks_folder, df_accs, df_accs2, verbose,
+                                   progress = progress, position = position, threads = threads)
     except:
         pass
 
@@ -1085,7 +1041,6 @@ def makeDB(verbose = False):
             sys.stderr.write('## Cache folder already exists at: {0}\n'.format(db))
         return db
 
-
 if __name__ == '__main__':
     Entrez.email = "kaihami@usp.br"
 
@@ -1155,7 +1110,6 @@ if __name__ == '__main__':
 
             # This is a tuple nucleotide, nuc_asm
 
-
             # nucleotide_in_db = conn.execute(f"select distinct nucleotide, nuc_asm FROM genomes where pid in ({acc_formated}) {q_asm} ").fetchall()
             nucleotide_in_db = conn.execute(f"select distinct nucleotide, nuc_asm FROM genomes where pid in ({acc_formated})").fetchall()
             #print(nucleotide_in_db)
@@ -1202,7 +1156,7 @@ if __name__ == '__main__':
             except:
                 pass
 
-    else:
+    else: # www + insert into local clickhouse
         # Create a tmp table name
         table_name = ''.join(random.choices(string.ascii_letters, k=24))
 
@@ -1220,35 +1174,37 @@ if __name__ == '__main__':
 
             # Need to remove from db
             df_all, df_ann =  acc2asm2gbk(accs, db, verbose, df_accs, threads = int(args.threads),
-                                 api_key = api_key, table_name = table_name, progress = args.progress)
+                              api_key = api_key, table_name = table_name, progress = args.progress)
 
-            # Debug df here
-            if args.debug_dataframe:
-                df_all.to_csv('df_all.acc2operon.dataframe.debug', sep = '\t', index = None)
-                df_ann.to_csv('df_ann.acc2operon.dataframe.debug', sep = '\t', index = None)
-
-            # df_ann.to_csv('annotation.test', sep = '\t', index = None)
+            # Show statistics
             if verbose:
-                verbose_msg('Collected ipgs and gbks')
+                verbose_msg('IPG reports collected! Summary statistics:')
                 verbose_msg(f'df_ann size {df_ann.memory_usage().sum()/(1024**3)}')
                 verbose_msg(f'df_ann_selected number rows {df_ann.shape[0]}')
 
-            # Parse each gbk and print output
+            # Save IPG dataframes
+            if args.ipg:
+                verbose_msg('Saving IPG reports to '+args.ipg+'.{all,ann}.a2o.tsv')
+                df_all.to_csv(args.ipg+'.all.a2o.tsv', sep = '\t', index = None)
+                df_ann.to_csv(args.ipg+'.ann.a2o.tsv', sep = '\t', index = None)
+
+            # Save missing dataframes
+            if args.missing and missing:
+                verbose_msg('List of protein accessions without IPG report saved to '+args.missing+'.missing.a2o.tsv')
+                missing = set([x for x in accs if x not in set(df_all.original)])
+                missing.sort()
+                mfh = open(args.missing+'.missing.a2o.tsv', 'w')
+                mfh.write("\n".join(missing))
+                mfh.close()
 
             # Parse gbks here
-
             ls_gbks = df_all['assembly_modified'].unique()
-
-            ls_gbks_parsed = rcf._flatten([list(x) for x in conn.execute('''
-                                SELECT DISTINCT nuc_asm from genomes
-                                ''').fetchall()])
-
-            jobs = []
-
+            ls_gbks_parsed = rcf._flatten([list(x) for x in conn.execute('''SELECT DISTINCT nuc_asm from genomes''').fetchall()])
             ls_gbks = list(set([x for x in ls_gbks if x not in ls_gbks_parsed]))
             n = len(ls_gbks)//int(args.threads) if len(ls_gbks)//int(args.threads) > 0 else 1
             sub_ls_gbks = [ls_gbks[x:x+n] for x in range(0,len(ls_gbks), n)]
 
+            jobs = []
             for x in range(len(sub_ls_gbks)):
                 p = Process(target = _multi_ft2df, args = (sub_ls_gbks[x], db, verbose))
                 jobs.append(p)
@@ -1257,14 +1213,12 @@ if __name__ == '__main__':
             try:
                 for p in jobs:
                     p.join()
-
             except KeyboardInterrupt:
                 for p in jobs:
                     p.terminate()
                 sys.exit(2)
 
             # Get unique nucleotides
-
             if verbose:
                 verbose_msg('Collected all gbks')
 

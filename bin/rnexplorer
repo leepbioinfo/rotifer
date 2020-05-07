@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-import pandas as pd
-import sys
 import os
-sys.path.insert(0, os.path.join('/home/kaihami/mymodules'))
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[0]))), "lib"))
+import pandas as pd
 import rotifer.core.cli as corecli
 import rotifer.core.functions as cf
 import rotifer.neighborhood.neighborhood as nh

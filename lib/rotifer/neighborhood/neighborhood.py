@@ -5,7 +5,6 @@ import warnings
 import numpy as np
 import sys
 import os
-sys.path.insert(0, os.path.join('/home/kaihami/mymodules'))
 import rotifer.core.functions as cf
 from collections import defaultdict
 import time
@@ -36,10 +35,10 @@ class ipt2table:
     '''
 
     def __init__(self, ipt, verbose = False):
-
         self.ipt = ipt
         self.verbose = verbose
         self.df = self._prepareDF()
+
     def _prepareDF(self):
 
         if 'ORGANISM' in self.ipt[0]:
@@ -86,6 +85,10 @@ class ipt2table:
         #     except: sys.stderr.write(col)
         #
         #     df[col] = df.astype({col:int})
+        df.loc[df[(df['plen'] == '') | df['plen'].isna()].index, 'plen'] = 0
+        df = df.astype({'plen': 'int32'})
+        #print(df.dtypes)
+        #exit(1)
 
         df = df.fillna('.')
 
@@ -461,7 +464,7 @@ class writer:
         df['dot'] = np.where(df['query'] == '1', '-->', '.')
         df['dir'] = np.where(df['strand'] == '1', '+', '-')
         df['cds'] = df['start'].astype(str) + '..' + df['end'].astype(str)
-        df['len'] =df['plen']
+        df['len'] = df['plen']
         try:
             df['gi'] = df['modified']
         except:
