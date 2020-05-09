@@ -241,7 +241,7 @@ sub hashJoin {
 	    foreach (0..$#F) {
                 my $c = $F[$_] || '';
                 $c =~ s/\e\[\d*(?>(\;\d+)*)m//g; # Remove ANSI color codes
-                $colLength->[$_] = (!defined($colLength->[$_]) || $colLength->[$_] < length($c)) ? length($c) : $colLength->[$_];
+                $colLength->[$_] = (!defined($colLength->[$_]) || $colLength->[$_] < length_in_graphemes($c)) ? length_in_graphemes($c) : $colLength->[$_];
             }
 	    push(@F, @rnum); # Reload row numbers
 	    push(@$joinedTable, [ @F ]); # Store joined rows
@@ -250,6 +250,12 @@ sub hashJoin {
     exit 0 if (!scalar @$joinedTable); # Nothing to do if table is empty
 
     return ($colLength, $joinedTable);
+}
+
+sub length_in_graphemes {
+    my $word = shift;
+    my $length = () = $word =~ m/\X/g;
+    return $length;
 }
 
 sub pad {
