@@ -95,7 +95,7 @@ if (scalar(@$Header1) || scalar(@$Header2)) {
     # Print header
     print join($CONFIG->output_delimiter,
 	       map {
-		   $Length->[$_] = (!defined($Length->[$_]) || $Length->[$_] < length($header[$_] || '')) ? length($header[$_] || '') : $Length->[$_];
+		   $Length->[$_] = (!defined($Length->[$_]) || $Length->[$_] < length_in_graphemes($header[$_] || '')) ? length_in_graphemes($header[$_] || '') : $Length->[$_];
 		   pad($CONFIG, $Length->[$_], $header[$_])
 	       } 0..$#header),"\n";
 } # if (scalar(@$Header1) || scalar(@$Header2))
