@@ -261,86 +261,44 @@ def asm2ftp(gbks, db, verbose = False,progress = False, position = 0, threads = 
     verbose: verbose level
     '''
 
+    # Progress messages
     if verbose:
         ngbks = len(gbks)
-        verbose_msg(f'Batch {position}, {threads} threads, downloading {ngbks} GBFF files...')
-
+        verbose_msg(f'asm2ftp: Batch {threads}, {position-1} threads, downloading {ngbks} assembly GBFF files...')
     if progress:
-        for ele in tqdm(gbks, position = position, leave=False, desc = f'Downloading genomes thread {threads}'):
-            got_gbks_folder = [x.replace('.gbff', '').replace('.tsv','') for x in os.listdir(db)]
-            if ele not in got_gbks_folder:
-                if verbose:
-                    verbose_msg('Downloading {0} using ftp'.format(str(ele)))
-                tries_download = 0
+        gbks = tqdm(gbks, position = position, leave=False, desc = f'Downloading genomes thread {threads}')
 
-                while tries_download < 15:
-                    try:
-                        gca, f1, f2, f3 = ele[0:3], ele [4:7], ele[7:10], ele[10:13]
-                        sub2 = subprocess.Popen('''curl -l ftp://ftp.ncbi.nlm.nih.gov/genomes/all/{0}/{1}/{2}/{3}/* 2> /dev/null| \
-                    grep "{4}" 2> /dev/null'''.format(gca, f1, f2, f3, ele), shell = True, stdout = subprocess.PIPE)
-                        genome = sub2.communicate()[0].decode('utf-8').replace('\n', '')
-                        sub1 = subprocess.Popen('''curl -l ftp://ftp.ncbi.nlm.nih.gov/genomes/all/{0}/{1}/{2}/{3}/* 2> /dev/null |\
-                    grep "{4}" | parallel curl -l ftp://ftp.ncbi.nlm.nih.gov/genomes/all/{0}/{1}/{2}/{3}/{5}/ 2> /dev/null'''.format(gca, f1, f2,f3, ele, '{}'), shell = True, stdout = subprocess.PIPE)
-                        features = sub1.communicate()[0].decode('utf-8').splitlines()
-                        for feature in features:
-                            file2save = db+'/'+ele
-                            if file2save+'.gbff' not in os.listdir(db):
-                                if '_genomic.gbff' in feature and '_cds' not in feature and '_rna_' not in feature:
-                                    download = 'curl ftp://ftp.ncbi.nlm.nih.gov/genomes/all/{0}/{1}/{2}/{3}/{4}/{5} --output {6}.gbff.gz 2> /dev/null'.format(gca, f1, f2, f3, genome, feature, file2save)
-                                    subprocess.Popen([download], shell = True).wait()
-                                    subprocess.Popen(['gunzip -f {0}.gbff.gz'.format(file2save)], shell = True).wait()
-                        break
+    # Download data for each assembly
+    burl = 'ftp://ftp.ncbi.nlm.nih.gov/genomes/all/'
+    for ele in gbks:
+        got_gbks_folder = [x.replace('.gbff', '').replace('.tsv','') for x in os.listdir(db)]
+        if ele not in got_gbks_folder:
+            if verbose:
+                verbose_msg('Downloading {0} using ftp'.format(str(ele)))
+            tries_download = 0
 
-                    except:
-                        tries_download +=1
-                        time.sleep(0.3)
-    else:
-        for ele in gbks:
-            got_gbks_folder = [x.replace('.gbff', '').replace('.tsv','') for x in os.listdir(db)]
-            if ele not in got_gbks_folder:
-                if verbose:
-                    verbose_msg('Downloading {0} using ftp'.format(str(ele)))
-                tries_download = 0
+            while tries_download < 15:
+                try:
+                    #gca, f1, f2, f3 = ele[0:3], ele[4:7], ele[7:10], ele[10:13]
+                    ftppath = "/".join([ burl, ele[0:3], ele[4:7], ele[7:10], ele[10:13] ])
+                    cmd = 'curl -l ' + ftppath + '/* 2> /dev/null | grep ' + ele + ' 2> /dev/null'
+                    sub2 = subprocess.Popen(cmd, shell = True, stdout = subprocess.PIPE)
+                    genome = sub2.communicate()[0].decode('utf-8').replace('\n', '')
+                    cmd = 'curl -l ' + ftppath + '/* 2> /dev/null | grep ' + ele + ' | parallel curl -l ' + ftppath + '/{}/ 2> /dev/null'
+                    sub1 = subprocess.Popen(cmd, shell = True, stdout = subprocess.PIPE)
+                    features = sub1.communicate()[0].decode('utf-8').splitlines()
+                    for feature in features:
+                        file2save = db + '/' + ele
+                        if file2save+'.gbff' not in os.listdir(db):
+                            if '_genomic.gbff' in feature and '_cds' not in feature and '_rna_' not in feature:
+                                download = 'curl ' + '/'.join([ftppath, genome, feature]) + ' --output ' + file2save + '.gbff.gz 2> /dev/null'
+                                subprocess.Popen([download], shell = True).wait()
+                                subprocess.Popen(['gunzip -f {0}.gbff.gz'.format(file2save)], shell = True).wait()
+                    break
+                except:
+                    tries_download +=1
+                    time.sleep(0.3)
 
-                while tries_download < 15:
-                    try:
-                        gca, f1, f2, f3 = ele[0:3], ele [4:7], ele[7:10], ele[10:13]
-                        sub2 = subprocess.Popen('''curl -l ftp://ftp.ncbi.nlm.nih.gov/genomes/all/{0}/{1}/{2}/{3}/* 2> /dev/null| \
-                    grep "{4}" 2> /dev/null'''.format(gca, f1, f2, f3, ele), shell = True, stdout = subprocess.PIPE)
-                        genome = sub2.communicate()[0].decode('utf-8').replace('\n', '')
-                        sub1 = subprocess.Popen('''curl -l ftp://ftp.ncbi.nlm.nih.gov/genomes/all/{0}/{1}/{2}/{3}/* 2> /dev/null |\
-                    grep "{4}" | parallel curl -l ftp://ftp.ncbi.nlm.nih.gov/genomes/all/{0}/{1}/{2}/{3}/{5}/ 2> /dev/null'''.format(gca, f1, f2,f3, ele, '{}'), shell = True, stdout = subprocess.PIPE)
-                        features = sub1.communicate()[0].decode('utf-8').splitlines()
-                        for feature in features:
-                            file2save = db+'/'+ele
-                            if file2save+'.gbff' not in os.listdir(db):
-                                if '_genomic.gbff' in feature and '_cds' not in feature and '_rna_' not in feature:
-                                    download = 'curl ftp://ftp.ncbi.nlm.nih.gov/genomes/all/{0}/{1}/{2}/{3}/{4}/{5} --output {6}.gbff.gz 2> /dev/null'.format(gca, f1, f2, f3, genome, feature, file2save)
-                                    subprocess.Popen([download], shell = True).wait()
-                                    subprocess.Popen(['gunzip -f {0}.gbff.gz'.format(file2save)], shell = True).wait()
-                        break
-
-                    except:
-                        tries_download +=1
-                        time.sleep(0.3)
-
-
-
-# def asm2epost:
-#     pass
-#
-# def asm2efetch:
-#
-#     pass
-#
-# def asm2esearch:
-#     pass
-
-# def long_routine(sub, gbks_folder, df_accs, df_accs2,
-#                  verbose = False,
-#                  progress = False,
-#                  position = 0,
-#                  threads = 1):
 def long_routine(sub, gbks_folder, df_accs, df_accs2, verbose, progress, position, threads, **kwargs):
     ## Try using epost if fail except using efetch
     nacc = len(sub)
@@ -417,6 +375,7 @@ def long_routine(sub, gbks_folder, df_accs, df_accs2, verbose, progress, positio
                 df_ipgs = df_ipgs.append(ipg, ignore_index=True).drop_duplicates()
             missing = set([x for x in sub if x not in df_ipgs['original'].unique()])
             found   = set([x for x in sub if x     in df_ipgs['original'].unique()])
+            handle.close()
 
         # Count Efetch attempts and report progress
         if verbose:
@@ -465,6 +424,7 @@ def long_routine(sub, gbks_folder, df_accs, df_accs2, verbose, progress, positio
     # Drop nucleotides with nothing
     df2get = df2get[df2get['nucleotide'] != 'N/A']
 
+    # Connect to clickhouse database to check for cached data
     if verbose:
         nipgs    = len(df_ipgs)
         nmissing = len(missing)
@@ -496,7 +456,7 @@ def long_routine(sub, gbks_folder, df_accs, df_accs2, verbose, progress, positio
         nfound = len(found)
         ngbks = len(find_gbks)
         verbose_msg(f'Batch {position}, {nipgs} IPG rows fetched, {nfound} accessions found, {nmissing} missing, downloading {ngbks} GBFF files...')
-    asm2ftp(find_gbks, gbks_folder, verbose= False, progress = progress, position = position+threads+1, threads = position)
+    asm2ftp(find_gbks, gbks_folder, verbose, progress = progress, position = position+threads+1, threads = position)
 
     #######
 
@@ -570,11 +530,6 @@ def _multiple_search(subs, verbose, ls, position, threads, progress = False):
     except:
         pass
 
-    try:
-        engine.close()
-    except:
-        pass
-
     if df_accs.empty:
         pass
     else:
@@ -622,8 +577,13 @@ def acc2asm2gbk(accs, db, verbose, df_accs, threads = 3, api_key = '', table_nam
             p.terminate()
         sys.exit(2)
 
-    df_accs = pd.concat([x for x,y in epost_list])
-    df_accs2 = pd.concat([y for x,y in epost_list])
+    if epost_list:
+        df_accs = pd.concat([x for x,y in epost_list])
+        df_accs2 = pd.concat([y for x,y in epost_list])
+    else:
+        df_accs = pd.DataFrame()
+        df_accs2 = pd.DataFrame()
+    verbose_msg(f'acc2asm2gbk: {threads} threads, accessions: {accs}')
 
     # sys.stderr.write(df_accs.to_string())
 
