@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import logging
+from rotifer.db.ncbi import NcbiConfig
+
+# Load NCBI assembly reports
+def assembly_reports(ncbi, columns=[], baseurl=None, query_type='assembly_accession', *args, **kwargs):
+    '''
+    Load NCBI assembly reports from a local directory or FTP.
+
+    Usage:
+      a = ncbi()
+      b = a.read(method='assembly_reports')
+
+    Parameters:
+      columns    : (optional) list of columns to retrieve
+      baseurl    : URL or directory with assembly_summary_*.txt files
+      query_type : column name to find matches to queries or 
+                   None to use pd.DataFrame.query
+
+    Returns:
+      Pandas DataFrame with selected columns plus the added "source"
+      column with the variable part of the input filenames
+
+    Extra attributes:
+      loaded_from : data source (same as baseurl)
+    '''
+
+    # Method dependencies
+    import pandas as pd
+    from glob import glob
+
+    # Set log format
+    logger = logging.getLogger('rotifer.db.ncbi')
+    logger.setLevel(logging.DEBUG)
+    logger.info(f'main: loading assembly reports...')
+
+    # Choose URL
+    if not baseurl:
+        baseurl = f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASSEMBLY_REPORTS'
+        if ('ROTIFER_DATA' in os.environ):
+            localdir = os.path.join(os.environ["ROTIFER_DATA"],"genomes","ASSEMBLY_REPORTS")
+            if os.path.exists(localdir) and glob(os.path.join(localdir,'assembly_summary_*.txt')):
+                baseurl = localdir
+
+    # Load assembly reports
+    assemblies = list()
+    for x in ['refseq', 'genbank', 'refseq_historical', 'genbank_historical']:
+        if os.path.exists(baseurl): # Local file
+            url = os.path.join(baseurl, f'assembly_summary_{x}.txt')
+            if not os.path.exists(url):
+                logger.warning(f'{__name__}: {url} not found. Ignoring...')
+                continue
+        else: # FTP
+            url = f'{baseurl}/assembly_summary_{x}.txt'
+        _ = pd.read_csv(url, sep ="\t", skiprows=[0])
+        _.rename({'# assembly_accession':'assembly_accession'}, axis=1, inplace=True)
+        _['source'] = x
+        _['loaded_from'] = url
+        assemblies.append(_)
+        logger.info(f'{__name__}: {url}, {len(_)} rows, {len(assemblies)} loaded')
+    assemblies = pd.concat(assemblies, ignore_index=True)
+
+    # Filter rows and columns in the assemblies dataframe
+    if ncbi.submit():
+        if query_type in assemblies.columns: # Exact match values in a column
+            assemblies = assemblies[assemblies[query_type].isin(ncbi.submit())]
+        else: # Query are logical statements
+            for query in ncbi.submit():
+                assemblies = assemblies.query(query)
+    if columns:
+        assemblies = assemblies.filter(columns)
+    ncbi.missing([ x for x in ncbi.submit() if x not in list(assemblies.assembly_accession) ])
+
+    # Return pandas object
+    logger.info(f'main: {len(assemblies)} assembly reports loaded!')
+    return assemblies
+
+# Load Identical Protein Reports
+def ipg(ncbi, fetch=['entrez'], verbose=False, *args, **kwargs):
+    '''
+    Retrieve NCBI's Identical Protein Reports (IPG).
+
+    Usage:
+      a = ncbi()
+      a.submit(['WP_028373859.1','WP_043290818.1','WP_082188481.1'])
+      b = a.read(method='ipg')
+
+    Parameters:
+      fetch   : how to download data (see rotifer.db.ncbi.fetch)
+      email   : e-mail to send to NCBI Entrez E-Utils site
+
+    Returns:
+      Pandas DataFrame or None
+    '''
+
+    # Method dependencies
+    import pandas as pd
+    from Bio import Entrez
+    Entrez.email = ncbi.email
+
+    # Set log format
+    logger = logging.getLogger('rotifer.db.ncbi')
+    logger.setLevel(logging.DEBUG)
+    logger.info(f'main: downloading IPG reports for {len(ncbi)} protein accessions...')
+    if len(ncbi.submit()) == 0:
+        return None
+
+    # Fetch using Epost+Efetch (recommended by NCBI but do we need it?)
+    handle = None
+    try:
+        request = Entrez.epost(db = 'protein', api_key = ncbi.api_key(), id = ",".join(ncbi.submit()))
+        result = Entrez.read(request)
+        handle = Entrez.efetch(db='protein', rettype='ipg', retmode='text', api_key=ncbi.api_key(),
+                                webenv=result['WebEnv'], query_key=result['QueryKey'])
+    except RuntimeError:
+        if verbose:
+            print(f'Epost+Efetch, {len(ncbi)} accessions. Runtime error: '+str(sys.exc_info()[1]), file=sys.stderr)
+    except:
+        if verbose:
+            print(f'Epost+Efetch, {len(ncbi)} accessions. Unexpected error: '+str(sys.exc_info()[0:2]), file=sys.stderr)
+
+    # Parse fetched IPG reports
+    cols = ['id','source','nucleotide','start','stop','strand','accession','description','organism','strain','assembly']
+    ipgs = pd.DataFrame()
+    found   = []
+    missing = ncbi.submit()
+    queries = missing
+    if handle:
+        ipgs = pd.read_csv(handle, sep='\t', names=cols, header=0).drop_duplicates()
+        found   = set([x for x in queries if x in ipgs['accession'].unique()])
+        missing = set([x for x in queries if x not in found])
+        handle.close() # Close Bio.Entrez _io.TextWrapper handle
+
+    # Report on progress
+    if verbose:
+        nipgs = 0 if ipgs.empty else len(ipgs)
+        print(f'Epost+Efetch, {nipgs} rows in IPG report, {len(found)} queries found, {len(missing)} missing accessions', file=sys.stderr)
+
+    # Try using Efetch directly!
+    nmissing = len(missing)
+    handle = None
+    try:
+        handle = Entrez.efetch(db='protein', rettype='ipg', retmode='text', api_key=ncbi.api_key(), id = ",".join(missing))
+    except RuntimeError:
+        if verbose:
+            print(f'Efetch: {len(queries)} queries, {nmissing} accessions. Runtime error: '+str(sys.exc_info()[1]), file=sys.stderr)
+    except:
+        if verbose:
+            print(f'Efetch: {len(queries)} queries, {nmissing} accessions. Unexpected error: '+str(sys.exc_info()[0:2]), file=sys.stderr)
+
+    # Merge Efetch results with Epost+Efetch results
+    if handle:
+        ipg = pd.read_csv(handle, sep='\t', names=cols, header=0).drop_duplicates()
+        if ipgs.empty:
+            ipgs = ipg
+        else:
+            ipgs = ipgs.append(ipg, ignore_index=True).drop_duplicates()
+        found   = set([x for x in queries if x in ipgs['accession'].unique()])
+        missing = set([x for x in queries if x not in found])
+        handle.close()
+
+    # Report progress
+    if verbose:
+        nipgs = 0 if ipgs.empty else len(ipgs)
+        print(f'Efetch: {nipgs} IPG rows fetched, {len(queries)} queries found, {len(missing)} missing accessions.', file=sys.stderr)
+
+    # Register query proteins and do some cleanup
+    ipgs['query'] = ipgs.accession.isin(queries).astype(int)
+    rep = ipgs.loc[ipgs['query'] == 1,['id','accession']].drop_duplicates('id', keep='first')
+    idmap = {k:v for k,v in zip(rep['id'].values, rep['accession'].values) }
+    ipgs['original'] = ipgs['id'].map(idmap)
+    ipgs = ipgs[ipgs['original'].notnull()] # Remove all IPGs that don't map to a query
+    ncbi.missing(missing) # Report missing queries!
+
+    return ipgs
+
+# Is this library being used as a script?
+if __name__ == '__main__':
+    pass
