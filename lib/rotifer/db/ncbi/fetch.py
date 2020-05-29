@@ -98,6 +98,43 @@ def ftp(ncbi, outdir=GlobalConfig['cache'], mode='r', concat=False, tempfile=Fal
     # Return pandas object
     return files
 
+def genomes(ncbi, outdir=GlobalConfig['cache'], assembly_reports=None, mode=False, concat=False, tempfile=False, delete=False):
+    '''
+    Download NCBI genomes from FTP site to local directory.
+
+    Usage:
+      a = ncbi(query=['GCF_900504695.1', 'GCF_004636045.1', 'GCF_902726645.1'])
+      p = a.fetch(method="genomes")
+
+    Returns:
+      One, if concat=True, or a list of file objects or file paths,
+      if mode=False
+
+    Parameters:
+      ncbi             : rotifer.db.ncbi.ncbi object
+      outdir           : output directory
+      assembly_reports : rotifer.db.ncbi.read.assembly_reports dataframe
+      mode             : set read mode ('r','rt','rb',etc) to open files
+
+        Note: if mode is set to False, files will not be 
+        open and, instead of file objects, fully qualified
+        paths to downloaded files will be returned.
+
+      concat   : return one rotifer.io.fileinput.FileInput object
+                 
+                 This option automatically decompresses gzip and
+                 bzip2 files.
+                 
+                 If True, implies mode='r'.
+
+                 If set to False, a list of files (mode=False) or
+                 file objects (mode='r') is returned
+
+      tempfile : avoid name collision with temporary files
+      delete   : files will be automatically removed when closed
+    '''
+    return ncbi.parse('genomes', assembly_reports=assembly_reports, outdir=outdir, parser=None, mode=mode, concat=concat, tempfile=tempfile, delete=delete)
+
 # Internal method to use when returning concatenated file
 # streams (handlers) with fileinput
 def hook_compressed_text(filename, mode='r', encoding='utf8'):

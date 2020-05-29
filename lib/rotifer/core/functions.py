@@ -351,7 +351,7 @@ def loadAPI(username = ''):
         pass
     return api_key
 
-def loadConfig(load='', user_path=os.path.join(GlobalConfig['user'],'etc'), system_path=os.path.join(GlobalConfig['base'],'etc/rotifer/')):
+def loadConfig(load=[], user_path=os.path.join(GlobalConfig['user'],'etc'), system_path=os.path.join(GlobalConfig['base'],'etc/rotifer/')):
     '''
     This routine loads data from a configuration file set by the user
     of from standard locations.
@@ -387,35 +387,41 @@ def loadConfig(load='', user_path=os.path.join(GlobalConfig['user'],'etc'), syst
 
     if load[0] != ":":
         if os.path.exists(load):
-            return yaml.load(open(load))
+            try:
+                return yaml.load(open(load))
+            except:
+                print(f'Error while parsing file {load}: {sys.exc_info[1]}', file=sys.stderr)
+                return {}
         else:
-            print("No such file load")
-            return None
+            print(f'File {load} not found.', file=sys.stderr)
+            return {}
 
     # Loading configuration from 
     expand_load = load.replace(':','')
-    user_local_config = ''
-    system_config = ''
 
-    try:
-        user_local_config = yaml_search(expand_load, user_path)
-    except:
-        user_local_config = ''
+    # User path
+    config = {}
+    if os.path.exists(user_path):
+        try:
+            config = yaml_search(expand_load, user_path)
+        except:
+            print(f'Error while parsing file {os.path.join(user_path,expand_load)}: {sys.exc_info[1]}', file=sys.stderr)
 
-    try:
-        system_config = yaml_search(expand_load, system_path)
-    except:
-        system_config = ''
+    # System path
+    system_config = {}
+    if not config and os.path.exists(system_path):
+        try:
+            config = yaml_search(expand_load, system_path)
+        except:
+            print(f'Error while parsing file {os.path.join(system_path,expand_load)}: {sys.exc_info[1]}', file=sys.stderr)
 
-    if user_local_config:
-        return user_local_config
-    else:
-        return system_config
+    # Return
+    return config
 
 def yaml_search(string,path):
     exts = ['.yml','.yaml','.config']
 
-    data = ''
+    data = {}
     ls = string.split('.')
     found = False
     while ls:
@@ -453,10 +459,7 @@ def yaml_search(string,path):
 
         # Move stack
         del ls[0]
-
-    # Did we find the last element in ls?
-    if not found:
-        data = None
+    #while ls:
 
     # Return
     return data

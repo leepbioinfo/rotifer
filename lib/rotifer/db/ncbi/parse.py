@@ -10,10 +10,14 @@ import Bio.SeqIO
 import pandas as pd
 
 # Rotifer libraries and data
+from rotifer.core    import GlobalConfig
 from rotifer.db.ncbi import NcbiConfig
 
 # Load NCBI genome assemblies
-def genomes(ncbi, parser=Bio.SeqIO.parse, parser_args=['genbank'], parser_kwargs={}, mode='r', concat=True, tempfile=True, delete=True, fetch=['ftp'], assembly_reports=None):
+def genomes(ncbi, parser=Bio.SeqIO.parse, parser_args=['genbank'],
+        parser_kwargs={}, outdir=GlobalConfig['cache'],
+        fetch=['ftp'], assembly_reports=None,
+        mode='r', concat=True, tempfile=True, delete=True):
     '''
     Load NCBI assembly reports from a local directory or FTP.
 
@@ -21,15 +25,20 @@ def genomes(ncbi, parser=Bio.SeqIO.parse, parser_args=['genbank'], parser_kwargs
       from rotifer.db.ncbi import ncbi
       a = ncbi()
       a.submit(['GCF_900504695.1', 'GCF_004636045.1', 'GCF_902726645.1'])
-      b = a.read(method='genomes', strategy=['ftp'])
+      b = a.parse(method='genomes', strategy=['ftp'])
 
     Parameters:
+      ncbi             : rotifer.db.ncbi object
       parser           : parser function (default: Bio.SeqIO.parse)
+      parser_args      : list of arguments to send to the parser (default: 'genbank')
+      parser_kwargs    : list of named arguments to be consumed by the parser
+      outdir           : where to store downloaded files
       concat           : (boolean) if True, return a single data stream
       tempfile         : avoid collision by adding a random string to file names
       delete           : if True, downloaded files are deleted when closed
       fetch            : list of rotifer.db.ncbi.fetch methods
-      assembly_reports : reuse preloaded assembly reports from pandas dataframe
+      assembly_reports : rotifer.db.ncbi.read.assembly_reports dataframe
+                         If not given, assembly reports are downloaded
 
     Returns:
       Whatever object the parser creates
@@ -57,7 +66,7 @@ def genomes(ncbi, parser=Bio.SeqIO.parse, parser_args=['genbank'], parser_kwargs
             if files:
                 ncbiObj = ncbiClass(query=files)
                 try:
-                    fh = ncbiObj.fetch(method='ftp', mode=mode, concat=concat, tempfile=tempfile, delete=delete)
+                    fh = ncbiObj.fetch(method='ftp', outdir=outdir, mode=mode, concat=concat, tempfile=tempfile, delete=delete)
                     if concat:
                         io.append(fh)
                     else:

@@ -3,7 +3,6 @@
 import os
 import sys
 import logging
-from rotifer.db.ncbi import NcbiConfig
 
 # Load NCBI assembly reports
 def assembly_reports(ncbi, columns=[], baseurl=None, query_type='assembly_accession', *args, **kwargs):
@@ -31,6 +30,7 @@ def assembly_reports(ncbi, columns=[], baseurl=None, query_type='assembly_access
     # Method dependencies
     import pandas as pd
     from glob import glob
+    from rotifer.db.ncbi import NcbiConfig
 
     # Set log format
     logger = logging.getLogger('rotifer.db.ncbi')
@@ -102,7 +102,7 @@ def ipg(ncbi, fetch=['entrez'], verbose=False, *args, **kwargs):
     Entrez.email = ncbi.email
 
     # Set log format
-    logger = logging.getLogger('rotifer.db.ncbi')
+    logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
     logger.info(f'main: downloading IPG reports for {len(ncbi)} protein accessions...')
     if len(ncbi.submit()) == 0:
