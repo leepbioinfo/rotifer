@@ -11,7 +11,7 @@ from rotifer.genome.data import NeighborhoodDF
 # Core class
 class database:
     '''
-    What define a genome block?
+    What defines a genome block?
         - nucleotide
         - type
         - start

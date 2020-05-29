@@ -3,15 +3,13 @@
 from datetime import datetime as dt
 import os
 import sys
-# import mdv
-import argparse
 from os.path import expanduser
 import yaml
 import warnings
 import signal
 import inspect
 import pandas as pd
-
+from rotifer.core import GlobalConfig
 warnings.filterwarnings("ignore")
 
 """
@@ -353,28 +351,49 @@ def loadAPI(username = ''):
         pass
     return api_key
 
-def loadConfig(load = '',
-        user_path = os.path.expanduser(os.path.join(*['~', '.rotifer', 'etc', 'rotifer'])),
-        system_path = os.path.join(os.path.realpath(os.path.join( os.path.abspath(__file__),
-                                                                 '..', '..','..', '..')), 'etc/rotifer/')
-               ):
+def loadConfig(load='', user_path=os.path.join(GlobalConfig['user'],'etc'), system_path=os.path.join(GlobalConfig['base'],'etc/rotifer/')):
     '''
-    load: Use ':' annotation
-    the first : indicates should read loadConfig,
-    the second: select a key
+    This routine loads data from a configuration file set by the user
+    of from standard locations.
 
-    It will check two folders:
-    The user folder
-    '.rotifer/config'
-    And the module folder
-    .../rotifer/config
-    After entering the config is parsed as directory hierarchy using dot annotation.
+    User-supplied qualified paths, such as load='./config.yml', are
+    accepted but this method is mostly useful when loading files from
+    the following standard locations:
+
+      1) The user folder ~/.rotifer/etc
+      2) The installation folder <rotifer installation path>/etc
+
+    If the load parameter starts with the prefix ':' and subdirectory
+    names are separated by dots ('.'), files will be loaded from the
+    standard locations.
+    
     Example:
-    ":db.pfam" => .../rotifer/config/db/pfam.yaml
-    '''
-    expand_load = load.replace(':','')
+    
+      load=":db.pfam"
+      
+    means
+    
+      ~/rotifer/etc/db/pfam.yaml
 
-    # Loading user configuration
+    if the user location above exists, or
+
+      <path to rotifer>/etc/pfam.yml
+    
+    if only the file from the rotifer installation directory exists.
+
+    Notice that files from the user standard location take precedence
+    over files under rotifer's installation path.
+    '''
+
+    if load[0] != ":":
+        if os.path.exists(load):
+            return yaml.load(open(load))
+        else:
+            print("No such file load")
+            return None
+
+    # Loading configuration from 
+    expand_load = load.replace(':','')
     user_local_config = ''
     system_config = ''
 
@@ -394,38 +413,55 @@ def loadConfig(load = '',
         return system_config
 
 def yaml_search(string,path):
-    ls = string.split('.')
+    exts = ['.yml','.yaml','.config']
+
     data = ''
-
+    ls = string.split('.')
+    found = False
     while ls:
+
+        # Check if any file or directory matches
         if os.path.isdir(path):
-            for ele in os.listdir(path):
-                if ls[0] in ele:
-                    path = os.path.join(path, ele)
-        if path.endswith('yaml') or path.endswith('yml') or path.endswith('config'):
-            if os.path.isfile(path):
-                if not data:
-                    data = yaml.load(open(path))
+            contents = os.listdir(path)
+            targets = [ ls[0] + x for x in exts ]
+            targets.append(ls[0])
+            for target in targets: # Search order: exts, ls[0] (directory)
+                if target in contents:
+                    path = os.path.join(path, target)
+                    break
 
-                if isinstance(data, dict):
-                    if ls[0] in data.keys():
-                        data = data[ls[0]]
+        # Load matching file that matches an extension
+        if os.path.isfile(path) and [x for x in exts if path.endswith(x)]:
+            if not data:
+                data = yaml.load(open(path))
+                if len(ls) == 1:
+                    found = True # Leaf node is a file
 
-                elif isinstance(data,list):
-                    try:
-                        data = data[int(ls[0])]
-                    except:
-                        pass
+            # Search for matching elements in data
+            if isinstance(data, dict):
+                if ls[0] in data.keys():
+                    data = data[ls[0]]
+                    if len(ls) == 1:
+                        found = True
+            elif isinstance(data,list):
+                try:
+                    data = data[int(ls[0])]
+                    if len(ls) == 1:
+                        found = True
+                except:
+                    pass
 
+        # Move stack
         del ls[0]
 
+    # Did we find the last element in ls?
+    if not found:
+        data = None
+
+    # Return
     return data
 
-
-def loadClasses(load,
-        user_path = os.path.expanduser(os.path.join(*['~', '.rotifer', 'etc', 'rotifer'])),
-        system_path = os.path.join(os.path.realpath(os.path.join( os.path.abspath(__file__),
-                                                                 '..', '..','..', '..')), 'etc/rotifer')):
+def loadClasses(load, user_path=os.path.join(GlobalConfig['user'],'lib'), system_path=os.path.join(GlobalConfig['base'],'lib','rotifer')):
     '''
     This function list all classes and methods
     The main problem is the import

@@ -93,9 +93,16 @@ if (scalar(@$Header1) || scalar(@$Header2)) {
     }
 
     # Print header
+    #print join($CONFIG->output_delimiter,
+    #       map {
+    #	   $Length->[$_] = (!defined($Length->[$_]) || $Length->[$_] < length_in_graphemes($header[$_] || ''))
+    #	   ? length_in_graphemes($header[$_] || '') : $Length->[$_];
+    #	   pad($CONFIG, $Length->[$_], $Length->[$_])
+    #       } 0..$#header),"\n";
     print join($CONFIG->output_delimiter,
 	       map {
-		   $Length->[$_] = (!defined($Length->[$_]) || $Length->[$_] < length_in_graphemes($header[$_] || '')) ? length_in_graphemes($header[$_] || '') : $Length->[$_];
+		   $Length->[$_] = (!defined($Length->[$_]) || $Length->[$_] < length_in_graphemes($header[$_] || ''))
+		   ? length_in_graphemes($header[$_] || '') : $Length->[$_];
 		   pad($CONFIG, $Length->[$_], $header[$_])
 	       } 0..$#header),"\n";
 } # if (scalar(@$Header1) || scalar(@$Header2))
@@ -254,7 +261,7 @@ sub hashJoin {
 
 sub length_in_graphemes {
     my $word = shift;
-    my $length = () = $word =~ m/\X/g;
+    my $length = () = $word =~ m/(\X)/g;
     return $length;
 }
 
