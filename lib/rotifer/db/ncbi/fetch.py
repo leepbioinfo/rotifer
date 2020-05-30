@@ -9,7 +9,7 @@ from rotifer.core import GlobalConfig
 from rotifer.db.ncbi import NcbiConfig
 
 # Load NCBI assembly reports
-def ftp(ncbi, outdir=GlobalConfig['cache'], mode='r', concat=False, tempfile=False, delete=False):
+def ftp(ncbi, outdir=GlobalConfig['cache'], mode='r', concat=False, tempfile=False, delete=False, *args, **kwargs):
     '''
     Download data from NCBI's FTP site
 
@@ -98,7 +98,7 @@ def ftp(ncbi, outdir=GlobalConfig['cache'], mode='r', concat=False, tempfile=Fal
     # Return pandas object
     return files
 
-def genomes(ncbi, outdir=GlobalConfig['cache'], assembly_reports=None, mode=False, concat=False, tempfile=False, delete=False):
+def genomes(ncbi, outdir=GlobalConfig['cache'], assembly_reports=None, mode=False, concat=False, tempfile=False, delete=False, *args, **kwargs):
     '''
     Download NCBI genomes from FTP site to local directory.
 
@@ -133,7 +133,7 @@ def genomes(ncbi, outdir=GlobalConfig['cache'], assembly_reports=None, mode=Fals
       tempfile : avoid name collision with temporary files
       delete   : files will be automatically removed when closed
     '''
-    return ncbi.parse('genomes', assembly_reports=assembly_reports, outdir=outdir, parser=None, mode=mode, concat=concat, tempfile=tempfile, delete=delete)
+    return ncbi.parse('genomes', assembly_reports=assembly_reports, outdir=outdir, parser=None, mode=mode, concat=concat, tempfile=tempfile, delete=delete, *args, **kwargs)
 
 # Internal method to use when returning concatenated file
 # streams (handlers) with fileinput

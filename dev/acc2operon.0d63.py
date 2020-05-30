@@ -326,17 +326,17 @@ def long_routine(queries, df_accs, df_accs2, verbose, progress, position, thread
     missing_accessions = ncbi.missing()
     ipgs = ipgs.fillna('N/A')
     ipgs['assembly_modified'] = ipgs.apply(lambda x: x.assembly if x.assembly != 'N/A' else x.nucleotide, 1)
-    if isinstance(ipgs['original'].values[0], np.float64):
+    if isinstance(ipgs['representative'].values[0], np.float64):
         sys.stderr.write('No results\n')
         sys.exit()
 
     # Best genomes from last hit?
     first_ocurrence = ipgs[(ipgs['query'] == 1) & (ipgs['nucleotide'] != 'N/A')]
-    first_ocurrence = first_ocurrence.drop_duplicates(['original'], keep='first')
-    second_case = ipgs[(ipgs['original'].isin(first_ocurrence['original'].values)) & (ipgs['assembly_modified'].isin(first_ocurrence['assembly_modified'].values))]
+    first_ocurrence = first_ocurrence.drop_duplicates(['representative'], keep='first')
+    second_case = ipgs[(ipgs['representative'].isin(first_ocurrence['representative'].values)) & (ipgs['assembly_modified'].isin(first_ocurrence['assembly_modified'].values))]
 
     # Hit2
-    r2 = ipgs[~( ipgs['original'].isin(first_ocurrence['accession'].values) )]
+    r2 = ipgs[~( ipgs['representative'].isin(first_ocurrence['accession'].values) )]
     r2 = r2.replace('N/A', 'No nucleotide')
     r2 = r2[r2['assembly_modified'] != 'No nucleotide']
 
@@ -410,14 +410,14 @@ def long_routine(queries, df_accs, df_accs2, verbose, progress, position, thread
         df_accs = pd.concat([df_accs, df2get])
 
     # Insert into Database raw table
-    df_accs_all = ipgs[['id', 'accession', 'assembly', 'nucleotide', 'original', 'assembly_modified']] # copy for all accs
+    df_accs_all = ipgs[['id', 'accession', 'assembly', 'nucleotide', 'representative', 'assembly_modified']] # copy for all accs
     df_accs_all = df_accs_all[df_accs_all['assembly_modified'] != 'N/A']
     if df_accs2.empty:
-        df_accs2 = df_accs_all[['acc', 'original', 'nucleotide']]
-        df_accs2['original'] = df_accs2['original'].astype('category')
+        df_accs2 = df_accs_all[['acc', 'representative', 'nucleotide']]
+        df_accs2['representative'] = df_accs2['representative'].astype('category')
     else:
-        _ = df_accs_all[['acc', 'original', 'nucleotide']]
-        _['original'] = _['original'].astype('category')
+        _ = df_accs_all[['acc', 'representative', 'nucleotide']]
+        _['representative'] = _['representative'].astype('category')
         df_accs2 = pd.concat([df_accs2, _])
 
     return (df_accs, df_accs2)
@@ -858,7 +858,7 @@ def block_intervals(accs = '', above = 3, below = 3,
                 print_header = False
             header = 'nucleotide start end strand block_id query pid type plen locus seq_type assembly gene modified product organism classification'.split()
             try:
-                dc = {k:v for k,v in zip(original_acc['acc'].values, original_acc['original'].values)}
+                dc = {k:v for k,v in zip(original_acc['acc'].values, original_acc['representative'].values)}
                 sub_df['modified'] = sub_df['pid'].map(lambda x: dc[x] if x in dc.keys() else '.')
                 sub_df['modified'] = sub_df.apply(lambda x:'.' if x['pid'] == x['modified'] else x['modified'],1 )
             except:
@@ -1135,7 +1135,7 @@ if __name__ == '__main__':
 
                     left_group +=1
                     try:
-                        original = df_ann[df_ann['nucleotide'] == nucleotide][['acc', 'original']]
+                        original = df_ann[df_ann['nucleotide'] == nucleotide][['acc', 'representative']]
 
                         block_id = block_intervals(accs = accs_in_db, above = above, below = below, block_id = block_id, of = outformat,
                                              conn = conn,
@@ -1154,7 +1154,7 @@ if __name__ == '__main__':
                 for nucleotide, nuc_asm in (nucleotide_in_db):
                     left_group +=1
                     try:
-                        original = df_ann[df_ann['nucleotide'] == nucleotide][['acc', 'original']]
+                        original = df_ann[df_ann['nucleotide'] == nucleotide][['accession','representative']]
 
                         block_id = block_intervals(accs = accs_in_db, above = above, below = below, block_id = block_id, of = outformat,
                                              conn = conn,

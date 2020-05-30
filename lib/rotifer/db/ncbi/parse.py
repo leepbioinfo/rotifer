@@ -16,8 +16,8 @@ from rotifer.db.ncbi import NcbiConfig
 # Load NCBI genome assemblies
 def genomes(ncbi, parser=Bio.SeqIO.parse, parser_args=['genbank'],
         parser_kwargs={}, outdir=GlobalConfig['cache'],
-        fetch=['ftp'], assembly_reports=None,
-        mode='r', concat=True, tempfile=True, delete=True):
+        fetch=['ftp'], assembly_reports=None, mode='r',
+        concat=True, tempfile=True, delete=True, *args, **kwargs):
     '''
     Load NCBI assembly reports from a local directory or FTP.
 
