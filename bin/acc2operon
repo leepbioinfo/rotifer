@@ -407,7 +407,8 @@ def long_routine(sub, gbks_folder, df_accs, df_accs2, verbose, progress, positio
             ipg = pd.read_csv(handle, sep='\t', usecols=['Id','Nucleotide Accession','Protein','Assembly'])
             ipg.columns = ['id', 'nucleotide', 'acc', 'assembly']
             queries = ipg[ipg['acc'].isin(sub)].drop_duplicates('id')
-            verbose_msg(f'Efetch, Batch {position}, attempt {tries}, {nmissing} accessions, IPG rows: '+str(len(ipg)))
+            if verbose:
+                verbose_msg(f'Efetch, Batch {position}, attempt {tries}, {nmissing} accessions, IPG rows: '+str(len(ipg)))
             idmap.update({k:v for k,v in zip(queries['id'].values, queries['acc'].values) if k not in idmap}) # Keep only last acc for each IPG
             ipg['original'] = ipg['id'].map(idmap)
             ipg = ipg[ipg['original'].notnull()]
@@ -1168,7 +1169,6 @@ if __name__ == '__main__':
             #
             # client.execute(f'''CREATE TABLE rotifer.{table_name} (acc String, assembly String, nucleotide String, original String, asm_modified String)
             #                ENGINE = MergeTree ORDER BY (original)''')
-
             click = clickhouse(table_name = 'genomes')
             conn = click.conn
 
@@ -1346,14 +1346,12 @@ if __name__ == '__main__':
                 client.execute(f'drop table rotifer.{table_name}')
             except:
                 pass
-
             try:
                 if verbose:
                     verbose_msg('Cleaning cache')
                 gbks_folder = os.path.join(db, 'gbff')
                 for gb in os.listdir(gbks_folder):
                     os.remove(os.path.join(gbks_folder, gb))
-
             except:
                 pass
             try:
@@ -1361,3 +1359,4 @@ if __name__ == '__main__':
                     sys.stderr.write(args.fun.fun)
             except:
                 pass
+

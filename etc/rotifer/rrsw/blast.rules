@@ -1,6 +1,6 @@
 # Add subdirectories
 + /db/
-# + /db/FASTA
+#+ /db/FASTA
 #+ /db/cloud/
 #+ /db/cloud/LATEST
 #+ /db/cloud/v5/
@@ -9,18 +9,21 @@
 + /documents/
 
 # Choose files
+#+ /db/FASTA/pdbaa.gz
 #+ /db/FASTA/nr.gz
 #+ /db/FASTA/env_nr.gz
-+ /db/blastftp.txt
-+ /db/cdd_delta.tar.gz*
-+ /db/env_nr*.tar.gz*
+#+ /db/blastftp.txt
+#+ /db/env_*.tar.gz*
+- /db/ref_euk_rep_genomes*
+- /db/refseq_protein*
+- /db/refseq_rna*
 
 # Exclude other itens
-#- /db/cloud/LATEST/nr.nal
-#- /db/cloud/v5/*
-#- /db/cloud/*
-# - /db/FASTA/*
-- /db/*
+- /db/v5
+- /db/v4
+- /db/cloud
+#- /db/FASTA/*
+#- /db/*
 
 # Exclude any other directories at the source
 - /*

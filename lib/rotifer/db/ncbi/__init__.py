@@ -114,7 +114,7 @@ class ncbi:
             print("No NCBI API key found! Set environment variable NCBI_API_KEY or add your key to ~/.rotifer/db/ncbi.yml.")
             exit(1)
 
-    def submit(self, target=[], replace=True):
+    def submit(self, target=None, replace=True):
         '''
         Register, update or get the list of queries
 
@@ -122,21 +122,19 @@ class ncbi:
           target  : list of queries
           replace : reset list if True, extend if False
         '''
-        if target:
-            if isinstance(target,set):
-                target = list(target)
-            elif not isinstance(target,list):
-                target = [ target ]
-            if replace:
-                self.__query   = target
-                self.__missing = [] # List of missing targets
-            else:
-                self.__query.extend(target)
-            return None
-        else:
+        if target == None:
             return self.__query
+        elif isinstance(target,set):
+            target = list(target)
+        elif not isinstance(target,list):
+            target = [ target ]
+        if replace:
+            self.__query   = target
+            self.__missing = [] # List of missing targets
+        else:
+            self.__query.extend(target)
 
-    def missing(self, target=[], replace=True):
+    def missing(self, target=None, replace=True):
         '''
         Get or set list of missing queries.
         The list of missing targets is usually update internally.
@@ -145,16 +143,16 @@ class ncbi:
           target  : list of missing queries
           replace : reset list if True, extend if False
         '''
-        if target:
-            if isinstance(target,set):
-                target = list(target)
-            elif not isinstance(target,list):
-                target = [ target ]
-            if replace:
-                self.__missing = target
-            else:
-                self.__missing.extend(target)
-        return self.__missing
+        if target == None:
+            return self.__missing
+        elif isinstance(target,set):
+            target = list(target)
+        elif not isinstance(target,list):
+            target = [ target ]
+        if replace:
+            self.__missing = target
+        else:
+            self.__missing.extend(target)
 
     def read(self, method=[], concat=True, *args, **kwargs):
         '''

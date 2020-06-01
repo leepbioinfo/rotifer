@@ -114,13 +114,6 @@ sub _default_executable {
 sub execute {
     my ($self, $source, $unpack) = @_;
 
-    # Unpack first
-    $self->next::method($source, $unpack);
-
-    # Format unpacked databases
-    mkdir($unpack) if ( ! -d $unpack );
-    chdir($unpack);
-
     # Detect appropriate executables
     my $blastdbcmd = $self->executable->{'blastdbcmd'};
     die "Could not locate blastdbcmd. You need to install the NCBI's C++ Toolkit or BLAST++."
@@ -128,6 +121,13 @@ sub execute {
     my $eslsfetch = $self->executable->{'esl-sfetch'};
     die "Could not locate esl-sfetch. You should install HMMER with the configure flag --with-easel."
 	unless (defined $eslsfetch);
+
+    # Unpack first
+    $self->next::method($source, $unpack);
+
+    # Format unpacked databases
+    mkdir($unpack) if ( ! -d $unpack );
+    chdir($unpack);
 
     # Process options
     my @exclude = @{$self->options->{'exclude'}} if (exists $self->options->{'exclude'});

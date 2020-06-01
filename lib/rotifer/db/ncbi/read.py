@@ -3,6 +3,7 @@
 import os
 import sys
 import logging
+from rotifer.db.ncbi import NcbiConfig
 
 # Load NCBI assembly reports
 def assembly_reports(ncbi, baseurl=None, columns=[], query_type='assembly_accession', *args, **kwargs):
@@ -35,7 +36,6 @@ def assembly_reports(ncbi, baseurl=None, columns=[], query_type='assembly_access
     # Method dependencies
     import pandas as pd
     from glob import glob
-    from rotifer.db.ncbi import NcbiConfig
 
     # Set log format
     logger = logging.getLogger('rotifer.db.ncbi')
@@ -98,8 +98,9 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, *args, **
       Pandas DataFrame
 
     Parameters:
-      fetch   : how to download data (see rotifer.db.ncbi.fetch)
-      email   : e-mail to send to NCBI Entrez E-Utils site
+      fetch            : how to download data (see rotifer.db.ncbi.fetch)
+      assembly_reports : assembly reports dataframe to set genome priority
+                         If set to True, the data is downloaded
     '''
 
     # Method dependencies
@@ -117,36 +118,37 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, *args, **
     # Backup and check queries
     queries = ncbi.submit()
     if len(queries) == 0:
-        return pd.DataFrame(columns=[*cols, 'is_query', 'reference'])
+        return pd.DataFrame(columns=[*cols, 'is_query', 'representative'])
     if verbose:
         print(f'{__name__}: searching {len(ncbi)} accessions...', file=sys.stderr)
 
     # Fetch using Epost+Efetch (recommended by NCBI but do we need it?)
-    handle = None
-    try:
-        request = Entrez.epost(db = 'protein', api_key = ncbi.api_key(), id = ",".join(queries))
-        result = Entrez.read(request)
-        handle = Entrez.efetch(db='protein', rettype='ipg', retmode='text', api_key=ncbi.api_key(),
-                                webenv=result['WebEnv'], query_key=result['QueryKey'])
-    except RuntimeError:
-        if verbose:
-            print(f'Epost+Efetch, {len(ncbi)} accessions. Runtime error: '+str(sys.exc_info()[1]), file=sys.stderr)
-    except:
-        if verbose:
-            print(f'Epost+Efetch, {len(ncbi)} accessions. Unexpected error: '+str(sys.exc_info()[0:2]), file=sys.stderr)
-
-    # Parse fetched IPG reports
+    handle  = None
     missing = queries
     found   = []
-    if handle:
-        ipgs = pd.read_csv(handle, sep='\t', names=cols, header=0).drop_duplicates()
-        found   = set([x for x in queries if x in ipgs['accession'].unique()])
-        missing = set([x for x in queries if x not in found])
-        handle.close() # Close Bio.Entrez _io.TextWrapper handle
+    if len(queries) > 50:
+        try:
+            request = Entrez.epost(db = 'protein', api_key = ncbi.api_key(), id = ",".join(queries))
+            result = Entrez.read(request)
+            handle = Entrez.efetch(db='protein', rettype='ipg', retmode='text', api_key=ncbi.api_key(),
+                                    webenv=result['WebEnv'], query_key=result['QueryKey'])
+        except RuntimeError:
+            if verbose:
+                print(f'Epost+Efetch, {len(ncbi)} accessions. Runtime error: '+str(sys.exc_info()[1]), file=sys.stderr)
+        except:
+            if verbose:
+                print(f'Epost+Efetch, {len(ncbi)} accessions. Unexpected error: '+str(sys.exc_info()[0:2]), file=sys.stderr)
 
-    # Report on progress
-    if verbose:
-        print(f'Epost+Efetch, {len(ipgs)} rows in IPG report, {len(found)} queries found, {len(missing)} missing accessions', file=sys.stderr)
+        # Parse fetched IPG reports
+        if handle:
+            ipgs = pd.read_csv(handle, sep='\t', names=cols, header=0).drop_duplicates()
+            found   = set([x for x in queries if x in ipgs['accession'].unique()])
+            missing = set([x for x in queries if x not in found])
+            handle.close() # Close Bio.Entrez _io.TextWrapper handle
+
+        # Report on progress
+        if verbose:
+            print(f'Epost+Efetch, {len(ipgs)} rows in IPG report, {len(found)} queries found, {len(missing)} missing accessions', file=sys.stderr)
 
     # Try using Efetch directly!
     if missing:
@@ -175,47 +177,58 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, *args, **
         if verbose:
             print(f'Efetch: {len(ipgs)} IPG rows fetched, {len(found)} queries found, {len(missing)} missing accessions.', file=sys.stderr)
 
+    # Filter error messages
+    ipgs = ipgs[~ipgs.id.apply(lambda x: 'Cannot determine Ipg for accession' in str(x))]
+    if ipgs.empty:
+        ncbi.missing(missing)
+        return pd.DataFrame(columns=[*cols, 'is_query', 'representative'])
+
     # Register query proteins
     ipgs['is_query'] = ipgs.accession.isin(queries).astype(int)
 
     # Process batches of different sizes
     if len(queries) == 1: # One query
         if not ipgs.empty:
-            if not found:
-                ipgs.loc[0,'is_query'] = 1
-            ipgs['reference'] = queries[0]
-            ncbi.missing([])
-        else:
-            ncbi.missing(missing)
-        return ipgs
+            ipgs['representative'] = queries[0]
 
-    # Register query proteins
+    # More than one query?
     else:
+        #  Register first query protein as representative
         rep = ipgs.loc[ipgs['is_query'] == 1,['id','accession']].drop_duplicates('id', keep='first')
         idmap = {k:v for k,v in zip(rep['id'].values, rep['accession'].values) }
-        ipgs['reference'] = ipgs['id'].map(idmap)
+        ipgs['representative'] = ipgs['id'].map(idmap)
 
-        # More than one query? Remove all IPGs with no known query
-        ipgs = ipgs[ipgs['reference'].notnull()] 
+        # Remove all IPGs that have no representative
+        ipgs = ipgs[ipgs['representative'].notnull()]
 
-    # Still missing accessions? Let's try to fetch each one at a time...
-    if len(missing) > 0:
-        for lost in missing:
-            ncbi.submit(lost)
-            ipg = ncbi.read('ipg', fetch=fetch, assembly_reports=assembly_reports, verbose=verbose)
-            if ipgs.empty:
-                ipgs = ipg
-            else:
-                ipgs = ipgs.append(ipg, ignore_index=True).drop_duplicates()
-        ncbi.submit(queries)
+        # Multiple queries and still missing some? Let's try to fetch one at a time...
+        if len(missing) > 0:
+            for lost in missing:
+                ncbi.submit(lost)
+                ipg = ncbi.read('ipg', fetch=fetch, verbose=verbose)
+                if ipgs.empty:
+                    ipgs = ipg
+                else:
+                    ipgs = ipgs.append(ipg, ignore_index=True).drop_duplicates()
+            ncbi.submit(queries) # Reset query list
 
-    # Filter error message, set id to numeric and update list of missing queries
-    ipgs = ipgs[~ipgs.id.apply(lambda x: 'Cannot determine Ipg for accession' in str(x))]
-    ipgs['id'] = pd.to_numeric(ipgs.id)
-    missing = set([x for x in queries if x not in ipgs.accession.append(ipgs.reference).unique()])
+    # Set id to numeric and update list of missing queries
+    if not ipgs.empty:
+        ipgs['id'] = pd.to_numeric(ipgs.id)
+    missing = set([x for x in queries if x not in ipgs.accession.append(ipgs.representative).unique()])
     ncbi.missing(missing)
     if verbose:
+        found = set([x for x in queries if x not in missing])
         print(f'{__name__}: {len(ipgs)} IPG rows fetched, {len(found)} queries found, {len(missing)} missing accessions.', file=sys.stderr)
+
+    # Use assembly_reports to set priority
+    if isinstance(assembly_reports,pd.DataFrame) or assembly_reports == True:
+        col = ['assembly_accession','bioproject','biosample','refseq_category','taxid','species_taxid',
+                'version_status','assembly_level','release_type','genome_rep','seq_rel_date','source']
+        if not isinstance(assembly_reports,pd.DataFrame):
+            url = f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASSEMBLY_REPORTS'
+            assembly_reports = type(ncbi)(query=list(ipgs[~ipgs.assembly.isna()].assembly.unique())).read('assembly_reports', baseurl=url, columns=col)
+        ipgs = ipgs.merge(assembly_reports[col], left_on='assembly', right_on='assembly_accession', how='left')
 
     return ipgs
 

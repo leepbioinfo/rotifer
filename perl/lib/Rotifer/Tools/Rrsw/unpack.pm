@@ -190,6 +190,46 @@ sub BUILD {
     #use Data::Dump qw(dump); die dump($self->options);
 }
 
+sub _compile {
+  my @FILTERS = ();
+  foreach (@_) {
+      my $userdir = Rotifer->userdir;
+      my $sysdir = Rotifer->sysdir;
+      my $ref = $_;
+      my $rule = $_;
+      if ( -f "$userdir/lib/rrsw/$rule" ) {
+          $rule = "$userdir/lib/rrsw/$rule";
+      } elsif ( -f "$sysdir/lib/rotifer/rrsw/$rule" ) {
+          $rule = "$sysdir/lib/rotifer/rrsw/$rule";
+      }
+      if ($rule =~ /.sh$/) { # Shell script!
+          $ref = $rule;
+      } else {
+          if (-f "$rule") {
+              open(RULE,"<$rule") || die "Could not load rules from file $rule";
+              $ref = join(" ",map { chomp; $_ } grep { !/^\#/ } <RULE>);
+              close(RULE);
+          }
+	  $ref = eval "$ref";
+          die "Error while compiling output filter $rule\n$@" if ($@);
+      } 
+      push(@FILTERS, $ref);
+  }
+  return @FILTERS
+}
+
+sub _run_shell_script {
+  my ($self, $source, $unpack, $command, $i) = @_;
+  use IPC::Run qw(run);
+  my $stdout = undef;
+  my $stderr = undef;
+  my $exitcode = run([ $command, $self->test, $source, $unpack ], \undef, \$stdout, \$stderr);
+  $exitcode = $exitcode >> 8;
+  print "EXTERNAL stdout $i:\n$stdout" if (defined $stdout && length $stdout);
+  print "EXTERNAL stderr $i:\n$stderr" if (defined $stderr && length $stderr);
+  return($stdout, $stderr, $exitcode);
+}
+
 =head2 execute
 
  Title   : execute
@@ -203,15 +243,21 @@ sub BUILD {
 sub execute {
     my ($self, $source, $unpack) = @_;
 
+    # Process callback processsors
+    my @callback = ();
+    if (exists $self->options->{'callback'}) {
+        @callback = _compile(@{$self->options->{'callback'}});
+    }
+
     # Prepare to work in a temporary directory
     my $tmpdir;
     unless ($self->test) {
 	mkdir($unpack) if ( ! -e $unpack );
-	chdir($unpack);
+	chdir(dirname($unpack));
 	$tmpdir = tempdir(".".$self->target.".XXXXXXXX");
 	chdir($tmpdir);
-	map { mkdir($_) } qw(new old);
-	chdir("new");
+	#map { mkdir($_) } qw(new old);
+	#chdir("new");
     }
 
     # Unpack everything here
@@ -223,20 +269,50 @@ sub execute {
     }
     map { $self->unpack_each($source, $_) } @source;
 
+    # Call callback function to process files
+    if (scalar @callback) {
+	# Running Perl callback functions
+        my @code = grep { ref($_) eq "CODE" } @callback;
+	if (scalar @code) {
+            find({ no_chdir => 1,
+                   wanted   => sub {
+                      if ($File::Find::name ne ".") {
+                          foreach my $method (@code) {
+                             $method->($self, $source, $unpack);
+                          }
+                      }
+                  }
+              }, $self->test ? $unpack : ".");
+        }
+
+	# Running external shell scripts
+	my $i = 0;
+	my @scripts = grep { $_ =~ /\.sh$/ } @callback;
+	foreach my $script (@scripts) {
+	   _run_shell_script($self, $source, $unpack, $script, $i);
+	   $i++;
+        }
+    }
+
     # Move new files to $unpack almost atomically. TODO: make it atomic (File::Transaction::Atomic?)
     unless ($self->test) {
-	foreach my $patt ("*",".*") {
-	    foreach my $unpacked (grep { !/^\.+$/ } glob($patt)) {
-		if ( -e "$unpack/$unpacked" ) {
-		    my $success = rename("$unpack/$unpacked","../old/$unpacked");
-		    croak "can't replace file/directory $unpack/$unpacked" if (!$success);
-		}
-		my $success = rename($unpacked,"$unpack/$unpacked");
-		croak "can't replace file/directory $unpack/$unpacked" if (!$success);
-	    }
-	}
-	chdir($unpack);
-	remove_tree($tmpdir);
+    #	foreach my $patt ("*",".*") {
+    #	    foreach my $unpacked (grep { !/^\.+$/ } glob($patt)) {
+    #		if ( -e "$unpack/$unpacked" ) {
+    #		    my $success = rename("$unpack/$unpacked","../old/$unpacked");
+    #		    croak "can't replace file/directory $unpack/$unpacked" if (!$success);
+    #		}
+    #		my $success = rename($unpacked,"$unpack/$unpacked");
+    #		croak "can't replace file/directory $unpack/$unpacked" if (!$success);
+    #	    }
+    #	}
+    #	remove_tree($tmpdir);
+        use POSIX 'strftime';
+        my $date = strftime '%Y%m%d_%H%M', localtime;
+        chdir(dirname($unpack));
+	sleep 60 if ( -d "${unpack}.$date" );
+        rename($unpack,"${unpack}.$date");
+        rename($tmpdir,$unpack);
     }
 
     chdir($Rotifer::IWD);
