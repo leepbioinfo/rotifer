@@ -41,7 +41,6 @@ source /home/linuxbrew/.linuxbrew.sh
 # Prepare FASTA files for esl-sfetch
 base=$(dirname $DEST_DIR)
 if [ ! -d "$base/fadb"   ]; then run_or_show mkdir -p "$base/fadb"; fi
-if [ -d db/FASTA ] ;
 for f in $(\ls -1 db/FASTA/* 2> /dev/null | grep -Fv 'db/FASTA/*' | grep -v '\.md5$' | grep -v '\.ssi$' | grep -v '\.p..$')
 do
 	target=$(basename $f)
