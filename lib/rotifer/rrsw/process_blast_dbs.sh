@@ -55,7 +55,7 @@ do
 done
 
 # Link databases!
-if [ "$(\ls db/FASTA | grep -E '\.p..$')" != "" ]; then run_or_show ln -s db/FASTA/*.p?? .; fi
+#if [ -d db/FASTA ] && [ "$(\ls db/FASTA | grep -E '\.p..$')" != "" ]; then run_or_show ln -s db/FASTA/*.p?? .; fi
 if [   -d "$base/freeze" ]; then run_or_show  ln -s $base/freeze .; fi
 
 ### END OF VARIABLE SECTION: your code ends here!
