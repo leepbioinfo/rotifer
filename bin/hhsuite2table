@@ -45,7 +45,6 @@ def hhsuite2pandas(args):
     for c in args.columns: data[c] = []
 
     # Column name to hhr_alignment attribute or lambda function
-    hcov = (x.end[1] - x.start[1] + 1) / x.template_length if x.template_length > 0 else 0
     col2attr = { 
             'query':  'query_id',
             'hit':    'template_id',
@@ -57,7 +56,7 @@ def hhsuite2pandas(args):
             'qlen':   'query_length',
             'qalilen': lambda x: x.end[0] - x.start[0] + 1,
             'hlen':   'template_length',
-            'hcov':   lambda x: (x.end[1] - x.start[1] + 1) / x.template_length,
+            'hcov':   lambda x: (x.end[1] - x.start[1] + 1) / x.template_length if x.template_length > 0 else 0
             }
 
     # Transfer data from hhr_alignment's list of tuples to a dictionary of lists
