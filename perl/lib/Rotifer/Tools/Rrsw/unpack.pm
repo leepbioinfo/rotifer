@@ -219,15 +219,11 @@ sub _compile {
 }
 
 sub _run_shell_script {
-  my ($self, $source, $unpack, $command, $i) = @_;
+  my ($self, $source, $unpack, $command) = @_;
   use IPC::Run qw(run);
-  my $stdout = undef;
-  my $stderr = undef;
-  my $exitcode = run([ $command, $self->test, $source, $unpack ], \undef, \$stdout, \$stderr);
+  my $exitcode = run([ $command, $self->test, $source, $unpack ]);
   $exitcode = $exitcode >> 8;
-  print "EXTERNAL stdout $i:\n$stdout" if (defined $stdout && length $stdout);
-  print "EXTERNAL stderr $i:\n$stderr" if (defined $stderr && length $stderr);
-  return($stdout, $stderr, $exitcode);
+  return $exitcode;
 }
 
 =head2 execute
@@ -251,7 +247,9 @@ sub execute {
 
     # Prepare to work in a temporary directory
     my $tmpdir;
-    unless ($self->test) {
+    if ($self->test) {
+        chdir($unpack)
+    } else {
 	mkdir($unpack) if ( ! -e $unpack );
 	chdir(dirname($unpack));
 	$tmpdir = tempdir(".".$self->target.".XXXXXXXX");
@@ -339,7 +337,7 @@ sub unpack_each {
     my $basename = basename($file, $ext || "");
 
     # For all methods but tar
-    if (!defined $cmd || $cmd ne "tar") {
+    if (!defined $cmd || $cmd ne "tar") { # Why do I ignore tar?
 	my $dir = dirname($file);
 	unless ("$dir/" eq $source || $dir eq $source) {
 	    $dir =~ s|^${source}/?||;

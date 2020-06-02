@@ -45,6 +45,7 @@ def hhsuite2pandas(args):
     for c in args.columns: data[c] = []
 
     # Column name to hhr_alignment attribute or lambda function
+    hcov = (x.end[1] - x.start[1] + 1) / x.template_length if x.template_length > 0 else 0
     col2attr = { 
             'query':  'query_id',
             'hit':    'template_id',
