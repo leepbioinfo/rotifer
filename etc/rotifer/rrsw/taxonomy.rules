@@ -4,4 +4,4 @@
 - *.md5
 - *.zip
 - /.tmp
-- /new_taxdump/.tmp
+- /new_taxdump

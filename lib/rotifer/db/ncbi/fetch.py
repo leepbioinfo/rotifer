@@ -75,7 +75,14 @@ def ftp(ncbi, outdir=GlobalConfig['cache'], mode='r', concat=False, tempfile=Fal
         else:
             outfile = os.path.join(outdir, os.path.basename(target))
             outfh   = open(outfile,'wb')
-        ftp.retrbinary("RETR " + target, outfh.write)
+
+        # To avoid problems with very long names, I change to the target
+        # directory and, later, back to /
+        p = target.split("/")
+        for i in list(range(len(p)-1)):
+            ftp.cwd(p[i])
+        ftp.retrbinary("RETR " + p[-1], outfh.write)
+        ftp.cwd("/")
         outfh.close()
 
         # Autoopen (mode=True) and/or concatenate (concat=True)

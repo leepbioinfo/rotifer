@@ -287,6 +287,10 @@ class ncbi:
                 curtype = type(results[-1])
                 firstType = type(results[0])
                 concat = concat and (curtype == firstType) and not getattr(selectedMethod,'_never_concatenate',False)
+            elif selectMethod == None:
+                print(f'No method {m} in {_name} {_MAP[_name]}', file=sys.stderr)
+            else:
+                print(f'Unknown erro for method {m} in {_name} {_MAP[_name]}', file=sys.stderr)
 
         # Flatten results from different methods
         if len(results) == 1:
