@@ -77,6 +77,8 @@ def hhsuite2pandas(args):
                     sys.stderr.write("Column "+c+" is unknown\n")
 
     df = pd.DataFrame(data=data)
+    df.probability = df.probability.astype(int)
+    df.score = df['score'].map(lambda x: '%-.1f' % x)
     return df
 
 """
@@ -255,5 +257,5 @@ def read_result(input_file):
 
 if __name__ == '__main__':
     args = parse_cli()
-    hhsuite2pandas(args).to_csv(sys.stdout, sep="\t", index=None)
+    hhsuite2pandas(args).to_csv(sys.stdout, sep="\t", index=None, float_format='%-.3g')
     exit(0)
