@@ -309,6 +309,7 @@ sub execute {
         my $date = strftime '%Y%m%d_%H%M', localtime;
         chdir(dirname($unpack));
 	sleep 60 if ( -d "${unpack}.$date" );
+	chmod(0775, $tmpdir)
         rename($unpack,"${unpack}.$date");
         rename($tmpdir,$unpack);
     }
