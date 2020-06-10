@@ -351,6 +351,83 @@ def loadAPI(username = ''):
         pass
     return api_key
 
+def findDataFiles(load=[], user_path=os.path.join(GlobalConfig['user'],'share'), system_path=os.path.join(GlobalConfig['base'],'share/rotifer/')):
+    '''
+    This routine locates data files under Rotifer's standard locations.
+
+    User-supplied qualified paths, such as load='./config.yml', are
+    accepted but this method is mostly useful when loading files from
+    the following standard locations:
+
+      1) The user folder ~/.rotifer/share
+      2) <rotifer installation path>/share/rotifer
+      3) The path set by the environment variable ROTIFER_DATA
+
+    If the load parameter starts with the prefix ':' and subdirectory
+    names are separated by dots ('.'), files will be loaded from the
+    standard locations.
+    
+    Example:
+    
+      load=":taxonomy.taxonomy.txt"
+      
+    means
+    
+      ~/rotifer/share/data/taxonomy/taxonomy.txt
+
+    if the user location above exists, or
+
+      <path to rotifer>/share/rotifer/taxonomy/taxonomy.txt
+    
+    if only the file from the rotifer installation directory exists.
+
+    Notice that files from the user standard location take precedence
+    over files under rotifer's installation path.
+    '''
+
+    # Make sure input is a list
+    if not isinstance(load,list):
+        load = [ load ]
+
+    files = []
+    for f in load:
+        # Standard files
+        if f[0] != ":" and os.path.exists(f):
+                files.append(f)
+
+        # Process path
+        g = []
+        f = f.replace(':','')
+        if os.path.sep in f:
+            f = f.split(os.path.sep)
+        else:
+            f = f.split('.')
+            if len(f) > 1:
+                g = f
+                g[-2] = g[-2] + '.' + g[-1]
+                del(g[-1])
+
+        # User path
+        if os.path.exists(os.path.join(user_path, *f)):
+            files.append(os.path.join(user_path, *f))
+        elif len(g) > 0 and os.path.exists(os.path.join(user_path, *g)):
+            files.append(os.path.join(user_path, *g))
+
+        # System path
+        if os.path.exists(os.path.join(system_path, *f)):
+            files.append(os.path.join(system_path, *f))
+        elif len(g) > 0 and os.path.exists(os.path.join(system_path, *g)):
+            files.append(os.path.join(system_path, *g))
+
+        # Databases
+        if 'ROTIFER_DATA' in os.environ and os.path.exists(os.path.join(os.environ['ROTIFER_DATA'], *f)):
+            files.append(os.path.join(os.environ['ROTIFER_DATA'], *f))
+        elif len(g) > 0 and 'ROTIFER_DATA' in os.environ and os.path.exists(os.path.join(os.environ['ROTIFER_DATA'], *g)):
+            files.append(os.path.join(os.environ['ROTIFER_DATA'], *g))
+
+    # Return
+    return files
+
 def loadConfig(load=[], user_path=os.path.join(GlobalConfig['user'],'etc'), system_path=os.path.join(GlobalConfig['base'],'etc/rotifer/')):
     '''
     This routine loads data from a configuration file set by the user

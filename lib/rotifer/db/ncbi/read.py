@@ -4,9 +4,10 @@ import os
 import sys
 import logging
 from rotifer.db.ncbi import NcbiConfig
+from ete3.ncbi_taxonomy.ncbiquery import NCBITaxa
 
 # Load NCBI assembly reports
-def assembly_reports(ncbi, baseurl=None, columns=[], query_type='assembly_accession', *args, **kwargs):
+def assembly_reports(ncbi, baseurl=None, columns=[], query_type='assembly_accession', taxonomy=None, *args, **kwargs):
     '''
     Load NCBI assembly reports from a local directory or FTP.
 
@@ -28,6 +29,8 @@ def assembly_reports(ncbi, baseurl=None, columns=[], query_type='assembly_access
       columns    : (optional) list of columns to retrieve
       query_type : column name to use for filtering returned rows
                    Set to None to use pd.DataFrame.query
+      taxonomy   : ete3's NCBITaxa object
+                   If set to true, a new NCBITaxa object is created
 
     Extra attributes:
       loaded_from : data source (same as baseurl)
@@ -73,16 +76,128 @@ def assembly_reports(ncbi, baseurl=None, columns=[], query_type='assembly_access
     if queries:
         if query_type in assemblies.columns: # Exact match values in a column
             assemblies = assemblies[assemblies[query_type].isin(queries)]
-        else: # Query are logical statements
+        else: # Queries are logical statements
             for query in queries:
                 assemblies = assemblies.query(query)
-    ncbi.missing([ x for x in queries if x not in list(assemblies.assembly_accession) ])
+
+    # Add taxonomy
+    if isinstance(taxonomy,pd.DataFrame) or taxonomy:
+        if not isinstance(taxonomy,pd.DataFrame):
+            ncbi.submit(list(assemblies.taxid.unique()))
+            taxonomy = ncbi.read('taxonomy', ete3=taxonomy)
+        if isinstance(taxonomy,pd.DataFrame):
+            assemblies = assemblies.merge(taxonomy, left_on='taxid', right_on='taxid', how='left')
 
     # Filter columns and return pandas object
     if columns:
         assemblies = assemblies.filter(columns)
+
+    # Reset ncbi object, update missing list and return
+    ncbi.submit(queries)
+    ncbi.missing([ x for x in queries if x not in list(assemblies.assembly_accession) ])
     logger.info(f'main: {len(assemblies)} assembly reports loaded!')
     return assemblies
+
+# Load taxonomy data as a simple dataframe (tree as linearized path)
+def taxonomy(ncbi, fetch=['ete3','entrez'], query_type='taxid', ete3=None, *args, **kwargs):
+    '''
+    Load NCBI taxonomy data
+
+    Usage:
+      a = ncbi()
+      a.submit('9606')
+      b = a.read('taxonomy')
+
+      or, by organism name using pre-loaded ete3 object,
+
+      from ete3.ncbi_taxonomy.ncbiquery import NCBITaxa
+      e = NCBITaxa()
+      a = ncbi()
+      a.submit(['Homo sapiens'])
+      b = a.read('taxonomy', fetch=['ete3'], ete3=e, query_type='scientific')
+
+    Returns:
+      Pandas DataFrame
+      Columns: taxid, organism, domain, lineage, taxonomy
+
+    Parameters:
+      fetch      : list of fetchers
+      query_type : type of query.
+
+        Avaliable type are
+        taxid      : NCBI taxonomy ID
+        scientific : species scientific name
+
+      ete3       : ete3's NCBITaxa object
+                   If set to true, a new NCBITaxa object is created
+    '''
+
+    # Set log format
+    logger = logging.getLogger('rotifer.db.ncbi')
+    logger.setLevel(logging.DEBUG)
+    logger.info(f'main: loading assembly reports...')
+    data = []
+    seen = {}
+
+    # Highest priority method: ete3
+    if 'ete3' in fetch:
+        # Make ete3 is a ete3.ncbi_taxonomy.ncbiquery.NCBITaxa
+        if not isinstance(ete3,NCBITaxa):
+            ete3 = NCBITaxa()
+
+        # Load important lineages
+        from rotifer.core.functions import findDataFiles
+        clades = []
+        for p in findDataFiles(':taxonomy.taxonomy.txt'):
+            p = open(p,'rt')
+            clades.extend([ s.strip("\n").lower() for s in p.readlines() if s[0] != '#' ])
+            p.close()
+        clades = set(clades)
+
+        # Load taxonomy
+        for tid in ncbi.submit():
+            # No need to process tids twice
+            if tid in seen:
+                continue
+
+            # Try to retrieve data from ete3 database
+            try:
+                names = ete3.translate_to_names(ete3.get_lineage(tid))
+            except:
+                continue
+
+            # Remove basal, uninformative, nodes
+            if names[0] == 'root': # Remove root
+                del(names[0])
+            if names[0] == 'cellular organisms':
+                del(names[0])
+
+            # Pile up data
+            data.append({
+                'taxid': tid,
+                'organism': names[-1],
+                'domain': names[0],
+                'lineage': ">".join([ x.lower() for x in names if x.lower() in clades ]),
+                'taxonomy': "; ".join(names)
+                })
+            seen[tid] = 1
+
+    # Try Entrez
+    missing = [ x for x in ncbi.submit() if x not in seen ]
+    if 'Entrez' in fetch and len(missing):
+        pass # Not impemented
+
+    # Build pandas object
+    import pandas as pd
+    if len(data):
+        tax = pd.DataFrame.from_dict(data)
+    else:
+        tax = pd.DataFrame(columns='taxid organism_name domain lineage taxonomy'.split(' '))
+    ncbi.missing([ x for x in ncbi.submit() if x not in tax.taxid.unique() ])
+
+    # Return
+    logger.info(f'main: {len(data)} taxids found!')
+    return tax
 
 # Load Identical Protein Reports
 def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, *args, **kwargs):
@@ -223,12 +338,11 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, *args, **
 
     # Use assembly_reports to set priority
     if isinstance(assembly_reports,pd.DataFrame) or assembly_reports == True:
-        col = ['assembly_accession','bioproject','biosample','refseq_category','taxid','species_taxid',
-                'version_status','assembly_level','release_type','genome_rep','seq_rel_date','source']
+        col = ['wgs_master','ftp_path','isolate','paired_asm_comp','organism_name','submitter','loaded_from','infraspecific_name','asm_name','relation_to_type_material']
         if not isinstance(assembly_reports,pd.DataFrame):
             url = f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASSEMBLY_REPORTS'
             assembly_reports = type(ncbi)(query=list(ipgs[~ipgs.assembly.isna()].assembly.unique())).read('assembly_reports', baseurl=url, columns=col)
-        ipgs = ipgs.merge(assembly_reports[col], left_on='assembly', right_on='assembly_accession', how='left')
+        ipgs = ipgs.merge(assembly_reports.drop(col, axis=1), left_on='assembly', right_on='assembly_accession', how='left')
 
     return ipgs
 
