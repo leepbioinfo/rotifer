@@ -1,7 +1,39 @@
 #!/usr/bin/env python3
 
+# Python core
 import os
 import sys
+import time
+import shutil
+import logging
+import datetime
+import warnings
+import subprocess
+import argcomplete
+import random, string
+from io import StringIO
+from os.path import expanduser
+from datetime import datetime as dt
+from multiprocessing import Process, Manager
+
+# Other
+from tqdm import tqdm
+
+# Pandas
+import numpy as np
+import pandas as pd
+
+# Biopython
+from Bio import SeqIO
+from Bio import Entrez
+
+# Alchemy & ClickHouse
+from clickhouse_driver import Client
+from sqlalchemy import create_engine, MetaData
+from sqlalchemy.orm import sessionmaker
+from clickhouse_sqlalchemy import Table, make_session, get_declarative_base, types, engines
+
+# Rotifer
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[0]))), "lib"))
 import rotifer.core.cli as corecli
 import rotifer.core.functions as rcf
@@ -9,33 +41,11 @@ from rotifer.core.log import log
 from rotifer.neighborhood import neighborhood
 from rotifer.alchemy.connect import clickhouse
 
-import subprocess
-import pandas as pd
-import logging
-from multiprocessing import Process, Manager
-import datetime
-from Bio import SeqIO
-from Bio import Entrez
-import time
-import shutil
-import numpy as np
-import warnings
-from os.path import expanduser
-from datetime import datetime as dt
-import argcomplete
-from clickhouse_driver import Client
-from sqlalchemy import create_engine, MetaData
-from sqlalchemy.orm import sessionmaker
-import random, string
-from clickhouse_sqlalchemy import Table, make_session, get_declarative_base, types, engines
-#from pandas.compat import StringIO
-from io import StringIO
-
-from tqdm import tqdm
-
+# Warnings: why???????????
 warnings.filterwarnings('ignore')
 
-__version__ = 0.62
+# Version
+__version__ = 0.63
 __authors__ = 'Gilberto Kaihami, Aureliano Guedes, Gabriel Hueck, Robson F. de Souza'
 __rdoc__ = '''
 DESCRIPTION:
@@ -90,7 +100,6 @@ Get gene neighborhood
 # TODO: Still need to put efetch/esearch feature
 
 def parse_cli():
-
     parser = corecli.parser(description = 'Get gene neighborhood')
 
     parser.add(rconfig = ':cli.acc')
@@ -211,7 +220,6 @@ block 1:
                )
 
     argcomplete.autocomplete(parser)
-
     args = parser.parse_args()
     return args
 
@@ -323,18 +331,6 @@ def asm2ftp(gbks, db, verbose = False,progress = False, position = 0, threads = 
                     except:
                         tries_download +=1
                         time.sleep(0.3)
-
-
-
-# def asm2epost:
-#     pass
-#
-# def asm2efetch:
-#
-#     pass
-#
-# def asm2esearch:
-#     pass
 
 # def long_routine(sub, gbks_folder, df_accs, df_accs2,
 #                  verbose = False,
@@ -713,7 +709,6 @@ def features2df(gbk, df, db = '', pair_acc = '', verbose = False):
 
                         try:
                             strand = str(location.strand)
-
                         except:
                             strand = '.'
 
@@ -945,7 +940,6 @@ def block_intervals(accs = '', above = 3, below = 3,
                                                    'classification'])
 
         if get_more_down:
-
             _ = conn.execute(f"""
                                 SELECT internal_id from genomes
                                 WHERE nuc_asm = '{nuc_asm}' and
@@ -976,15 +970,12 @@ def block_intervals(accs = '', above = 3, below = 3,
                                   ORDER BY internal_id""").fetchall())
 
             if not sub_df.empty:
-                t = pd.DataFrame(q,
-                                            columns = ['internal_id','nucleotide',
-                                                       'assembly', 'topology', 'start', 'end',
-                                                       'strand','pid', 'type', 'plen', 'locus',
-                                                       'seq_type', 'gene', 'product','organism',
-                                                       'classification'])
-
+                t = pd.DataFrame(q, columns = ['internal_id','nucleotide',
+                                               'assembly', 'topology', 'start', 'end',
+                                               'strand','pid', 'type', 'plen', 'locus',
+                                               'seq_type', 'gene', 'product','organism',
+                                               'classification'])
                 sub_df = pd.concat([sub_df, t])
-
 
         if not sub_df.empty:
             block_id +=1

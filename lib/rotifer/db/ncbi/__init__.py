@@ -283,7 +283,11 @@ class ncbi:
         for m in method:
             selectedMethod = getattr(_MAP[_name], m, None)
             if callable(selectedMethod):
+                if 'verbose' in kwargs and kwargs['verbose'] == True:
+                    print(f'Dispatching method {m}...')
                 results.append(selectedMethod(self, *args, **kwargs))
+                if 'verbose' in kwargs and kwargs['verbose'] == True:
+                    print(f'Method {m} executed!')
                 curtype = type(results[-1])
                 firstType = type(results[0])
                 concat = concat and (curtype == firstType) and not getattr(selectedMethod,'_never_concatenate',False)

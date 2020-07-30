@@ -91,31 +91,22 @@ def log(message = {}, level = 0, log_file = '', name = ''):
     else:
         pass
 
-    col_len = _collen(now, hostname, name)
-    try:
-        for x in range(1,level+1):
+    if name == '':
+        name = '__main__'
 
-            try:
-                if isinstance(message[level], list):
-                    msg_print = ' '.join([x.strip() for x in message[x]])
+    for x in range(1,level+1):
+        if isinstance(message[level], list):
+            msg_print = ' '.join([x.strip() for x in message[x]])
+        else:
+            msg_print = message[x].strip()
 
-                else:
-                    msg_print = message[x].strip()
-
-                s = [now, hostname, name, _debug_switch[x],':', msg_print]
-                if not log_file:
-                    to_print = [s[int(i)].ljust(col_len[int(i)]) for i in range(0, len(s))]
-                    sys.stderr.write('\t'.join(to_print) + '\n')
-                    sys.stderr.flush()
-                else:
-                    with open(log_file, 'a') as f:
-                        to_print = [s[int(i)].ljust(col_len[int(i)]) for i in range(0, len(s))]
-                        f.write('\t'.join(to_print) + '\n')
-            except:
-                pass
-
-    except:
-        pass
+        s = f'{now} : {hostname} : {name} : {_debug_switch[x]} : {msg_print}\n'
+        if not log_file:
+            sys.stderr.write(s)
+            sys.stderr.flush()
+        else:
+            with open(log_file, 'a') as f:
+                f.write(s)
 
 def _collen(now, hostname, name, levels = ['INFO', 'WARNING', 'DEBUG']):
     collen_len = []
@@ -141,7 +132,7 @@ if __name__ == '__main__':
           2: 'This is Warning',
           3: 'DEBUG'},
          level = 2)
-    #
+
     # # Exceed
     print()
     log2({
@@ -153,7 +144,7 @@ if __name__ == '__main__':
           3: 'DEBUG exce'},
          level = 4)
     print()
-    #
+
     # # Write to log2 file
     log2({1: 'This info',
           2: 'This is Warning',

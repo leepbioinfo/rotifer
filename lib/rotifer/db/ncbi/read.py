@@ -3,11 +3,12 @@
 import os
 import sys
 import logging
+import pandas as pd
 from rotifer.db.ncbi import NcbiConfig
 from ete3.ncbi_taxonomy.ncbiquery import NCBITaxa
 
 # Load NCBI assembly reports
-def assembly_reports(ncbi, baseurl=None, columns=[], query_type='assembly_accession', taxonomy=None, *args, **kwargs):
+def assembly_reports(ncbi, baseurl=None, columns=[], query_type='assembly_accession', taxonomy=None, verbose=0, *args, **kwargs):
     '''
     Load NCBI assembly reports from a local directory or FTP.
 
@@ -42,7 +43,7 @@ def assembly_reports(ncbi, baseurl=None, columns=[], query_type='assembly_access
 
     # Set log format
     logger = logging.getLogger('rotifer.db.ncbi')
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(verbose)
     logger.info(f'main: loading assembly reports...')
 
     # Choose URL
@@ -70,23 +71,31 @@ def assembly_reports(ncbi, baseurl=None, columns=[], query_type='assembly_access
         assemblies.append(_)
         logger.info(f'{__name__}: {url}, {len(_)} rows, {len(assemblies)} loaded')
     assemblies = pd.concat(assemblies, ignore_index=True)
+    if verbose:
+        print(f'{__name__}: loaded {len(assemblies)} assembly summaries.', file=sys.stderr)
 
     # Filter rows and columns in the assemblies dataframe
     queries = ncbi.submit()
     if queries:
         if query_type in assemblies.columns: # Exact match values in a column
             assemblies = assemblies[assemblies[query_type].isin(queries)]
+            if verbose:
+                print(f'{__name__}: {len(queries)} exact matches required for column {query_type}: {len(assemblies)} rows left.', file=sys.stderr)
         else: # Queries are logical statements
             for query in queries:
                 assemblies = assemblies.query(query)
+            if verbose:
+                print(f'{__name__}: {len(queries)} filters applied: {len(assemblies)} rows left.', file=sys.stderr)
 
     # Add taxonomy
     if isinstance(taxonomy,pd.DataFrame) or taxonomy:
         if not isinstance(taxonomy,pd.DataFrame):
             ncbi.submit(list(assemblies.taxid.unique()))
-            taxonomy = ncbi.read('taxonomy', ete3=taxonomy)
+            taxonomy = ncbi.read('taxonomy', ete3=taxonomy, verbose=verbose)
         if isinstance(taxonomy,pd.DataFrame):
             assemblies = assemblies.merge(taxonomy, left_on='taxid', right_on='taxid', how='left')
+        if verbose:
+            print(f'{__name__}: {len(assemblies)} assemblies left-merged with taxonomy dataframe.', file=sys.stderr)
 
     # Filter columns and return pandas object
     if columns:
@@ -94,110 +103,10 @@ def assembly_reports(ncbi, baseurl=None, columns=[], query_type='assembly_access
 
     # Reset ncbi object, update missing list and return
     ncbi.submit(queries)
-    ncbi.missing([ x for x in queries if x not in list(assemblies.assembly_accession) ])
+    found = set(list(assemblies.assembly_accession))
+    ncbi.missing([ x for x in queries if x not in found ])
     logger.info(f'main: {len(assemblies)} assembly reports loaded!')
     return assemblies
-
-# Load taxonomy data as a simple dataframe (tree as linearized path)
-def taxonomy(ncbi, fetch=['ete3','entrez'], query_type='taxid', ete3=None, *args, **kwargs):
-    '''
-    Load NCBI taxonomy data
-
-    Usage:
-      a = ncbi()
-      a.submit('9606')
-      b = a.read('taxonomy')
-
-      or, by organism name using pre-loaded ete3 object,
-
-      from ete3.ncbi_taxonomy.ncbiquery import NCBITaxa
-      e = NCBITaxa()
-      a = ncbi()
-      a.submit(['Homo sapiens'])
-      b = a.read('taxonomy', fetch=['ete3'], ete3=e, query_type='scientific')
-
-    Returns:
-      Pandas DataFrame
-      Columns: taxid, organism, domain, lineage, taxonomy
-
-    Parameters:
-      fetch      : list of fetchers
-      query_type : type of query.
-
-        Avaliable type are
-        taxid      : NCBI taxonomy ID
-        scientific : species scientific name
-
-      ete3       : ete3's NCBITaxa object
-                   If set to true, a new NCBITaxa object is created
-    '''
-
-    # Set log format
-    logger = logging.getLogger('rotifer.db.ncbi')
-    logger.setLevel(logging.DEBUG)
-    logger.info(f'main: loading assembly reports...')
-    data = []
-    seen = {}
-
-    # Highest priority method: ete3
-    if 'ete3' in fetch:
-        # Make ete3 is a ete3.ncbi_taxonomy.ncbiquery.NCBITaxa
-        if not isinstance(ete3,NCBITaxa):
-            ete3 = NCBITaxa()
-
-        # Load important lineages
-        from rotifer.core.functions import findDataFiles
-        clades = []
-        for p in findDataFiles(':taxonomy.taxonomy.txt'):
-            p = open(p,'rt')
-            clades.extend([ s.strip("\n").lower() for s in p.readlines() if s[0] != '#' ])
-            p.close()
-        clades = set(clades)
-
-        # Load taxonomy
-        for tid in ncbi.submit():
-            # No need to process tids twice
-            if tid in seen:
-                continue
-
-            # Try to retrieve data from ete3 database
-            try:
-                names = ete3.translate_to_names(ete3.get_lineage(tid))
-            except:
-                continue
-
-            # Remove basal, uninformative, nodes
-            if names[0] == 'root': # Remove root
-                del(names[0])
-            if names[0] == 'cellular organisms':
-                del(names[0])
-
-            # Pile up data
-            data.append({
-                'taxid': tid,
-                'organism': names[-1],
-                'domain': names[0],
-                'lineage': ">".join([ x.lower() for x in names if x.lower() in clades ]),
-                'taxonomy': "; ".join(names)
-                })
-            seen[tid] = 1
-
-    # Try Entrez
-    missing = [ x for x in ncbi.submit() if x not in seen ]
-    if 'Entrez' in fetch and len(missing):
-        pass # Not impemented
-
-    # Build pandas object
-    import pandas as pd
-    if len(data):
-        tax = pd.DataFrame.from_dict(data)
-    else:
-        tax = pd.DataFrame(columns='taxid organism_name domain lineage taxonomy'.split(' '))
-    ncbi.missing([ x for x in ncbi.submit() if x not in tax.taxid.unique() ])
-
-    # Return
-    logger.info(f'main: {len(data)} taxids found!')
-    return tax
 
 # Load Identical Protein Reports
 def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, *args, **kwargs):
@@ -345,6 +254,146 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, *args, **
         ipgs = ipgs.merge(assembly_reports.drop(col, axis=1), left_on='assembly', right_on='assembly_accession', how='left')
 
     return ipgs
+
+# Load taxonomy data as a simple dataframe (tree as linearized path)
+def taxonomy(ncbi, fetch=['ete3','entrez'], missing=False, ete3=None, preferred_taxa=None, verbose=False, *args, **kwargs):
+    '''
+    Load NCBI taxonomy data
+
+    Usage:
+      a = ncbi()
+      a.submit('9606')
+      b = a.read('taxonomy')
+
+      or, by organism name using pre-loaded ete3 object,
+
+      from ete3.ncbi_taxonomy.ncbiquery import NCBITaxa
+      e = NCBITaxa()
+      a = ncbi()
+      a.submit(['Homo sapiens'])
+      b = a.read('taxonomy', fetch=['ete3'], ete3=e, query_type='scientific')
+
+    Returns:
+      Pandas DataFrame
+      Columns: taxid, organism, domain, lineage, taxonomy
+
+    Parameters:
+      fetch    : list of fetchers
+      missing  : retrieve missing entries only
+      ete3     : ete3's NCBITaxa object
+                 If set to true, a new NCBITaxa object is created
+    '''
+
+    # Set log format
+    logger = logging.getLogger('rotifer.db.ncbi')
+    logger.setLevel(logging.DEBUG)
+    logger.info(f'main: loading assembly reports...')
+
+    # Loop over methods
+    stack = []
+    queries = ncbi.submit().copy()
+    if missing:
+        missing = ncbi.missing()
+    else:
+        missing = queries.copy()
+    for method in fetch:
+        if not missing:
+            break
+        ncbi.submit(missing)
+        if method == 'ete3':
+            tax = __taxonomy_from_ete3(ncbi, ete3=ete3, preferred_taxa=preferred_taxa, verbose=verbose)
+        elif method == 'entrez':
+            continue
+        missing = ncbi.missing().copy()
+        stack.append(tax)
+        if verbose:
+            print(f'{__name__}: {len(tax)} taxa loaded by {method}.', file=sys.stderr)
+    if len(stack) > 0:
+        tax = pd.concat(stack).drop_duplicates()
+    else:
+        tax = pd.DataFrame(columns='taxid organism domain lineage taxonomy'.split(' '))
+
+    # Return
+    ncbi.submit(queries)
+    ncbi.missing(missing)
+    logger.info(f'main: {len(tax.taxid.unique())} taxids found and {len(missing)} missing!')
+    return tax
+
+# Internal methods
+
+def __taxonomy_from_ete3(ncbi, ete3=None, preferred_taxa=None, verbose=False):
+    # Make sure ete3 is a ete3.ncbi_taxonomy.ncbiquery.NCBITaxa
+    if not isinstance(ete3,NCBITaxa):
+        ete3 = NCBITaxa()
+    if verbose:
+        print(f'{__name__}: Searching for {len(ncbi.submit())} taxa.', file=sys.stderr)
+
+    # Fetch lineages
+    i = 0
+    l = set() # Non-redundant list of taxa
+    s = {}    # Dictionary: query to lineage map
+    missing = []
+    query = ncbi.submit().copy()
+    nq = len(query)
+    while i < nq:
+        if not isinstance(query[i],int):
+            d = ete3.get_name_translator([query[i]])
+            if query[i] not in d:
+                missing.append(query[i])
+                i = i + 1
+                continue
+            query.extend([ x for x in d[query[i]][1:] if x not in query ])
+            query[i] = d[query[i]][0]
+            nq = len(query)
+        try:
+            v = ete3.get_lineage(query[i])
+        except:
+            missing.append(query[i])
+            i = i + 1
+            continue
+        l.update(v)
+        s[query[i]] = v
+        i = i + 1
+    if verbose:
+        print(f'{__name__}: loaded {len(s)} lineages.', file=sys.stderr)
+
+    # Fetch names
+    l = ete3.get_taxid_translator(list(l))
+    if verbose:
+        print(f'{__name__}: loaded {len(l)} taxon names.', file=sys.stderr)
+
+    # Translate all lineages
+    cols = ['taxid','organism','domain','taxonomy']
+    data = { k: [] for k in cols }
+    for x in query:
+        # Register missing taxids
+        if x not in s:
+            #missing.append(x)
+            continue
+
+        # Translate each taxa
+        names = [ l[v] for v in s[x] ]
+        if names[0] == 'root':
+            del(names[0])
+        if names[0] == 'cellular organisms':
+            del(names[0])
+        full = "; ".join(names)
+        r = [x, names[-1], names[0], full]
+
+        # Store data
+        for j in list(range(4)):
+            data[cols[j]].append(r[j])
+
+    # Let the user knows we got here
+    if verbose:
+        print(f'{__name__}: translated {len(data[cols[0]])} lineages.', file=sys.stderr)
+
+    # Cleanup: remove missing taxids and register
+    data = pd.DataFrame(data)
+    from rotifer.taxonomy.utils import lineage
+    data.insert(3, "lineage", lineage(data.taxonomy, preferred_taxa=preferred_taxa))
+    ncbi.missing(missing)
+    return data
 
 # Is this library being used as a script?
 if __name__ == '__main__':

@@ -1,71 +1,52 @@
 #!/usr/bin/env python3
 
-# data is a child of Pandas DataFrame manipulate DataFrame here
-#
+# Data here is a child of Pandas DataFrame
+
 import itertools
 import numpy as np
 import pandas as pd
 import rotifer.core.log as rlog
-
-
-def pandas_print_everything():
-    """
-    A small function to allow pandas to print not only a few columns and rows.
-    Take care when use it, big dataframes could take a long time to print.
-    """
-    pd.options.display.max_rows = 10000000000
-    pd.options.display.max_columns = 1000000000
-    pd.options.display.max_colwidth = 1000000000
-    pd.options.display.width = 100000
-    return print('Pandas printing the full dataframe')
-
-
-def not_kwargs(dict_args, key, value):
-    """ Small function to check if a element is not in a dictionary.
-    It is useful to set a default value to functions that exceeds the
-    number of 5 arguments
-    """
-    if key in dict_args.keys():
-        return dict_args[key]
-    return value
+from rotifer.core.functions import not_kwargs
+from rotifer.taxonomy.utils import lineage as rtlineage
 
 class NeighborhoodDF(pd.DataFrame):
-    # mandatory columns
-
+    # mandatory columns????
     _metadata = ['filterby',
                  'verbose',
                  'log_file']
 
-    def __init__(self,
-                 *args, **kwargs):
-        self.filterby = kwargs.pop('filterby', None)
-        self.verbose = kwargs.pop('version', None)
-        self.log_file = kwargs.pop('log_file', None)
+    def __init__(self, *args, **kwargs):
+        self.filterby  = kwargs.pop('filterby', None)
+        self.verbose   = kwargs.pop('verbose', None)
+        self.log_file  = kwargs.pop('log_file', None)
+        update_lineage = kwargs.pop('update_lineage',False)
+        preferred_taxa = kwargs.pop('preferred_taxa',None)
         super(NeighborhoodDF, self).__init__(*args, **kwargs)
-        if self.filterby:
-            # do stuf
-            pass
+
+        # Update or add lineage column
+        cols = self.columns.to_list()
+        if isinstance(update_lineage,str) & (update_lineage in cols):
+            if "lineage" in cols:
+                self.lineage = rtlineage(self[update_lineage], preferred_taxa=preferred_taxa)
+            else:
+                taxonomy = [ i for i in range(0,len(cols)) if cols[i] == update_lineage ][0]
+                self.insert(taxonomy, "lineage", rtlineage(self[update_lineage], preferred_taxa=preferred_taxa))
 
     # Pandas contructor
-
     @property
     def _constructor(self):
         return NeighborhoodDF
 
-    def writer(self,
-               **kwargs):
-
+    def writer(self, output_format='table', **kwargs):
         '''
         kwargs:
-            - of/output_format: Output format (default: table)
-                                - table
-                                - pretty
-                                - gi2operon
-                                - gi2op
-                                - gi2operons
+          of | output_format: Output format (default: table)
+           Supported output formats:
+            - table   : pandas supported tabular output
+            - compact : single row description of gene neighborhoods
+            - gi2operons | gi2operon | gi2op : old TASS text view format
         '''
 
-        self._of = 'table'
         if 'of' in kwargs.keys() or 'output_format' in kwargs.keys():
             try:
                 self._of = kwargs['of'].lower()
@@ -82,33 +63,30 @@ class NeighborhoodDF(pd.DataFrame):
             self._compact()
 
     def _gi2operon(self, **kwargs):
-
         self._exclude_col = []
         self._include_col = []
         self._new_info_ls = []
 
         # Put df
-        df = self
-
+        df = self.copy()
         df = df.reset_index(drop = True)
-
         df = df.astype(str)
 
-        # Convert block id to number
+        # Convert block id to numeric and other columns to string
         df["block_id"] = pd.to_numeric(df["block_id"])
-
         to_str = ['plen', 'start', 'end', 'strand', 'query']
         for col in to_str:
             try:
                 df = df.astype({col: str})
             except: pass
+        try:
+            df['plen'] = df['plen'].map(lambda x: '.' if x == '' else x)
+        except: pass
 
         if self._exclude_col:
             if 'gi' in self._exclude_col:
                 exclude_col.append('modified')
-
             self._exclude_col = [x for x in self._exclude_col if x in df.columns and x not in self._include_col]
-
             df = df.drop(columns = self._exclude_col)
 
         if self._include_col:
@@ -116,21 +94,12 @@ class NeighborhoodDF(pd.DataFrame):
             for x in self._include_col:
                 if x in df.columns:
                     include.append(x)
-
                 else:
-                    rlog.log({
-                         2: f"Column named [{columns}] was not included the DataFrame"},
+                    rlog.log({2: f"Column named [{columns}] was not included the DataFrame"},
                          level = self._verbose,
                          name = __name__,
                          log_file = self._log_file)
-
             df = df[include]
-
-        try:
-            df['plen'] = df['plen'].map(lambda x: '.' if x == '' else x)
-
-        except:
-            pass
 
         try:
             df['pid'] = df['pid'].map(lambda x: '.' if x == '' else x)
@@ -139,6 +108,12 @@ class NeighborhoodDF(pd.DataFrame):
             pass
 
         col_len = self._collen(df)
+
+    def _table(self):
+        pass
+
+    def _compact(self):
+        pass
 
     def _collen(self, df):
         collen_len = []
@@ -149,10 +124,7 @@ class NeighborhoodDF(pd.DataFrame):
         try: df['plen'].astype(str)
         except: pass
 
-#        self._new_info_ls
-
         q = '-->'
-
         collen_len.append(len(q)) # query mark
 
         try:
@@ -162,9 +134,7 @@ class NeighborhoodDF(pd.DataFrame):
         try:
             len_cds = df['cds_loc'].str.len().max()
             collen_len.append(len_cds)
-
-        except:
-            pass
+        except: pass
 
         direction = len('dir')
         collen_len.append(direction)
@@ -172,7 +142,6 @@ class NeighborhoodDF(pd.DataFrame):
         try:
             len_plen = df['plen'].astype(str).str.len().max() if df['plen'].astype(str).str.len().max() >= len('len') else len('len')
             collen_len.append(len_plen)
-
         except: pass
 
         try:
@@ -202,7 +171,6 @@ class NeighborhoodDF(pd.DataFrame):
             try:
                 len_modified = df['modified'].str.len().max() if df['modified'].str.len().max() >= len('gi') else len('gi')
                 collen_len.append(len_modified)
-
             except:
                 len_modified = 1
                 collen_len.append(len_modified)
@@ -219,12 +187,6 @@ class NeighborhoodDF(pd.DataFrame):
                 collen_len.append(new_col)
 
         return collen_len
-
-    def _table(self):
-        pass
-
-    def _compact(self):
-        pass
 
 
 
@@ -318,8 +280,6 @@ class NeighborhoodDF(pd.DataFrame):
         before = not_kwargs(kwargs, 'before', 1)
         strand = not_kwargs(kwargs, 'strand', False)
         stats = not_kwargs(kwargs, 'stats', False)
-
-
 
         query_df = self[self[column] == value].copy()
         full_query_df = \
@@ -440,16 +400,13 @@ class NeighborhoodDF(pd.DataFrame):
                 else:
                     _ = df_to_compact.copy().iloc[::-1]
                     _.strand = _.strand *- 1
-
             except IndexError:
                 raise NameError('Query_Missing')
 
-            #Fill the no annotated with an ? marker or a column in the Dataframe
+            #Fill the unannotated with an ? marker or a column in the Dataframe
             # that the users can select by the option fill_unk=column name.
-
             _['compact'] = compacted(_)
             _['pid_compact'] = compacted(_, annotation='pid')
-
 
             return _.groupby(
                 group
@@ -462,7 +419,6 @@ class NeighborhoodDF(pd.DataFrame):
                    'pid_compact': lambda x: "".join(list(x))[:-1]
                   })
 
-
         # Main function, select if it will be grouped by block_id or strand,
         # and then make the groupby.
         group = 'block_id'
@@ -471,10 +427,7 @@ class NeighborhoodDF(pd.DataFrame):
             _1 = self.same_strand(query=query).copy()
         else:
             _1 = self.group_strand().copy()
-
-
-        return _1.groupby(group).apply(main_cnei).reset_index(
-            drop = True).set_index('block_id')
+        return _1.groupby(group).apply(main_cnei).reset_index(drop = True).set_index('block_id')
 
 
     def full_neighborhood(self, column='cluster', value='value', stats=False, new_query=True):
@@ -497,6 +450,215 @@ class NeighborhoodDF(pd.DataFrame):
         return selected_df.drop('new_query', axis=1)
 
 
+    # Find internal_id (iimin,iimax) and feature_order (fomin,fomax) boundaries
+    def boundaries(self, nucleotide=None):
+        """
+        Find maximum and minimum values of block_id, feature_order and internal_id.
+        Columns feature_order and internal_id are evaluated per nucleotide entry.
 
+        Return a tuple with a Pandas dataframe and two integer values.
+        """
+        df = self
+        if isinstance(nucleotide,list) or isinstance(nucleotide,pd.Series):
+            df = self[self.nucleotide.isin(nucleotide)]
+        dflim = df.groupby(['assembly','nucleotide','type']).agg({'feature_order':['min','max']})
+        dflim.reset_index(inplace=True)
+        dflim.columns = ['assembly','nucleotide','type','fomin','fomax']
+        iidlim = df.groupby(['assembly','nucleotide']).agg({'internal_id':['min','max']})
+        iidlim.reset_index(inplace=True)
+        iidlim.columns = ['assembly','nucleotide','iidmin','iidmax']
+        bidlim = df.groupby(['assembly']).agg({'block_id':['min','max']})
+        bidlim.reset_index(inplace=True)
+        bidlim.columns = ['assembly','bidmin','bidmax']
+        dflim = dflim.merge(iidlim, left_on=['assembly','nucleotide'], right_on=['assembly','nucleotide'], how='left')
+        dflim = dflim.merge(bidlim, left_on=['assembly'], right_on=['assembly'], how='left')
+        return dflim
 
-        # FILTERS
+    def neighbors(self, targets=['query == 1'], before=3, after=3, min_block_distance=0, strand=None, fttype='same', inplace=False):
+        """
+        Find sets of rows, representing genomic regions, that are located near a set of targets.
+
+        The user may choose a set of rows (targets) as anchors, whose neighbors will be
+        evaluated by user-defined parameters, such as feature type, strand or distance.
+
+        Arguments:
+         - targets : (list of) boolean pd.Series or rules to select targets.
+
+            Rules will used identify target rows using Pandas's eval method.
+
+            If all rules return True for a given row, the row is a target and
+            its neighbors will be identified.
+
+         - before : keep at most this number of features, of the same type as the target,
+                    before each target
+         - after  : keep at most this number of features, of the same type as the target,
+                    after each target
+
+         - min_block_distance : minimum distance between two consecutive blocks
+                                Blocks separated by more features 
+
+         - strand : how to evaluate rows concerning the value of the strand column
+                    Possible values for this option are:
+                     - None : ignore strand
+                     - same : same strand as the targets
+                     -    + : positive strand features and targets only
+                     -    - : negative strand features and targets only
+
+         - fttype : how to process feature types of neighbors
+                    Supported values:
+                     - same : consider only features of the same type as the target
+                     - any  : ignore feature type and count all features when
+                              setting neighborhood boundaries
+
+         - inplace : do not create a new NeighborhoodDF dataframe but, instead,
+                     apply changes to the same object.
+                     
+                     IF set to True, the columns query, block_id and rid are
+                     modified and a dataframe with the old values is returned.
+                     
+                     If set to False, a copy of the original dataframe with new
+                     values in query, block_id and rid is returned.
+        """
+        import sys
+        import numpy as np
+
+        # Build boolean pandas.Series to mark targets
+        select = True
+        if not isinstance(targets, list):
+            targets = [targets]
+        for code in targets:
+            if isinstance(code,str):
+                try:
+                    select &= self.eval(code)
+                except:
+                    print(f'Rule {code} failed', file=sys.stderr)
+            elif isinstance(code,pd.Series):
+                select &= code
+
+        # Find targets and their neighborhood
+        if (not isinstance(select,pd.Series)) or (select.sum() == 0):
+            print(f'No anchors to search for neighbors were found! Revise your list of targets!')
+            return pd.DataFrame()
+
+        # Initialize dataframe for each region (blocks)
+        cols = ['assembly','nucleotide','topology']
+        dflim = self.boundaries()
+        #['start','end','strand']
+
+        # Process features with type
+        if (fttype == 'same'):
+            blks = self[select].filter([*cols,'type','feature_order'])
+            blks.sort_values([*cols,'type','feature_order'], inplace=True)
+            blks['foup']   = blks.feature_order - before
+            blks['fodown'] = blks.feature_order + after
+
+            # Identify blocks by merging neighborhoods
+            bid = (blks.nucleotide == blks.nucleotide.shift(1))
+            bid = bid & (blks.type == blks.type.shift(1))
+            bid = bid & ((blks.foup - blks.fodown.shift(1) - 1) <= min_block_distance)
+            blks['block_id'] = (~bid).cumsum()
+            blks = blks.groupby([*cols,'type','block_id']).agg({'feature_order':list,'foup':min,'fodown':max}).reset_index()
+            blks = blks.merge(dflim, left_on=['assembly','nucleotide','type'], right_on=['assembly','nucleotide','type'], how='left')
+            blks.rename({'feature_order':'targets'}, axis=1, inplace=True)
+
+            # Initiate analysis of circular replicons
+            circular = blks.query('topology == "circular"')
+            if len(circular) > 0:
+                circular = circular.groupby(['assembly','nucleotide','type'])
+                circular = circular.agg({'block_id':['min','max'],'foup':'min','fodown':'max','fomin':'min','fomax':'max'})
+                circular.reset_index(inplace=True)
+                circular.columns = ['assembly','nucleotide','type','bidmin','bidmax','foup','fodown','fomin','fomax']
+
+                # Merge first and last blocks of circular replicons, if too close
+                tooclose = circular.eval(f'(fomax - fodown) + (foup - fomin) <= {min_block_distance}')
+                if not tooclose.sum() > 0:
+                    bidmaxIndex = blks[blks.block_id.isin(circular[tooclose].bidmax)].index
+                    bidminIndex = blks[blks.block_id.isin(circular[tooclose].bidmin)].index
+                    blks.iloc[bidminIndex,6] = blks.iloc[bidminIndex,8] # Set foup   = fomin
+                    blks.iloc[bidmaxIndex,7] = blks.iloc[bidmaxIndex,9] # Set fodown = fomax
+                    blks.iloc[bidmaxIndex,4] = blks.iloc[bidminIndex,4] # Set block_ids to be the same
+
+                # Neighborhood starts before the origin of replication
+                overrun = (~tooclose) & (circular.foup < circular.fomin) & (circular.fodown > circular.fomax)
+                if overrun.sum() > 0:
+                    overIndex = blks[blks.block_id.isin(circular[overrun].block_id)].index
+                    circular.iloc[overIndex,6] = circular.iloc[overIndex,8] # Set foup   = fomin
+                    circular.iloc[overIndex,7] = circular.iloc[overIndex,9] # Set fodown = fomax
+
+                # Neighborhood starts before the origin of replication
+                overrun = (~tooclose) & (circular.foup < circular.fomin)
+                if overrun.sum() > 0:
+                    beforeOriginIndex = blks[blks.block_id.isin(circular[overrun].block_id)].index
+                    beforeOrigin = circular[beforeOriginIndex].copy()
+                    beforeOrigin.foup   = beforeOrigin.fomax - beforeOrigin.foup - beforeOrigin.fomin + 1
+                    beforeOrigin.fodown = beforeOrigin.fomax
+                    circular.iloc[beforeOriginIndex,6] = circular.iloc[beforeOriginIndex,8] # Set foup = fomin
+                    blks.append(beforeOrigin)
+
+                # Neighborhood ends after the origin of replication
+                overrun = (~tooclose) & (circular.fodown > circular.fomax)
+                if overrun.sum() > 0:
+                    afterOriginIndex = blks[blks.block_id.isin(circular[overrun].block_id)].index
+                    afterOrigin = blks[afterOriginIndex].copy()
+                    afterOrigin.foup   = afterOrigin.fomin
+                    afterOrigin.fodown = afterOrigin.fomin + afterOrigin.fodown - afterOrigin.fomax
+                    blks.append(afterOrigin)
+
+            # Truncate feature_id boundaries
+            blks.foup   = np.where(blks.foup < blks.fomin, blks.fomin, blks.foup)
+            blks.fodown = np.where(blks.fodown > blks.fomax, blks.fomax, blks.fodown)
+
+            # Merge
+            blks = blks.merge(
+                    self[['assembly','nucleotide','type','feature_order','internal_id']],
+                    left_on=['assembly','nucleotide','type','foup'],
+                    right_on=['assembly','nucleotide','type','feature_order'],
+                    how='left').rename({'internal_id':'up'}, axis=1).drop('feature_order', axis=1)
+            blks = blks.merge(
+                    self[['assembly','nucleotide','type','feature_order','internal_id']],
+                    left_on=['assembly','nucleotide','type','fodown'],
+                    right_on=['assembly','nucleotide','type','feature_order'],
+                    how='left').rename({'internal_id':'down'}, axis=1).drop('feature_order', axis=1)
+
+            # Sort again and add row ID
+            blks.sort_values([*cols,'type','block_id','foup'], ascending=[True,True,True,True,True,False])
+            blks['rid'] = pd.Series(range(0,len(blks)))
+
+        # If type is to be ignored, all analysis should focus on internal_ids
+        elif (fttype == 'any'):
+            blks = self[select].filter([*cols,'type','internal_id'])
+            blks.sort_values([*cols,'type','internal_id'], inplace=True)
+            blks['up']   = blks.internal_id - before
+            blks['down'] = blks.internal_id + after
+            blks.up   = np.where(blks.up < blks.fomin, blks.fomin, blks.up)
+            blks.down = np.where(blks.down > blks.fomax, blks.fomax, blks.down)
+
+        # Unkown fttype
+        else:
+            print(f'Unknown fttype {fttype}', file=sys.stderr)
+            return pd.DataFrame()
+
+        # Expand neighborhood boundaries to all members internal_id
+        blks['internal_id'] = pd.Series(blks[['up','down']].values.tolist()).apply(lambda x: range(x[0],x[1]+1))
+        blks = blks.filter(['assembly','nucleotide','internal_id','block_id','rid']).explode('internal_id')
+
+        # Add new blocks to dataframe
+        cols = self.columns
+        if inplace:
+            old = self.filter(['assembly','nucleotide','internal_id','block_id','rid','query']).copy()
+            self.drop(['query','block_id','rid'], axis=1, inplace=True)
+            self = self.merge(blks, left_on=['assembly','nucleotide','internal_id'], right_on=['assembly','nucleotide','internal_id'], how='left')
+            self['query']    = select.astype(int)
+            self['block_id'] = np.where(self.block_id.isna(), -np.abs(old.block_id), self.block_id).astype(int)
+            self['rid']      = np.where(self.rid.isna(), -np.abs(old.rid), self.rid).astype(int)
+            self = self[cols]
+            return old
+        else:
+            blks = self.merge(blks, left_on=['assembly','nucleotide','internal_id'], right_on=['assembly','nucleotide','internal_id'], how='left')
+            blks.rename({'block_id_y':'block_id','rid_y':'rid'}, axis=1, inplace=True)
+            blks['query']    = select.astype(int)
+            blks['block_id'] = np.where(blks.block_id.isna(), -np.abs(blks.block_id_x), blks.block_id).astype(int)
+            blks['rid']      = np.where(blks.rid.isna(), -np.abs(blks.rid_x), blks.rid).astype(int)
+            blks.drop(['block_id_x','rid_x'], axis=1, inplace=True)
+            blks = blks[cols]
+            return blks

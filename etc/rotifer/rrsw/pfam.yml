@@ -15,6 +15,7 @@ include:
  - \.hmm\.gz$
  - Pfam-.\.gz$
  - Pfam-A.seed.gz
+ - Pfam-B.tgz
  - \.txt$
  - Pfam-A.clans.tsv.gz
  - Pfam-A.seed.gz

@@ -321,6 +321,15 @@ def _fasta_ls(*args):
                 fasta_res += arg.split('\n')
     return fasta_res
 
+def not_kwargs(dict_args, key, value):
+    """ Small function to check if an element is not in a dictionary.
+    It is useful to set a default value to functions that exceeds the
+    number of 5 arguments
+    """
+    if key in dict_args.keys():
+        return dict_args[key]
+    return value
+
 def loadAPI(username = ''):
     '''
     Load NCBI API key
