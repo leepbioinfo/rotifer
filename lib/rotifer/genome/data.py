@@ -217,8 +217,7 @@ class NeighborhoodDF(pd.DataFrame):
                 lambda x: x > 0
             ).dropna().index)]
 
-    def value_counts_full(self,
-                          column):
+    def value_counts_full(self, column):
         """
         Calculate absolute and relative frequencies for a given column.
         If dropna is True, it will ignore the empty values to count
@@ -456,7 +455,7 @@ class NeighborhoodDF(pd.DataFrame):
         Find maximum and minimum values of block_id, feature_order and internal_id.
         Columns feature_order and internal_id are evaluated per nucleotide entry.
 
-        Return a tuple with a Pandas dataframe and two integer values.
+        Returns a Pandas dataframe.
         """
         df = self
         if isinstance(nucleotide,list) or isinstance(nucleotide,pd.Series):
@@ -474,9 +473,12 @@ class NeighborhoodDF(pd.DataFrame):
         dflim = dflim.merge(bidlim, left_on=['assembly'], right_on=['assembly'], how='left')
         return dflim
 
-    def neighbors(self, targets=['query == 1'], before=3, after=3, min_block_distance=0, strand=None, fttype='same', inplace=False):
+    def vicinity(self, targets=['query == 1'], before=3, after=3, min_block_distance=0, fttype='same'):
         """
-        Find sets of rows, representing genomic regions, that are located near a set of targets.
+        Locate genomic regions that contain features selected by some criteria.
+        
+        Each region will be described by assembly, nucleotide and a pair of minimum and
+        maximum internal IDs.
 
         The user may choose a set of rows (targets) as anchors, whose neighbors will be
         evaluated by user-defined parameters, such as feature type, strand or distance.
@@ -497,27 +499,11 @@ class NeighborhoodDF(pd.DataFrame):
          - min_block_distance : minimum distance between two consecutive blocks
                                 Blocks separated by more features 
 
-         - strand : how to evaluate rows concerning the value of the strand column
-                    Possible values for this option are:
-                     - None : ignore strand
-                     - same : same strand as the targets
-                     -    + : positive strand features and targets only
-                     -    - : negative strand features and targets only
-
          - fttype : how to process feature types of neighbors
                     Supported values:
                      - same : consider only features of the same type as the target
                      - any  : ignore feature type and count all features when
                               setting neighborhood boundaries
-
-         - inplace : do not create a new NeighborhoodDF dataframe but, instead,
-                     apply changes to the same object.
-                     
-                     IF set to True, the columns query, block_id and rid are
-                     modified and a dataframe with the old values is returned.
-                     
-                     If set to False, a copy of the original dataframe with new
-                     values in query, block_id and rid is returned.
         """
         import sys
         import numpy as np
@@ -541,14 +527,13 @@ class NeighborhoodDF(pd.DataFrame):
             return pd.DataFrame()
 
         # Initialize dataframe for each region (blocks)
-        cols = ['assembly','nucleotide','topology']
+        cols = ['assembly','nucleotide','topology','type']
         dflim = self.boundaries()
-        #['start','end','strand']
 
         # Process features with type
         if (fttype == 'same'):
-            blks = self[select].filter([*cols,'type','feature_order'])
-            blks.sort_values([*cols,'type','feature_order'], inplace=True)
+            blks = self[select].filter([*cols,'feature_order'])
+            blks.sort_values([*cols,'feature_order'], inplace=True)
             blks['foup']   = blks.feature_order - before
             blks['fodown'] = blks.feature_order + after
 
@@ -557,7 +542,7 @@ class NeighborhoodDF(pd.DataFrame):
             bid = bid & (blks.type == blks.type.shift(1))
             bid = bid & ((blks.foup - blks.fodown.shift(1) - 1) <= min_block_distance)
             blks['block_id'] = (~bid).cumsum()
-            blks = blks.groupby([*cols,'type','block_id']).agg({'feature_order':list,'foup':min,'fodown':max}).reset_index()
+            blks = blks.groupby([*cols,'block_id']).agg({'feature_order':list,'foup':min,'fodown':max}).reset_index()
             blks = blks.merge(dflim, left_on=['assembly','nucleotide','type'], right_on=['assembly','nucleotide','type'], how='left')
             blks.rename({'feature_order':'targets'}, axis=1, inplace=True)
 
@@ -621,13 +606,13 @@ class NeighborhoodDF(pd.DataFrame):
                     how='left').rename({'internal_id':'down'}, axis=1).drop('feature_order', axis=1)
 
             # Sort again and add row ID
-            blks.sort_values([*cols,'type','block_id','foup'], ascending=[True,True,True,True,True,False])
+            blks.sort_values([*cols,'block_id','foup'], ascending=[True,True,True,True,True,False])
             blks['rid'] = pd.Series(range(0,len(blks)))
 
         # If type is to be ignored, all analysis should focus on internal_ids
         elif (fttype == 'any'):
-            blks = self[select].filter([*cols,'type','internal_id'])
-            blks.sort_values([*cols,'type','internal_id'], inplace=True)
+            blks = self[select].filter([*cols,'internal_id'])
+            blks.sort_values([*cols,'internal_id'], inplace=True)
             blks['up']   = blks.internal_id - before
             blks['down'] = blks.internal_id + after
             blks.up   = np.where(blks.up < blks.fomin, blks.fomin, blks.up)
@@ -638,27 +623,100 @@ class NeighborhoodDF(pd.DataFrame):
             print(f'Unknown fttype {fttype}', file=sys.stderr)
             return pd.DataFrame()
 
-        # Expand neighborhood boundaries to all members internal_id
+        # Return a summary of all regions
+        return blks
+
+    def neighbors(self, targets=['query == 1'], before=3, after=3, min_block_distance=0, strand=None, fttype='same'):
+        """
+        Find sets of rows, representing genomic regions, that are located near a set of targets.
+
+        The user may choose a set of rows (targets) as anchors, whose neighbors will be
+        evaluated by user-defined parameters, such as feature type, strand or distance.
+
+        The returned value is a copy of the original NeighborhoodDF object with updated
+        block_id, rid and query columns.
+
+        Arguments:
+         - targets : (list of) boolean pd.Series or rules to select targets.
+
+            Rules will used identify target rows using Pandas's eval method.
+
+            If all rules return True for a given row, the row is a target and
+            its neighbors will be identified.
+
+         - before : keep at most this number of features, of the same type as the target,
+                    before each target
+         - after  : keep at most this number of features, of the same type as the target,
+                    after each target
+
+         - min_block_distance : minimum distance between two consecutive blocks
+                                Blocks separated by more features 
+
+         - strand : how to evaluate rows concerning the value of the strand column
+                    Possible values for this option are:
+                     - None : ignore strand
+                     - same : same strand as the targets
+                     -    + : positive strand features and targets only
+                     -    - : negative strand features and targets only
+
+         - fttype : how to process feature types of neighbors
+                    Supported values:
+                     - same : consider only features of the same type as the target
+                     - any  : ignore feature type and count all features when
+                              setting neighborhood boundaries
+        """
+        import sys
+        import numpy as np
+
+        # Build boolean pandas.Series to mark targets
+        select = True
+        if not isinstance(targets, list):
+            targets = [targets]
+        for code in targets:
+            if isinstance(code,str):
+                try:
+                    select &= self.eval(code)
+                except:
+                    print(f'Rule {code} failed', file=sys.stderr)
+            elif isinstance(code,pd.Series):
+                select &= code
+
+        # Find targets and their neighborhood
+        if (not isinstance(select,pd.Series)) or (select.sum() == 0):
+            print(f'No anchors to search for neighbors were found! Revise your list of targets!')
+            return pd.DataFrame()
+
+        # Initialize dataframe for each region (blocks)
+        select = self.filter(['assembly','nucleotide','internal_id']).assign(query=select)
+        blks = self.vicinity(select['query'], before, after, min_block_distance, fttype)
+        if blks.empty:
+            return pd.DataFrame()
+
+        # Expand list of features within each neighborhood, tag queries
+        # IMPORTANT: row number may increase if min_block_distance < 0!
         blks['internal_id'] = pd.Series(blks[['up','down']].values.tolist()).apply(lambda x: range(x[0],x[1]+1))
         blks = blks.filter(['assembly','nucleotide','internal_id','block_id','rid']).explode('internal_id')
+        blks = blks.merge(select, on=['assembly','nucleotide','internal_id'], how="left")
 
-        # Add new blocks to dataframe
+        # Replace query, block_id and rid columns
         cols = self.columns
-        if inplace:
-            old = self.filter(['assembly','nucleotide','internal_id','block_id','rid','query']).copy()
-            self.drop(['query','block_id','rid'], axis=1, inplace=True)
-            self = self.merge(blks, left_on=['assembly','nucleotide','internal_id'], right_on=['assembly','nucleotide','internal_id'], how='left')
-            self['query']    = select.astype(int)
-            self['block_id'] = np.where(self.block_id.isna(), -np.abs(old.block_id), self.block_id).astype(int)
-            self['rid']      = np.where(self.rid.isna(), -np.abs(old.rid), self.rid).astype(int)
-            self = self[cols]
-            return old
-        else:
-            blks = self.merge(blks, left_on=['assembly','nucleotide','internal_id'], right_on=['assembly','nucleotide','internal_id'], how='left')
-            blks.rename({'block_id_y':'block_id','rid_y':'rid'}, axis=1, inplace=True)
-            blks['query']    = select.astype(int)
-            blks['block_id'] = np.where(blks.block_id.isna(), -np.abs(blks.block_id_x), blks.block_id).astype(int)
-            blks['rid']      = np.where(blks.rid.isna(), -np.abs(blks.rid_x), blks.rid).astype(int)
-            blks.drop(['block_id_x','rid_x'], axis=1, inplace=True)
-            blks = blks[cols]
-            return blks
+        copy = self.drop(['query','block_id','rid'], axis=1).sort_values(['assembly','nucleotide','start','end'])
+        copy = copy.merge(blks, left_on=['assembly','nucleotide','internal_id'], right_on=['assembly','nucleotide','internal_id'], how='inner')
+        copy['query'] = np.where((~copy['query'].isna()) & copy['query'],1,0).astype(int)
+        copy = copy[cols]
+
+        # Evaluate other criteria for defining blocks
+        if strand == 'same':
+            tmp  = (copy.assembly   == copy.shift(1).assembly)
+            tmp &= (copy.nucleotide == copy.shift(1).nucleotide)
+            tmp &= (copy.block_id   == copy.shift(1).block_id)
+            tmp &= (copy.strand     == copy.shift(1).strand)
+            copy['block_id'] = (~tmp).cumsum()
+
+            # Cleanup
+            valid = copy.groupby('block_id').agg({'query':'sum'}).query('query > 0').block_id
+            copy = copy.query('block_id in @valid')
+            copy['block_id'] = (~(copy.block_id == copy.shift(1).block_id)).cumsum()
+
+        # Return
+        return copy

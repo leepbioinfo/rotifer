@@ -10,7 +10,7 @@ import pandas as pd
 
 # Biopython
 from Bio import SeqIO
-from Bio.Alphabet import generic_dna
+#from Bio.Alphabet import generic_dna
 
 # Rotifer libraries
 from rotifer.core.functions import not_kwargs
@@ -35,7 +35,8 @@ def parse(handle, informat, *args, **kwargs):
             for s in gff(eachhandle, *args, **kwargs):
                 yield s
         else:
-            for s in SeqIO.parse(eachhandle,informat,alphabet=generic_dna):
+            #for s in SeqIO.parse(eachhandle,informat,alphabet=generic_dna):
+            for s in SeqIO.parse(eachhandle,informat):
                 yield s
 
 def gff(path, seqid=None, assembly=None, organism=None, strain=None, description=None, topology='linear', keywords=[], ete3=None):
