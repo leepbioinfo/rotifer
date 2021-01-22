@@ -1,2 +1,37 @@
-*.pyc
-.gitignore
+# Based on https://gist.github.com/GhostofGoes/94580e76cd251972b15b4821c8a06f59
+
+# Editors
+.vscode/
+.idea/
+
+# Vagrant
+.vagrant/
+
+# Mac/OSX
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Source for the following rules: https://raw.githubusercontent.com/github/gitignore/master/Python.gitignore
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+.cache
+.pytest_cache/
+
+# Django stuff:
+*.log
+
+# Jupyter Notebook
+.ipynb_checkpoints
