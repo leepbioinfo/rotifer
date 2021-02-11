@@ -26,7 +26,6 @@ def seqrecord2df(seqrecs, exclude_type=[], autopid=False, assembly=None, codonta
     '''
     import Bio
     from math import ceil, log10
-    from Bio.Alphabet import generic_dna
     from rotifer.genome.data import NeighborhoodDF
 
     # Make sure first argument is a list
