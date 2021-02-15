@@ -1,0 +1,269 @@
+#!/usr/bin/env python3
+
+# Python core
+import os
+import re
+import sys
+
+# Rotifer libraries
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[0]))), "lib"))
+
+# Pandas
+import numpy as np
+import pandas as pd
+
+# Required libraries
+import datetime
+from Bio import SeqIO
+from rotifer.genome import io as rgio
+from rotifer.genome.io import GenbankAssemblyFromFilename
+from rotifer.genome import utils as rgutils
+
+__version__ = 0.1
+__authors__ = 'Robson F. de Souza'
+__rdoc__ = '''
+DESCRIPTION:
+Rotifer's Genome Annotation PARSER
+
+Extract DNA and/or protein sequences and feature annotations from genomes.
+'''
+
+def parse_cli():
+    import argcomplete
+    import rotifer.core.cli as corecli
+    from rotifer.core.cli import action
+    parser = corecli.parser(description = 'Parse GFF files')
+
+    parser.add(long_arg = '--assembly',
+                short_arg = '-a',
+                dest = 'assembly',
+                helper = f'''Rules for inferring the genome's name, i.e. the value for the assembly column (default: :genbank).
+These rules only apply when the input does not name the assembly.
+
+Genbank files store assembly identifiers under DBLINK but some genomes may not have this annotation.
+
+There are two ways you can name your genomes:
+
+* 1. You can use assign the same name to all sequences with a string.
+     Example:
+
+     {os.path.basename(sys.argv[0])} --assembly MyGenome file.gbff
+
+* 2. You can extract the assembly name from the file name using the GenBank rule.
+
+     This rule assumes the file name starts with either GCA_ or GCF_, followed
+     only numbers and dots, and ends in the next underscore ("_"). Example:
+
+     {os.path.basename(sys.argv[0])} --assembly :genbank GCA_00012345.2_ASM2008v4.gbff.gz
+
+     will assign GCA_00012345.2 to all sequences within GCA_00012345.2_ASM2008v4.gbff.gz
+
+     Note that, if parsing fails to extract the assembly ID, this method sets the
+     assembly identifier to a concatenation of the input file name and the sequence ID.
+
+* 3. You can set you own a lambda function.
+     The lambda function will receive two arguments:
+      i)  the current file name and
+      ii) the Bio.SeqRecord object being processed
+     and it is expected to return a single string.
+     Example:
+
+     {os.path.basename(sys.argv[0])} --assembly 'lambda p,s: re.sub(".gbff","",os.path.basename(p))' file.gbff
+
+''',
+    default = ":genbank")
+
+    parser.add(long_arg = '--codontable',
+                dest = 'codontable',
+                helper = "Codon table to use for translating CDS's.",
+                default = 'Bacterial')
+
+    parser.add(long_arg = '--dna',
+                dest = 'dna',
+                helper = 'Set path to save parsed DNA sequences.',
+                default = None)
+
+    parser.add(long_arg = '--dna_format',
+                dest = 'dna_format',
+                helper = 'Set format for parsed DNA sequences.',
+                default = 'fasta')
+
+    parser.add(long_arg = '--exclude_type',
+                short_arg = '-xt',
+                dest = 'exclude_type',
+                default = ['gene','source'],
+                nargs = 1,
+                action = 'extend',
+                helper = 'List of features to ignore (default: empty).')
+
+    parser.add(long_arg = '--features',
+                dest = 'features',
+                helper = 'File to save a rotifer.genome.data compatible table (default: standard output).',
+                default = None)
+
+    parser.add(long_arg = '--noheader',
+                short_arg = '-noy',
+                dest = 'header',
+                default = False,
+                helper = 'Disable column header for output feature table (default: yes). See option --features.',
+                action = 'store_false')
+
+    parser.add(long_arg = '--header',
+                short_arg = '-y',
+                dest = 'header',
+                helper = 'Enable column header for output feature table (default: yes). See option --features.',
+                default = True,
+                action = 'store_true')
+
+    parser.add(long_arg = '--informat',
+                short_arg = '-if',
+                dest = 'informat',
+                default = 'gff',
+                helper = 'Input file format (default: gff). See option Bio.SeqIO for other formats.')
+
+    parser.add(long_arg = '--keywords',
+                dest = 'keywords',
+                default = [],
+                nargs = 1,
+                action = 'extend',
+                helper = 'String to add to KEYWORD field.')
+
+    parser.add(long_arg = '--organism',
+                short_arg = '-org',
+                dest = 'organism',
+                default = None,
+                helper = 'Set organism name or NCBI taxid.')
+
+    parser.add(long_arg = '--output_delimiter',
+                short_arg = '-r',
+                dest = 'output_delimiter',
+                helper = 'Column separator for features table (default: TAB). See option --features.',
+                default = "\t")
+
+    parser.add(long_arg = '--autopid',
+                dest = 'autopid',
+                helper = 'Choose PID generation method for CDS features (default: auto). See rotifer.genome.utils.',
+                default = 'auto')
+
+    parser.add(long_arg = '--protein',
+                dest = 'protein',
+                helper = 'Basename for FASTA formatted translated CDS sequences (aminoacids).',
+                default = None)
+
+    parser.add(long_arg = '--protein_format',
+                dest = 'protein_format',
+                helper = 'Set format for parsed protein sequences.',
+                default = 'fasta')
+
+    parser.add(long_arg = '--strain',
+                dest = 'strain',
+                helper = 'Set isolate or strain name.',
+                default = None)
+
+    parser.add(long_arg = '--split',
+                dest = 'split',
+                helper = 'Parse GFF feature and sequence data separately, instead of trying to parse FASTA records with BCBio.GFF.',
+                default = True)
+
+    parser.add(long_arg = '--topology',
+                short_arg = '-t',
+                dest = 'topology',
+                helper = 'Set sequence topology (default: linear). See Bio.SeqRecord.',
+                default = "linear")
+
+    parser.add(dest = 'files',
+               helper = 'Input files',
+               action = action.add_stdin,
+               nargs="*")
+
+    # Parse
+    argcomplete.autocomplete(parser)
+    args = parser.parse_args()
+
+    # Process assembly argument
+    if args.assembly == ":genbank":
+        args.assembly = GenbankAssemblyFromFilename
+    elif re.match(r'^ *lambda +[^:]+: *.+',args.assembly):
+        args.assembly = eval(args.assembly)
+
+    # Return command line arguments
+    return args
+
+def main(args):
+    # Prepare DNA output stream
+    if args.dna:
+        if args.dna == 'stdout':
+            dna = sys.stdout
+        else:
+            dna = open(args.dna, mode="w")
+
+    # Prepare protein output stream
+    if args.protein:
+        if args.protein == 'stdout':
+            protein = sys.stdout
+        else:
+            protein = open(args.protein, mode="w")
+
+    # Prepare feature output stream
+    if (args.features == 'stdout') or not (args.features or args.dna or args.protein):
+        args.features = sys.stdout
+    header = args.header
+    mode = "w"
+
+    # Process input files
+    block_id = -1
+    for s in rgio.parse(args.files, args.informat, organism=args.organism, strain=args.strain, assembly=args.assembly, topology=args.topology, keywords=args.keywords):
+        # Dump DNA sequence
+        if args.dna:
+            SeqIO.write(s, dna, args.dna_format)
+
+        # Dump translated CDS (protein) sequences
+        if args.protein:
+            if args.protein == 'stdout':
+                args.protein = sys.stdout
+            for f in s.features:
+                if (f.type == 'CDS') and ('pseudo' not in f.qualifiers) and (len(f) % 3 == 0):
+                    if 'translation' in f.qualifiers:
+                        #from Bio.Alphabet import IUPAC
+                        from Bio.Seq import Seq
+                        from Bio.SeqRecord import SeqRecord
+                        #p = SeqRecord(Seq(f.qualifiers['translation'][0], IUPAC.protein))
+                        p = SeqRecord(Seq(f.qualifiers['translation'][0]))
+                    else:
+                        p = f.translate(s, table=args.codontable)
+
+                    # Set protein accession
+                    if 'protein_id' in f.qualifiers:
+                        p.id = f.qualifiers['protein_id'][0]
+                    elif 'locus_tag' in f.qualifiers:
+                        p.id = f.qualifiers['locus_tag'][0]
+                    else:
+                        p.id = f'{s.name}_{genome_order:06}'
+                    p.name = p.id
+
+                    # Description
+                    if 'product' in f.qualifiers:
+                        p.description = f.qualifiers['product'][0].rstrip(";")
+                    else:
+                        p.description = 'hypothetical protein'
+
+                    # Copy annotations
+                    for tag in "organism taxonomy".split(" "):
+                        if tag in s.annotations:
+                            p.annotations[tag] = s.annotations[tag]
+
+                    # Dump sequence
+                    SeqIO.write(p, protein, args.protein_format)
+
+        # Print features
+        if args.features:
+            df = rgutils.seqrecord2df(s, exclude_type=args.exclude_type, codontable=args.codontable, autopid=args.autopid, block_id=block_id)
+            if not df.empty:
+                df.to_csv(args.features, mode=mode, index=False, header=header, sep=args.output_delimiter)
+                header = False
+                mode = 'a'
+            block_id -= 1
+
+if __name__ == "__main__":
+    main(parse_cli())
+    sys.exit(0)
