@@ -36,6 +36,8 @@ cat ${input} \
 hmmer2table ${target}.pfam.hmmscan.out > ${target}.pfam.hmmscan.tsv
 domain2architecture -e 0.0101 ${target}.phobius.tsv ${target}.pfam.hmmscan.tsv > ${target}.pfam.hmmscan.arch
 architecture2table ${target}.pfam.hmmscan.arch > ${target}.pfam.hmmscan.arch.tsv
+ln -s ${target}.pfam.hmmscan.arch ${target}.pfam.scan.arch
+ln -s ${target}.pfam.hmmscan.arch.tsv ${target}.pfam.scan.arch.tsv
 
 # Aravind: hmmscan
 cat ${input} \
@@ -49,7 +51,9 @@ cat ${input} \
 | parallel -N1 -j36 --pipe --recstart '>' rpsblast -db /databases/profiledb/rpsdb/aravinddb \
 > ${target}.aravind.rpsblast.out \
 2> ${target}.aravind.rpsblast.err
-cat ${target}.aravind.rpsblast.out | parallel -N1 -j36 --pipe --recstart RPSBLAST blast2table -s > ${target}.aravind.rpsblast.tsv
+cat ${target}.aravind.rpsblast.out \
+| parallel -N1 -j36 --pipe --recstart RPSBLAST blast2table -s -c profiledb \
+> ${target}.aravind.rpsblast.tsv
 
 # Aravind: domain2architecture
 (cat ${target}.phobius.tsv; awk '$5<=0.1{print}' ${target}.aravind.rpsblast.tsv) \
