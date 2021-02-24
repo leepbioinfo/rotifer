@@ -404,7 +404,7 @@ sub genbank2acc {
 
 sub profiledb {
     my $name = $_[0];
-    $name =~ s/(\_\S+)?\.\d+$// if ($_[1] eq "hit");
+    $name =~ s/\.\d+$// if ($_[1] eq "hit");
     return ($name,$_[0]);
 }
 

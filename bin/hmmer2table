@@ -23,6 +23,7 @@ my $gunzip = "gzip -dc";
 my $bunzip = "bzip2 -dc";
 
 # Parsing hmmsearch output
+my $cleanSub = $CONFIG->clean;
 foreach my $file (@ARGV) {
     my ($query, $hit, $qlen, $prog);
     my $iteration = 1;
@@ -35,7 +36,7 @@ foreach my $file (@ARGV) {
 	chomp;
 
 	# Headers
-    /^#\s(\w+)\s+\:\:/               && do { $prog = $1; next } ;
+	/^#\s(\w+)\s+\:\:/               && do { $prog = $1; next } ;
 	/\@\@\s+Round:\s+(\d+)/          && do { $iteration = $1; next };
 	/^Query:\s+(\S+)\s+.*\[\S=(\d+)/ && do { $query = $1; $qlen = $2; $in_hsp_table = 0; next };
 	/^>> (\S+)/                      && do { $hit   = $1; next };
@@ -44,33 +45,38 @@ foreach my $file (@ARGV) {
 	/Domain annotation for each/ && do { $in_hsp_table = 1; next };
 	next unless ($in_hsp_table);
 	/^\s+\d+\s+[\?\!]\s+/ && do {
-	    s/^\s+//;
-	    my @row = split(/\s+/);
-	    next if (defined $CONFIG->evalue && $row[5] > $CONFIG->evalue);
-	    warn "Unexpected number of columns at $_\n" unless (scalar(@row) == 16);
-	    my @ids = map { s/^[^\|]+\|([^\|]+)\|\S+/$1/ if ($CONFIG->clean); $_ } ($hit,$query);
-        
-        my $qcov; 
-	    if ($prog eq "hmmscan"){
-            @ids = ($query,$hit);
-            $qcov = sprintf("%.2f",($row[10]-$row[9]+1)/$qlen);
-        }
-        else{
-            $qcov = sprintf("%.2f",($row[7]-$row[6]+1)/$qlen);
-        }
+		s/^\s+//;
+		my @row = split(/\s+/);
+		next if (defined $CONFIG->evalue && $row[5] > $CONFIG->evalue);
+		warn "Unexpected number of columns at $_\n" unless (scalar(@row) == 16);
 
-        if (defined $CONFIG->rename_query) {
-		if (ref $CONFIG->rename_query) {
-		    $ids[1] = $CONFIG->rename_query->($ids[1], $file);
+		# Load ids
+		my %ids = ( "query" => $query, "hit" => $hit );
+
+		# Calculate query coverage
+		my $qcov;
+		if ($prog eq "hmmscan") {
+			$qcov = sprintf("%.2f",($row[10]-$row[9]+1)/$qlen);
+			@ids{"query","hit"} = ($hit,$query);
 		} else {
-		    $ids[1] = $CONFIG->rename_query;
+			$qcov = sprintf("%.2f",($row[7]-$row[6]+1)/$qlen);
 		}
-	    } elsif (scalar @{ $CONFIG->force_basename }) {
-		($ids[0]) = fileparse($file, @{ $CONFIG->force_basename });
-	    }
-        #my $qcov = sprintf("%.2f",($row[7]-$row[6]+1)/$qlen);
-        my $tali_len = $row[10] - $row[9];
-	    print join("\t",@ids,$row[9],$row[10],$row[5],$qcov,$row[6],$row[7],$iteration,$row[2],$tali_len,$qlen,$row[12],$row[13],$prog),"\n";
+
+		# Fix IDs
+		foreach my $target (qw(query hit)) {
+			next unless (exists $ids{$target} && exists $cleanSub->{$target});
+			$ids{$target} = $cleanSub->{$target}->($ids{$target});
+		}
+		if (scalar @{ $CONFIG->force_basename }) {
+			$ids{"query"} = fileparse($file, @{ $CONFIG->force_basename });
+		}
+		#my $qcov = sprintf("%.2f",($row[7]-$row[6]+1)/$qlen);
+
+		# Calculate alignment length and store data
+		my $tali_len = $row[10] - $row[9];
+		my @out = map { $ids{$_} } qw(hit query);
+		push(@out, $row[9], $row[10], $row[5], $qcov, $row[6], $row[7], $iteration, $row[2], $tali_len, $qlen, $row[12], $row[13], $prog);
+		print join("\t",@out),"\n"; 
 	};
     } # while (<HMMER>)
     close(HMMER);
@@ -81,6 +87,16 @@ exit 0;
 #
 # Subroutines
 #
+
+sub profiledb {
+	$_[0] =~ s/(\_[^\_]+)?\.\d+$//;
+	return $_[0];
+}
+
+sub version {
+	$_[0] =~ s/\.\d+$//;
+	return $_[0];
+}
 
 sub parse_configuration {
     use Application::Config qw(:argcount GetConfig);
@@ -101,18 +117,29 @@ sub parse_configuration {
 				  SUMMARY  => "Derive query name from filename by  removing suffixes",
 			      },
 
-			      'rename_query' => {
-				  ALIAS    => 'r',
-				  DEFAULT  => undef,
-				  ARGCOUNT => ARGCOUNT_ONE,
-				  SUMMARY  => "Change query idetifier: either a string or perl code defining a closure (anonymoys subroutine reference). The subroutine receives as input the query name and the input file name and should return the new query name as a string.",
-			      },
-
 			      'clean' => {
 				  ALIAS    => 'c',
-				  DEFAULT  => 0,
-				  ARGCOUNT => ARGCOUNT_NONE,
-				  SUMMARY  => "boolean, simplify sequence name to GI number",
+				  DEFAULT  => {},
+				  ARGCOUNT => ARGCOUNT_HASH,
+				  SUMMARY  => "Subroutines to clean sequence and model identifiers.
+Pre-defined cleanup subroutines can be activated by name and include:
+
+ * profiledb : rule to cleanup Aravind's profile names
+ * version   : simple rule to remove trailing version numbers matching the regex \\.\\d+
+
+Usage: hmmer2table -c <target>=<cleaner>
+Example:
+
+ hmmer2table -c model=version
+
+User-defined cleaners are anonymous subroutine definitions of the form:
+
+ hmmer2table -c model='sub { my \$id = \$_; \$id =~ s/\\.\\d+\$//; return \$id }'
+
+which receive only model or hit identifiers strings as arguments and
+should return clean IDs as a string. Keywords for the target ID are
+either model (synonym: query) and sequence (synonym: hit).
+",
 			      },
 
 			      'pcut' => {
@@ -132,11 +159,24 @@ sub parse_configuration {
 	);
 
     # Compile rename_query subroutine
-    if (defined $appconfig->rename_query) {
-	my $ref = $appconfig->rename_query;
-	$ref = eval $ref if ($ref =~ /\bsub\b.+\{.+\}/);
-	die "Error compiling rename_query (option -r) subroutine: $@" if ($@);
-	$appconfig->rename_query($ref);
+    if (scalar keys(%{$appconfig->clean})) {
+	my $hash = $appconfig->clean;
+	$hash->{"query"} = $hash->{"model"} if ((!exists $hash->{"query"}) && exists $hash->{"model"});
+	$hash->{"hit"} = $hash->{"sequence"} if ((!exists $hash->{"hit"}) && exists $hash->{"sequence"});
+	foreach my $target (keys %$hash) {
+		my $ref = $hash->{$target};
+		if ($ref eq "profiledb") {
+			$ref = \&profiledb;
+		} elsif ($ref eq "version") {
+			$ref = \&version;
+		} elsif ($ref =~ /\bsub\b.+\{.+\}/) {
+			$ref = eval $ref; 
+			die "Error compiling clean (option -c) subroutine: $@" if ($@);
+		} else {
+			die "Unknown --clean pre-defined subroutine $ref";
+		}
+		$hash->{$target} = $ref;
+	}
     }
 
     # Expand list of files from a directory
