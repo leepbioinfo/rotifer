@@ -251,7 +251,7 @@ def parse_result(lines):
     return results
 
 def read_result(input_file):
-    with open(input_file) as fh:
+    with open(input_file, errors='ignore') as fh:
         lines = fh.readlines()
         return parse_result(lines)
 
