@@ -5,5 +5,5 @@ function acc2profiledb() {
     ) \
     | domain2architecture -e 0.0101 \
     | architecture2table \
-    | padtable
+    | padtable;
 }

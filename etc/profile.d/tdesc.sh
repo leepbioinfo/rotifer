@@ -3,5 +3,5 @@ function tdesc() {
     if [ "$sep" == "" ]; then
         sep='\t';
     fi;
-    head -n1 $1 | ttranspose -s $sep | tfilter -f 'unshift(@F,$H{c}++);1'
+    head -n1 $1 | ttranspose -s $sep | tfilter -f 'unshift(@F,$H{c}++);1';
 }
