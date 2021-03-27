@@ -19,11 +19,11 @@ do
 	target=$(basename $f)
 	if [ "$target" == "nt" ]; then DBTYPE="nucl"; fi
 	if [ "$IS_TEST" == "1" ]; then
-		perl -i -pe 's/\-/X/go if (substr($_,0,1) ne ">")' $f
-		esl-sfetch --index $f
-	else
 		echo perl -i -pe 's/\-/X/go if (substr($_,0,1) ne ">")' $f
 		echo esl-sfetch --index $f
+	else
+		perl -i -pe 's/\-/X/go if (substr($_,0,1) ne ">")' $f
+		esl-sfetch --index $f
 	fi
 done
 if [   -d "$base/freeze" ]; then run_or_show  ln -s $base/freeze .; fi
