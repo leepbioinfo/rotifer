@@ -58,10 +58,22 @@ def neighbors(query=[], columns=['pid'], assembly_reports=None, exclude_type=['s
       columns          : list of columns to inspect for matches to any query
       assembly_reports : rotifer.db.ncbi.read.assembly_reports dataframe
                          If not given, assembly reports are downloaded
+                         
+                         Keep in mind that ONLY assemblies listed in this
+                         dataframe are searched for matches to queries.
+
+                         Therefore, one can use a slice to fetch entries from
+                         a selected set of genomes:
+
+                         a = ncbi().read('assembly_reports')
+                         a = a[a.assembly.isin(['GCF_001650215.1'])
+                         b = ncbiClass.neighbors(['WP_063732599.1'], assembly_reports=a)
+      
       exclude_type     : exclude features by type
 
       Other arguments are supported by neighbors from rotifer.genome.data
     """
+
     from rotifer.db.ncbi import ncbi
     from rotifer.genome.utils import seqrecords_to_dataframe
     ncbiObj = ncbi()
@@ -75,12 +87,12 @@ def neighbors(query=[], columns=['pid'], assembly_reports=None, exclude_type=['s
         query = [ query ]
     ncbiObj.submit(query)
     ipg = ncbiObj.read('ipg')
-    missing = ncbiObj.missing()
-    found = set(query) - set(missing)
-    ipg = ipg[ipg.pid.isin(found)]
+    ipg = ipg[ipg.assembly.isin(assembly_reports.assembly)] # Filter assemblies
+    matches = ipg[ipg.pid.isin(query)].id # Find IPGs with pids matching at least one query
+    matches = ipg.pid.isin(query) | (~ipg.id.isin(matches) & ipg.representative.isin(query))
+    ipg = ipg[matches & ipg.assembly.isin(assembly_reports.assembly)]
+    found = set(ipg.pid).union(set(ipg.representative))
     ipg = ipg.groupby(['id','pid']).agg({'assembly':'first'}).reset_index()
-    missing.extend(ipg[ipg.assembly.isna()].pid.unique().tolist())
-    ipg = ipg[~ipg.assembly.isna()]
 
     # Prepare list of assemblies (use first found in IPG)
     # Download and parse assemblies
@@ -88,6 +100,7 @@ def neighbors(query=[], columns=['pid'], assembly_reports=None, exclude_type=['s
     batch_size = 1
     assemblies = ipg.assembly.sort_values().unique().tolist()
     pos = list(range(0,len(assemblies),batch_size))
+    nextBlockId = 1
     for s in pos:
         e = s + batch_size
         ids = assemblies[s:e]
@@ -97,8 +110,9 @@ def neighbors(query=[], columns=['pid'], assembly_reports=None, exclude_type=['s
         select = False
         for c in columns:
             select |= genomes[c].isin(found)
-        genomes = genomes.neighbors(select, *args, **kwargs)
+        genomes = genomes.neighbors(select, *args, **kwargs, min_block_id=nextBlockId)
         ndf.append(genomes)
+        nextBlockId = genomes.block_id.max() + 1
     ndf = pd.concat(ndf)
 
     return ndf

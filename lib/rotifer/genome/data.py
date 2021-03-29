@@ -473,7 +473,7 @@ class NeighborhoodDF(pd.DataFrame):
         dflim = dflim.merge(bidlim, left_on=['assembly'], right_on=['assembly'], how='left')
         return dflim
 
-    def vicinity(self, targets=['query == 1'], before=3, after=3, min_block_distance=0, fttype='same'):
+    def vicinity(self, targets=['query == 1'], before=3, after=3, min_block_distance=0, fttype='same', min_block_id=0):
         """
         Locate genomic regions that contain features selected by some criteria.
         
@@ -504,9 +504,17 @@ class NeighborhoodDF(pd.DataFrame):
                      - same : consider only features of the same type as the target
                      - any  : ignore feature type and count all features when
                               setting neighborhood boundaries
+
+         - min_block_id : starting number for block_ids, useful if calling this method
+                          eqeuntially through multiple rotifer.genome.data.NeighborhoodDF
+                          dataframes
         """
         import sys
         import numpy as np
+
+        # Adjust min_block_id to make sure the first block_id is always 1
+        if min_block_id > 0:
+            min_block_id -= 1
 
         # Build boolean pandas.Series to mark targets
         select = True
@@ -541,7 +549,7 @@ class NeighborhoodDF(pd.DataFrame):
             bid = (blks.nucleotide == blks.nucleotide.shift(1))
             bid = bid & (blks.type == blks.type.shift(1))
             bid = bid & ((blks.foup - blks.fodown.shift(1) - 1) <= min_block_distance)
-            blks['block_id'] = (~bid).cumsum()
+            blks['block_id'] = (~bid).cumsum() + min_block_id
             blks = blks.groupby([*cols,'block_id']).agg({'feature_order':list,'foup':min,'fodown':max}).reset_index()
             blks = blks.merge(dflim, left_on=['assembly','nucleotide','type'], right_on=['assembly','nucleotide','type'], how='left')
             blks.rename({'feature_order':'targets'}, axis=1, inplace=True)
@@ -626,15 +634,15 @@ class NeighborhoodDF(pd.DataFrame):
         # Return a summary of all regions
         return blks
 
-    def neighbors(self, targets=['query == 1'], before=3, after=3, min_block_distance=0, strand=None, fttype='same'):
+    def neighbors(self, targets=['query == 1'], before=3, after=3, min_block_distance=0, strand=None, fttype='same', min_block_id=0):
         """
         Find sets of rows, representing genomic regions, that are located near a set of targets.
 
         The user may choose a set of rows (targets) as anchors, whose neighbors will be
         evaluated by user-defined parameters, such as feature type, strand or distance.
 
-        The returned value is a copy of the original NeighborhoodDF object with updated
-        block_id, rid and query columns.
+        The returned value is a copy of a slice of the original NeighborhoodDF object with
+        updated block_id, rid and query columns.
 
         Arguments:
          - targets : (list of) boolean pd.Series or rules to select targets.
@@ -664,6 +672,10 @@ class NeighborhoodDF(pd.DataFrame):
                      - same : consider only features of the same type as the target
                      - any  : ignore feature type and count all features when
                               setting neighborhood boundaries
+
+         - min_block_id : starting number for block_ids, useful if calling this method
+                          eqeuntially through multiple rotifer.genome.data.NeighborhoodDF
+                          dataframes
         """
         import sys
         import numpy as np
@@ -688,7 +700,7 @@ class NeighborhoodDF(pd.DataFrame):
 
         # Initialize dataframe for each region (blocks)
         select = self.filter(['assembly','nucleotide','internal_id']).assign(query=select)
-        blks = self.vicinity(select['query'], before, after, min_block_distance, fttype)
+        blks = self.vicinity(select['query'], before, after, min_block_distance, fttype, min_block_id)
         if blks.empty:
             return pd.DataFrame()
 
