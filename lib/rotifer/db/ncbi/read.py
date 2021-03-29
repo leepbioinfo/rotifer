@@ -8,7 +8,7 @@ from rotifer.db.ncbi import NcbiConfig
 from ete3.ncbi_taxonomy.ncbiquery import NCBITaxa
 
 # Load NCBI assembly reports
-def assembly_reports(ncbi, baseurl=None, columns=[], query_type='assembly_accession', taxonomy=None, verbose=0, *args, **kwargs):
+def assembly_reports(ncbi, baseurl=f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASSEMBLY_REPORTS', columns=[], query_type='assembly', taxonomy=None, verbose=0, *args, **kwargs):
     '''
     Load NCBI assembly reports from a local directory or FTP.
 
@@ -20,7 +20,7 @@ def assembly_reports(ncbi, baseurl=None, columns=[], query_type='assembly_access
 
       a = ncbi()
       a.submit(['GCF_900504695.1', 'GCF_004636045.1'])
-      b = a.read(method='assembly_reports', columns=['id','accession'])
+      b = a.read(method='assembly_reports', columns=['id','pid'])
 
     Returns:
       Pandas DataFrame
@@ -46,14 +46,6 @@ def assembly_reports(ncbi, baseurl=None, columns=[], query_type='assembly_access
     logger.setLevel(verbose)
     logger.info(f'main: loading assembly reports...')
 
-    # Choose URL
-    if not baseurl:
-        baseurl = f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASSEMBLY_REPORTS'
-        if ('ROTIFER_DATA' in os.environ):
-            localdir = os.path.join(os.environ["ROTIFER_DATA"],"genomes","ASSEMBLY_REPORTS")
-            if os.path.exists(localdir) and glob(os.path.join(localdir,'assembly_summary_*.txt')):
-                baseurl = localdir
-
     # Load assembly reports
     assemblies = list()
     for x in ['refseq', 'genbank', 'refseq_historical', 'genbank_historical']:
@@ -65,7 +57,7 @@ def assembly_reports(ncbi, baseurl=None, columns=[], query_type='assembly_access
         else: # FTP
             url = f'{baseurl}/assembly_summary_{x}.txt'
         _ = pd.read_csv(url, sep ="\t", skiprows=[0])
-        _.rename({'# assembly_accession':'assembly_accession'}, axis=1, inplace=True)
+        _.rename({'# assembly_accession':'assembly'}, axis=1, inplace=True)
         _['source'] = x
         _['loaded_from'] = url
         assemblies.append(_)
@@ -103,7 +95,7 @@ def assembly_reports(ncbi, baseurl=None, columns=[], query_type='assembly_access
 
     # Reset ncbi object, update missing list and return
     ncbi.submit(queries)
-    found = set(list(assemblies.assembly_accession))
+    found = set(list(assemblies.assembly))
     ncbi.missing([ x for x in queries if x not in found ])
     logger.info(f'main: {len(assemblies)} assembly reports loaded!')
     return assemblies
@@ -131,7 +123,7 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, *args, **
     import pandas as pd
     from Bio import Entrez
     Entrez.email = ncbi.email
-    cols = ['id','source','nucleotide','start','stop','strand','accession','description','organism','strain','assembly']
+    cols = ['id','source','nucleotide','start','stop','strand','pid','description','organism','strain','assembly']
     ipgs = pd.DataFrame(columns=cols)
 
     # Set log format
@@ -166,7 +158,7 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, *args, **
         # Parse fetched IPG reports
         if handle:
             ipgs = pd.read_csv(handle, sep='\t', names=cols, header=0).drop_duplicates()
-            found   = set([x for x in queries if x in ipgs['accession'].unique()])
+            found   = set([x for x in queries if x in ipgs['pid'].unique()])
             missing = set([x for x in queries if x not in found])
             handle.close() # Close Bio.Entrez _io.TextWrapper handle
 
@@ -193,7 +185,7 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, *args, **
                 ipgs = ipg
             else:
                 ipgs = ipgs.append(ipg, ignore_index=True).drop_duplicates()
-            found   = set([x for x in queries if x in ipgs['accession'].unique()])
+            found   = set([x for x in queries if x in ipgs['pid'].unique()])
             missing = set([x for x in queries if x not in found])
             handle.close()
 
@@ -208,7 +200,7 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, *args, **
         return pd.DataFrame(columns=[*cols, 'is_query', 'representative'])
 
     # Register query proteins
-    ipgs['is_query'] = ipgs.accession.isin(queries).astype(int)
+    ipgs['is_query'] = ipgs.pid.isin(queries).astype(int)
 
     # Process batches of different sizes
     if len(queries) == 1: # One query
@@ -218,8 +210,8 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, *args, **
     # More than one query?
     else:
         #  Register first query protein as representative
-        rep = ipgs.loc[ipgs['is_query'] == 1,['id','accession']].drop_duplicates('id', keep='first')
-        idmap = {k:v for k,v in zip(rep['id'].values, rep['accession'].values) }
+        rep = ipgs.loc[ipgs['is_query'] == 1,['id','pid']].drop_duplicates('id', keep='first')
+        idmap = {k:v for k,v in zip(rep['id'].values, rep['pid'].values) }
         ipgs['representative'] = ipgs['id'].map(idmap)
 
         # Remove all IPGs that have no representative
@@ -239,7 +231,7 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, *args, **
     # Set id to numeric and update list of missing queries
     if not ipgs.empty:
         ipgs['id'] = pd.to_numeric(ipgs.id)
-    missing = set([x for x in queries if x not in ipgs.accession.append(ipgs.representative).unique()])
+    missing = set([x for x in queries if x not in ipgs.pid.append(ipgs.representative).unique()])
     ncbi.missing(missing)
     if verbose:
         found = set([x for x in queries if x not in missing])
@@ -251,7 +243,7 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, *args, **
         if not isinstance(assembly_reports,pd.DataFrame):
             url = f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASSEMBLY_REPORTS'
             assembly_reports = type(ncbi)(query=list(ipgs[~ipgs.assembly.isna()].assembly.unique())).read('assembly_reports', baseurl=url, columns=col)
-        ipgs = ipgs.merge(assembly_reports.drop(col, axis=1), left_on='assembly', right_on='assembly_accession', how='left')
+        ipgs = ipgs.merge(assembly_reports.drop(col, axis=1), left_on='assembly', right_on='assembly', how='left')
 
     return ipgs
 

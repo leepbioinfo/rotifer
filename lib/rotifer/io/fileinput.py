@@ -15,10 +15,10 @@ from fileinput import *
 _state = None
 
 class FileInput(fileinput.FileInput):
-    def __init__(self, files=None, inplace=0, backup='', bufsize=0, mode='r', openhook=None, delete=False):
+    def __init__(self, files=None, inplace=False, backup='', *, mode='r', openhook=None, delete=False):
         self.files   = files if isinstance(files,list) else [ files ]
         self._delete = delete
-        super(__class__, self).__init__(files=files, inplace=inplace, backup=backup, bufsize=bufsize, mode=mode, openhook=openhook)
+        super(__class__, self).__init__(files=files, inplace=inplace, backup=backup, mode=mode, openhook=openhook)
 
     def close(self):
         super(__class__, self).close()
@@ -31,7 +31,14 @@ class FileInput(fileinput.FileInput):
     def __del__(self):
         self.close()
 
-def input(files=None, inplace=False, backup="", bufsize=0, mode="r", openhook=None, delete=False):
+    def read(self, bufsize):
+        """
+        Ugly hack to make rotifer.ncbi.io.fileinput compatible with Bio.SeqIO
+        Should be replaced with a _io.read() compatible implementation
+        """
+        return ""
+
+def input(files=None, inplace=False, backup="", *, mode="r", openhook=None, delete=False):
     """Return an instance of the FileInput class, which can be iterated.
 
     The parameters are passed to the constructor of the FileInput class.
@@ -40,7 +47,7 @@ def input(files=None, inplace=False, backup="", bufsize=0, mode="r", openhook=No
     """
     if fileinput._state and fileinput._state._file:
             raise RuntimeError("input() already active")
-    _state = FileInput(files, inplace, backup, bufsize, mode, openhook, delete)
+    _state = FileInput(files, inplace, backup, mode=mode, openhook=openhook, delete=delete)
     return _state
 
 # Internal method to use when returning concatenated file

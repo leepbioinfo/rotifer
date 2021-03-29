@@ -10,7 +10,7 @@ import pandas as pd
 
 # Rotifer libraries
 
-def seqrecord2df(seqrecs, exclude_type=[], autopid=False, assembly=None, codontable='Bacterial', block_id=-1):
+def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=None, codontable='Bacterial', block_id=-1):
     '''
     Extract BioPython's SeqRecord features data to a Pandas dataframe
     Arguments:

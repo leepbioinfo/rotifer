@@ -40,6 +40,69 @@ _MAP = {
     'read'  : reader
     }
 
+def neighbors(query=[], columns=['pid'], assembly_reports=None, exclude_type=['source','gene'], *args, **kwargs):
+    """
+    Fetch gene neighborhoods directly from NCBI
+
+    Usage:
+      from rotifer.db.ncbi import ncbi
+      import rotifer.db.ncbi as ncbiClass
+      a = ncbi().read('assembly_reports')
+      b = ncbiClass.neighbors(['WP_063732599.1'], assembly_reports=a)
+
+    Returns:
+      A rotifer.genome.data.NeighborhoodDf dataframe
+
+    Parameters:
+      query            : list of accessions to search for
+      columns          : list of columns to inspect for matches to any query
+      assembly_reports : rotifer.db.ncbi.read.assembly_reports dataframe
+                         If not given, assembly reports are downloaded
+      exclude_type     : exclude features by type
+
+      Other arguments are supported by neighbors from rotifer.genome.data
+    """
+    from rotifer.db.ncbi import ncbi
+    from rotifer.genome.utils import seqrecords_to_dataframe
+    ncbiObj = ncbi()
+
+    # Load assembly reports
+    if not isinstance(assembly_reports,pd.DataFrame):
+        assembly_reports = ncbiObj.read('assembly_reports')
+
+    # Fetch IPGs
+    if not isinstance(query,list):
+        query = [ query ]
+    ncbiObj.submit(query)
+    ipg = ncbiObj.read('ipg')
+    missing = ncbiObj.missing()
+    found = set(query) - set(missing)
+    ipg = ipg[ipg.pid.isin(found)]
+    ipg = ipg.groupby(['id','pid']).agg({'assembly':'first'}).reset_index()
+    missing.extend(ipg[ipg.assembly.isna()].pid.unique().tolist())
+    ipg = ipg[~ipg.assembly.isna()]
+
+    # Prepare list of assemblies (use first found in IPG)
+    # Download and parse assemblies
+    ndf = []
+    batch_size = 1
+    assemblies = ipg.assembly.sort_values().unique().tolist()
+    pos = list(range(0,len(assemblies),batch_size))
+    for s in pos:
+        e = s + batch_size
+        ids = assemblies[s:e]
+        genomes = ncbiObj.submit(ids)
+        genomes = ncbiObj.parse('genomes', assembly_reports=assembly_reports)
+        genomes = seqrecords_to_dataframe(genomes, exclude_type=exclude_type)
+        select = False
+        for c in columns:
+            select |= genomes[c].isin(found)
+        genomes = genomes.neighbors(select, *args, **kwargs)
+        ndf.append(genomes)
+    ndf = pd.concat(ndf)
+
+    return ndf
+
 class ncbi:
     def __init__(self, query=None, email=NcbiConfig['email'], api_key=None):
         '''

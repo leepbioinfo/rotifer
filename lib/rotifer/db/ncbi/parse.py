@@ -59,8 +59,8 @@ def genomes(ncbi, parser=Bio.SeqIO.parse, parser_args=['genbank'],
         if strategy == 'ftp':
             if not isinstance(assembly_reports,pd.DataFrame):
                 assembly_reports = ncbi.read('assembly_reports', baseurl = f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASSEMBLY_REPORTS')
-            files = assembly_reports[assembly_reports.assembly_accession.isin(queries)]
-            found = list(files.assembly_accession) 
+            files = assembly_reports[assembly_reports.assembly.isin(queries)]
+            found = list(files.assembly) 
             [ ncbi.missing(x, replace=False) for x in queries if not ((x in found) or (x in ncbi.missing())) ]
             files = list(files.ftp_path.apply(lambda x: x.replace(f'ftp://{NcbiConfig["ftpserver"]}','') + '/' + os.path.basename(x) + '_genomic.gbff.gz'))
             if files:
