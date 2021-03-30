@@ -40,7 +40,7 @@ _MAP = {
     'read'  : reader
     }
 
-def neighbors(query=[], columns=['pid'], assembly_reports=None, exclude_type=['source','gene'], batch_size=1, *args, **kwargs):
+def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_type=['source','gene'], batch_size=1, verbose=0, *args, **kwargs):
     """
     Fetch gene neighborhoods directly from NCBI
 
@@ -54,8 +54,9 @@ def neighbors(query=[], columns=['pid'], assembly_reports=None, exclude_type=['s
       A rotifer.genome.data.NeighborhoodDf dataframe
 
     Parameters:
-      query            : list of accessions to search for
-      columns          : list of columns to inspect for matches to any query
+      query  : list of accessions
+      column : column to scan for matches to accessions
+
       assembly_reports : rotifer.db.ncbi.read.assembly_reports dataframe
                          If not given, assembly reports are downloaded
 
@@ -69,38 +70,68 @@ def neighbors(query=[], columns=['pid'], assembly_reports=None, exclude_type=['s
                          a = a[a.assembly.isin(['GCF_001650215.1'])
                          b = ncbiClass.neighbors(['WP_063732599.1'], assembly_reports=a)
 
-      exclude_type     : exclude features by type
+      ipgs : rotifer.db.ncbi.read.ipg dataframe
+             This parameter may be used to avoid downloading IPGs
+             from NCBI.
 
-      batch_size       : how many genomes to download and process at each
-                         from the NCBI FTP site at each parsing round
+             Make sure it has the same colums as named
+             by the ipg method in rotifer.db.ncbi.read
+
+      exclude_type : exclude features by type
+
+      batch_size : how many genomes to download and process at each
+                   from the NCBI FTP site at each parsing round
+
+      verbose : (integer) control verbosity for debugging
 
       Other arguments are supported by neighbors from rotifer.genome.data
     """
 
     from rotifer.db.ncbi import ncbi
     from rotifer.genome.utils import seqrecords_to_dataframe
-    ncbiObj = ncbi()
+
+    # Prepare a rotifer.db.ncbi object
+    if not isinstance(query,list):
+        query = [ query ]
+    ncbiObj = ncbi(query)
 
     # Load assembly reports
     if not isinstance(assembly_reports,pd.DataFrame):
         assembly_reports = ncbiObj.read('assembly_reports')
 
     # Fetch IPGs
-    if not isinstance(query,list):
-        query = [ query ]
-    ncbiObj.submit(query)
-    ipg = ncbiObj.read('ipg')
-    ipg = ipg[ipg.assembly.isin(assembly_reports.assembly)] # Filter assemblies
-    matches = ipg[ipg.pid.isin(query)].id # Find IPGs with pids matching at least one query
-    matches = ipg.pid.isin(query) | (~ipg.id.isin(matches) & ipg.representative.isin(query))
-    ipg = ipg[matches & ipg.assembly.isin(assembly_reports.assembly)]
-    found = set(ipg.pid).union(set(ipg.representative))
-    ipg = ipg.groupby(['id','pid']).agg({'assembly':'first'}).reset_index()
+    if not isinstance(ipgs,pd.DataFrame):
+        try:
+            ipgs = ncbiObj.read('ipg', verbose=verbose)
+        except:
+            if verbose > 1:
+                print(f'[rotifer.db.ncbi.neighbors] unexpected error while downloading IPGs: '+str(sys.exc_info()[0:2]), file=sys.stderr)
+                return None
+
+    # Filter IPGs based on assembly reports
+    ipgs = ipgs[ipgs.assembly.isin(assembly_reports.assembly)]
+
+    # Filter IPGs with pids or representative matching a query
+    found   = set(ipgs[ipgs.pid.isin(query)])
+    found   = found.union(set(ipgs[ipgs.representative.isin(query)].representative))
+    matches = ipgs[ipgs.pid.isin(query)].id
+    matches = ipgs.pid.isin(query) | (~ipgs.id.isin(matches) & ipgs.representative.isin(query))
+    ipgs = ipgs[matches]
+    if ipgs.empty:
+        if verbose > 1:
+            print(f'[rotifer.db.ncbi.neighbors] Empty IPG dataframe. Aborting...', file=sys.stderr)
+            return None
+    elif verbose > 1:
+        print(f'[rotifer.db.ncbi.neighbors] {found} queries found in {len(ipgs)} IPGs.', file=sys.stderr)
+
+    # Select best genomes per target: needs improvement!!!!!
+    # See Aureliano's code for better way (rotifer.db.ncbi.read.ipg)
+    ipgs = ipgs.groupby(['id','pid']).agg({'assembly':'first','representative':'first'}).reset_index()
 
     # Prepare list of assemblies (use first found in IPG)
     # Download and parse assemblies
     ndf = []
-    assemblies = ipg.assembly.sort_values().unique().tolist()
+    assemblies = ipgs.assembly.sort_values().unique().tolist()
     pos = list(range(0,len(assemblies),batch_size))
     if not "min_block_id" in kwargs:
         kwargs["min_block_id"] = 1
@@ -110,9 +141,11 @@ def neighbors(query=[], columns=['pid'], assembly_reports=None, exclude_type=['s
         genomes = ncbiObj.submit(ids)
         genomes = ncbiObj.parse('genomes', assembly_reports=assembly_reports)
         genomes = seqrecords_to_dataframe(genomes, exclude_type=exclude_type)
-        select = False
-        for c in columns:
-            select |= genomes[c].isin(found)
+        select  = genomes[column].isin(found)
+        if not select.any():
+            if verbose > 1:
+                print(f'[rotifer.db.ncbi.neighbors] No matches in {", ".join(genomes.assembly.unique())}. Ignoring batch {s}:{e} ...', file=sys.stderr)
+                continue
         genomes = genomes.neighbors(select, *args, **kwargs)
         ndf.append(genomes)
         kwargs["min_block_id"] = genomes.block_id.max() + 1
