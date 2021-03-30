@@ -40,7 +40,7 @@ _MAP = {
     'read'  : reader
     }
 
-def neighbors(query=[], columns=['pid'], assembly_reports=None, exclude_type=['source','gene'], *args, **kwargs):
+def neighbors(query=[], columns=['pid'], assembly_reports=None, exclude_type=['source','gene'], batch_size=1, *args, **kwargs):
     """
     Fetch gene neighborhoods directly from NCBI
 
@@ -58,7 +58,7 @@ def neighbors(query=[], columns=['pid'], assembly_reports=None, exclude_type=['s
       columns          : list of columns to inspect for matches to any query
       assembly_reports : rotifer.db.ncbi.read.assembly_reports dataframe
                          If not given, assembly reports are downloaded
-                         
+
                          Keep in mind that ONLY assemblies listed in this
                          dataframe are searched for matches to queries.
 
@@ -68,8 +68,11 @@ def neighbors(query=[], columns=['pid'], assembly_reports=None, exclude_type=['s
                          a = ncbi().read('assembly_reports')
                          a = a[a.assembly.isin(['GCF_001650215.1'])
                          b = ncbiClass.neighbors(['WP_063732599.1'], assembly_reports=a)
-      
+
       exclude_type     : exclude features by type
+
+      batch_size       : how many genomes to download and process at each
+                         from the NCBI FTP site at each parsing round
 
       Other arguments are supported by neighbors from rotifer.genome.data
     """
@@ -97,10 +100,10 @@ def neighbors(query=[], columns=['pid'], assembly_reports=None, exclude_type=['s
     # Prepare list of assemblies (use first found in IPG)
     # Download and parse assemblies
     ndf = []
-    batch_size = 1
     assemblies = ipg.assembly.sort_values().unique().tolist()
     pos = list(range(0,len(assemblies),batch_size))
-    nextBlockId = 1
+    if not "min_block_id" in kwargs:
+        kwargs["min_block_id"] = 1
     for s in pos:
         e = s + batch_size
         ids = assemblies[s:e]
@@ -110,10 +113,11 @@ def neighbors(query=[], columns=['pid'], assembly_reports=None, exclude_type=['s
         select = False
         for c in columns:
             select |= genomes[c].isin(found)
-        genomes = genomes.neighbors(select, *args, **kwargs, min_block_id=nextBlockId)
+        genomes = genomes.neighbors(select, *args, **kwargs)
         ndf.append(genomes)
-        nextBlockId = genomes.block_id.max() + 1
+        kwargs["min_block_id"] = genomes.block_id.max() + 1
     ndf = pd.concat(ndf)
+    ndf.reset_index(drop=True, inplace=True)
 
     return ndf
 

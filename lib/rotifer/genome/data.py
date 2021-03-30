@@ -473,7 +473,7 @@ class NeighborhoodDF(pd.DataFrame):
         dflim = dflim.merge(bidlim, left_on=['assembly'], right_on=['assembly'], how='left')
         return dflim
 
-    def vicinity(self, targets=['query == 1'], before=3, after=3, min_block_distance=0, fttype='same', min_block_id=0):
+    def vicinity(self, targets=['query == 1'], before=3, after=3, min_block_distance=0, fttype='same', min_block_id=1):
         """
         Locate genomic regions that contain features selected by some criteria.
         
@@ -508,11 +508,11 @@ class NeighborhoodDF(pd.DataFrame):
          - min_block_id : starting number for block_ids, useful if calling this method
                           eqeuntially through multiple rotifer.genome.data.NeighborhoodDF
                           dataframes
+        
+         - circular : whether to go around coordinate 1 in circular genomes (boolen)
         """
         import sys
         import numpy as np
-
-        # Adjust min_block_id to make sure the first block_id is always 1
         if min_block_id > 0:
             min_block_id -= 1
 
@@ -553,6 +553,7 @@ class NeighborhoodDF(pd.DataFrame):
             blks = blks.groupby([*cols,'block_id']).agg({'feature_order':list,'foup':min,'fodown':max}).reset_index()
             blks = blks.merge(dflim, left_on=['assembly','nucleotide','type'], right_on=['assembly','nucleotide','type'], how='left')
             blks.rename({'feature_order':'targets'}, axis=1, inplace=True)
+            blks['origin'] = 0
 
             # Initiate analysis of circular replicons
             circular = blks.query('topology == "circular"')
@@ -564,42 +565,61 @@ class NeighborhoodDF(pd.DataFrame):
 
                 # Merge first and last blocks of circular replicons, if too close
                 tooclose = circular.eval(f'(fomax - fodown) + (foup - fomin) <= {min_block_distance}')
-                if not tooclose.sum() > 0:
+                if tooclose.any():
                     bidmaxIndex = blks[blks.block_id.isin(circular[tooclose].bidmax)].index
                     bidminIndex = blks[blks.block_id.isin(circular[tooclose].bidmin)].index
+                    #print("First and last are too close:\n"+blks.iloc[bidminIndex.append(bidmaxIndex)].to_string()+"\n")
                     blks.iloc[bidminIndex,6] = blks.iloc[bidminIndex,8] # Set foup   = fomin
                     blks.iloc[bidmaxIndex,7] = blks.iloc[bidmaxIndex,9] # Set fodown = fomax
                     blks.iloc[bidmaxIndex,4] = blks.iloc[bidminIndex,4] # Set block_ids to be the same
+                    blks.loc[bidminIndex,'origin'] = 1
+                    blks.loc[bidmaxIndex,'origin'] = 1
+                    circular = circular[~tooclose]
+
+                # Neighborhood runs through the entire replicon
+                overrun = (circular.foup < circular.fomin) & (circular.fodown > circular.fomax)
+                if overrun.any():
+                    overIndex = blks[blks.block_id.isin(circular[overrun].bidmin)].index
+                    #print("Overrun:\n"+blks.iloc[overIndex].to_string()+"\n")
+                    blks.iloc[overIndex,6] = blks.iloc[overIndex,8] # Set foup   = fomin
+                    blks.iloc[overIndex,7] = blks.iloc[overIndex,9] # Set fodown = fomax
+                    blks.loc[overIndex,'origin'] = 2
+                    circular = circular[~overrun]
 
                 # Neighborhood starts before the origin of replication
-                overrun = (~tooclose) & (circular.foup < circular.fomin) & (circular.fodown > circular.fomax)
-                if overrun.sum() > 0:
-                    overIndex = blks[blks.block_id.isin(circular[overrun].block_id)].index
-                    circular.iloc[overIndex,6] = circular.iloc[overIndex,8] # Set foup   = fomin
-                    circular.iloc[overIndex,7] = circular.iloc[overIndex,9] # Set fodown = fomax
-
-                # Neighborhood starts before the origin of replication
-                overrun = (~tooclose) & (circular.foup < circular.fomin)
-                if overrun.sum() > 0:
-                    beforeOriginIndex = blks[blks.block_id.isin(circular[overrun].block_id)].index
-                    beforeOrigin = circular[beforeOriginIndex].copy()
-                    beforeOrigin.foup   = beforeOrigin.fomax - beforeOrigin.foup - beforeOrigin.fomin + 1
+                startsBefore = (circular.foup < circular.fomin)
+                if startsBefore.any():
+                    beforeOriginIndex = blks[blks.block_id.isin(circular[startsBefore].bidmin)].index
+                    blks.loc[beforeOriginIndex,'origin'] = 1
+                    beforeOrigin = blks.iloc[beforeOriginIndex].copy()
+                    #print("Starts before origin:\n"+beforeOrigin.to_string()+"\n")
+                    beforeOrigin.foup   = beforeOrigin.fomax + beforeOrigin.foup - beforeOrigin.fomin + 1
                     beforeOrigin.fodown = beforeOrigin.fomax
-                    circular.iloc[beforeOriginIndex,6] = circular.iloc[beforeOriginIndex,8] # Set foup = fomin
-                    blks.append(beforeOrigin)
+                    blks.iloc[beforeOriginIndex,6] = blks.iloc[beforeOriginIndex,8] # Set foup = fomin
+                    blks = pd.concat([blks, beforeOrigin]).reset_index(drop=True)
+                    circular = circular[~startsBefore]
 
                 # Neighborhood ends after the origin of replication
-                overrun = (~tooclose) & (circular.fodown > circular.fomax)
-                if overrun.sum() > 0:
-                    afterOriginIndex = blks[blks.block_id.isin(circular[overrun].block_id)].index
-                    afterOrigin = blks[afterOriginIndex].copy()
+                endsAfter = (circular.fodown > circular.fomax)
+                if endsAfter.any():
+                    afterOriginIndex = blks[blks.block_id.isin(circular[endsAfter].bidmax)].index
+                    blks.loc[afterOriginIndex,'origin'] = 1
+                    afterOrigin = blks.iloc[afterOriginIndex].copy()
+                    #print("Ends after origin:\n"+afterOrigin.to_string()+"\n")
                     afterOrigin.foup   = afterOrigin.fomin
-                    afterOrigin.fodown = afterOrigin.fomin + afterOrigin.fodown - afterOrigin.fomax
-                    blks.append(afterOrigin)
+                    afterOrigin.fodown = afterOrigin.fomin + afterOrigin.fodown - afterOrigin.fomax - afterOrigin.fomin
+                    blks.iloc[afterOriginIndex,7] = blks.iloc[afterOriginIndex,9] # Set fodown = fomax
+                    blks = pd.concat([blks, afterOrigin]).reset_index(drop=True)
 
             # Truncate feature_id boundaries
             blks.foup   = np.where(blks.foup < blks.fomin, blks.fomin, blks.foup)
             blks.fodown = np.where(blks.fodown > blks.fomax, blks.fomax, blks.fodown)
+
+            # Sort again and add row ID
+            blks.sort_values([*cols,'block_id','foup'], ascending=[True,True,True,True,True,False], inplace=True)
+            blks.reset_index(inplace=True, drop=True)
+            blks.reset_index(inplace=True)
+            blks.rename({'index':'rid'}, axis=1, inplace=True)
 
             # Merge
             blks = blks.merge(
@@ -613,9 +633,10 @@ class NeighborhoodDF(pd.DataFrame):
                     right_on=['assembly','nucleotide','type','feature_order'],
                     how='left').rename({'internal_id':'down'}, axis=1).drop('feature_order', axis=1)
 
-            # Sort again and add row ID
-            blks.sort_values([*cols,'block_id','foup'], ascending=[True,True,True,True,True,False])
-            blks['rid'] = pd.Series(range(0,len(blks)))
+            # Adjust internal_id boundaries for blocks overlapping with the origin of circular genomes
+            origin = (blks.origin == 1)
+            blks.up   = np.where(origin & (blks.foup   == blks.fomin), blks.iidmin, blks.up)
+            blks.down = np.where(origin & (blks.fodown == blks.fomax), blks.iidmax, blks.down)
 
         # If type is to be ignored, all analysis should focus on internal_ids
         elif (fttype == 'any'):
@@ -707,15 +728,15 @@ class NeighborhoodDF(pd.DataFrame):
         # Expand list of features within each neighborhood, tag queries
         # IMPORTANT: row number may increase if min_block_distance < 0!
         blks['internal_id'] = pd.Series(blks[['up','down']].values.tolist()).apply(lambda x: range(x[0],x[1]+1))
-        blks = blks.filter(['assembly','nucleotide','internal_id','block_id','rid']).explode('internal_id')
+        blks = blks.filter(['assembly','nucleotide','internal_id','block_id','rid','origin']).explode('internal_id')
         blks = blks.merge(select, on=['assembly','nucleotide','internal_id'], how="left")
 
         # Replace query, block_id and rid columns
         cols = self.columns
-        copy = self.drop(['query','block_id','rid'], axis=1).sort_values(['assembly','nucleotide','start','end'])
+        copy = self.drop(['query','block_id','rid','origin'], axis=1).sort_values(['assembly','nucleotide','start','end'])
         copy = copy.merge(blks, left_on=['assembly','nucleotide','internal_id'], right_on=['assembly','nucleotide','internal_id'], how='inner')
         copy['query'] = np.where((~copy['query'].isna()) & copy['query'],1,0).astype(int)
-        copy = copy[cols]
+        copy = copy[cols].sort_values(['assembly','nucleotide','block_id','rid','internal_id'], ascending=[True,True,True,True,True])
 
         # Evaluate other criteria for defining blocks
         if strand == 'same':

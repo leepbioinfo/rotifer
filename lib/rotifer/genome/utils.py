@@ -46,6 +46,7 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
         digits = max(6,ceil(log10(len(seqrecord.features))))
 
         # Extract SeqRecord data
+        nlen = len(seqrecord)
         if seqrecord.annotations:
             annotations = seqrecord.annotations
             topology = annotations['topology'] if 'topology' in annotations else 'linear'
@@ -77,6 +78,8 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
                 feature_type = 'PSE'
                 if 'PSE' not in feature_order:
                     feature_order['PSE'] = 0
+            if exclude_type and feature_type in exclude_type:
+                continue
 
             # PID
             locus = qualifiers['locus_tag'][0] if 'locus_tag' in qualifiers else seqrecord.id + f'.{internal_id:0{digits}}'
@@ -148,6 +151,7 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
                     'start': l[0],
                     'end': l[1],
                     'strand': strand,
+                    'nlen': nlen,
                     'block_id': block_id,
                     'rid':0,
                     'query':0,
@@ -176,8 +180,6 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
     # Build dataframe and return
     if len(data) > 0:
         df = pd.DataFrame(data)
-        if exclude_type:
-            df = df[~df['type'].isin(exclude_type)]
         df = NeighborhoodDF(df, update_lineage='classification')
         return(df)
     else:

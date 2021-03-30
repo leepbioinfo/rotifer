@@ -65,7 +65,7 @@ def ftp(ncbi, outdir=GlobalConfig['cache'], mode='r', concat=False, tempfile=Fal
     # Retrieve contents for each folder
     files = []
     for target in ncbi.submit():
-        # Download
+        # Prepare local file handle
         if tempfile:
             parts = os.path.splitext(os.path.basename(target))
             prefix = parts[0] + '.' 
@@ -75,6 +75,14 @@ def ftp(ncbi, outdir=GlobalConfig['cache'], mode='r', concat=False, tempfile=Fal
         else:
             outfile = os.path.join(outdir, os.path.basename(target))
             outfh   = open(outfile,'wb')
+
+        # As we are about to start downloading our next target, make sure
+        # we are still connected
+        try:
+            ftp.pwd()
+        except:
+            ftp = FTP(NcbiConfig['ftpserver'])
+            ftp.login()
 
         # To avoid problems with very long names, I change to the target
         # directory and, later, back to /

@@ -43,8 +43,9 @@ def assembly_reports(ncbi, baseurl=f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASS
 
     # Set log format
     logger = logging.getLogger('rotifer.db.ncbi')
-    logger.setLevel(verbose)
-    logger.info(f'main: loading assembly reports...')
+    if verbose:
+        logger.setLevel(verbose)
+        logger.info(f'main: loading assembly reports...')
 
     # Load assembly reports
     assemblies = list()
@@ -52,7 +53,8 @@ def assembly_reports(ncbi, baseurl=f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASS
         if os.path.exists(baseurl): # Local file
             url = os.path.join(baseurl, f'assembly_summary_{x}.txt')
             if not os.path.exists(url):
-                logger.warning(f'{__name__}: {url} not found. Ignoring...')
+                if verbose:
+                    logger.warning(f'{__name__}: {url} not found. Ignoring...')
                 continue
         else: # FTP
             url = f'{baseurl}/assembly_summary_{x}.txt'
@@ -61,7 +63,8 @@ def assembly_reports(ncbi, baseurl=f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASS
         _['source'] = x
         _['loaded_from'] = url
         assemblies.append(_)
-        logger.info(f'{__name__}: {url}, {len(_)} rows, {len(assemblies)} loaded')
+        if verbose:
+            logger.info(f'{__name__}: {url}, {len(_)} rows, {len(assemblies)} loaded')
     assemblies = pd.concat(assemblies, ignore_index=True)
     if verbose:
         print(f'{__name__}: loaded {len(assemblies)} assembly summaries.', file=sys.stderr)
@@ -97,11 +100,12 @@ def assembly_reports(ncbi, baseurl=f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASS
     ncbi.submit(queries)
     found = set(list(assemblies.assembly))
     ncbi.missing([ x for x in queries if x not in found ])
-    logger.info(f'main: {len(assemblies)} assembly reports loaded!')
+    if verbose:
+        logger.info(f'main: {len(assemblies)} assembly reports loaded!')
     return assemblies
 
 # Load Identical Protein Reports
-def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, *args, **kwargs):
+def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, batch_size=200, *args, **kwargs):
     '''
     Retrieve and annotate NCBI's Identical Protein Reports (IPG).
 
@@ -128,8 +132,9 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, *args, **
 
     # Set log format
     logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
-    logger.info(f'main: downloading IPG reports for {len(ncbi)} protein accessions...')
+    if verbose:
+        logger.setLevel(logging.DEBUG)
+        logger.info(f'main: downloading IPG reports for {len(ncbi)} protein accessions...')
 
     # Backup and check queries
     queries = ncbi.submit()
@@ -138,60 +143,34 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, *args, **
     if verbose:
         print(f'{__name__}: searching {len(ncbi)} accessions...', file=sys.stderr)
 
-    # Fetch using Epost+Efetch (recommended by NCBI but do we need it?)
-    handle  = None
-    missing = queries
-    found   = []
-    if len(queries) > 50:
-        try:
-            request = Entrez.epost(db = 'protein', api_key = ncbi.api_key(), id = ",".join(queries))
-            result = Entrez.read(request)
-            handle = Entrez.efetch(db='protein', rettype='ipg', retmode='text', api_key=ncbi.api_key(),
-                                    webenv=result['WebEnv'], query_key=result['QueryKey'])
-        except RuntimeError:
-            if verbose:
-                print(f'Epost+Efetch, {len(ncbi)} accessions. Runtime error: '+str(sys.exc_info()[1]), file=sys.stderr)
-        except:
-            if verbose:
-                print(f'Epost+Efetch, {len(ncbi)} accessions. Unexpected error: '+str(sys.exc_info()[0:2]), file=sys.stderr)
-
-        # Parse fetched IPG reports
-        if handle:
-            ipgs = pd.read_csv(handle, sep='\t', names=cols, header=0).drop_duplicates()
-            found   = set([x for x in queries if x in ipgs['pid'].unique()])
-            missing = set([x for x in queries if x not in found])
-            handle.close() # Close Bio.Entrez _io.TextWrapper handle
-
-        # Report on progress
-        if verbose:
-            print(f'Epost+Efetch, {len(ipgs)} rows in IPG report, {len(found)} queries found, {len(missing)} missing accessions', file=sys.stderr)
-
-    # Try using Efetch directly!
-    if missing:
+    # Using Efetch directly with 200 IDs per batch!
+    ipgs = []
+    pos = list(range(0,len(queries),batch_size))
+    for s in pos:
+        # Prepare and submit current batch
+        e = s + batch_size
+        batch = queries[s:e]
         handle = None
         try:
-            handle = Entrez.efetch(db='protein', rettype='ipg', retmode='text', api_key=ncbi.api_key(), id = ",".join(missing))
+            handle = Entrez.efetch(db='protein', rettype='ipg', retmode='text', api_key=ncbi.api_key(), id = ",".join(batch))
         except RuntimeError:
-            if verbose:
+            if verbose > 1:
                 print(f'Efetch: {len(queries)} queries, {len(missing)} accessions. Runtime error: '+str(sys.exc_info()[1]), file=sys.stderr)
         except:
-            if verbose:
+            if verbose > 1:
                 print(f'Efetch: {len(queries)} queries, {len(missing)} accessions. Unexpected error: '+str(sys.exc_info()[0:2]), file=sys.stderr)
-
         # Merge Efetch results with Epost+Efetch results
         if handle:
             ipg = pd.read_csv(handle, sep='\t', names=cols, header=0).drop_duplicates()
-            if ipgs.empty:
-                ipgs = ipg
-            else:
-                ipgs = ipgs.append(ipg, ignore_index=True).drop_duplicates()
-            found   = set([x for x in queries if x in ipgs['pid'].unique()])
-            missing = set([x for x in queries if x not in found])
+            ipgs.append(ipg)
             handle.close()
 
-        # Report progress
-        if verbose:
-            print(f'Efetch: {len(ipgs)} IPG rows fetched, {len(found)} queries found, {len(missing)} missing accessions.', file=sys.stderr)
+    # Concatenate all batches
+    ipgs = pd.concat(ipgs).reset_index(drop=True).sort_values('id').drop_duplicates()
+    found   = set(queries).intersection(set(ipgs.pid.unique()))
+    missing = set(queries) - set(found)
+    if verbose:
+        print(f'Efetch: {len(ipgs)} IPG rows fetched, {len(found)} queries found, {len(missing)} missing accessions.', file=sys.stderr)
 
     # Filter error messages
     ipgs = ipgs[~ipgs.id.apply(lambda x: 'Cannot determine Ipg for accession' in str(x))]
@@ -278,8 +257,9 @@ def taxonomy(ncbi, fetch=['ete3','entrez'], missing=False, ete3=None, preferred_
 
     # Set log format
     logger = logging.getLogger('rotifer.db.ncbi')
-    logger.setLevel(logging.DEBUG)
-    logger.info(f'main: loading assembly reports...')
+    if verbose:
+        logger.setLevel(logging.DEBUG)
+        logger.info(f'main: loading assembly reports...')
 
     # Loop over methods
     stack = []
@@ -308,7 +288,8 @@ def taxonomy(ncbi, fetch=['ete3','entrez'], missing=False, ete3=None, preferred_
     # Return
     ncbi.submit(queries)
     ncbi.missing(missing)
-    logger.info(f'main: {len(tax.taxid.unique())} taxids found and {len(missing)} missing!')
+    if verbose:
+        logger.info(f'main: {len(tax.taxid.unique())} taxids found and {len(missing)} missing!')
     return tax
 
 # Internal methods
