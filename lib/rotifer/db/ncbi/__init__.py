@@ -72,7 +72,12 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
 
       ipgs : rotifer.db.ncbi.read.ipg dataframe
              This parameter may be used to avoid downloading IPGs
-             from NCBI.
+             from NCBI. Example:
+
+             import rotifer.db.ncbi as ncbiClass
+             from rotifer.db.ncbi import ncbi
+             i = ncbi(['WP_063732599.1']).read("ipg")
+             n = ncbiClass.neighbors(['WP_063732599.1'], ipgs=i)
 
              Make sure it has the same colums as named
              by the ipg method in rotifer.db.ncbi.read
