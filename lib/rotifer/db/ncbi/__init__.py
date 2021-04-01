@@ -102,7 +102,7 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
 
     # Load assembly reports
     if not isinstance(assembly_reports,pd.DataFrame):
-        assembly_reports = ncbiObj.read('assembly_reports')
+        assembly_reports = ncbi().read('assembly_reports')
 
     # Fetch IPGs
     if not isinstance(ipgs,pd.DataFrame):
@@ -117,7 +117,7 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
     ipgs = ipgs[ipgs.assembly.isin(assembly_reports.assembly)]
 
     # Filter IPGs with pids or representative matching a query
-    found   = set(ipgs[ipgs.pid.isin(query)])
+    found   = set(ipgs[ipgs.pid.isin(query)].pid)
     found   = found.union(set(ipgs[ipgs.representative.isin(query)].representative))
     matches = ipgs[ipgs.pid.isin(query)].id
     matches = ipgs.pid.isin(query) | (~ipgs.id.isin(matches) & ipgs.representative.isin(query))
