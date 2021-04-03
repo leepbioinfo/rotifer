@@ -29,7 +29,6 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
     from rotifer.genome.data import NeighborhoodDF
 
     # Make sure first argument is a list
-    dfstack = []
     if not (isinstance(seqrecs,types.GeneratorType) or isinstance(seqrecs,list) or isinstance(seqrecs,Bio.SeqIO.Interfaces.SequenceIterator)):
         seqrecs = [ seqrecs ]
 
@@ -110,7 +109,7 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
             # Other feature attributes
             if 'plasmid' in qualifiers:
                 seq_type = 'plasmid'
-            gene = qualifiers['gene'][0] if 'gene' in qualifiers else '.'
+            gene = qualifiers['gene'][0] if 'gene' in qualifiers else ''
             product = ''
             for tag in ['product','inference']:
                 if tag in qualifiers:
@@ -168,14 +167,17 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
                     'organism': organism,
                     'classification': taxonomy,
                     'feature_order':feature_order[feature_type],
-                    'internal_id':internal_id})
+                    'internal_id':internal_id,
+                    'is_fragment':0})
 
             # Increment feature counters
             feature_order[feature_type] += 1
             internal_id += 1
 
-        # Decrement block_id
+        # Decrement block_id and last feature id
         block_id -= 1
+        #END: for ft in seqrecord.features
+    #END: for seqrecord in seqrecs
 
     # Build dataframe and return
     if len(data) > 0:

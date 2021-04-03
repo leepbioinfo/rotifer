@@ -98,36 +98,36 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
     # Prepare a rotifer.db.ncbi object
     if not isinstance(query,list):
         query = [ query ]
-    ncbiObj = ncbi(query)
 
     # Load assembly reports
     if not isinstance(assembly_reports,pd.DataFrame):
         assembly_reports = ncbi().read('assembly_reports')
 
     # Fetch IPGs
+    ncbiObj = ncbi(query)
     if not isinstance(ipgs,pd.DataFrame):
         try:
             ipgs = ncbiObj.read('ipg', verbose=verbose)
         except:
-            if verbose > 1:
+            if verbose > 0:
                 print(f'[rotifer.db.ncbi.neighbors] unexpected error while downloading IPGs: '+str(sys.exc_info()[0:2]), file=sys.stderr)
                 return None
 
     # Filter IPGs based on assembly reports
     ipgs = ipgs[ipgs.assembly.isin(assembly_reports.assembly)]
 
-    # Filter IPGs with pids or representative matching a query
+    # Filter IPGs rows where the columns pid or representative match a query
     found   = set(ipgs[ipgs.pid.isin(query)].pid)
     found   = found.union(set(ipgs[ipgs.representative.isin(query)].representative))
     matches = ipgs[ipgs.pid.isin(query)].id
     matches = ipgs.pid.isin(query) | (~ipgs.id.isin(matches) & ipgs.representative.isin(query))
     ipgs = ipgs[matches]
     if ipgs.empty:
-        if verbose > 1:
+        if verbose > 0:
             print(f'[rotifer.db.ncbi.neighbors] Empty IPG dataframe. Aborting...', file=sys.stderr)
             return None
-    elif verbose > 1:
-        print(f'[rotifer.db.ncbi.neighbors] {found} queries found in {len(ipgs)} IPGs.', file=sys.stderr)
+    elif verbose > 0:
+        print(f'[rotifer.db.ncbi.neighbors] {len(found)} queries were found in {len(ipgs)} IPGs. {found}', file=sys.stderr)
 
     # Select best genomes per target: needs improvement!!!!!
     # See Aureliano's code for better way (rotifer.db.ncbi.read.ipg)
@@ -148,10 +148,11 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
         genomes = seqrecords_to_dataframe(genomes, exclude_type=exclude_type)
         select  = genomes[column].isin(found)
         if not select.any():
-            if verbose > 1:
+            if verbose > 0:
                 print(f'[rotifer.db.ncbi.neighbors] No matches in {", ".join(genomes.assembly.unique())}. Ignoring batch {s}:{e} ...', file=sys.stderr)
                 continue
         genomes = genomes.neighbors(select, *args, **kwargs)
+        #genomes = genomes.vicinity(select, *args, **kwargs)
         ndf.append(genomes)
         kwargs["min_block_id"] = genomes.block_id.max() + 1
     ndf = pd.concat(ndf)

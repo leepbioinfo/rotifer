@@ -540,7 +540,7 @@ class NeighborhoodDF(pd.DataFrame):
 
         # Process features with type
         if (fttype == 'same'):
-            blks = self[select].filter([*cols,'feature_order'])
+            blks = self[select].filter([*cols,'feature_order','is_fragment'])
             blks.sort_values([*cols,'feature_order'], inplace=True)
             blks['foup']   = blks.feature_order - before
             blks['fodown'] = blks.feature_order + after
@@ -550,13 +550,13 @@ class NeighborhoodDF(pd.DataFrame):
             bid = bid & (blks.type == blks.type.shift(1))
             bid = bid & ((blks.foup - blks.fodown.shift(1) - 1) <= min_block_distance)
             blks['block_id'] = (~bid).cumsum() + min_block_id
-            blks = blks.groupby([*cols,'block_id']).agg({'feature_order':list,'foup':min,'fodown':max}).reset_index()
+            blks = blks.groupby([*cols,'block_id']).agg({'feature_order':list,'foup':min,'fodown':max,'is_fragment':'all'}).reset_index()
             blks = blks.merge(dflim, left_on=['assembly','nucleotide','type'], right_on=['assembly','nucleotide','type'], how='left')
             blks.rename({'feature_order':'targets'}, axis=1, inplace=True)
             blks['origin'] = 0
 
             # Initiate analysis of circular replicons
-            circular = blks.query('topology == "circular"')
+            circular = blks.query('topology == "circular" and is_fragment == False')
             if len(circular) > 0:
                 circular = circular.groupby(['assembly','nucleotide','type'])
                 circular = circular.agg({'block_id':['min','max'],'foup':'min','fodown':'max','fomin':'min','fomax':'max'})
@@ -569,11 +569,11 @@ class NeighborhoodDF(pd.DataFrame):
                     bidmaxIndex = blks[blks.block_id.isin(circular[tooclose].bidmax)].index
                     bidminIndex = blks[blks.block_id.isin(circular[tooclose].bidmin)].index
                     #print("First and last are too close:\n"+blks.iloc[bidminIndex.append(bidmaxIndex)].to_string()+"\n")
-                    blks.iloc[bidminIndex,6] = blks.iloc[bidminIndex,8] # Set foup   = fomin
-                    blks.iloc[bidmaxIndex,7] = blks.iloc[bidmaxIndex,9] # Set fodown = fomax
-                    blks.iloc[bidmaxIndex,4] = blks.iloc[bidminIndex,4] # Set block_ids to be the same
-                    blks.loc[bidminIndex,'origin'] = 1
-                    blks.loc[bidmaxIndex,'origin'] = 1
+                    blks.loc[bidminIndex,'foup']     = blks.loc[bidminIndex,'fomin'] # Set foup   = fomin
+                    blks.loc[bidmaxIndex,'fodown']   = blks.loc[bidmaxIndex,'fomax'] # Set fodown = fomax
+                    blks.loc[bidmaxIndex,'block_id'] = blks.loc[bidminIndex,'block_id'] # Set block_ids to be the same
+                    blks.loc[bidminIndex,'origin']   = 1
+                    blks.loc[bidmaxIndex,'origin']   = 1
                     circular = circular[~tooclose]
 
                 # Neighborhood runs through the entire replicon
@@ -581,8 +581,8 @@ class NeighborhoodDF(pd.DataFrame):
                 if overrun.any():
                     overIndex = blks[blks.block_id.isin(circular[overrun].bidmin)].index
                     #print("Overrun:\n"+blks.iloc[overIndex].to_string()+"\n")
-                    blks.iloc[overIndex,6] = blks.iloc[overIndex,8] # Set foup   = fomin
-                    blks.iloc[overIndex,7] = blks.iloc[overIndex,9] # Set fodown = fomax
+                    blks.loc[overIndex,'foup']   = blks.loc[overIndex,'fomin'] # Set foup   = fomin
+                    blks.loc[overIndex,'fodown'] = blks.loc[overIndex,'fomax'] # Set fodown = fomax
                     blks.loc[overIndex,'origin'] = 2
                     circular = circular[~overrun]
 
@@ -595,7 +595,7 @@ class NeighborhoodDF(pd.DataFrame):
                     #print("Starts before origin:\n"+beforeOrigin.to_string()+"\n")
                     beforeOrigin.foup   = beforeOrigin.fomax + beforeOrigin.foup - beforeOrigin.fomin + 1
                     beforeOrigin.fodown = beforeOrigin.fomax
-                    blks.iloc[beforeOriginIndex,6] = blks.iloc[beforeOriginIndex,8] # Set foup = fomin
+                    blks.loc[beforeOriginIndex,'foup'] = blks.loc[beforeOriginIndex,'fomin'] # Set foup = fomin
                     blks = pd.concat([blks, beforeOrigin]).reset_index(drop=True)
                     circular = circular[~startsBefore]
 
@@ -607,8 +607,8 @@ class NeighborhoodDF(pd.DataFrame):
                     afterOrigin = blks.iloc[afterOriginIndex].copy()
                     #print("Ends after origin:\n"+afterOrigin.to_string()+"\n")
                     afterOrigin.foup   = afterOrigin.fomin
-                    afterOrigin.fodown = afterOrigin.fomin + afterOrigin.fodown - afterOrigin.fomax - afterOrigin.fomin
-                    blks.iloc[afterOriginIndex,7] = blks.iloc[afterOriginIndex,9] # Set fodown = fomax
+                    afterOrigin.fodown = afterOrigin.fomin + afterOrigin.fodown - afterOrigin.fomax - 1
+                    blks.loc[afterOriginIndex,'fodown'] = blks.loc[afterOriginIndex,'fomax'] # Set fodown = fomax
                     blks = pd.concat([blks, afterOrigin]).reset_index(drop=True)
 
             # Truncate feature_id boundaries
@@ -633,19 +633,15 @@ class NeighborhoodDF(pd.DataFrame):
                     right_on=['assembly','nucleotide','type','feature_order'],
                     how='left').rename({'internal_id':'down'}, axis=1).drop('feature_order', axis=1)
 
-            # Adjust internal_id boundaries for blocks overlapping with the origin of circular genomes
-            origin = (blks.origin == 1)
-            blks.up   = np.where(origin & (blks.foup   == blks.fomin), blks.iidmin, blks.up)
-            blks.down = np.where(origin & (blks.fodown == blks.fomax), blks.iidmax, blks.down)
+            # Adjust internal_id boundaries for blocks with all features of the same type as the query
+            blks.up   = np.where(blks.foup   == blks.fomin, blks.iidmin, blks.up)
+            blks.down = np.where(blks.fodown == blks.fomax, blks.iidmax, blks.down)
+            blks.is_fragment = (blks.is_fragment) | (blks.up > blks.iidmin) | (blks.down < blks.iidmax)
 
         # If type is to be ignored, all analysis should focus on internal_ids
         elif (fttype == 'any'):
-            blks = self[select].filter([*cols,'internal_id'])
-            blks.sort_values([*cols,'internal_id'], inplace=True)
-            blks['up']   = blks.internal_id - before
-            blks['down'] = blks.internal_id + after
-            blks.up   = np.where(blks.up < blks.fomin, blks.fomin, blks.up)
-            blks.down = np.where(blks.down > blks.fomax, blks.fomax, blks.down)
+            print(f'Unsuported fttype {fttype}', file=sys.stderr)
+            return pd.DataFrame()
 
         # Unkown fttype
         else:
@@ -728,12 +724,12 @@ class NeighborhoodDF(pd.DataFrame):
         # Expand list of features within each neighborhood, tag queries
         # IMPORTANT: row number may increase if min_block_distance < 0!
         blks['internal_id'] = pd.Series(blks[['up','down']].values.tolist()).apply(lambda x: range(x[0],x[1]+1))
-        blks = blks.filter(['assembly','nucleotide','internal_id','block_id','rid','origin']).explode('internal_id')
+        blks = blks.filter(['assembly','nucleotide','internal_id','block_id','rid','origin','is_fragment']).explode('internal_id')
         blks = blks.merge(select, on=['assembly','nucleotide','internal_id'], how="left")
 
         # Replace query, block_id and rid columns
         cols = self.columns
-        copy = self.drop(['query','block_id','rid','origin'], axis=1).sort_values(['assembly','nucleotide','start','end'])
+        copy = self.drop(['query','block_id','rid','origin','is_fragment'], axis=1).sort_values(['assembly','nucleotide','start','end'])
         copy = copy.merge(blks, left_on=['assembly','nucleotide','internal_id'], right_on=['assembly','nucleotide','internal_id'], how='inner')
         copy['query'] = np.where((~copy['query'].isna()) & copy['query'],1,0).astype(int)
         copy = copy[cols].sort_values(['assembly','nucleotide','block_id','rid','internal_id'], ascending=[True,True,True,True,True])
