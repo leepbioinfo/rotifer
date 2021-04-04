@@ -116,22 +116,21 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
     # Filter IPGs based on assembly reports
     ipgs = ipgs[ipgs.assembly.isin(assembly_reports.assembly)]
 
-    # Filter IPGs rows where the columns pid or representative match a query
-    found   = set(ipgs[ipgs.pid.isin(query)].pid)
-    found   = found.union(set(ipgs[ipgs.representative.isin(query)].representative))
-    matches = ipgs[ipgs.pid.isin(query)].id
-    matches = ipgs.pid.isin(query) | (~ipgs.id.isin(matches) & ipgs.representative.isin(query))
-    ipgs = ipgs[matches]
+    # IPGs are valid if pid or representative is a query
+    found = ipgs.pid.isin(query)
+    found = found | ((~ipgs.id.isin(ipgs[found].id)) & ipgs.representative.isin(query))
+    ipgs  = ipgs[found]
     if ipgs.empty:
         if verbose > 0:
-            print(f'[rotifer.db.ncbi.neighbors] Empty IPG dataframe. Aborting...', file=sys.stderr)
+            print(f'[rotifer.db.ncbi.neighbors] Empty IPG dataframe, no IPG reports found! Aborting...', file=sys.stderr)
             return None
-    elif verbose > 0:
-        print(f'[rotifer.db.ncbi.neighbors] {len(found)} queries were found in {len(ipgs)} IPGs. {found}', file=sys.stderr)
 
     # Select best genomes per target: needs improvement!!!!!
     # See Aureliano's code for better way (rotifer.db.ncbi.read.ipg)
-    ipgs = ipgs.groupby(['id','pid']).agg({'assembly':'first','representative':'first'}).reset_index()
+    ipgs = ipgs.groupby(['id','pid']).agg({'assembly':'first'}).reset_index()
+    found = set(ipgs.pid)
+    if verbose > 0:
+        print(f'[rotifer.db.ncbi.neighbors] {len(found)} queries were found in {len(ipgs)} IPGs. {found}', file=sys.stderr)
 
     # Prepare list of assemblies (use first found in IPG)
     # Download and parse assemblies
