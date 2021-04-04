@@ -14,7 +14,8 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
     '''
     Extract BioPython's SeqRecord features data to a Pandas dataframe
     Arguments:
-      seqrecs      : rotifer.genome.io.parse generator or Bio.SeqRecord object(s)
+      seqrecs      : rotifer.genome.io.parse generator, Bio.SeqIO generator
+                     or Bio.SeqRecord object(s)
       exclude_type : exclude features by type
 
       autopid      : auto-generate missing PIDs from locus_tag
@@ -24,9 +25,12 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
 
       codontable   : Genetic code name for translating CDSs
     '''
+    import re
+    import os
     import Bio
     from math import ceil, log10
     from rotifer.genome.data import NeighborhoodDF
+    ncbiaccre = re.compile(r'^GC[AF]_[0-9]+\.[0-9]+') # Regular expression to extract NCBI assembly IDs
 
     # Make sure first argument is a list
     if not (isinstance(seqrecs,types.GeneratorType) or isinstance(seqrecs,list) or isinstance(seqrecs,Bio.SeqIO.Interfaces.SequenceIterator)):
@@ -58,6 +62,20 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
             topology = 'linear'
             organism = 'Unknown'
             taxonomy = pd.NA
+
+        # SeqRecord doesn't contain a reference to its assembly ID
+        # Let's assume all sequences in the current file belong to
+        # the same assembly
+        if assembly == None:
+            if hasattr(seqrecs,"stream"): # Bio.SeqIO.Interfaces.SequenceIterator!
+                if hasattr(seqrecs.stream,"filename") and callable(seqrecs.stream.filename):
+                    assembly = seqrecs.stream.filename() # rotifer.io.fileinput.FileInput
+                elif hasattr(seqrecs.stream,"name"):
+                    assembly = seqrecs.name # Another _io class
+                if assembly != None:
+                    assembly = os.path.basename(assembly)
+                    if ncbiaccre.match(assembly):
+                        assembly = ncbiaccre.search(assembly).group(0)
         if assembly == None:
             assembly = seqrecord.id
 

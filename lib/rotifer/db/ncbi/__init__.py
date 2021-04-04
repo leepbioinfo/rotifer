@@ -92,20 +92,24 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
       Other arguments are supported by neighbors from rotifer.genome.data
     """
 
+    import numpy as np
     from rotifer.db.ncbi import ncbi
     from rotifer.genome.utils import seqrecords_to_dataframe
 
     # Prepare a rotifer.db.ncbi object
     if not isinstance(query,list):
-        query = [ query ]
+        if isinstance(query, pd.Series):
+            query = query.tolist()
+        else:
+            query = [ query ]
 
     # Load assembly reports
     if not isinstance(assembly_reports,pd.DataFrame):
         assembly_reports = ncbi().read('assembly_reports')
 
     # Fetch IPGs
-    ncbiObj = ncbi(query)
     if not isinstance(ipgs,pd.DataFrame):
+        ncbiObj = ncbi(query)
         try:
             ipgs = ncbiObj.read('ipg', verbose=verbose)
         except:
@@ -126,11 +130,16 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
             return None
 
     # Select best genomes per target: needs improvement!!!!!
+    #
+    # This code selects only one assembly per genome: identical
+    # sequences will not be ignored!
+    #
     # See Aureliano's code for better way (rotifer.db.ncbi.read.ipg)
-    ipgs = ipgs.groupby(['id','pid']).agg({'assembly':'first'}).reset_index()
+    ipgs = ipgs.groupby(['id']).agg({'pid':'first','assembly':'first','representative':'first'}).reset_index()
     found = set(ipgs.pid)
+    missing = set(query) - found - set(ipgs.representative)
     if verbose > 0:
-        print(f'[rotifer.db.ncbi.neighbors] {len(found)} queries were found in {len(ipgs)} IPGs. {found}', file=sys.stderr)
+        print(f'[rotifer.db.ncbi.neighbors] {len(found)} queries were found in {len(ipgs)} IPGs. Found: {found}, missing: {missing}', file=sys.stderr)
 
     # Prepare list of assemblies (use first found in IPG)
     # Download and parse assemblies
@@ -140,22 +149,40 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
     if not "min_block_id" in kwargs:
         kwargs["min_block_id"] = 1
     for s in pos:
+        # Fetching next batch
         e = s + batch_size
         ids = assemblies[s:e]
-        genomes = ncbiObj.submit(ids)
-        genomes = ncbiObj.parse('genomes', assembly_reports=assembly_reports)
+        genomes = ncbi(ids).parse('genomes', assembly_reports=assembly_reports)
+
+        # Parsing
         genomes = seqrecords_to_dataframe(genomes, exclude_type=exclude_type)
+        if genomes.empty:
+            if verbose > 0:
+                print(f'[rotifer.db.ncbi.neighbors] Empty NeighborhoodDF for batch {s}, ignoring assemblies {ids}', file=sys.stderr)
+            continue
+        elif column not in genomes.columns:
+            if verbose > 0:
+                print(f'[rotifer.db.ncbi.neighbors] NeighborhoodDF missing column {column} at batch {s}, assemblies {ids}', file=sys.stderr)
+            continue
+
+        # Filtering
         select  = genomes[column].isin(found)
         if not select.any():
             if verbose > 0:
                 print(f'[rotifer.db.ncbi.neighbors] No matches in {", ".join(genomes.assembly.unique())}. Ignoring batch {s}:{e} ...', file=sys.stderr)
                 continue
+
+        # Collecting neighbors
         genomes = genomes.neighbors(select, *args, **kwargs)
         #genomes = genomes.vicinity(select, *args, **kwargs)
         ndf.append(genomes)
         kwargs["min_block_id"] = genomes.block_id.max() + 1
-    ndf = pd.concat(ndf)
+
+    # Merging neighborhoods
+    ndf = pd.concat(ndf) if len(ndf) > 0 else pd.DataFrame()
     ndf.reset_index(drop=True, inplace=True)
+    replaced = pd.Series(ipgs.representative.values, index=ipgs.pid).to_dict()
+    ndf['replaced'] = ndf.pid.replace(replaced)
 
     return ndf
 
