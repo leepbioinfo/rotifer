@@ -508,7 +508,7 @@ class NeighborhoodDF(pd.DataFrame):
          - min_block_id : starting number for block_ids, useful if calling this method
                           eqeuntially through multiple rotifer.genome.data.NeighborhoodDF
                           dataframes
-        
+
          - circular : whether to go around coordinate 1 in circular genomes (boolen)
         """
         import sys
@@ -534,19 +534,25 @@ class NeighborhoodDF(pd.DataFrame):
             print(f'No anchors to search for neighbors were found! Revise your list of targets!')
             return pd.DataFrame()
 
+        # Make sure data is sorted and has compatible internal ids
+        if self.is_fragment.any():
+            self.sort_values(['assembly','nucleotide','start','end','internal_id'], inplace=True)
+            self.internal_id = list(range(0,len(self)))
+
         # Initialize dataframe for each region (blocks)
         cols = ['assembly','nucleotide','topology','type']
         dflim = self.boundaries()
 
         # Process features with type
         if (fttype == 'same'):
-            blks = self[select].filter([*cols,'feature_order','is_fragment'])
+            blks = self[select].filter([*cols,'block_id','feature_order','is_fragment'])
             blks.sort_values([*cols,'feature_order'], inplace=True)
             blks['foup']   = blks.feature_order - before
             blks['fodown'] = blks.feature_order + after
 
             # Identify blocks by merging neighborhoods
             bid = (blks.nucleotide == blks.nucleotide.shift(1))
+            bid = (blks.is_fragment & (blks.block_id == blks.block_id.shift(1)))
             bid = bid & (blks.type == blks.type.shift(1))
             bid = bid & ((blks.foup - blks.fodown.shift(1) - 1) <= min_block_distance)
             blks['block_id'] = (~bid).cumsum() + min_block_id
@@ -556,7 +562,7 @@ class NeighborhoodDF(pd.DataFrame):
             blks['origin'] = 0
 
             # Initiate analysis of circular replicons
-            circular = blks.query('topology == "circular" and is_fragment == False')
+            circular = blks.query('topology == "circular"')
             if len(circular) > 0:
                 circular = circular.groupby(['assembly','nucleotide','type'])
                 circular = circular.agg({'block_id':['min','max'],'foup':'min','fodown':'max','fomin':'min','fomax':'max'})
@@ -615,13 +621,12 @@ class NeighborhoodDF(pd.DataFrame):
             blks.foup   = np.where(blks.foup < blks.fomin, blks.fomin, blks.foup)
             blks.fodown = np.where(blks.fodown > blks.fomax, blks.fomax, blks.fodown)
 
-            # Sort again and add row ID
+            # Sort again and add row ID, i.e. within block row number
             blks.sort_values([*cols,'block_id','foup'], ascending=[True,True,True,True,True,False], inplace=True)
             blks.reset_index(inplace=True, drop=True)
-            blks.reset_index(inplace=True)
-            blks.rename({'index':'rid'}, axis=1, inplace=True)
+            blks['rid'] = blks.index.to_series() - (blks.index.to_series() * (blks.block_id != blks.block_id.shift(1))).cummax()
 
-            # Merge
+            # Add first and last internal_id per block
             blks = blks.merge(
                     self[['assembly','nucleotide','type','feature_order','internal_id']],
                     left_on=['assembly','nucleotide','type','foup'],
@@ -636,7 +641,7 @@ class NeighborhoodDF(pd.DataFrame):
             # Adjust internal_id boundaries for blocks with all features of the same type as the query
             blks.up   = np.where(blks.foup   == blks.fomin, blks.iidmin, blks.up)
             blks.down = np.where(blks.fodown == blks.fomax, blks.iidmax, blks.down)
-            blks.is_fragment = (blks.is_fragment) | (blks.up > blks.iidmin) | (blks.down < blks.iidmax)
+            blks.is_fragment = blks.is_fragment | (blks.up > blks.iidmin) | (blks.down < blks.iidmax)
 
         # If type is to be ignored, all analysis should focus on internal_ids
         elif (fttype == 'any'):
@@ -658,8 +663,8 @@ class NeighborhoodDF(pd.DataFrame):
         The user may choose a set of rows (targets) as anchors, whose neighbors will be
         evaluated by user-defined parameters, such as feature type, strand or distance.
 
-        The returned value is a copy of a slice of the original NeighborhoodDF object with
-        updated block_id, rid and query columns.
+        The returned value is copy of a slice of the original NeighborhoodDF
+        object with updated block_id, origin, is_fragment and query columns.
 
         Arguments:
          - targets : (list of) boolean pd.Series or rules to select targets.
@@ -727,12 +732,13 @@ class NeighborhoodDF(pd.DataFrame):
         blks = blks.filter(['assembly','nucleotide','internal_id','block_id','rid','origin','is_fragment']).explode('internal_id')
         blks = blks.merge(select, on=['assembly','nucleotide','internal_id'], how="left")
 
-        # Replace query, block_id and rid columns
+        # Replace columns in self with those from blks
         cols = self.columns
-        copy = self.drop(['query','block_id','rid','origin','is_fragment'], axis=1).sort_values(['assembly','nucleotide','start','end'])
+        copy = self.drop(['query','block_id','origin','is_fragment'], axis=1).sort_values(['assembly','nucleotide','start','end'])
         copy = copy.merge(blks, left_on=['assembly','nucleotide','internal_id'], right_on=['assembly','nucleotide','internal_id'], how='inner')
+        copy.sort_values(['assembly','nucleotide','block_id','rid','internal_id'], ascending=[True,True,True,True,True], inplace=True)
         copy['query'] = np.where((~copy['query'].isna()) & copy['query'],1,0).astype(int)
-        copy = copy[cols].sort_values(['assembly','nucleotide','block_id','rid','internal_id'], ascending=[True,True,True,True,True])
+        copy = copy[cols]
 
         # Evaluate other criteria for defining blocks
         if strand == 'same':
@@ -746,6 +752,10 @@ class NeighborhoodDF(pd.DataFrame):
             valid = copy.groupby('block_id').agg({'query':'sum'}).query('query > 0').block_id
             copy = copy.query('block_id in @valid')
             copy['block_id'] = (~(copy.block_id == copy.shift(1).block_id)).cumsum()
+
+        # Set within block row number
+        copy.reset_index(inplace=True, drop=True)
+        copy['internal_id'] = copy.index.to_series()
 
         # Return
         return copy

@@ -170,7 +170,6 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
                     'strand': strand,
                     'nlen': nlen,
                     'block_id': block_id,
-                    'rid':0,
                     'query':0,
                     'pid': pid,
                     'type': feature_type,
