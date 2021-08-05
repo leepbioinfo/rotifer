@@ -734,7 +734,7 @@ class NeighborhoodDF(pd.DataFrame):
 
         # Replace columns in self with those from blks
         cols = self.columns
-        copy = self.drop(['query','block_id','origin','is_fragment'], axis=1).sort_values(['assembly','nucleotide','start','end'])
+        copy = self.drop(['query','block_id','origin','rid','is_fragment'], axis=1).sort_values(['assembly','nucleotide','start','end'])
         copy = copy.merge(blks, left_on=['assembly','nucleotide','internal_id'], right_on=['assembly','nucleotide','internal_id'], how='inner')
         copy.sort_values(['assembly','nucleotide','block_id','rid','internal_id'], ascending=[True,True,True,True,True], inplace=True)
         copy['query'] = np.where((~copy['query'].isna()) & copy['query'],1,0).astype(int)
