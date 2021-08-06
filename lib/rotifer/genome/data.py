@@ -535,7 +535,7 @@ class NeighborhoodDF(pd.DataFrame):
             return pd.DataFrame()
 
         # Make sure data is sorted and has compatible internal ids
-        if self.is_fragment.any():
+        if 'is_fragment' in self.columns and self.is_fragment.any():
             self.sort_values(['assembly','nucleotide','start','end','internal_id'], inplace=True)
             self.internal_id = list(range(0,len(self)))
 
