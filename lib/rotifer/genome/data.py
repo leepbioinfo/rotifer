@@ -552,9 +552,9 @@ class NeighborhoodDF(pd.DataFrame):
 
             # Identify blocks by merging neighborhoods
             bid = (blks.nucleotide != blks.nucleotide.shift(1))
-            bid = bid & (blks.is_fragment & (blks.block_id != blks.block_id.shift(1)))
-            bid = bid & (blks.type != blks.type.shift(1))
-            bid = bid & ((blks.foup - blks.fodown.shift(1) - 1) > min_block_distance)
+            bid = bid | (blks.is_fragment & (blks.block_id != blks.block_id.shift(1)))
+            bid = bid | (blks.type != blks.type.shift(1))
+            bid = bid | ((blks.foup - blks.fodown.shift(1) - 1) > min_block_distance)
             blks['block_id'] = bid.cumsum() + min_block_id
             blks = blks.groupby([*cols,'block_id']).agg({'feature_order':list,'foup':min,'fodown':max,'is_fragment':'all'}).reset_index()
             blks = blks.merge(dflim, left_on=['assembly','nucleotide','type'], right_on=['assembly','nucleotide','type'], how='left')
