@@ -476,7 +476,7 @@ class NeighborhoodDF(pd.DataFrame):
     def vicinity(self, targets=['query == 1'], before=3, after=3, min_block_distance=0, fttype='same', min_block_id=1):
         """
         Locate genomic regions that contain features selected by some criteria.
-        
+
         Each region will be described by assembly, nucleotide and a pair of minimum and
         maximum internal IDs.
 
@@ -545,7 +545,10 @@ class NeighborhoodDF(pd.DataFrame):
 
         # Process features with type
         if (fttype == 'same'):
-            blks = self[select].filter([*cols,'block_id','feature_order','is_fragment'])
+            blksCols = [ x for x in [*cols,'block_id','feature_order','is_fragment'] if x in self.columns ]
+            blks = self[select].filter(blksCols)
+            if 'is_fragment' not in self.columns:
+                blks['is_fragment'] = False
             blks.sort_values([*cols,'feature_order'], inplace=True)
             blks['foup']   = blks.feature_order - before
             blks['fodown'] = blks.feature_order + after
@@ -733,8 +736,10 @@ class NeighborhoodDF(pd.DataFrame):
         blks = blks.merge(select, on=['assembly','nucleotide','internal_id'], how="left")
 
         # Replace columns in self with those from blks
+        dropList = ['query','block_id','origin','rid','is_fragment']
         cols = self.columns
-        copy = self.drop(['query','block_id','origin','rid','is_fragment'], axis=1).sort_values(['assembly','nucleotide','start','end'])
+        dropList = [ x for x in dropList if x in cols ]
+        copy = self.drop(dropList, axis=1).sort_values(['assembly','nucleotide','start','end'])
         copy = copy.merge(blks, left_on=['assembly','nucleotide','internal_id'], right_on=['assembly','nucleotide','internal_id'], how='inner')
         copy.sort_values(['assembly','nucleotide','block_id','rid','internal_id'], ascending=[True,True,True,True,True], inplace=True)
         copy['query'] = np.where((~copy['query'].isna()) & copy['query'],1,0).astype(int)
