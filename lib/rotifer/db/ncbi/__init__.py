@@ -115,7 +115,7 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
         attempt = 0
         while attempt < tries:
             try:
-                assembly_reports = ncbi().read('assembly_reports')
+                assembly_reports = ncbi().read('assembly_reports', verbose=verbose)
             except:
                 if verbose > 0:
                     print(f'{__fn}: Failed to download assembly reports, {tries - attempt - 1} attempts left. Error: '+sys.exc_info()[0], file=sys.stderr)
