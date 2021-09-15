@@ -21,14 +21,10 @@ options is enable the cordinates will be from the query, if is not the cordinate
 based in the first sequence
 
 '''
-pd.options.display.max_rows = 10000000
-pd.options.display.max_columns = 10000000
-pd.options.display.max_colwidth = 10000000
-pd.options.display.width = 0
 
 def parse_args():
     parser = corecli.parser( description= \
-        'Get the cordinates from the align region')
+        'Extract columns based on (1) alignment-based start and end cordinates or (2) coordinates within an unaligned sequence.')
 
 
    # parser.add(':cli.core')

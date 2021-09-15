@@ -9,6 +9,11 @@ Developtment
 - Python
   - ~ Implemented
     - raln2color
+      - Feature requests
+        - User-defined colors for annotated columns
+          - Example: raln2color -a table.tsv (color, name, start, end)
+      - Bugs / issues
+        - Fix zero-based scale output
     - alnposition
     - sequence\_parser
     - rconsensus
