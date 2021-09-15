@@ -1,0 +1,216 @@
+import matplotlib.pyplot as plt
+from Bio import SeqIO
+from io import StringIO
+import pandas as pd
+import numpy as np
+import rotifer.core.cli as corecli
+
+__version__ = 0.1
+__authors__ = 'Gianlucca Nicastro'
+
+'''
+Using a fasta file contaning the consensus, it will make figures colored by the conservatio.
+It also acepts files with Secondary structure predicted by the HHPRED.
+'''
+
+
+def parse_args():
+    parser = corecli.parser( description= \
+        'Parse sequences or aligments and transform it in \
+different formats. Ex: Fasta to seqrow, aligments to ungaped fasta,etc')
+
+
+   # parser.add(':cli.core')
+    parser.add(long_arg = '--format',
+               short_arg = '-f',
+               helper = 'Sequence input format default = fasta',
+               dest = 'format',
+               action = 'store',
+               default = 'fasta',
+               arg_type = str)
+
+    parser.add(helper = 'input file',
+               nargs = '*',
+               dest = 'input',
+               action = corecli.action.autoload,
+               duplicates = False)
+
+
+    parser.add(long_arg = '--gap_template',
+               short_arg = '-gt',
+               helper = 'Sequence to be the template to remove gaps',
+               dest = 'gap_template',
+               action = 'store',
+               default = 'HHPRED_DSSP',
+               arg_type = str)
+
+    parser.add(long_arg = '--consenssus',
+               short_arg = '-c',
+               helper = 'Header of the consensus sequence to be tamplate to color',
+               dest = 'consensus',
+               action = 'store',
+               default = 'CONSENSUS/85%',
+               arg_type = str)
+
+
+    parser.add(long_arg = '--output_file',
+               short_arg = '-o',
+               helper = 'output_file, the filetype will be written according to the suffix, so if you chose the file type only by add the suffixed desired (png,svg,jpeg, TIFF,...)',
+               dest = 'out_file',
+               action = 'store',
+               default = None,
+               arg_type = str)
+
+
+    args = parser.parse_args()
+    return(args)
+
+
+args=parse_args()
+infile= '\n'.join(args.input)
+
+# loading dictionary of AA types and color
+
+aromatic = ['F','Y', 'W', 'H']
+alifatic = ['I','V','L']
+hydrophobic = alifatic + [ 'A', 'C', 'F', 'M', 'W', 'Y']
+positive = ['H', 'K', 'R']
+negative = [ 'D', 'E']
+charged = positive + negative
+polar = charged + ['Q', 'N', 'S', 'T','C']
+alcohol = ['S','T']
+tiny = ['G', 'A', 'S']
+small = tiny + [ 'V', 'T', 'D', 'N', 'P', 'C']
+big = ['K', 'F', 'I', 'L','M', 'Q', 'R', 'W', 'Y', 'E']
+all_aa = ['G','A','V','I','L','M','F','Y','W','H','C','P','K','R','D','E','Q','N','S','T']
+
+aa_groups_colors = {'a': '#2C68F3',
+                'l': '#2CF3EA',
+                'h': '#F3E42C',
+                '+': '#2C68F3',
+                '-': '#F50EF1',
+                'c': '#38F50E',
+                'p': '#0EF5A1',
+                'o': '#AE5BF8',
+                'u': '#EE9C0C',
+                's': '#DA1477',
+                'b': '#A28694',
+                '.': '#FFFFFF'}
+
+aa_groups_colors = {'a':[aromatic,  '#2C68F3'],
+                    'l':[alifatic, '#2CF3EA'],
+                    'h':[hydrophobic,  '#F3E42C'],
+                    '+':[positive,  '#2C68F3'],
+                    '-':[negative,  '#F50EF1'],
+                    'c':[charged,  '#38F50E'],
+                    'p':[polar,  '#0EF5A1'],
+                    'o':[alcohol,  '#AE5BF8'],
+                    'u':[tiny,  '#EE9C0C'],
+                    's':[small,  '#DA1477'],
+                    'b':[big,  '#A28694'],
+                    '.':[all_aa,  '#FFFFFF']}
+
+# Loading the functions used in the script:
+def seq_to_seq_rows(infile, seq_type):
+    idd=[]
+    seq=[]
+    fasta_sequences = SeqIO.parse( infile ,seq_type)
+    for fasta in fasta_sequences:
+        idd.append(fasta.id)
+        seq.append(str(fasta.seq))
+    data={'ID':idd, 'seq':seq}
+    z = pd.DataFrame(data=data)
+    z['len']=z.seq.str.len()
+    return z
+
+def aln_matrix(seq_row_object):
+    df = pd.DataFrame()
+    for x in range(len(seq_row_object.iloc[0,1])):
+        df[x] = seq_row_object.iloc[:,1].str[x]
+
+    df.set_index(seq_row_object.ID,inplace=True)
+    return df
+
+def add_space(df, pid, ssid):
+    if isinstance(df.loc[pid], pd.Series):
+        if pid == ssid:
+            return df.loc[pid].where(lambda x: x != '-').dropna()
+        p = df.loc[pid].where(lambda x : x!='-').dropna()
+        ss = df.loc[ssid].where(lambda x : x!='-').dropna()
+        ss1 = p.to_frame().join(ss.to_frame(), how='left')
+        ss1['s'] = ss1[ssid].isna().cumsum().ffill()
+        ss2 = ss1[ss1[ssid].notna()].drop_duplicates('s')
+        ss2[ 'dist'] = ss2.s -ss2.s.shift(1)
+        ss2.dist = ss2.dist.fillna(ss2.s)
+        ss2.index = ss2.index -1
+
+    else:
+        print('duplicate pid chekc your alignment')
+        return None
+
+    out = pd.concat([ss1[ss1[ssid].notna()][pid].to_frame(), ss2.dist.rename(pid).astype(int).to_frame()]).sort_index()[pid]
+    return out
+
+
+# The main script part:
+a = seq_to_seq_rows(StringIO(infile), 'fasta')
+df = aln_matrix(a)
+df = df.reset_index().drop_duplicates('ID').set_index('ID')
+# Selectin the sequence to be the model for the gap removing (just change the HHPRED_DSSP  if any ohter sequence is wanted'
+sequence_model_to_gap =  df.iloc[pd.Series(df.index).str.startswith(args.gap_template).where(lambda x: x==True).dropna().index].index.to_list()[0]
+l = []
+for x in df.index.to_list():
+    print(x)
+    l.append(add_space(df, x, sequence_model_to_gap ))
+    
+aln = pd.concat(l, axis=1).T.fillna('-')
+# Adding spaces to the number columns be more visible
+aln.loc[:,aln.loc[sequence_model_to_gap].where(lambda x: x == '-').dropna().index] = aln.loc[:,aln.loc[sequence_model_to_gap].where(lambda x: x == '-').dropna().index].replace('-', '      ')
+aln_to_fig = aln
+aln_to_fig = aln_to_fig.T.reset_index(drop=True).T                  
+aln_to_fig = aln_to_fig.reset_index().drop_duplicates('index').set_index('index')
+xx = aln_to_fig.loc[args.consensus].to_frame()
+cc = xx[xx[args.consensus].isin(aa_groups_colors.keys())][args.consensus].to_dict()
+aln_to_fig = pd.concat([aln_to_fig.drop(aln_to_fig[aln_to_fig.index.str.contains('CONSENSUS', regex=True)].index), xx.T])
+no_color_row = np.where(aln_to_fig.index.str.contains('HHPRE', regex=True))[0].tolist()
+conservedAA = xx.iloc[:,0].str.isupper().where(lambda x: x==True).dropna().index.to_list()
+cell_text = aln_to_fig.values.tolist()
+fig, ax = plt.subplots()
+ax.axis('auto')
+ax.axis('off')
+the_table = ax.table(cellText=cell_text,cellLoc='center',rowLabels=aln_to_fig.index.to_list(),
+                     colLabels=None,loc='center')
+the_table.auto_set_font_size(False)
+the_table.set_fontsize(10)
+the_table.auto_set_column_width(col=aln_to_fig.columns.to_list())
+for x in the_table.get_celld():
+    the_table.get_celld()[x].set_facecolor('white')
+    the_table.get_celld()[x].set_edgecolor('white')
+
+    if x[1] in xx[(xx[args.consensus] != '.') ].index:
+        if str(xx.iloc[x[1],0]).isupper():
+            if the_table.get_celld()[x].get_text().get_text() == xx.iloc[x[1],0]:
+                the_table.get_celld()[x].set_facecolor('black')
+                the_table.get_celld()[x].set_edgecolor('black')
+                the_table.get_celld()[x].get_text().set_color('white')
+
+        elif xx.iloc[x[1],0] in aa_groups_colors.keys():
+            if the_table.get_celld()[x].get_text().get_text() in aa_groups_colors[xx.iloc[x[1],0]][0]:
+                the_table.get_celld()[x].set_facecolor(aa_groups_colors[xx.iloc[x[1],0]][1])
+                the_table.get_celld()[x].set_edgecolor(aa_groups_colors[xx.iloc[x[1],0]][1])
+    if x[0] in  no_color_row:
+        if the_table.get_celld()[x].get_text().get_text() in ['H', 'h']:
+            the_table.get_celld()[x].set_edgecolor('red')
+            the_table.get_celld()[x].get_text().set_color('white')
+            the_table.get_celld()[x].set_facecolor('red')
+        elif the_table.get_celld()[x].get_text().get_text() in ['e', 'E']:
+            the_table.get_celld()[x].set_edgecolor('blue')
+            the_table.get_celld()[x].get_text().set_color('white')
+            the_table.get_celld()[x].set_facecolor('blue')
+        else:
+            the_table.get_celld()[x].set_edgecolor('white')
+            the_table.get_celld()[x].get_text().set_color('black')
+            the_table.get_celld()[x].set_facecolor('white')
+
+
+plt.savefig(args.out_file,bbox_inches='tight',dpi=200)

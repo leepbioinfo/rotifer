@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+
+########################## Be careful I've to check some columns duplicationin the process, I've just droped the duplication at the end of the code,
+#########################  I need to undertand why it is duplicating
+
 import os
 import sys
 sys.path.insert(0, os.path.join('/home/kaihami/mymodules'))
@@ -72,9 +77,17 @@ def parse_args():
                short_arg = '-sa',
                helper = 'Sliece aligment direct, wihtout select a standard sequence',
                dest = 'xx',
+               action = 'store_true',
+               default = None)
+
+    parser.add(
+               long_arg = '--Drop',
+               short_arg = '-d',
+               helper = 'Add the identifier of the protein to drop from the aligment',
+               dest = 'drop',
                action = 'store',
-               default = None,
-               arg_type = str)
+               nargs='+',
+               default = None)
 
     args = parser.parse_args()
     return(args)
@@ -86,6 +99,7 @@ start = args.start
 end = args.end
 protein = args.protein
 xx = args.xx
+drop = args.drop
 
 def seq_to_seq_rows(infile, seq_type):
     idd=[]
@@ -125,11 +139,15 @@ e = e.sum()
 p2 = d.reset_index().iloc[end -1]['index']
 f = ~b.loc[:, : p2].isin(['-']).T
 f = f.sum()
-g = pd.DataFrame([e,f]).T.rename({0:'start', 1:'end'}, axis=1)
+g = pd.DataFrame([list(e),list(f)]).T.rename({0:'start', 1:'end'}, axis=1)
 g['d_size'] = g.end -g.start
 ## Include the unaligned sequence that was sliced
-h = g.join(a.set_index('ID'))
+h = g.join(a).set_index('ID')
 h['t']  = h.seq.str.replace('-', '')
 h['unaligned_seq'] = h.apply(lambda x: x.t[x.start : x.end] , axis=1)
 h = h.join(b.loc[:,p1:p2].T.sum().to_frame().rename({0:'aln'}, axis=1))
+h = h.reset_index().drop_duplicates(subset='ID').set_index('ID')
+if drop:
+    h = h.drop(drop)
 print (h[['start', 'end', 'd_size', 'aln']].to_csv(sep="\t"))
+

@@ -121,7 +121,7 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
                 if verbose > 0:
                     msg = f'{__fn}: Failed to download assembly reports, {tries - attempt - 1} attempts left. Error: '
                     print(msg + str(sys.exc_info()[0]), file=sys.stderr)
-            attempt += 1
+                attempt += 1
         if not isinstance(assembly_reports,pd.DataFrame) or assembly_reports.empty:
                 if verbose > 0:
                     print(f'{__fn}: Failed to download assembly reports after {attempt + 1} attempts left.', file=sys.stderr)

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import re
 import sys
 sys.path.insert(0, os.path.join('/home/kaihami/mymodules'))
 import threading
@@ -9,8 +10,11 @@ from Bio import SeqIO
 import pandas as pd
 from ete3 import Tree
 from io import StringIO
+import warnings
+from Bio import BiopythonWarning
+warnings.simplefilter('ignore', BiopythonWarning)
 
-__version__ = 0.2
+__version__ = 0.4
 __authors__ = 'Gianlucca Nicastro'
 
 
@@ -46,6 +50,7 @@ different formats. Ex: Fasta to seqrow, aligments to ungaped fasta,etc')
                helper = 'Remove gaps from alignments',
                dest = 'hist',
                action = 'store_true')
+
     parser.add(long_arg = '--bins',
                short_arg = '-b',
                helper = 'Numbers of bins for histogram analysis',
@@ -53,16 +58,19 @@ different formats. Ex: Fasta to seqrow, aligments to ungaped fasta,etc')
                default = 10,
                action = 'store',
                arg_type = int)
+
     parser.add(long_arg = '--table',
                short_arg = '-t',
                helper = 'Output format as seqrwos format',
                dest = 'table',
                action = 'store_true')
+
     parser.add(long_arg = '--filter',
                short_arg = '-fi',
                helper = 'filter sequence by the limit set by the paramethers left limi, right limit',
                dest = 'filtered',
                action = 'store_true')
+
     parser.add(long_arg = '--left_limit',
                short_arg = '-ll',
                helper = 'The size of the smaller sequence to be filtered',
@@ -70,6 +78,7 @@ different formats. Ex: Fasta to seqrow, aligments to ungaped fasta,etc')
                action = 'store',
                default = 0,
                arg_type = int)
+
     parser.add(long_arg = '--right_limit',
                short_arg = '-rl',
                helper = 'The size of the highest sequence after the filter',
@@ -77,6 +86,7 @@ different formats. Ex: Fasta to seqrow, aligments to ungaped fasta,etc')
                action = 'store',
                default = sys.maxsize,
                arg_type = int)
+
     parser.add(long_arg = '--seq_start',
                short_arg = '-ss',
                helper = 'Sequence start',
@@ -84,6 +94,7 @@ different formats. Ex: Fasta to seqrow, aligments to ungaped fasta,etc')
                action = 'store',
                default = None,
                arg_type = int)
+
     parser.add(long_arg = '--seq_end',
                short_arg = '-se',
                helper = 'Sequence end',
@@ -91,6 +102,7 @@ different formats. Ex: Fasta to seqrow, aligments to ungaped fasta,etc')
                action = 'store',
                default = None,
                arg_type = int)
+
     parser.add(long_arg = '--tree_file',
                short_arg = '-tf',
                helper = 'Tree_file',
@@ -98,6 +110,7 @@ different formats. Ex: Fasta to seqrow, aligments to ungaped fasta,etc')
                action = 'store',
                default = None,
                arg_type = str)
+
     parser.add(long_arg = '--order_file',
                short_arg = '-of',
                helper = 'list of accession to order the aligment',
@@ -105,6 +118,7 @@ different formats. Ex: Fasta to seqrow, aligments to ungaped fasta,etc')
                action = 'store',
                default = None,
                arg_type = str)
+
     parser.add(long_arg = '--orderd_by',
                short_arg = '-ob',
                helper = 'Select how to sort the sequences nt(not order),tree,size,file or name',
@@ -112,6 +126,45 @@ different formats. Ex: Fasta to seqrow, aligments to ungaped fasta,etc')
                action = 'store',
                default = 'no')
 
+    parser.add(long_arg = '--pdb_name',
+               short_arg = '-pdb',
+               helper = 'pdb to donwlaod and add the secondary structury to the aligment',
+               dest = 'pdb_name',
+               action = 'store',
+               default = None,
+               arg_type = str)
+
+    parser.add(long_arg = '--pdb_file',
+               short_arg = '-pf',
+               helper = 'PDB file location to add a secondary structure to the aligment',
+               dest = 'pdb_file',
+               action = 'store',
+               default = None,
+               arg_type = str)
+
+    parser.add(long_arg = '--chain_id',
+               short_arg = '-ci',
+               helper = 'Chain id to add the structure',
+               dest = 'chain_id',
+               action = 'store',
+               default = 'A',
+               arg_type = str)
+
+    parser.add(long_arg = '--ss_hhpred',
+               short_arg = '-hhpred',
+               helper = 'Add seccondary structure from hhpred output file',
+               dest = 'hhpred_file',
+               action = 'store',
+               default = None,
+               arg_type = str)
+
+    parser.add(long_arg = '--hhpred_result_number',
+               short_arg = '-hhpred_id',
+               helper = 'Nember of the result from the hhpred file to fetch the sequence',
+               dest = 'hhpred_id',
+               action = 'store',
+               default = '1',
+               arg_type = str)
     args = parser.parse_args()
     return(args)
 
@@ -127,7 +180,11 @@ seq_end = args.seq_end
 tree_file = args.tree_file
 order_file = args.order_file
 order_by = args.order_by
-
+pdb_name = args.pdb_name
+pdb_file = args.pdb_file
+chain_id = args.chain_id.upper()
+hhpred_file = args.hhpred_file
+hhpred_id = args.hhpred_id
 
 idd=[]
 seq=[]
@@ -140,8 +197,81 @@ for fasta in fasta_sequences:
     data={'ID':idd, 'seq':seq, 'ung':ung}
 z = pd.DataFrame(data=data)
 z['len']=z.ung.str.len()
+z['ID'] = z.ID.str.upper()
 if args.filtered:
     z=z[(z.len > args.left_limit) & (z.len < args.right_limit)]
+
+if pdb_name:
+    pdb_name = pdb_name.lower()
+    import Bio.PDB.PDBList as PDBList
+    a = PDBList(verbose=False)
+    pdb = a.retrieve_pdb_file(pdb_code=pdb_name, file_format='pdb', pdir='/tmp')
+    from Bio.PDB import PDBParser
+    from Bio.PDB.DSSP import DSSP
+    from Bio import pairwise2
+
+    p = PDBParser()
+    structure = p.get_structure(pdb_name, pdb)
+    model = structure[0]
+    dssp = DSSP(model, pdb)
+    dssp_to_abc = {"I" : "C",
+               "S" : "C",
+               "H" : "H",
+               "E" : "E",
+               "G" : "C",
+               "B" : "E",
+               "T" : "C",
+               "C" : "C"}
+    a_keys = list(dssp.keys())
+    select_chain = [x for x in a_keys if x[0] == chain_id]
+    l =  [dssp[select_chain[x]] for x in range(len(select_chain))]
+    df = pd.DataFrame(data={'position':[x[0] for x in l],'aa': [x[1] for x in l],'structure':  [x[2] for x in l]})
+    df.structure = df.structure.map(dssp_to_abc).fillna('-')
+    # Search for pdb sequence in the aligment
+    pdb_index = z[z.ID.str.contains(pdb_name, case=False)].index[0]
+    pdb_sequence = pd.Series(list(z.seq[pdb_index])).where(lambda x: x !='-').dropna().rename('ung').to_frame()
+    pdb_in_aln = z.loc[pdb_index].ung
+    pdb_from_pdb = ''.join(df.aa.to_list())
+    ali = pairwise2.align.localxx(pdb_in_aln, pdb_from_pdb)[0]
+    ss_df = pd.Series(list(ali.seqB)).where(lambda x : x != '-').dropna().to_frame()
+    ss_df['structure'] = df.structure.to_list()
+    pdb_df = pd.Series(list(ali.seqA)).rename('seq').to_frame().join(ss_df['structure']).fillna('-').query(' seq != "-"')
+    to = pd.Series(list(z.loc[pdb_index].seq)).where(lambda x: x !='-').dropna().rename('ung').to_frame()
+    to['structure'] = pdb_df.structure.to_list()
+    print(f'>ss_from:{pdb_name}_{chain_id}')
+    print(''.join(pd.Series(list(z.loc[pdb_index].seq)).to_frame().join(to).fillna('-').structure.to_list()))
+
+if hhpred_file:
+    with open(hhpred_file, 'r') as f:
+        texto = f.read()
+
+    match = re.findall(f'No {hhpred_id}(.+?)No ', texto, re.DOTALL)[0].strip()
+    target = re.findall('T Consensus.*?\nT\s(.*?)\s',match, re.MULTILINE)[0]
+    query = re.findall('Q ss_pred.*?\nQ\s(.*?)\s',match, re.MULTILINE)[0]
+    T_con = ''.join(re.findall('T Consensus.*?\d (.*?)\s*\d',match,  re.MULTILINE))
+    sequence_target = ''.join(re.findall(f'T\s+{target}.*?\d (.*?)\s*\d',match,  re.MULTILINE))
+    sequence_query = ''.join(re.findall(f'Q\s+{query}.*?\d (.*?)\s*\d',match,  re.MULTILINE))
+    T_ss_pred = ''.join(re.findall('T ss_pred\s+(.*?)$',match,  re.MULTILINE))
+    T_ss_dssp = ''.join(re.findall('T ss_dssp\s+(.*?)$',match,  re.MULTILINE))
+    Q_ss_pred = ''.join(re.findall('Q ss_pred\s+(.*?)$',match,  re.MULTILINE))
+    Q_con = ''.join(re.findall('Q Consensus.*?\d (.*?)\s*\d',match,  re.MULTILINE))
+    structure = pd.DataFrame({'query':list(sequence_query), 'query_pred': list(Q_ss_pred), 'target':list(sequence_target), 'ss':list(T_ss_dssp)})
+    aln = pd.Series(list(z.iloc[0].seq)).where(lambda x : x!='-').dropna().reset_index().rename({'index':'position', 0:'sequence'}, axis=1)
+    s_aln = ''.join(aln.sequence).find(''.join(structure['query'].where(lambda x : x !='-').dropna()))
+    e_aln = s_aln + len(''.join(structure['query'].where(lambda x : x !='-').dropna())) -1
+    aln.loc[s_aln : e_aln , 'dssp'] = structure[structure['query'] != '-'].ss.to_list()
+    aln.loc[s_aln : e_aln , 'sspred'] = structure[structure['query'] != '-'].query_pred.to_list()
+    aln.loc[s_aln : e_aln , target] = structure[structure['query'] != '-'].target.to_list()
+    aln = pd.Series(list(z.iloc[0].seq)).to_frame().join(aln.set_index('position', drop=True)).fillna('-')
+
+    print(f'>hhpred_dssp_{target}')
+    print(''.join(aln.fillna('-').dssp.to_list()))
+    print(f'>hhpred_sspred_{query}')
+    print(''.join(aln.fillna('-').sspred.to_list()))
+    print(f'>{target}')
+    print(''.join(aln.fillna('-')[target].to_list()))
+    for x,y in z.iterrows():
+        print ('>{}\n{}'.format(y.ID, y.seq))
 
 if ungaped:
     z = z[['ID', 'ung', 'len']].rename({'ung': 'seq'}, axis=1)
@@ -161,9 +291,11 @@ elif order_by == 'file':
 elif order_by == 'size':
     z.sort_values('len', ascending=False, inplace=True)
 elif order_by == 'name':
-    z.sort_values('ID', ascending=False, inplace=True)
+    z.sort_values('ID', ascending=True, inplace=True)
+    z = z.drop_duplicates(subset='ID')
 else:
     pass
+
 if not hist:
     z = z[['ID', 'seq']]
     if args.table:
@@ -173,7 +305,7 @@ if not hist:
             for x,y in z.iterrows():
                 print ('>{}\n{}'.format(y.ID, y.seq[seq_start: seq_end]))
         else:
-             for x,y in z.iterrows():
+            for x,y in z.iterrows():
                 print ('>{}\n{}'.format(y.ID, y.seq))
 
 
