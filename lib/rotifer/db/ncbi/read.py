@@ -5,7 +5,6 @@ import sys
 import logging
 import pandas as pd
 from rotifer.db.ncbi import NcbiConfig
-from ete3.ncbi_taxonomy.ncbiquery import NCBITaxa
 
 # Load NCBI assembly reports
 def assembly_reports(ncbi, baseurl=f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASSEMBLY_REPORTS', columns=[], query_type='assembly', taxonomy=None, verbose=0, *args, **kwargs):
@@ -296,6 +295,7 @@ def taxonomy(ncbi, fetch=['ete3','entrez'], missing=False, ete3=None, preferred_
 
 def __taxonomy_from_ete3(ncbi, ete3=None, preferred_taxa=None, verbose=False):
     # Make sure ete3 is a ete3.ncbi_taxonomy.ncbiquery.NCBITaxa
+    from ete3.ncbi_taxonomy.ncbiquery import NCBITaxa
     if not isinstance(ete3,NCBITaxa):
         ete3 = NCBITaxa()
     if verbose:
@@ -309,6 +309,10 @@ def __taxonomy_from_ete3(ncbi, ete3=None, preferred_taxa=None, verbose=False):
     query = ncbi.submit().copy()
     nq = len(query)
     while i < nq:
+        try:
+            query[i] = int(query[i])
+        except:
+            pass
         if not isinstance(query[i],int):
             d = ete3.get_name_translator([query[i]])
             if query[i] not in d:
