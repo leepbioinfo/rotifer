@@ -6,8 +6,6 @@
 import os
 import pandas as pd
 
-
-
 def alnclu(info, c80e3="c80e3", i1c1="i1c1", index, i=3):
     '''
     Function to generate alignments for all clusters indicated by c80e3
@@ -20,23 +18,27 @@ def alnclu(info, c80e3="c80e3", i1c1="i1c1", index, i=3):
     alnclu(pd.Dataframe, 'c8e3', 'i1c1', 'complete.faa')
     '''
 
-curr_dir = os.getcwd()
-os.makedirs(f'{curr_dir}/clusters/hhmdb/aln')
+    # Validate input
+    if not isinstance(info, pd.DataFrame):
+        print(f'''First argument should be a Pandas DataFrame not a {type(info)}''', file=sys.stderr)
+        return None
 
-for x in info.c80e3.unique():
-    if info[info.c80e3 == x].i1c1.nunique() >= i:
-        os.mkdir(f'{curr_dir}/clusters/{x}')
-        os.chdir(f'{curr_dir}/clusters/{x}')
-        info[info.c80e3 == x].i1c1.drop_duplicates().to_csv(f'{x}.{c80e3}.acc', sep="\t", index=None, header=None)
-        os.system(f'esl-sfetch -f {curr_dir}/{index} {x}.{c80e3}.acc | mafft --thread 16 --localpair --maxiterate 1000  > {x}.{c80e3}.aln')
-    os.chdir(f'{curr_dir}')
+    curr_dir = os.getcwd()
+    os.makedirs(f'{curr_dir}/clusters/hhmdb/aln')
+    for x in info.c80e3.unique():
+        if info[info.c80e3 == x].i1c1.nunique() >= i:
+            os.mkdir(f'{curr_dir}/clusters/{x}')
+            os.chdir(f'{curr_dir}/clusters/{x}')
+            info[info.c80e3 == x].i1c1.drop_duplicates().to_csv(f'{x}.{c80e3}.acc', sep="\t", index=None, header=None)
+            os.system(f'esl-sfetch -f {curr_dir}/{index} {x}.{c80e3}.acc | mafft --thread 16 --localpair --maxiterate 1000  > {x}.{c80e3}.aln')
+        os.chdir(f'{curr_dir}')
 
-os.chdir('clusters')
-os.system('for x in */*.aln; do y=$(echo $x|cut -f1 -d"/"); echo \#$y|cat - $x > ./hhmdb/aln/$y.aln;done')
+    os.chdir('clusters')
+    os.system('for x in */*.aln; do y=$(echo $x|cut -f1 -d"/"); echo \#$y|cat - $x > ./hhmdb/aln/$y.aln;done')
 
-os.chdir('hhmdb')
-os.system(f'/home/leep/ggnicastro/bin/build/build_hhdb.sh ./aln ../{index}')
+    os.chdir('hhmdb')
+    os.system(f'/home/leep/ggnicastro/bin/build/build_hhdb.sh ./aln ../{index}')
 
-os.chdir('aln')
-os.system(f'for x in *.aln; do hhsearch -i $x -d ../{index} -M 50;done')
-os.system('python3 /home/leep/ggnicastro/bin/hhsearch_table.py')
+    os.chdir('aln')
+    os.system(f'for x in *.aln; do hhsearch -i $x -d ../{index} -M 50;done')
+    os.system('python3 /home/leep/ggnicastro/bin/hhsearch_table.py')
