@@ -205,7 +205,10 @@ if pdb_name:
     pdb_name = pdb_name.lower()
     import Bio.PDB.PDBList as PDBList
     a = PDBList(verbose=False)
-    pdb = a.retrieve_pdb_file(pdb_code=pdb_name, file_format='pdb', pdir='/tmp')
+    if not pdb_file:
+        pdb = a.retrieve_pdb_file(pdb_code=pdb_name, file_format='pdb', pdir='/tmp')
+    else:
+        pdb = pdb_file
     from Bio.PDB import PDBParser
     from Bio.PDB.DSSP import DSSP
     from Bio import pairwise2
