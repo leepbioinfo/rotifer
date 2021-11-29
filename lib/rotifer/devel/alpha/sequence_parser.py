@@ -1,0 +1,174 @@
+import pandas as pd
+
+def seq_to_seq_rows(input_ob, seq_type = 'fasta', input_is_text=False):
+    from Bio import SeqIO
+    from io import StringIO
+    '''
+    Function that uses the SeqIO parser to transform sequences from multiples
+    format  in  in a pandas DataFrame
+    '''
+    id_list, seq_list = [], []
+    if input_is_text:
+        fasta_sequences = SeqIO.parse(StringIO(input_ob), seq_type)
+    else:
+        fasta_sequences = SeqIO.parse(input_ob, seq_type)
+    for fasta in fasta_sequences:
+        id_list.append(fasta.id)
+        seq_list.append(str(fasta.seq))
+    data = {'id': id_list, 'sequence': seq_list}
+    df = pd.DataFrame(data=data)
+    df['len'] = df.sequence.str.replace('-', '').str.len()
+    return df
+
+
+def filter_df(
+    df,
+    by=None,
+    lower_limit=0,
+    upper_limit=0,
+    id_list=[],
+    reg_ex=None
+):
+
+    '''
+    Function to filter the df aligment
+    '''
+    if by == 'id_list':
+        return df.query('id in @id_list')
+    elif by == 'size':
+        return df.query('len >= @lower_limit and len <= @upper_limit')
+    elif reg_ex:
+        return df.query('sequence.str.replace("-", "").str.contains(@reg_ex, regex=True)')
+
+def slice_sequence(df, position, query=False):
+    df1 =  df.copy()
+    '''
+    Slice the aligment by a given pair of cordinates a tuple (start and end coordinates)
+    If a query is given it will slice the aligment based on the position the query cordinantes 
+    on the aliment
+    '''
+    if not query:
+        df1.sequence = df1.sequence.str.slice(position[0], position[1])
+        df1['len'] = df1.sequence.str.replace('-', '').str.len()
+        return df1
+    if query:
+        cord = pd.Series(list(df1[df1.id == query].sequence.values[0])).where(
+            lambda x: x != '-'
+        ).dropna().reset_index().rename(
+            {'index':'maped_position'}, axis=1
+        ).loc[position[0]:position[1]-1].maped_position.describe()
+        df1.sequence = df1.sequence.str.split('', expand=True).loc[:, cord['min']   :cord['max']+1].values.sum(axis=1)
+        df1['len'] = df1.sequence.str.replace('-', '').str.len()
+        return df1
+
+def histo_df(df,column = 'len', bins=10):
+    from ascii_graph import Pyasciigraph
+    print(f'Total proteins: {len(df)}')
+    a = df['len'].value_counts().to_frame().reset_index()
+    a = a.sort_values('index')
+    a['raw_bin'] = pd.cut(a['index'],bins,precision=0)
+    a['bin'] = a.raw_bin.apply(lambda x : '{} - {}'.format(int(x.left),int(x.right)))
+    test = a.groupby('bin').agg({'len':'sum'}).reset_index().apply(tuple, axis=1)
+    graph = Pyasciigraph()
+    for line in  graph.graph('count \t sequence size', test):
+        print(line)
+
+def order_df(df, by='size', tree_file='tree_file'):
+
+    if by == 'tree':
+        tree = Tree(tree_file)
+        leaves_name = [x.name for x in tree.get_leaves()]
+        leaves_name = [x.strip("'") for x in leaves_name] 
+        to = pd.DataFrame(leaves_name,columns=['ID'])
+        return  to.merge(df)
+
+    elif by == 'file':
+        to =pd.read_csv(order_file, names=['ID'])
+        return  to.merge(df)
+
+    elif by == 'size':
+        return df.sort_values('len', ascending=False)
+
+    elif by == 'name':
+        return df.sort_values('ID', ascending=True, inplace=True)
+
+
+def parse_hhpred(df= 'df', hhpred_file = 'hhpred_file', hhpred_id = ''):
+    import re
+    '''
+    Parser HHPRED file and add the result to a sequence df
+    '''
+    with open(hhpred_file, 'r') as f:
+        texto = f.read()
+
+    match = re.findall(f'No {hhpred_id}(.+?)No ', texto, re.DOTALL)[0].strip()
+    target = re.findall('T Consensus.*?\nT\s(.*?)\s',match, re.MULTILINE)[0]
+    query = re.findall('Q ss_pred.*?\nQ\s(.*?)\s',match, re.MULTILINE)[0]
+    T_con = ''.join(re.findall('T Consensus.*?\d (.*?)\s*\d',match,  re.MULTILINE))
+    sequence_target = ''.join(re.findall(f'T\s+{target}.*?\d (.*?)\s*\d',match,  re.MULTILINE))
+    sequence_query = ''.join(re.findall(f'Q\s+{query}.*?\d (.*?)\s*\d',match,  re.MULTILINE))
+    T_ss_pred = ''.join(re.findall('T ss_pred\s+(.*?)$',match,  re.MULTILINE))
+    T_ss_dssp = ''.join(re.findall('T ss_dssp\s+(.*?)$',match,  re.MULTILINE))
+    Q_ss_pred = ''.join(re.findall('Q ss_pred\s+(.*?)$',match,  re.MULTILINE))
+    Q_con = ''.join(re.findall('Q Consensus.*?\d (.*?)\s*\d',match,  re.MULTILINE))
+    structure_df = pd.DataFrame({'query':list(sequence_query), 'query_pred': list(Q_ss_pred), 'target':list(sequence_target), 'ss':list(T_ss_dssp)})
+    # join aln to hhpred results
+    aln = pd.Series(list(df.query('id == @query').sequence[0])).where(lambda x : x!='-').dropna().reset_index().rename({'index':'position', 0:'sequence'}, axis=1)
+    s_aln = ''.join(aln.sequence).find(''.join(structure_df['query'].where(lambda x : x !='-').dropna()))
+    e_aln = s_aln + len(''.join(structure_df['query'].where(lambda x : x !='-').dropna())) -1
+    aln.loc[s_aln : e_aln , 'dssp'] = structure_df[structure_df['query'] != '-'].ss.to_list()
+    aln.loc[s_aln : e_aln , 'sspred'] = structure_df[structure_df['query'] != '-'].query_pred.to_list()
+    aln.loc[s_aln : e_aln , target] = structure_df[structure_df['query'] != '-'].target.to_list()
+    aln = pd.Series(list(df.iloc[0].sequence)).to_frame().join(aln.set_index('position', drop=True)).fillna('-')
+    aln = aln.T.apply(lambda x: ''.join(list(x)), axis=1).reset_index().rename({'index': 'id', 0: 'sequence'}, axis=1) 
+
+    return pd.concat([aln,df]).iloc[2:]
+
+def add_pdb_to_aln(df, pdb_name, pdb_file=None, chain_id='A'):
+    from Bio.PDB import PDBParser
+    from Bio.PDB.DSSP import DSSP
+    from Bio import pairwise2
+    import Bio.PDB.PDBList as PDBList
+    from pathlib import Path
+
+    pdb_name = pdb_name.lower()
+    a = PDBList(verbose=False)
+    if not pdb_file:
+        pdb = a.retrieve_pdb_file(pdb_code=pdb_name, file_format='pdb', pdir='./')
+        p = Path(pdb)
+        p.rename(p.with_suffix('.pdb'))
+        pdb = pdb.replace('ent', 'pdb')
+    else:
+        pdb = pdb_file
+
+    p = PDBParser()
+    structure = p.get_structure(pdb_name, pdb)
+    model = structure[0]
+    dssp = DSSP(model, pdb)
+    dssp_to_abc = {"I" : "C",
+               "S" : "C",
+               "H" : "H",
+               "E" : "E",
+               "G" : "C",
+               "B" : "E",
+               "T" : "C",
+               "C" : "C"}
+    a_keys = list(dssp.keys())
+    select_chain = [x for x in a_keys if x[0] == chain_id]
+    l =  [dssp[select_chain[x]] for x in range(len(select_chain))]
+    df1 = pd.DataFrame(data={'position':[x[0] for x in l],'aa': [x[1] for x in l],'structure':  [x[2] for x in l]})
+    df1.structure = df1.structure.map(dssp_to_abc).fillna('-')
+    # Search for pdb sequence in the aligment
+    pdb_index = df[df.id.str.contains(pdb_name, case=False)].index[0]
+    pdb_sequence = pd.Series(list(df.sequence[pdb_index])).where(lambda x: x !='-').dropna().rename('ung').to_frame()
+    pdb_in_aln = df.loc[pdb_index].sequence.replace('-', '')
+    pdb_from_pdb = ''.join(df1.aa.to_list())
+    ali = pairwise2.align.localxx(pdb_in_aln, pdb_from_pdb)[0]
+    ss_df = pd.Series(list(ali.seqB)).where(lambda x : x != '-').dropna().to_frame()
+    ss_df['structure'] = df1.structure.to_list()
+    pdb_df = pd.Series(list(ali.seqA)).rename('seq').to_frame().join(ss_df['structure']).fillna('-').query(' seq != "-"')
+    to = pd.Series(list(df.loc[pdb_index].sequence)).where(lambda x: x !='-').dropna().rename('ung').to_frame()
+    to['structure'] = pdb_df.structure.to_list()
+    pdbn = f'ss_from:{pdb_name}_{chain_id}'
+    pdbss = ''.join(pd.Series(list(df.loc[pdb_index].sequence)).to_frame().join(to).fillna('-').structure.to_list())
+    return pd.concat([pd.DataFrame([[pdbn,pdbss]], columns=['id', 'sequence']),df])
