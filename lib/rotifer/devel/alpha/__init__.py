@@ -2,6 +2,6 @@
 #from . import 
 
 # To import the hello() function  into the alpha module :
-from p  import hello 
+#from p  import hello 
 
 from . import sequence_parser 
