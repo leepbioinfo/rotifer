@@ -172,3 +172,78 @@ def add_pdb_to_aln(df, pdb_name, pdb_file=None, chain_id='A'):
     pdbn = f'ss_from:{pdb_name}_{chain_id}'
     pdbss = ''.join(pd.Series(list(df.loc[pdb_index].sequence)).to_frame().join(to).fillna('-').structure.to_list())
     return pd.concat([pd.DataFrame([[pdbn,pdbss]], columns=['id', 'sequence']),df])
+
+
+def color_aln(df, color='fg', scale=True):
+    '''
+    Function to output the aligment colored by residues characteristics:
+        '''
+    scale_size = len(df['sequence'].values[0])
+    scale_dot = ''
+    scale_number = ''
+    scale_bar = ''
+    for x in range(0, scale_size):
+        if x == 0:
+            scale_number = str(1)
+            scale_bar += '|'
+            scale_dot += '.'
+        if x % 10 == 0:
+            scale_number =scale_number[:-1]
+            scale_number += str(x)
+            scale_number += ' '*(10-len(str(x+1)))
+            scale_number += ' '
+            scale_bar = scale_bar [:-1]
+            scale_bar += '|'
+            scale_bar += ' '
+            scale_dot += '.'
+        else:
+            scale_dot += '.'
+            scale_bar += ' '
+
+    def color_res(s, cs):
+        if s in 'A I L M F W V'.split():
+            return cs(s, 33)
+        elif s in 'K R'.split():
+            return cs(s, 124)
+        elif s in 'E D'.split():
+            return cs(s, 127)
+        elif s in 'N Q S T'.split():
+            return cs(s, 34)
+        elif s  == 'C':
+            return cs(s, 168)
+        elif s == 'G':
+            return cs(s, 166)
+        elif s == 'P':
+            return cs(s, 178)
+        elif s in 'H Y'.split():
+            return cs(s, 37)
+        else:
+             return s
+
+    def color_bg(s, color = ''):
+        '''
+        s: String
+        '''
+        if color:
+            color = f'48;5;{color}'
+        return f'\033[{color}m{s}\033[m'
+
+    def color_fg(s, color = ''):
+        if color:
+            color = f'38;5;{color}'
+        return f'\033[{color}m{s}\033[m'
+
+    color_switch = {'background':color_bg,
+              'bg':color_bg,
+              'foreground': color_fg,
+              'fg': color_fg}
+
+    df['colored'] = df['sequence'].map(lambda x: ''.join([color_res(y, color_switch[color]) for y in x]))
+
+    if scale:
+        color_scaled = pd.concat([pd.Series([scale_number,scale_bar,scale_dot], index=['position', 'bar', 'dot']),df.set_index('id').colored])
+
+        return color_scaled.str.ljust(color_scaled.str.len().max())
+    else:
+        return df.colored.str.ljust(df.colored.str.len().max())
+
