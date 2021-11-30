@@ -247,3 +247,66 @@ def color_aln(df, color='fg', scale=True):
     else:
         return df.colored.str.ljust(df.colored.str.len().max())
 
+def aln_freq_df(df, by_type=False):
+    freq_df = df.sequence.str.split('', expand=True).iloc[:,1:-1].apply(pd.value_counts).fillna(0).astype(int)/len(df)*100
+    freq_df.rename({'-':'.'}, inplace=True)
+    if not by_type:
+        return  freq_df
+
+    aromatic = ['F','Y', 'W', 'H']
+    alifatic = ['I','V','L']
+    hydrophobic = alifatic + [ 'A', 'C', 'F', 'M', 'W', 'Y']
+    positive = ['H', 'K', 'R']
+    negative = [ 'D', 'E']
+    charged = positive + negative
+    polar = charged + ['Q', 'N', 'S', 'T','C']
+    alcohol = ['S','T']
+    tiny = ['G', 'A', 'S']
+    small = tiny + [ 'V', 'T', 'D', 'N', 'P', 'C']
+    big = ['K', 'F', 'I', 'L','M', 'Q', 'R', 'W', 'Y', 'E']
+    all_aa = ['G','A','V','I','L','M','F','Y','W','H','C','P','K','R','D','E','Q','N','S','T']
+
+    aa_type = [ aromatic, alifatic, hydrophobic, positive, negative, charged, polar, alcohol, tiny, small, big, all_aa]
+    aa_type_names =  {'aromatic':[aromatic,'a'],
+                     'alifatic':[alifatic,'l'],
+                     'hydrophobic': [hydrophobic,'h'],
+                     'positive':[positive,'+'],
+                     'negative':[negative,'-'],
+                     'charged':[charged,'c'],
+                     'polar':[polar,'p'],
+                     'alcohol':[alcohol,'o'],
+                     'tiny':[tiny,'u'],
+                     'small':[small,'s'],
+                     'big':[big,'b'],
+                     'all_aa':[all_aa, '_']
+                     }
+
+    for x in aa_type_names.keys():
+        freq_df = pd.concat([freq_df,pd.DataFrame({aa_type_names[x][1]:freq_df.loc[aa_type_names[x][0]].sum()}).T])
+    freq_df = pd.concat([freq_df,pd.DataFrame(columns=freq_df.columns, index=['.']).fillna(101)])
+    return freq_df
+
+def consensus(freq_df, cons):
+    '''
+    ddddd
+    '''
+    aa_type_dict =  {'a': 6,
+        'l':4,
+        'h':8,
+        '+':3,
+        '-':1,
+        'c':7,
+        'p':10,
+        'o':0,
+        'u': 5,
+        's':9,
+        'b':11,
+        '_':12,
+        '.':13
+    }
+
+
+    freq = freq_df.melt(ignore_index=False).reset_index().rename({'index':'aa', 'variable':'position', 'value':'freq'}, axis=1)
+    freq['ranking'] = freq.aa.map(aa_type_dict)
+    freq = freq.sort_values(['position', 'ranking'], na_position='first').query(f'freq >={cons}').drop_duplicates(subset='position')
+    return ''.join(freq.aa.to_list())
