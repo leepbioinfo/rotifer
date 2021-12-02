@@ -34,7 +34,7 @@ find $pdbdir -name 'pdb*.ent.gz' | cut -c 22-25 > $dalidb/pdb.latest.txt
 \ls $dalidb/ | grep dat | cut -c 1-5 > $dalidb/pdb.list
 cut -c 1-4 $dalidb/pdb.list | sort -u | grep -vwFf - $dalidb/pdb.latest.txt | parallel -N1 -j36 dalimport
 \ls $dalidb/ | grep dat | cut -c 1-5 > $dalidb/pdb.list
-cat $dalidb/pdb.list | parallel -N100 -j36 'dat2fasta.pl $dalidb | awk -v RS=">" -v FS="\n" -v ORS="" "{ if (\$2) print \">\"\$0 }"' > $dalidb/pdb.fasta
+cat $dalidb/pdb.list | parallel -N100 -j36 --pipe 'dat2fasta.pl $dalidb | awk -v RS=">" -v FS="\n" -v ORS="" "{ if (\$2) print \">\"\$0 }"' > $dalidb/pdb.fasta
 makeblastdb -in $dalidb/pdb.fasta -out $blastdb -dbtype prot
 
 # Finish
