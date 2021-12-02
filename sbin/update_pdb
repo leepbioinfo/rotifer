@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# Load environment
+source /etc/profile
+
+# Controlling variables
+pdbdir=/databases/pdb
+dalidb=/databases/dalidb
+blastdb=/databases/blast/dalidb
+
+# functions
+dalimport () 
+{ 
+    s=${2:-${pdbdir:-/databases/pdb}};
+    t=${3:-${dalidb:-/databases/dalidb}};
+    c=$(echo $1 | cut -c 2-3);
+    wd=/tmp/dalimport.$1.$(date +%s);
+    pd=$(pwd);
+    mkdir $wd;
+    cd $wd;
+    gunzip -c $s/$c/pdb${1}.ent.gz > pdb${1}.ent;
+    import.pl --pdbfile pdb${1}.ent --pdbid $1 --dat $t;
+    cd $pd;
+    rm -fr $wd
+}
+export -f dalimport
+
+# Run rsync
+source=rsync://ftp.wwpdb.org:33444/ftp/data/structures/divided/pdb/
+/usr/bin/rsync $TEST -arHv --delete --prune-empty-dirs --delete-excluded $source $pdbdir
+
+# Update Dali database
+find $pdbdir -name 'pdb*.ent.gz' | cut -c 22-25 > $dalidb/pdb.latest.txt
+\ls $dalidb/ | grep dat | cut -c 1-5 > $dalidb/pdb.list
+cut -c 1-4 $dalidb/pdb.list | sort -u | grep -vwFf - $dalidb/pdb.latest.txt | parallel -N1 -j36 dalimport
+\ls $dalidb/ | grep dat | cut -c 1-5 > $dalidb/pdb.list
+dat2fasta.pl $dalidb < $dalidb/pdb.list | awk -v RS=">" -v FS="\n" -v ORS="" ' { if ($2) print ">"$0 } ' > $dalidb/pdb.fasta
+makeblastdb -in $dalidb/pdb.fasta -out $blastdb -dbtype prot
+
+# Finish
+exit $?

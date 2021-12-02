@@ -173,11 +173,10 @@ def add_pdb_to_aln(df, pdb_name, pdb_file=None, chain_id='A'):
     pdbss = ''.join(pd.Series(list(df.loc[pdb_index].sequence)).to_frame().join(to).fillna('-').structure.to_list())
     return pd.concat([pd.DataFrame([[pdbn,pdbss]], columns=['id', 'sequence']),df])
 
-
-def color_aln(df, color='fg', scale=True):
+def color_aln(df, color='fg', scale=True, pager=False):
     '''
-    Function to output the aligment colored by residues characteristics:
-        '''
+    Return the aligment as a Series of colored by residues.
+    '''
     scale_size = len(df['sequence'].values[0])
     scale_dot = ''
     scale_number = ''
@@ -242,7 +241,6 @@ def color_aln(df, color='fg', scale=True):
 
     if scale:
         color_scaled = pd.concat([pd.Series([scale_number,scale_bar,scale_dot], index=['position', 'bar', 'dot']),df.set_index('id').colored])
-
         return color_scaled.str.ljust(color_scaled.str.len().max())
     else:
         return df.colored.str.ljust(df.colored.str.len().max())

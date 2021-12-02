@@ -68,6 +68,10 @@ def assembly_reports(ncbi, baseurl=f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASS
     if verbose:
         print(f'{__name__}: loaded {len(assemblies)} assembly summaries.', file=sys.stderr)
 
+    # Make sure the ftp_path columns refers to the ftp site as we expect
+    if 'ftp_path' in assemblies.columns:
+        assemblies.ftp_path = assemblies.ftp_path.str.replace('https','ftp')
+
     # Filter rows and columns in the assemblies dataframe
     queries = ncbi.submit()
     if queries:
@@ -223,6 +227,7 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, batch_siz
             assembly_reports = type(ncbi)(query=list(ipgs[~ipgs.assembly.isna()].assembly.unique())).read('assembly_reports', baseurl=url, columns=col)
         ipgs = ipgs.merge(assembly_reports.drop(col, axis=1), left_on='assembly', right_on='assembly', how='left')
 
+    # Return the expected dataframe
     return ipgs
 
 # Load taxonomy data as a simple dataframe (tree as linearized path)
