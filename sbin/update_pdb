@@ -3,16 +3,18 @@
 # Load environment
 source /etc/profile
 
-# Controlling variables
-pdbdir=/databases/pdb
-dalidb=/databases/dalidb
-blastdb=/databases/blast/dalidb
+# Directories
+basedir=${ROTIFER_DATA:-/databases}
+pdbdir=$basedir/pdb
+dalidb=$basedir/dalidb
+blastdb=$basedir/blast/dalidb
+pdburl=rsync://ftp.wwpdb.org:33444/ftp/data/structures/divided/pdb/
 
 # functions
 dalimport () 
 { 
-    s=${2:-${pdbdir:-/databases/pdb}};
-    t=${3:-${dalidb:-/databases/dalidb}};
+    s=${2:-${pdbdir:-${basedir:-/databases}/pdb}};
+    t=${3:-${dalidb:-${basedir:-/databases}/dalidb}};
     c=$(echo $1 | cut -c 2-3);
     wd=/tmp/dalimport.$1.$(date +%s);
     pd=$(pwd);
@@ -26,8 +28,7 @@ dalimport ()
 export -f dalimport
 
 # Run rsync
-source=rsync://ftp.wwpdb.org:33444/ftp/data/structures/divided/pdb/
-/usr/bin/rsync $TEST -arHv --delete --prune-empty-dirs --delete-excluded $source $pdbdir
+/usr/bin/rsync $TEST -arHv --delete --prune-empty-dirs --delete-excluded $pdburl $pdbdir
 
 # Update Dali database
 find $pdbdir -name 'pdb*.ent.gz' | cut -c 22-25 > $dalidb/pdb.latest.txt
