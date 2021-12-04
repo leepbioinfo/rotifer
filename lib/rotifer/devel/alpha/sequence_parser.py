@@ -113,7 +113,7 @@ def parse_hhpred(df= 'df', hhpred_file = 'hhpred_file', hhpred_id = ''):
     Q_con = ''.join(re.findall('Q Consensus.*?\d (.*?)\s*\d',match,  re.MULTILINE))
     structure_df = pd.DataFrame({'query':list(sequence_query), 'query_pred': list(Q_ss_pred), 'target':list(sequence_target), 'ss':list(T_ss_dssp)})
     # join aln to hhpred results
-    aln = pd.Series(list(df.query('id == @query').sequence[0])).where(lambda x : x!='-').dropna().reset_index().rename({'index':'position', 0:'sequence'}, axis=1)
+    aln = pd.Series(list(df.query(f'id == @query').sequence[0])).where(lambda x : x!='-').dropna().reset_index().rename({'index':'position', 0:'sequence'}, axis=1)
     s_aln = ''.join(aln.sequence).find(''.join(structure_df['query'].where(lambda x : x !='-').dropna()))
     e_aln = s_aln + len(''.join(structure_df['query'].where(lambda x : x !='-').dropna())) -1
     aln.loc[s_aln : e_aln , 'dssp'] = structure_df[structure_df['query'] != '-'].ss.to_list()
@@ -173,11 +173,10 @@ def add_pdb_to_aln(df, pdb_name, pdb_file=None, chain_id='A'):
     pdbss = ''.join(pd.Series(list(df.loc[pdb_index].sequence)).to_frame().join(to).fillna('-').structure.to_list())
     return pd.concat([pd.DataFrame([[pdbn,pdbss]], columns=['id', 'sequence']),df])
 
-
-def color_aln(df, color='fg', scale=True):
+def color_aln(df, color='fg', scale=True, pager=False):
     '''
-    Function to output the aligment colored by residues characteristics:
-        '''
+    Return the aligment as a Series of colored by residues.
+    '''
     scale_size = len(df['sequence'].values[0])
     scale_dot = ''
     scale_number = ''
@@ -242,7 +241,6 @@ def color_aln(df, color='fg', scale=True):
 
     if scale:
         color_scaled = pd.concat([pd.Series([scale_number,scale_bar,scale_dot], index=['position', 'bar', 'dot']),df.set_index('id').colored])
-
         return color_scaled.str.ljust(color_scaled.str.len().max())
     else:
         return df.colored.str.ljust(df.colored.str.len().max())
