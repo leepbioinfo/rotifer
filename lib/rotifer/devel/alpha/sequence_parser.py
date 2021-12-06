@@ -310,6 +310,9 @@ def consensus(freq_df, cons):
     return ''.join(freq.aa.to_list())
 
 def to_file(df,file_path, out_format='fasta'):
+    '''
+    To file function, tranform the seq_row ojbect in any Bio.SeqIO supported format
+    '''
     from Bio import SeqIO
     from io import StringIO
     tab_string = df[['id', 'sequence']].to_csv(header=None, sep= "\t", index=None)
