@@ -113,7 +113,7 @@ def parse_hhpred(df= 'df', hhpred_file = 'hhpred_file', hhpred_id = ''):
     Q_con = ''.join(re.findall('Q Consensus.*?\d (.*?)\s*\d',match,  re.MULTILINE))
     structure_df = pd.DataFrame({'query':list(sequence_query), 'query_pred': list(Q_ss_pred), 'target':list(sequence_target), 'ss':list(T_ss_dssp)})
     # join aln to hhpred results
-    aln = pd.Series(list(df.query(f'id == @query').sequence[0])).where(lambda x : x!='-').dropna().reset_index().rename({'index':'position', 0:'sequence'}, axis=1)
+    aln = pd.Series(list(df.query(f'id == @query').sequence.iloc[0])).where(lambda x : x!='-').dropna().reset_index().rename({'index':'position', 0:'sequence'}, axis=1)
     s_aln = ''.join(aln.sequence).find(''.join(structure_df['query'].where(lambda x : x !='-').dropna()))
     e_aln = s_aln + len(''.join(structure_df['query'].where(lambda x : x !='-').dropna())) -1
     aln.loc[s_aln : e_aln , 'dssp'] = structure_df[structure_df['query'] != '-'].ss.to_list()
@@ -308,3 +308,13 @@ def consensus(freq_df, cons):
     freq['ranking'] = freq.aa.map(aa_type_dict)
     freq = freq.sort_values(['position', 'ranking'], na_position='first').query(f'freq >={cons}').drop_duplicates(subset='position')
     return ''.join(freq.aa.to_list())
+
+def to_file(df,file_path, out_format='fasta'):
+    '''
+    To file function, tranform the seq_row ojbect in any Bio.SeqIO supported format
+    '''
+    from Bio import SeqIO
+    from io import StringIO
+    tab_string = df[['id', 'sequence']].to_csv(header=None, sep= "\t", index=None)
+    sequences = SeqIO.parse(StringIO(tab_string), 'tab')
+    return SeqIO.write(sequences, file_path,out_format )
