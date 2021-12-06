@@ -308,3 +308,10 @@ def consensus(freq_df, cons):
     freq['ranking'] = freq.aa.map(aa_type_dict)
     freq = freq.sort_values(['position', 'ranking'], na_position='first').query(f'freq >={cons}').drop_duplicates(subset='position')
     return ''.join(freq.aa.to_list())
+
+def to_file(df,file_path, out_format='fasta'):
+    from Bio import SeqIO
+    from io import StringIO
+    tab_string = df[['id', 'sequence']].to_csv(header=None, sep= "\t", index=None)
+    sequences = SeqIO.parse(StringIO(tab_string), 'tab')
+    return SeqIO.write(sequences, file_path,out_format )
