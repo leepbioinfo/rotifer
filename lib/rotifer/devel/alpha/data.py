@@ -141,7 +141,7 @@ class sequence:
         Q_con = ''.join(re.findall('Q Consensus.*?\d (.*?)\s*\d',match,  re.MULTILINE))
         structure_df = pd.DataFrame({'query':list(sequence_query), 'query_pred': list(Q_ss_pred), 'target':list(sequence_target), 'ss':list(T_ss_dssp)})
         # join aln to hhpred results
-        aln = pd.Series(list(result.df.query('id == @query').sequence[0])).where(lambda x : x!='-').dropna().reset_index().rename({'index':'position', 0:'sequence'}, axis=1)
+        aln = pd.Series(list(result.df.query('id == @query').sequence.iloc[0])).where(lambda x : x!='-').dropna().reset_index().rename({'index':'position', 0:'sequence'}, axis=1)
         s_aln = ''.join(aln.sequence).find(''.join(structure_df['query'].where(lambda x : x !='-').dropna()))
         e_aln = s_aln + len(''.join(structure_df['query'].where(lambda x : x !='-').dropna())) -1
         aln.loc[s_aln : e_aln , 'dssp'] = structure_df[structure_df['query'] != '-'].ss.to_list()
