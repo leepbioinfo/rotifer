@@ -374,4 +374,4 @@ class sequence:
         from io import StringIO
         sio = StringIO("")
         SeqIO.write([ SeqRecord(id=x[0], seq=Seq(x[1])) for x in self.df.values ], sio, out_format)
-        return sio
+        return sio.getvalue()
