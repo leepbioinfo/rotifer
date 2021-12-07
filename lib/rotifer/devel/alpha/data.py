@@ -387,4 +387,4 @@ class sequence:
         if color:
             page(self.to_color().__repr__())
         else:
-            page(self.__repr__())
+            page(self.set_index('id').sequence.__repr__())
