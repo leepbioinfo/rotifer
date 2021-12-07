@@ -287,7 +287,7 @@ class sequence:
         import pandas as pd
         result = deepcopy(self)
         freq_df = result.df.sequence.str.split('', expand=True).iloc[:,1:-1].apply(pd.value_counts).fillna(0).astype(int)/len(result.df)*100 
-        freq_df.rename({'-':'.'}, inplace=True)
+        freq_df.rename({'-':'gap','.':'gap','?':'X'}, inplace=True)
         if not by_type:
             return  freq_df
         
@@ -321,16 +321,17 @@ class sequence:
 
         for x in aa_type_names.keys():
             freq_df = pd.concat([freq_df,pd.DataFrame({aa_type_names[x][1]:freq_df.loc[aa_type_names[x][0]].sum()}).T])
-        freq_df = pd.concat([freq_df,pd.DataFrame(columns=freq_df.columns, index=['gap']).fillna(101)])
+        #freq_df = pd.concat([freq_df,pd.DataFrame(columns=freq_df.columns, index=['.']).fillna(101)])
         return freq_df
 
     def consensus(self, cons):
         from copy import copy, deepcopy
         import pandas as pd
-        result = deepcopy(self)
         '''
-        ddddd
+        Generate consensus lines for the alignment object
         '''
+
+        # Ranking of amino acid categories
         aa_type_dict =  {'a': 6,
             'l':4,
             'h':8,
@@ -339,17 +340,22 @@ class sequence:
             'c':7,
             'p':10,
             'o':0,
-            'u': 5,
+            'u':5,
             's':9,
             'b':11,
             '_':12,
-            '.':13
+            '.':13,
+            'gap':14
         }
 
-
+        # Copying frequency table and building consensus
+        result = deepcopy(self)
+        result.rename({'gap':'.'}, inplace=True)
+        result = pd.concat([result, pd.DataFrame(columns=result.columns, index=['.']).fillna(101)])
         freq = result.freq_table.melt(ignore_index=False).reset_index().rename({'index':'aa', 'variable':'position', 'value':'freq'}, axis=1)
         freq['ranking'] = freq.aa.map(aa_type_dict)
         freq = freq.sort_values(['position', 'ranking'], na_position='first').query(f'freq >={cons}').drop_duplicates(subset='position')
+
         return ''.join(freq.aa.to_list())
 
     def add_consensus(self, consensus=(50, 60, 70, 80, 90)):
