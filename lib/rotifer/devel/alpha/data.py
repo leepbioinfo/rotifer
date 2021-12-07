@@ -387,4 +387,4 @@ class sequence:
         if color:
             page(self.to_color().__repr__())
         else:
-            page(self.set_index('id').sequence.__repr__())
+            page(self.df.set_index('id').sequence.__repr__())
