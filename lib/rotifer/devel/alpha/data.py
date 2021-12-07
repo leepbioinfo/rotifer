@@ -361,12 +361,17 @@ class sequence:
             result.df = pd.concat([pd.DataFrame([[x,cx]], columns=['id', 'sequence']),result.df])
         return result
 
-
-    def to_file(self,file_path, out_format='fasta'):
+    def to_file(self, file_path=None, out_format='fasta'):
         from Bio import SeqIO
+        from Bio.SeqRecord import SeqRecord
+        from Bio.Seq import Seq
+        return SeqIO.write([ SeqRecord(id=x[0], seq=Seq(x[1])) for x in self.df.values ], file_path, out_format)
+    
+    def to_string(self, out_format='fasta'):
+        from Bio import SeqIO
+        from Bio.SeqRecord import SeqRecord
+        from Bio.Seq import Seq
         from io import StringIO
-        df = self.df.copy()
-        tab_string = df[['id', 'sequence']].to_csv(header=None, sep= "\t", index=None)
-        sequences = SeqIO.parse(StringIO(tab_string), 'tab')
-        return SeqIO.write(sequences, file_path,out_format )
-
+        sio = StringIO("")
+        SeqIO.write([ SeqRecord(id=x[0], seq=Seq(x[1])) for x in self.df.values ], sio, out_format)
+        return sio
