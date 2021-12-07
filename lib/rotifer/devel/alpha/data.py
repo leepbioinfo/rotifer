@@ -349,10 +349,10 @@ class sequence:
         }
 
         # Copying frequency table and building consensus
-        result = deepcopy(self)
+        result = deepcopy(self).freq_table
         result.rename({'gap':'.'}, inplace=True)
         result = pd.concat([result, pd.DataFrame(columns=result.columns, index=['.']).fillna(101)])
-        freq = result.freq_table.melt(ignore_index=False).reset_index().rename({'index':'aa', 'variable':'position', 'value':'freq'}, axis=1)
+        freq = result.melt(ignore_index=False).reset_index().rename({'index':'aa', 'variable':'position', 'value':'freq'}, axis=1)
         freq['ranking'] = freq.aa.map(aa_type_dict)
         freq = freq.sort_values(['position', 'ranking'], na_position='first').query(f'freq >={cons}').drop_duplicates(subset='position')
 
