@@ -375,3 +375,10 @@ class sequence:
         sio = StringIO("")
         SeqIO.write([ SeqRecord(id=x[0], seq=Seq(x[1])) for x in self.df.values ], sio, out_format)
         return sio.getvalue()
+
+    def view(self, color=True):
+        from IPython.core.page import page
+        if color:
+            page(self.to_color().__repr__())
+        else:
+            page(self.__repr__())
