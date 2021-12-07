@@ -321,7 +321,7 @@ class sequence:
 
         for x in aa_type_names.keys():
             freq_df = pd.concat([freq_df,pd.DataFrame({aa_type_names[x][1]:freq_df.loc[aa_type_names[x][0]].sum()}).T])
-        freq_df = pd.concat([freq_df,pd.DataFrame(columns=freq_df.columns, index=['.']).fillna(101)])
+        freq_df = pd.concat([freq_df,pd.DataFrame(columns=freq_df.columns, index=['gap']).fillna(101)])
         return freq_df
 
     def consensus(self, cons):
