@@ -397,5 +397,5 @@ class sequence:
         else:
             child = Popen(f'cat|mafft  --maxiterate 1000 --localpair --thread {cpu} -' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
     
-    return child[0].decode("utf-8")
+        return child[0].decode("utf-8")
 
