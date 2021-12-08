@@ -388,3 +388,14 @@ class sequence:
             page(self.to_color().__repr__())
         else:
             page(self.df.set_index('id').sequence.__repr__())
+            
+    def realign(self,fast=False, cpu=10):
+        from subprocess import Popen, PIPE, STDOUT
+        seq_string = self.to_string().encode()
+        if fast:
+            child = Popen(f'cat|mafft  --thread {cpu} -' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
+        else:
+            child = Popen(f'cat|mafft  --maxiterate 1000 --localpair --thread {cpu} -' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
+    
+    return child[0].decode("utf-8")
+
