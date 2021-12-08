@@ -7,3 +7,4 @@ To do
 - [ ] Use the load function to imporove the realing function. Ex: return load(realing)  
 - [ ] Create function to_hmm and to_hhm (The hhm could use information of secondary structure. see hhpred wiki)
 - [ ] Pairwise comparasion of all x all, network, find the most connected (different edge values e cutoff), create community and order by it. 
+- [ ] Remove freq table from the __init__. Just call it when it needed.  
