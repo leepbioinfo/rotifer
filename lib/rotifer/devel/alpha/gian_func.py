@@ -53,5 +53,5 @@ def count_series(series, normalize=False, cut_off=False, count='domain'):
          f = Entrez.efetch(db = 'protein', rettype = 'fasta', retmode = 'text', id = ','.join(x), api_key = cf.loadAPI()).read()
          seq_string = seq_string + f
          time.sleep(1)
-     return sequence(seq_string)
+     return sequence(seq_string, input_is_text=True)
 
