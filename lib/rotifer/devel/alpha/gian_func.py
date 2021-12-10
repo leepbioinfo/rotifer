@@ -37,3 +37,21 @@ def count_series(series, normalize=False, cut_off=False, count='domain'):
         else:
             l.append(f'{y}({z})')
     return ', '.join(l)
+
+ def fetch_seq(seqs):
+     import time
+     import rotifer.core.functions as cf
+     from rotifer.devel.alpha.sequence import sequence
+     from rotifer.devel.alpha.gian_func import chunks
+     if isinstance(seqs, list):
+         if len(seqs) > 200:
+             seqs = chunks(seqs, 200)
+     else:
+         seqs = list(seqs)
+     seq_string = ''
+     for x in seqs:
+         f = Entrez.efetch(db = 'protein', rettype = 'fasta', retmode = 'text', id = ','.join(x), api_key = cf.loadAPI()).read()
+         seq_string = seq_string + f
+         time.sleep(1)
+     return sequence(seq_string)
+
