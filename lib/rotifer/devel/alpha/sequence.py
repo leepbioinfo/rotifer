@@ -4,6 +4,15 @@ class sequence:
     from io import StringIO
 
     def __init__(self,file_path, seq_type = 'fasta', input_is_text=False, freq_table=True):
+        self.df = self.seq_to_rseq(file_path, seq_type = seq_type, input_is_text=input_is_text)
+        self.file_path = file_path
+        self.input_type = seq_type
+        self._fromText = input_is_text
+        self.cluster = { }
+        if freq_table:
+            self.freq_table = self._aln_freq_df(by_type=True)
+
+    def seq_to_rseq(self,file_path, seq_type='fasta', input_is_text=False):
         import pandas as pd
         from Bio import SeqIO
         from io import StringIO
@@ -16,18 +25,16 @@ class sequence:
             fasta_sequences = SeqIO.parse(StringIO(file_path), seq_type)
         else:
             fasta_sequences = SeqIO.parse(file_path, seq_type)
+
         for fasta in fasta_sequences:
             id_list.append(fasta.id)
             seq_list.append(str(fasta.seq))
+
         data = {'id': id_list, 'sequence': seq_list}
         df = pd.DataFrame(data=data)
         df['len'] = df.sequence.str.replace('-', '').str.len()
-        self.df = df
-        self.file_path = file_path
-        self.input_type = seq_type
-        self._fromText = input_is_text
-        if freq_table:
-            self.freq_table = self._aln_freq_df(by_type=True)
+        
+        return df
 
     def filter_df(
         self,
@@ -46,13 +53,16 @@ class sequence:
         result = deepcopy(self)
         if by == 'id_list':
             result.df =  result.df.query('id in @id_list')
+            result.freq_table = result._aln_freq_df(by_type=True)
             return result
         elif by == 'size':
             result.df =  result.df.query('len >= @lower_limit and len <= @upper_limit')
+            result.freq_table = result._aln_freq_df(by_type=True)
             return result
 
         elif reg_ex:
             result.df = result.df.query('sequence.str.replace("-", "").str.contains(@reg_ex, regex=True)')
+            result.freq_table = result._aln_freq_df(by_type=True)
             return result
 
     def slice_sequence(self, position, query=False):
@@ -67,6 +77,7 @@ class sequence:
         if not query:
             result.df.sequence = result.df.sequence.str.slice(position[0], position[1])
             result.df['len'] = result.df.sequence.str.replace('-', '').str.len()
+            result.freq_table = result._aln_freq_df(by_type=True)
             return result
         if query:
             cord = pd.Series(list(result.df[result.df.id == query].sequence.values[0])).where(
@@ -76,6 +87,7 @@ class sequence:
             ).loc[position[0]:position[1]-1].maped_position.describe()
             result.df.sequence = result.df.sequence.str.split('', expand=True).loc[:, cord['min']   :cord['max']+1].values.sum(axis=1)
             result.df['len'] = result.df.sequence.str.replace('-', '').str.len()
+            result.freq_table = result._aln_freq_df(by_type=True)
             return result
 
     def to_hist(self,column = 'len', bins=10):
@@ -364,7 +376,7 @@ class sequence:
         result = deepcopy(self)
         for x in consensus:
             cx = self.consensus(x)
-            result.df = pd.concat([pd.DataFrame([[x,cx]], columns=['id', 'sequence']),result.df])
+            result.df = pd.concat([pd.DataFrame([[f'r_seq consensus{x}%',cx]], columns=['id', 'sequence']),result.df])
         return result
 
     def to_file(self, file_path=None, out_format='fasta'):
@@ -373,13 +385,20 @@ class sequence:
         from Bio.Seq import Seq
         return SeqIO.write([ SeqRecord(id=x[0], seq=Seq(x[1])) for x in self.df.values ], file_path, out_format)
     
-    def to_string(self, out_format='fasta'):
+    def to_string(self, out_format='fasta', annotated=False):
         from Bio import SeqIO
         from Bio.SeqRecord import SeqRecord
         from Bio.Seq import Seq
         from io import StringIO
+        from copy import copy, deepcopy
+        import pandas as pd
+
+        result = deepcopy(self)
+        if not annotated:
+            result.df = result.df[~result.df.id.str.startswith('r_seq')]
+
         sio = StringIO("")
-        SeqIO.write([ SeqRecord(id=x[0], seq=Seq(x[1])) for x in self.df.values ], sio, out_format)
+        SeqIO.write([ SeqRecord(id=x[0], seq=Seq(x[1])) for x in result.df.values ], sio, out_format)
         return sio.getvalue()
 
     def view(self, color=True):
@@ -391,9 +410,98 @@ class sequence:
             
     def realign(self,fast=False, cpu=10):
         from subprocess import Popen, PIPE, STDOUT
-        seq_string = self.to_string().encode()
+        from copy import copy, deepcopy
+
+
+        result = deepcopy(self)
+        seq_string = result.to_string().encode()
         if fast:
             child = Popen(f'cat|mafft  --thread {cpu} -' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
         else:
             child = Popen(f'cat|mafft  --maxiterate 1000 --localpair --thread {cpu} -' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
-        return child[0].decode("utf-8")
+
+        result.df = result.seq_to_rseq(child[0].decode("utf-8"), seq_type = 'fasta', input_is_text=True)
+        result.file_path = 'from realign function'
+        result.input_type = 'fasta'
+        result._fromText = True
+        result.freq_table = result._aln_freq_df(by_type=True) 
+        return result
+
+    def hhsearch(self):
+        import tempfile
+        from IPython.core.page import page 
+        from subprocess import Popen, PIPE, STDOUT
+
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            self.to_file(f'{tmpdirname}/seqaln')
+            child = Popen(f'hhsearch -i {tmpdirname}/seqaln -d /databases/hhsuite/pdb70 -d /databases/hhsuite/pfam -M 50 -cpu 18 -o {tmpdirname}/seqaln.hhr', stdout=PIPE,shell=True).communicate()
+            with open(f'{tmpdirname}/seqaln.hhr') as f:
+                hhsearch_result = f.read()
+            return page(hhsearch_result)
+
+    def community(self):
+        import tempfile
+        import os
+        import pandas as pd
+        import community
+        import networkx as nx
+        import numpy as np
+
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            self.to_file(f'{tmpdirname}/tt')
+            os.system(f'mmseqs easy-search {tmpdirname}/tt {tmpdirname}/tt {tmpdirname}/tt.m8 {tmpdirname}/tmp')
+            df = pd.read_csv(f'{tmpdirname}/tt.m8',sep="\t", names='source target pident length mismatch gapopen qstart qend sstart send evalue bitscore'.split())
+            dfc = df
+            dfc.source, dfc.target = np.where(dfc.source > dfc.target , [dfc.source, dfc.target], [dfc.target, dfc.source])
+            dfc = dfc.sort_values('evalue').drop_duplicates(['source', 'target'])
+            dfc['evalue_t'] = - np.log10(dfc.evalue)
+            G = nx.from_pandas_edgelist(dfc[['source', 'target', 'evalue_t']].query('evalue_t >= 3'), edge_attr='evalue_t')
+            partition = community.best_partition(G,weight='weight')
+            c = pd.DataFrame.from_dict(partition,orient='index').reset_index().rename(
+                {'index': 'c80e3', 0: 'community'}, axis=1)
+        return c
+
+    def add_seq(self, seq_to_add, cpu=12, fast=False):
+        import tempfile
+        from subprocess import Popen, PIPE, STDOUT
+        import pandas as pd
+        from copy import copy, deepcopy
+        
+        result = deepcopy(self)
+
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            pd.Series(seq_to_add).to_csv(f'{tmpdirname}/acc', index=None, header=None)
+            Popen(f'pfetch {tmpdirname}/acc > {tmpdirname}/acc.fa' , stdout=PIPE,shell=True).communicate() 
+            result.to_file(f'{tmpdirname}/seqaln') 
+            if fast:
+                child = Popen(f'mafft  --thread {cpu} --add {tmpdirname}/acc.fa {tmpdirname}/seqaln', stdout=PIPE,shell=True).communicate()
+            else:
+                child = Popen(f'mafft  --maxiterate 1000 --localpair --thread {cpu} --add {tmpdirname}/acc.fa  {tmpdirname}/seqaln', stdout=PIPE,shell=True).communicate()
+
+        result.df = result.seq_to_rseq(child[0].decode("utf-8"), seq_type = 'fasta', input_is_text=True)
+        result.file_path = 'from realign function'
+        result.input_type = 'fasta'
+        result._fromText = True
+        result.freq_table = result._aln_freq_df(by_type=True) 
+        return result
+
+    def add_cluster(self, coverage=0.8, identity=0.7):
+        '''
+        I have decided to not use copy here, it only adds the non redundant cluster to red_table from the  attribute of sequence class
+        '''
+        import tempfile
+        from subprocess import Popen, PIPE, STDOUT
+        import pandas as pd
+        import os
+
+        result = self
+        path = os.getcwd()
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            os.chdir(tmpdirname)
+            result.to_file(f'{tmpdirname}/seqaln') 
+            Popen(f'mmseqs easy-cluster {tmpdirname}/seqaln nr --min-seq-id {identity} -c {coverage} tmp', stdout=PIPE,shell=True).communicate()
+            red_table = pd.read_csv(f'{tmpdirname}/nr_cluster.tsv', sep="\t", names=['cluster', 'pid'])
+            result.cluster[f'c{int(float(coverage)*100)}i{int(float(identity)*100)}'] = red_table 
+            os.chdir(path)
+
+        return result
