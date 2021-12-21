@@ -23,6 +23,10 @@ DESCRIPTION:
 Parse HH-suite program's output and dump data as a table
 '''
 
+# Internal data
+__default_columns = ['query','hit','qstart','qend','evalue','qcov','hstart','hend','aligned_cols','score',
+                'qalilen','qlen','hlen','probability','identity','similarity','sum_probs','hcov']
+
 # Command line parser
 def parse_cli():
     import rotifer.core.cli
@@ -33,17 +37,21 @@ def parse_cli():
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
     if len(args.columns) == 0: # Default columns
-        args.columns.extend(['query','hit','qstart','qend','evalue','qcov','hstart','hend','aligned_cols','score',
-                             'qalilen','qlen','hlen','probability','identity','similarity','sum_probs','hcov'])
+        args.columns.extend(__default_columns)
     return args
 
 # HH-suite output parser
-def hhsuite2pandas(args):
+def hhsuite2pandas(infile, columns=__default_columns):
+    '''
+    Parse a list of HH-suite output files.
+    '''
     import types
+    if not isinstance(infile,list):
+        infile = [infile]
 
     # Initialize hash for dataframe
     data = {}
-    for c in args.columns: data[c] = []
+    for c in columns: data[c] = []
 
     # Column name to hhr_alignment attribute or lambda function
     col2attr = { 
@@ -61,9 +69,9 @@ def hhsuite2pandas(args):
             }
 
     # Transfer data from hhr_alignment's list of tuples to a dictionary of lists
-    for f in args.file:
+    for f in infile:
         for x in read_result(f):
-            for c in args.columns:
+            for c in columns:
                 if c in col2attr:
                     if type(col2attr[c]) is types.LambdaType:
                         data[c].append(col2attr[c](x))
@@ -257,5 +265,5 @@ def read_result(input_file):
 
 if __name__ == '__main__':
     args = parse_cli()
-    hhsuite2pandas(args).to_csv(sys.stdout, sep="\t", index=None, float_format='%-.3g')
+    hhsuite2pandas(args.file, columns=args.columns).to_csv(sys.stdout, sep="\t", index=None, float_format='%-.3g')
     exit(0)

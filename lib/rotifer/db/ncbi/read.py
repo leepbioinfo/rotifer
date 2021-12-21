@@ -155,7 +155,7 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, batch_siz
         batch = queries[s:e]
         handle = None
         try:
-            handle = Entrez.efetch(db='protein', rettype='ipg', retmode='text', api_key=ncbi.api_key(), id = ",".join(batch))
+            handle = Entrez.efetch(db='protein', rettype='ipg', retmode='text', api_key=NcbiConfig['api_key'], id = ",".join(batch))
         except RuntimeError:
             if verbose > 1:
                 print(f'Efetch: {len(queries)} queries, {len(missing)} accessions. Runtime error: '+str(sys.exc_info()[1]), file=sys.stderr)

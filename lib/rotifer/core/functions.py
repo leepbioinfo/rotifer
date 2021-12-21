@@ -8,7 +8,6 @@ import yaml
 import warnings
 import signal
 import inspect
-import pandas as pd
 from rotifer.core import GlobalConfig
 warnings.filterwarnings("ignore")
 
@@ -437,38 +436,36 @@ def findDataFiles(load=[], user_path=os.path.join(GlobalConfig['user'],'share'),
     # Return
     return files
 
-def loadConfig(load=[], user_path=os.path.join(GlobalConfig['user'],'etc'), system_path=os.path.join(GlobalConfig['base'],'etc/rotifer/')):
+def loadConfig(load, user_path=GlobalConfig['userConfig'], system_path=GlobalConfig['baseConfig']):
     '''
-    This routine loads data from a configuration file set by the user
-    of from standard locations.
+    This routine loads configuration parameters from YAML file(s).
 
-    User-supplied qualified paths, such as load='./config.yml', are
-    accepted but this method is mostly useful when loading files from
-    the following standard locations:
+    If the load parameter starts with ':' and subdirectory names
+    are separated by dots ('.'), the YAML file is searched in the
+    user_path directory or, secondly, in the system_path directory.
 
-      1) The user folder ~/.rotifer/etc
-      2) The installation folder <rotifer installation path>/etc
-
-    If the load parameter starts with the prefix ':' and subdirectory
-    names are separated by dots ('.'), files will be loaded from the
-    standard locations.
-    
     Example:
     
-      load=":db.pfam"
-      
+      conf = loadConfig(":db.pfam")
+
     means
+
+      <user_path>/db/pfam.yml
+
+    if <user_path>/db/pfam.yml exists.
+
+    Therefore, if user_path is "~/.rotifer/etc", this
+    example translates to
+
+      conf = "~/rotifer/etc/db/pfam.yaml"
+
+    If the location above doesn't exist, the path
+
+      <system_path>/db/pfam.yml
     
-      ~/rotifer/etc/db/pfam.yaml
-
-    if the user location above exists, or
-
-      <path to rotifer>/etc/pfam.yml
-    
-    if only the file from the rotifer installation directory exists.
-
-    Notice that files from the user standard location take precedence
-    over files under rotifer's installation path.
+    is used, i.e. the user path always takes precedence over
+    Rotifer's installation path so that user customizations
+    always apply first.
     '''
 
     if load[0] != ":":
@@ -494,7 +491,6 @@ def loadConfig(load=[], user_path=os.path.join(GlobalConfig['user'],'etc'), syst
             print(f'Error while parsing file {os.path.join(user_path,expand_load)}: {sys.exc_info[1]}', file=sys.stderr)
 
     # System path
-    system_config = {}
     if not config and os.path.exists(system_path):
         try:
             config = yaml_search(expand_load, system_path)
@@ -504,12 +500,11 @@ def loadConfig(load=[], user_path=os.path.join(GlobalConfig['user'],'etc'), syst
     # Return
     return config
 
-def yaml_search(string,path):
+def yaml_search(string, path):
     exts = ['.yml','.yaml','.config']
 
     data = {}
     ls = string.split('.')
-    found = False
     while ls:
 
         # Check if any file or directory matches
@@ -526,20 +521,13 @@ def yaml_search(string,path):
         if os.path.isfile(path) and [x for x in exts if path.endswith(x)]:
             if not data:
                 data = yaml.load(open(path))
-                if len(ls) == 1:
-                    found = True # Leaf node is a file
-
             # Search for matching elements in data
             if isinstance(data, dict):
                 if ls[0] in data.keys():
                     data = data[ls[0]]
-                    if len(ls) == 1:
-                        found = True
             elif isinstance(data,list):
                 try:
                     data = data[int(ls[0])]
-                    if len(ls) == 1:
-                        found = True
                 except:
                     pass
 
@@ -704,36 +692,15 @@ def openread(largs):
     _ = [x for x in myset if x != '']
     return(_)
 
-def optimize_df(df):
+def import_path(path):
     '''
-    Optimize memory usage
+    Import Python code from any input file, whatever its extension.
     '''
-    import pandas as pd
-    df = df.copy()
-
-    # int optimization
-    converted_int = df.select_dtypes(include=['int'])
-    converted_int = converted_int.apply(pd.to_numeric, downcast = "integer")
-
-    # Float
-    converted_float = df.select_dtypes(include=['float'])
-    converted_float = converted_float.apply(pd.to_numeric,downcast='float')
-
-    # Object
-    df_obj = df.select_dtypes(include=['object'])
-    converted_obj = pd.DataFrame()
-
-    for col in df_obj.columns:
-        num_unique_values = len(df_obj[col].unique())
-        num_total_values = len(df_obj[col])
-        if num_unique_values / num_total_values <= 0.5:
-            converted_obj.loc[:,col] = df_obj[col].astype('category')
-        else:
-            converted_obj.loc[:,col] = df_obj[col]
-
-    # Adding converted objects to a better df
-    df[converted_int.columns] = converted_int
-    df[converted_float.columns] = converted_float
-    df[converted_obj.columns] = converted_obj
-    return df
-
+    import importlib
+    module_name = os.path.basename(path).replace('-', '_')
+    spec = importlib.machinery.SourceFileLoader(module_name, path)
+    spec = importlib.util.spec_from_loader(module_name, spec)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    sys.modules[module_name] = module
+    return module
