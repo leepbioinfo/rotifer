@@ -1,3 +1,6 @@
+from rotifer.genome.io import parse
+from rotifer.genome.io import GenbankAssemblyFromFilename
+
 @classmethod
 def from_genbank(handle, informat, *args, assembly=GenbankAssemblyFromFilename, **kwargs):
     """
@@ -27,5 +30,4 @@ def from_genbank(handle, informat, *args, assembly=GenbankAssemblyFromFilename, 
                    for examples of functions compatible with this parameter.
 
     """
-    from rotifer.genome.io import parse, GenbankAssemblyFromFilename
     from rotifer.genome.utils import seqrecords_to_dataframe

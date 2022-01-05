@@ -64,10 +64,6 @@ class sequence:
     freq_table : bool, default True
         Build/Update the table of per-column aminoacid frequencies.
 
-    Returns
-    -------
-    rotifer.devel.alpha.sequence.sequence object
-
     See also
     --------
     Bio.SeqIO   : BioPython parser for aligned/unaligned sequences
@@ -207,7 +203,7 @@ class sequence:
           and these will be concatenated after removal of the
           interviening regions:
 
-          >>> aln.slice((10,80),(110,160))
+          >>> aln.slice([ (10,80),(110,160) ])
 
         '''
         from copy import deepcopy
@@ -281,8 +277,8 @@ class sequence:
                 Leaf names must match sequence identifiers.
 
             Additionally, user-supplied sequence annotations may
-            also be used to sort alignment rows. See method
-            ``add_sequence_annotation``.
+            also be used to sort alignment rows. See the section
+            ``Alignment annotations``.
 
         ascending : bool or list of bools, default True
             If True, sort in ascending order, otherwise descending.
@@ -651,7 +647,7 @@ class sequence:
         SeqIO.write(self.to_seqrecords(annotations=annotations, remove_gaps=remove_gaps), sio, output_format)
         return sio.getvalue()
 
-    def view(self, color=True):
+    def view(self, color=True, annotations=False):
         from IPython.core.page import page
         if color:
             page(self.to_color().__repr__())
@@ -670,14 +666,15 @@ class sequence:
         #result.freq_table = result._aln_freq_df(by_type=True) 
         return result
 
-    def hhsearch(self):
+    def hhsearch(self, databases=['pdb70','pfam'], database_path=os.path.join(os.environ['ROTIFER_DATA'],"hhsuite")):
         import tempfile
         from IPython.core.page import page 
         from subprocess import Popen, PIPE, STDOUT
 
+        dbs = " ".join([ " -d " + os.path.join(database_path, x) for x in databases ])
         with tempfile.TemporaryDirectory() as tmpdirname:
             self.to_file(f'{tmpdirname}/seqaln')
-            child = f'hhsearch -i {tmpdirname}/seqaln -d /databases/hhsuite/pdb70 -d /databases/hhsuite/pfam -M 50 -cpu 18 -o {tmpdirname}/seqaln.hhr'
+            child = f'hhsearch -i {tmpdirname}/seqaln {dbs} -M 50 -cpu 18 -o {tmpdirname}/seqaln.hhr'
             child = Popen(child, stdout=PIPE,shell=True).communicate()
             with open(f'{tmpdirname}/seqaln.hhr') as f:
                 hhsearch_result = f.read()
