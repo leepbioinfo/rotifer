@@ -329,36 +329,6 @@ def not_kwargs(dict_args, key, value):
         return dict_args[key]
     return value
 
-def loadAPI(username = ''):
-    '''
-    Load NCBI API key
-    '''
-    home = expanduser('~')
-    db_local_path = None
-    for configdir in ["etc","config"]:
-        for configext in ["yml","yaml","config"]:
-            db_local_path = os.path.join(home, '.rotifer', configdir, f'api_key.{configext}')
-            if os.path.exists(db_local_path):
-                break
-            else:
-                db_local_path = None
-        if db_local_path:
-            break
-    db_local = yaml.load(open(db_local_path))
-
-    api_key = ''
-    try:
-        api_dict = db_local['api_key']
-        if username == '':
-            api_key = api_dict[list(api_dict.keys())[0]]
-
-        if username in api_dict.keys():
-            api_key = api_dict[username]
-
-    except:
-        pass
-    return api_key
-
 def findDataFiles(load=[], user_path=os.path.join(GlobalConfig['user'],'share'), system_path=os.path.join(GlobalConfig['base'],'share/rotifer/')):
     '''
     This routine locates data files under Rotifer's standard locations.

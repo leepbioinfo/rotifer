@@ -3,12 +3,12 @@
 import os
 import argparse
 import sys
-sys.path.insert(0, '/home/kaihami/mymodules')
 
 import threading
 from threading import Thread
 import rotifer.core.cli as corecli
-import rotifer.core.functions as cf
+import rotifer.core.functions as rcf
+from rotifer.db.ncbi import NcbiConfig
 import time
 from tqdm import trange
 import tqdm
@@ -222,7 +222,7 @@ def show():
         pass
 
 def loadDB():
-    database = cf.loadConfig(':pfetch.database')
+    database = rcf.loadConfig(':pfetch.database')
     return database
 
 ############
@@ -234,24 +234,18 @@ if __name__ == '__main__':
     # Arguments
     args = parse_cli()
 
-    # Check if API is valid
-    # print(args.api_key)
+    # Load NCBI API key
     api_key = ''
-    try:
-        api_key = cf.loadAPI(args.api_key)
-
-    except: pass
-
-    if api_key == '':
+    if args.api_key:
         api_key = args.api_key
+    else:
+        from rotifer.db.ncbi import NcbiConfig
+        api_key = NcbiConfig["api_key"]
+    if args.verbose: print(f'NCBI_API_KEY: {api_key}', file=sys.stderr)
 
-    if api_key == '':
-        api_key = '935f49538aaa065207b4582a5cc4fcd59408'
-        # sys.stderr.write('Insert valid NCBI API Key\n')
-
-
+    # Number of threads
     threads = args.threads if args.threads <= 5 else 5
-#    checkOut = args.output # mktemp
+    
     # Checking if it is valid
     if args.show:
         show()

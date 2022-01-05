@@ -1,34 +1,47 @@
 #!/usr/bin/env python3
 
 # Core libraries
-import itertools
 import os
 import re
 import sys
 import types
 
 # Pandas
-import numpy as np
 import pandas as pd
 
 # Biopython
 from Bio import SeqIO
 
+# Rotifer
+
 def _get_basename(path):
-    # Parse filename
+    """
+    Parse basename from path-like or file-like object
+    """
+    from rotifer.io.fileinput import FileInput
+    from io import TextIOWrapper
     bn = path
     if path == sys.stdin:
-        bn = "__stdin__"
-    elif os.path.exists(path):
-        bn = os.path.splitext(os.path.basename(path))[0]
+        return "__stdin__"
+    elif isinstance(path,FileInput):
+        if path.lineno() == 0:
+            bn = path.files[0]
+        else:
+            bn = path.filename()
+    elif isinstance(path,TextIOWrapper):
+        bn = path.name
     else:
-        raise TypeError("Unknown file-like object")
-    return bn
+        try:
+            if os.path.exists(path):
+                return os.path.splitext(os.path.basename(path))[0]
+        except:
+            raise TypeError("Unknown file-like object")
+    return os.path.splitext(os.path.basename(bn))[0]
 
 def SequenceNameToAssembly(path, s):
     return s.name
 
-def GenbankAssemblyFromFilename(path, s):
+def GenbankAssemblyFromFilename(iostream, s):
     """
     Parse filenames with the regular expression
     
@@ -36,7 +49,7 @@ def GenbankAssemblyFromFilename(path, s):
     
     to extract Genbank assembly IDs.
     """
-    aid = _get_basename(path)
+    aid = _get_basename(iostream)
     if re.match(r'^(GC[AF]_\d+\.\d+)',aid):
         aid = re.sub('^(GC[AF]_\d+\.\d+).*','\\1',aid)
     return aid
@@ -49,7 +62,6 @@ def parse(handle, informat, *args, assembly=GenbankAssemblyFromFilename, **kwarg
     Arguments:
      - handle   : one or more file handles or filenames
      - informat : either gff or a Bio.SeqIO supported format
-
      - assembly : rule for setting genome assembly accession ID
                   Assembly identifiers are not part of the INSDC 
                   (http://www.insdc.org/) standard but can be
@@ -66,7 +78,7 @@ def parse(handle, informat, *args, assembly=GenbankAssemblyFromFilename, **kwarg
                   sequence record object.
 
                   See GenbankAssemblyFromFilename and SequenceNameToAssembly
-                  for examples of function compatible with this parameter.
+                  for examples of functions compatible with this parameter.
 
      - retvalue : object(s) type to return. Supported objects are
 

@@ -5,7 +5,6 @@ import sys
 import types
 
 # Pandas
-import numpy as np
 import pandas as pd
 
 # Rotifer libraries
@@ -17,13 +16,14 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
       seqrecs      : rotifer.genome.io.parse generator, Bio.SeqIO generator
                      or Bio.SeqRecord object(s)
       exclude_type : exclude features by type
-
       autopid      : auto-generate missing PIDs from locus_tag
-       You can set autopid to:
-        - 'auto', for transforming the locus_tag into unique PIDs, or
-        - 'copy', to copy the locus_tag, if there is no alternative splicing
+
+          You can set autopid to:
+          - 'auto', for transforming the locus_tag into unique PIDs, or
+          - 'copy', copy the locus_tag if there is no alternative splicing
 
       codontable   : Genetic code name for translating CDSs
+      block_id     : initial value of the default block_id
     '''
     import re
     import os
@@ -110,8 +110,11 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
                 if 'translation' in qualifiers:
                     plen = len(qualifiers['translation'][0])
                 else:
+                    selectedTable = codontable
+                    if 'transl_table' in qualifiers:
+                        selectedTable = int(qualifiers['transl_table'][0])
                     try:
-                        plen = len(ft.translate(seqrecord, table=codontable))
+                        plen = len(ft.translate(seqrecord, table=selectedTable, cds=False, to_stop=True))
                     except:
                         feature_type = 'PSE'
                         if 'PSE' not in feature_order:

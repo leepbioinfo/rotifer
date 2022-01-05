@@ -40,7 +40,7 @@ def count_series(series, normalize=False, cut_off=False, count='domain'):
 
  def fetch_seq(seqs):
      import time
-     import rotifer.core.functions as cf
+     import rotifer.db.ncbi import NcbiConfig
      from rotifer.devel.alpha.sequence import sequence
      from rotifer.devel.alpha.gian_func import chunks
      if isinstance(seqs, list):
@@ -50,8 +50,8 @@ def count_series(series, normalize=False, cut_off=False, count='domain'):
          seqs = list(seqs)
      seq_string = ''
      for x in seqs:
-         f = Entrez.efetch(db = 'protein', rettype = 'fasta', retmode = 'text', id = ','.join(x), api_key = cf.loadAPI()).read()
+         f = Entrez.efetch(db = 'protein', rettype = 'fasta', retmode = 'text', id = ','.join(x), api_key = NcbiConfig['api_key']).read()
          seq_string = seq_string + f
          time.sleep(1)
-     return sequence(seq_string, input_is_text=True)
+     return sequence.from_string(seq_string)
 

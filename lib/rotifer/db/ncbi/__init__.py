@@ -5,7 +5,10 @@
 # Please see the LICENSE file that should have been included as part of this
 # package.
 
-r"""Rotifer's NCBI database tools.
+r"""
+=============================
+Rotifer's NCBI database tools
+=============================
 
 Class attributes
 ----------------
@@ -35,7 +38,7 @@ if 'api_key' not in NcbiConfig:
     if 'NCBI_API_KEY' in os.environ:
         NcbiConfig['api_key'] = os.environ['NCBI_API_KEY']
     else:
-        NcbiConfig['api_key'] = input(f'''[{__name__}] Please enter the value of you NCBI API KEY: ''')
+        NcbiConfig['api_key'] = input(f'''[{__name__}] Please enter the value of your NCBI API KEY: ''')
 
 # Import submodules
 from rotifer.db.ncbi.ncbi import ncbi
