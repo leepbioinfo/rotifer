@@ -551,11 +551,16 @@ class sequence:
         color_switch = {'background':color_bg, 'bg':color_bg, 'foreground':color_fg, 'fg':color_fg}
         df['colored'] = df['sequence'].map(lambda x: ''.join([color_res(y, color_switch[color]) for y in x]))
         if scale:
-            scale_number = list(range(0,alignment_length,10))
-            scale_number[0] = 1
-            scale_number = "".join([ f'{str(x):10}' for x in scale_number ])
+            scale = 10
+            scale_number = list(range(0,alignment_length,scale))
+            scale_number = [ f'{str(x):{scale}}' for x in scale_number ]
+            scale_number[0] = '1        '
+            scale_number = "".join(scale_number)
             scale_number = scale_number.rstrip() + " " * (alignment_length - len(scale_number.rstrip()))
-            scale_bar = "".join([ f'{"|":9}' for x in range(0,alignment_length,10) ])
+            scale_bar = [ f'{"|":{scale}}' for x in range(0,alignment_length,scale) ]
+            scale_bar[0] = '|        '
+            scale_bar = "".join(scale_bar)
+            scale_bar = "".join([ f'{"|":{scale}}' for x in range(0,alignment_length,scale) ])
             scale_dot = "".join([ "." for x in range(0,alignment_length) ])
             scaled = pd.concat([pd.Series([scale_number,scale_bar,scale_dot], index=['position', 'bar', 'dot']), df.set_index('id').colored]) 
             return scaled.str.ljust(scaled.str.len().max())
