@@ -277,7 +277,8 @@ class sequence:
             if len(pos) == 3:
                 refseq = pd.Series(list(result.df.query(f'''id == "{pos[2]}"''').sequence.values[0]))
                 refseq = refseq.where(lambda x: x != '-').dropna().reset_index().rename({'index':'mapped_position'}, axis=1)
-                pos[0:2] = (refseq.loc[pos[0]-1:pos[1]].mapped_position.agg(['min','max']) + 1).tolist()
+                pos[0:2] = (refseq.loc[pos[0]-1:pos[1]].mapped_position.agg(['min','max'])).tolist()
+                pos[0] += 1
             stack.append(result.df.sequence.str.slice(pos[0]-1, pos[1]))
         result.df['sequence'] = pd.concat(stack, axis=1).sum(axis=1)
         result.df['length'] = result.df.sequence.str.replace('-', '').str.len()
