@@ -560,7 +560,6 @@ class sequence:
             scale_bar = [ f'{"|":{scale}}' for x in range(0,alignment_length,scale) ]
             scale_bar[0] = '|        '
             scale_bar = "".join(scale_bar)
-            scale_bar = "".join([ f'{"|":{scale}}' for x in range(0,alignment_length,scale) ])
             scale_dot = "".join([ "." for x in range(0,alignment_length) ])
             scaled = pd.concat([pd.Series([scale_number,scale_bar,scale_dot], index=['position', 'bar', 'dot']), df.set_index('id').colored]) 
             return scaled.str.ljust(scaled.str.len().max())
