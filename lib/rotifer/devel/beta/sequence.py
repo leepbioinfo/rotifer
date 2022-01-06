@@ -555,7 +555,7 @@ class sequence:
             scale_number[0] = 1
             scale_number = "".join([ f'{str(x):10}' for x in scale_number ])
             scale_number = scale_number.rstrip() + " " * (alignment_length - len(scale_number.rstrip()))
-            scale_bar = "".join([ f'{"|":10}' for x in range(0,alignment_length,10) ])
+            scale_bar = "".join([ f'{"|":9}' for x in range(0,alignment_length,10) ])
             scale_dot = "".join([ "." for x in range(0,alignment_length) ])
             scaled = pd.concat([pd.Series([scale_number,scale_bar,scale_dot], index=['position', 'bar', 'dot']), df.set_index('id').colored]) 
             return scaled.str.ljust(scaled.str.len().max())
