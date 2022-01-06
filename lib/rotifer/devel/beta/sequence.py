@@ -1,5 +1,8 @@
 import os
 
+# Private data
+_reserved_columns = ['id','sequence','length','type']
+
 class sequence:
     """
     This class represents a multiple sequence alignment (MSA)
@@ -91,15 +94,17 @@ class sequence:
     >>> aln = sequence(">Seq1\nACFH--GHT\n>Seq2\nACFW--GHS\n")
     >>> aln.add_consensus().view()
     """
+    from IPython.core.page import page 
     def __init__(self, input_data=None, input_format='fasta', freq_table=True):
         from io import IOBase
+        from io import StringIO
         from Bio import SeqIO
         self.input_format = input_format
 
         # Generate empty object
         if input_data is None:
-            self.df = pd.DataFrame({}, columns=['id','sequence','length'])
-            self.freq_table = None
+            self.df = pd.DataFrame({}, columns=_reserved_columns)
+            self.numerical = pd.DataFrame({}, columns=['id','type'])
             self.file_path = None
             return
 
@@ -120,25 +125,54 @@ class sequence:
             self.freq_table = self._aln_freq_df(by_type=True)
 
     @staticmethod
-    def __seqrecords_to_dataframe(input_data):
+    def __seqrecords_to_dataframe(data):
         import pandas as pd
-        return pd.DataFrame([ (s.id,str(s.seq),len(s.seq.replace("-",""))) for s in input_data ], columns=['id','sequence','length'])
+        df = pd.DataFrame([ (s.id,str(s.seq),len(s.seq.replace("-","")),'sequence') for s in data ], columns=_reserved_columns)
+        return df
 
-    def filter(self, minlen=0, maxlen=0, keep=[], remove=[], regex=None):
+    def __len__(self):
+        return len(self.df)
+
+    def get_alignment_length(self):
+        '''
+        Retrieve the number of columns in the alignment.
+
+        Returns
+        -------
+        Integer
+
+        Examples
+        --------
+        >>> al = aln.get_alignment_length()
+        '''
+        return self.df.sequence.str.len().max()
+
+    def filter(self, query=None, minlen=0, maxlen=0, keep=[], remove=[], regex=None):
         '''
         Function to filter / select rows from the MSA.
 
         Parameters
         ----------
+        query: str
+          String to use as input for the ``query`` method of the
+          internal Pandas Dataframe
         minlen : int
           Length of the shortest sequence, without gaps
         maxlen : int
           Length of the longest sequence, without gaps
         keep : list of strings
-          List of sequence IDs to keep in the
+          List of sequence IDs to preserve
+
+          The ``keep`` parameter has the highest precedence over
+          any other parameters, i.e. any sequence listed in
+          ``keep``, is **never** removed.
+
         remove : list of strings
-          List of sequences IDs to be removed even if
-          they fit other preservation criteria
+          List of sequences IDs to be removed.
+
+          Sequences in this list are removed even if failing the
+          criteria set by other parameters, except ``keep``.
+
         regex : regular expression
           Regular expression to identify rows based on
           residue patterns matching their aminoacid/nucleotide
@@ -150,21 +184,41 @@ class sequence:
 
         Examples
         --------
+        Filter sequences with at least 50 and at most 100 residues
+
+        >>> aln.filter(minlen=50, maxlen=100)
+
+        Filter sequences based on a cluster but make sure NPE27555.1
+        is also kept
+
+        >>> aln = aln.add_cluster(identity=0.6)
+        >>> aln.filter('c80i80 == "WP_091936315.1"', keep="NPE27555.1")
         '''
         from copy import deepcopy
         import pandas as pd
         result = deepcopy(self)
-        if remove:
-            result.df = result.df.query('id not in @exclude')
-        if keep:
-            result.df = result.df.query('id in @include')
+
+        # Build query statement
+        querystr = []
+        if query:
+            querystr.append(query)
         if minlen > 0:
-            result.df =  result.df.query('length >= @minlen')
+            querystr.append('(length >= @minlen)')
         if maxlen > 0:
-            result.df =  result.df.query('length <= @maxlen')
+            querystr.append('(length <= @maxlen)')
         if regex:
-            result.df = result.df.query('sequence.str.replace("-", "").str.contains(@regex, regex=True)')
-        result.freq_table = result._aln_freq_df(by_type=True)
+            querystr.append('(sequence.str.replace("-", "").str.contains(@regex, regex=True))')
+        if remove:
+            querystr.append('(id not in @remove)')
+        querystr = " and ".join(querystr)
+        if keep:
+            if querystr:
+                querystr = f'(id in @keep) or ({querystr})'
+            else:
+                querystr = f'id in @keep'
+        if querystr:
+            result.df = result.df.query(querystr)
+            result.freq_table = result._aln_freq_df(by_type=True)
         return result
 
     def slice(self, position):
@@ -181,21 +235,26 @@ class sequence:
           Refer to the column indices in the original alignment
 
         * Sequence-based coordinates
-          Refer to unaligned residue positions in a reference sequence
+          Refer to residues in a reference sequence, without gaps
 
-        Both types of coordinates are zero-based and right-open,
-        i.e. work the same way as Python strings and Python arrays, and 
-        must be specified by tuples:
+        All types of coordinates systems above are **one-based**
+        (residue-based) and closed on both ends, i.e. the first
+        column or residue position is 1 and the last column equals
+        the length of the alignment or sequence.
+
+        Notice that coordinates must be provided as tuples (see below).
 
         Examples
         --------
 
         - Alignment-based coordinates
-          Fetch columns 19 to 129:
+          Fetch columns 20 to 130:
 
           >>> aln.slice((20,130))
 
         - Sequence-based coordinates
+          Fetch columns corresponding to residues 10 to 80 of
+          the sequence WP_003247817.1
 
           >>> aln.slice((10,80,"WP_003247817.1"))
 
@@ -218,8 +277,8 @@ class sequence:
             if len(pos) == 3:
                 refseq = pd.Series(list(result.df.query(f'''id == "{pos[2]}"''').sequence.values[0]))
                 refseq = refseq.where(lambda x: x != '-').dropna().reset_index().rename({'index':'mapped_position'}, axis=1)
-                pos[0:2] = refseq.loc[pos[0]:pos[1]].mapped_position.agg(['min','max']).tolist()
-            stack.append(result.df.sequence.str.slice(pos[0], pos[1]))
+                pos[0:2] = (refseq.loc[pos[0]-1:pos[1]].mapped_position.agg(['min','max']) + 1).tolist()
+            stack.append(result.df.sequence.str.slice(pos[0]-1, pos[1]))
         result.df['sequence'] = pd.concat(stack, axis=1).sum(axis=1)
         result.df['length'] = result.df.sequence.str.replace('-', '').str.len()
         result.freq_table = result._aln_freq_df(by_type=True)
@@ -400,47 +459,40 @@ class sequence:
 
         return result
 
-    def add_pdb(self, pdb_name, pdb_file=None, chain_id='A'):
+    def add_pdb(self, pdb_id, chain_id='A', pdb_file=None):
+        """
+        Add structure annotation from PDB.
+        """
         from Bio.PDB import PDBParser
         from Bio.PDB.DSSP import DSSP
         from Bio import pairwise2
         import Bio.PDB.PDBList as PDBList
         from pathlib import Path
         import pandas as pd
-        from copy import copy, deepcopy
-
+        from copy import deepcopy
         result = deepcopy(self)
-        pdb_name = pdb_name.lower()
-        a = PDBList(verbose=False)
+        pdb_id = pdb_id.lower()
+
+        # Download, if needed
         if not pdb_file:
-            pdb = a.retrieve_pdb_file(pdb_code=pdb_name, file_format='pdb', pdir='./')
+            pdb = PDBList(verbose=False).retrieve_pdb_file(pdb_code=pdb_id, file_format='pdb', pdir='./')
             p = Path(pdb)
             p.rename(p.with_suffix('.pdb'))
             pdb = pdb.replace('ent', 'pdb')
         else:
             pdb = pdb_file
 
-        p = PDBParser()
-        structure = p.get_structure(pdb_name, pdb)
-        model = structure[0]
-        dssp = DSSP(model, pdb)
-        dssp_to_abc = {"I" : "C",
-                   "S" : "C",
-                   "H" : "H",
-                   "E" : "E",
-                   "G" : "C",
-                   "B" : "E",
-                   "T" : "C",
-                   "C" : "C"}
-        a_keys = list(dssp.keys())
-        select_chain = [x for x in a_keys if x[0] == chain_id]
+        # Parse PDB file
+        dssp_to_abc = {"I":"C","S":"C","H":"H","E":"E","G":"C","B":"E","T":"C","C":"C"}
+        dssp = PDBParser().get_structure(pdb_id, pdb)
+        dssp = DSSP(dssp[0], pdb)
+        select_chain = [x for x in list(dssp.keys()) if x[0] == chain_id]
         l =  [dssp[select_chain[x]] for x in range(len(select_chain))]
         df1 = pd.DataFrame(data={'position':[x[0] for x in l],'aa': [x[1] for x in l],'structure':  [x[2] for x in l]})
         df1.structure = df1.structure.map(dssp_to_abc).fillna('-')
 
         # Search for pdb sequence in the aligment
-        pdb_index = result.df[result.df.id.str.contains(pdb_name, case=False)].index[0]
-        pdb_sequence = pd.Series(list(result.df.sequence[pdb_index])).where(lambda x: x !='-').dropna().rename('ung').to_frame()
+        pdb_index = result.df[result.df.id.str.contains(pdb_id, case=False)].index[0]
         pdb_in_aln = result.df.loc[pdb_index].sequence.replace('-', '')
         pdb_from_pdb = ''.join(df1.aa.to_list())
         ali = pairwise2.align.localxx(pdb_in_aln, pdb_from_pdb)[0]
@@ -449,38 +501,28 @@ class sequence:
         pdb_df = pd.Series(list(ali.seqA)).rename('seq').to_frame().join(ss_df['structure']).fillna('-').query(' seq != "-"')
         to = pd.Series(list(result.df.loc[pdb_index].sequence)).where(lambda x: x !='-').dropna().rename('ung').to_frame()
         to['structure'] = pdb_df.structure.to_list()
-        pdbn = f'ss_from:{pdb_name}_{chain_id}'
+        pdbn = f'ss_from:{pdb_id}_{chain_id}'
         pdbss = ''.join(pd.Series(list(result.df.loc[pdb_index].sequence)).to_frame().join(to).fillna('-').structure.to_list())
         result.df =  pd.concat([pd.DataFrame([[pdbn,pdbss]], columns=['id', 'sequence']),self.df])
         return result
 
     def to_color(self, color='fg', scale=True):
-        import pandas as pd
         """
         Fetch aligment as text, colored by residue class.
         """
+        import pandas as pd
         df = self.df.copy()
-        scale_dot = ''
+        alignment_length = self.get_alignment_length()
+
         scale_number = ''
-        scale_bar = ''
-        scale_size = len(df['sequence'].values[0])
-        for x in range(0, scale_size):
+        for x in range(0, alignment_length):
             if x == 0:
                 scale_number = str(1)
-                scale_bar += '|'
-                scale_dot += '.'
             if x % 10 == 0:
-                scale_number =scale_number[:-1]
+                scale_number = scale_number[:-1]
                 scale_number += str(x)
                 scale_number += ' '*(10-len(str(x+1)))
                 scale_number += ' '
-                scale_bar = scale_bar [:-1]
-                scale_bar += '|'
-                scale_bar += ' '
-                scale_dot += '.'
-            else:
-                scale_dot += '.'
-                scale_bar += ' '
 
         def color_res(s, cs):
             if s in 'A I L M F W V'.split():
@@ -515,17 +557,12 @@ class sequence:
                 color = f'38;5;{color}'
             return f'\033[{color}m{s}\033[m'
 
-        color_switch = {'background':color_bg,
-                  'bg':color_bg,
-                  'foreground': color_fg,
-                  'fg': color_fg}
-
+        color_switch = {'background':color_bg, 'bg':color_bg, 'foreground':color_fg, 'fg':color_fg}
         df['colored'] = df['sequence'].map(lambda x: ''.join([color_res(y, color_switch[color]) for y in x]))
-        
-        if scale: 
-            color_scaled = pd.concat([pd.Series([scale_number,scale_bar,scale_dot], index=['position', 'bar', 'dot']),df.set_index('id').colored]) 
-
-            return color_scaled.str.ljust(color_scaled.str.len().max())
+        if scale:
+            scale_dot = "".join([ "." for x in range(0,alignment_length) ])
+            scaled = pd.concat([pd.Series([scale_number,scale_bar,scale_dot], index=['position', 'bar', 'dot']), df.set_index('id').colored]) 
+            return scaled.str.ljust(scaled.str.len().max())
         else:
             return df.colored.str.ljust(df.colored.str.len().max())
 
@@ -668,17 +705,18 @@ class sequence:
 
     def hhsearch(self, databases=['pdb70','pfam'], database_path=os.path.join(os.environ['ROTIFER_DATA'],"hhsuite")):
         import tempfile
-        from IPython.core.page import page 
         from subprocess import Popen, PIPE, STDOUT
+        from rotifer.io.hhsuite import parse_hhr
 
         dbs = " ".join([ " -d " + os.path.join(database_path, x) for x in databases ])
         with tempfile.TemporaryDirectory() as tmpdirname:
             self.to_file(f'{tmpdirname}/seqaln')
             child = f'hhsearch -i {tmpdirname}/seqaln {dbs} -M 50 -cpu 18 -o {tmpdirname}/seqaln.hhr'
             child = Popen(child, stdout=PIPE,shell=True).communicate()
+            hhtable = parse_hhr(f'{tmpdirname}/seqaln')
             with open(f'{tmpdirname}/seqaln.hhr') as f:
                 hhsearch_result = f.read()
-            return page(hhsearch_result)
+            return (hhsearch_result, hhtable)
 
     def community(self):
         import tempfile
