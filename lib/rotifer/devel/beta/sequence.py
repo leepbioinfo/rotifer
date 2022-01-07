@@ -1,7 +1,8 @@
+from copy import deepcopy
+from io import StringIO
+from Bio import SeqIO
+import pandas as pd
 import os
-
-# Private data
-_reserved_columns = ['id','sequence','length','type']
 
 class sequence:
     """
@@ -35,10 +36,10 @@ class sequence:
       codes.
 
       This type of annotation can be added to the internal Pandas
-      directly, i.e. using Pandas's ``append`` or ``insert`` methods
-      but the user must be careful to set the value or the ``type``
-      column to something other than ``sequence``, which is researved
-      for the aligned sequences.
+      DataFrame directly, i.e. using Pandas's ``append`` or
+      ``insert`` methods but the user must be **careful** to set the
+      value or the ``type`` column to something other than
+      ``sequence``, which is researved for the aligned sequences.
 
     - Numerical values assigned to individual residues
       This type of annotation also assigns annotations to single
@@ -64,7 +65,7 @@ class sequence:
     input_format : str
         Input alignment format. See Bio.SeqIO and/or
         Bio.AlignIO for a list of supported formats
-    freq_table : bool, default True
+    frequencies : bool, default True
         Build/Update the table of per-column aminoacid frequencies.
 
     See also
@@ -77,33 +78,31 @@ class sequence:
     --------
     Simplest usage: visualize a (multi)FASTA file.
 
-    >>> from rotifer.devel.alpha.sequence import sequence
+    >>> from rotifer.devel.beta.sequence import sequence
     >>> aln = sequence("alignment.aln")
     >>> aln.view()
 
     Load alignment from another file format, such as
     StockHolm and show the consensus above the alignment:
 
-    >>> from rotifer.devel.alpha.sequence import sequence
+    >>> from rotifer.devel.beta.sequence import sequence
     >>> sto = sequence("alignment.sto", format="stockholm")
     >>> sto.add_consensus().view()
 
     Parsing a FASTA alignment from an explicit string:
 
-    >>> from rotifer.devel.alpha.sequence import sequence
+    >>> from rotifer.devel.beta.sequence import sequence
     >>> aln = sequence(">Seq1\nACFH--GHT\n>Seq2\nACFW--GHS\n")
     >>> aln.add_consensus().view()
     """
-    from IPython.core.page import page 
-    def __init__(self, input_data=None, input_format='fasta', freq_table=True):
+    def __init__(self, input_data=None, input_format='fasta', frequencies=True):
         from io import IOBase
-        from io import StringIO
-        from Bio import SeqIO
+        self._reserved_columns = ['id','sequence','length','type']
         self.input_format = input_format
 
         # Generate empty object
         if input_data is None:
-            self.df = pd.DataFrame({}, columns=_reserved_columns)
+            self.df = pd.DataFrame({}, columns=self._reserved_columns)
             self.numerical = pd.DataFrame({}, columns=['id','type'])
             self.file_path = None
             return
@@ -121,13 +120,11 @@ class sequence:
 
         # Parse each sequence and calculate frequencies
         self.df = self.__seqrecords_to_dataframe(input_data)
-        if freq_table:
-            self.freq_table = self._aln_freq_df(by_type=True)
+        if frequencies:
+            self.freq_table = self.residue_frequencies(by_type=True)
 
-    @staticmethod
-    def __seqrecords_to_dataframe(data):
-        import pandas as pd
-        df = pd.DataFrame([ (s.id,str(s.seq),len(s.seq.replace("-","")),'sequence') for s in data ], columns=_reserved_columns)
+    def __seqrecords_to_dataframe(self, data):
+        df = pd.DataFrame([ (s.id,str(s.seq),len(s.seq.replace("-","")),'sequence') for s in data ], columns=self._reserved_columns)
         return df
 
     def __len__(self):
@@ -194,8 +191,6 @@ class sequence:
         >>> aln = aln.add_cluster(identity=0.6)
         >>> aln.filter('c80i80 == "WP_091936315.1"', keep="NPE27555.1")
         '''
-        from copy import deepcopy
-        import pandas as pd
         result = deepcopy(self)
 
         # Build query statement
@@ -218,7 +213,7 @@ class sequence:
                 querystr = f'id in @keep'
         if querystr:
             result.df = result.df.query(querystr)
-            result.freq_table = result._aln_freq_df(by_type=True)
+            result.freq_table = result.residue_frequencies(by_type=True)
         return result
 
     def slice(self, position):
@@ -265,8 +260,6 @@ class sequence:
           >>> aln.slice([ (10,80),(110,160) ])
 
         '''
-        from copy import deepcopy
-        import pandas as pd
         result = deepcopy(self)
         if isinstance(position[0],int):
             position = [position]
@@ -282,40 +275,8 @@ class sequence:
             stack.append(result.df.sequence.str.slice(pos[0]-1, pos[1]))
         result.df['sequence'] = pd.concat(stack, axis=1).sum(axis=1)
         result.df['length'] = result.df.sequence.str.replace('-', '').str.len()
-        result.freq_table = result._aln_freq_df(by_type=True)
+        result.freq_table = result.residue_frequencies(by_type=True)
         return result
-
-    def to_hist(self, bins=10):
-        """
-        This method displays the distribution of sequence
-        lengths for all the sequences in the alignment, 
-        after removal of all their gaps.
-
-        Parameters
-        ----------
-        bins : int
-            Number of histogram bins to discretize the distribution
-
-        Returns
-        -------
-        None
-
-        Examples
-        --------
-
-        >>> aln.hist(50)
-        """
-        import pandas as pd
-        from ascii_graph import Pyasciigraph
-        print(f'Total proteins: {len(self.df)}')
-        a = self.df['length'].value_counts().to_frame().reset_index()
-        a = a.sort_values('index')
-        a['raw_bin'] = pd.cut(a['index'],bins,precision=0)
-        a['bin'] = a.raw_bin.apply(lambda x : '{} - {}'.format(int(x.left),int(x.right)))
-        test = a.groupby('bin').agg({'length':'sum'}).reset_index().apply(tuple, axis=1)
-        graph = Pyasciigraph()
-        for line in  graph.graph('count \t sequence size', test):
-            print(line)
 
     def sort(self, by=['length'], ascending=True, id_list=None, tree_file=None, tree_format='newick'):
         """
@@ -386,8 +347,6 @@ class sequence:
         >>> aln.sort(['list','length'], id_list=['PUA33204.1']).view()
 
         """
-        from copy import deepcopy
-        import pandas as pd
         result = deepcopy(self)
 
         fields = []
@@ -422,14 +381,91 @@ class sequence:
         result.df = result.df.reindex(fields.index)
         return result
 
+    def add_cluster(self, coverage=0.8, identity=0.7, name=None, inplace=False):
+        '''
+        Add or update MMseqs2 clustering data for all sequences.
+
+        Parameters
+        ----------
+        coverage : float
+            Minimum coverage required for both sequences in each
+            pairwise alignment.
+        identity : float
+            Minimum percentage identity required for both sequences
+            in each pairwise alignment.
+        name: string
+            Set the name of the annotation column for the clusters
+        inplace: bool
+            Add column inplace, without creating a copy of the MSA
+            If set to True, this method return nothing.
+
+        Returns
+        -------
+        A new MSA object
+
+        Examples
+        --------
+        Add an annotation column listing representatives of clusters
+        defined by 60% alignment coverage and 30% identity for both
+        sequences
+
+        >>> aln.add_cluster(coverage=0.6, identity=0.3)
+        '''
+        import tempfile
+        from subprocess import Popen, PIPE, STDOUT
+
+        # Adjust parameters
+        if identity > 1:
+            identity /= 100
+        if coverage > 1:
+            coverage /= 100
+        if not name:
+            name = f'c{int(float(coverage)*100)}i{int(float(identity)*100)}'
+
+        path = os.getcwd()
+        result = None
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            os.chdir(tmpdirname)
+            self.to_file(f'{tmpdirname}/seqaln', remove_gaps=True)
+            Popen(f'mmseqs easy-cluster {tmpdirname}/seqaln nr --min-seq-id {identity} -c {coverage} tmp', stdout=PIPE,shell=True).communicate()
+            d = pd.read_csv(f'{tmpdirname}/nr_cluster.tsv', sep="\t", names=['cluster', 'pid']).set_index('pid').cluster.to_dict()
+            if inplace:
+                self.df[name] = self.df.id.replace(d)
+            else:
+                result = deepcopy(self)
+                result.df[name] = result.df.id.replace(d)
+        os.chdir(path)
+
+        return result
+
+    def add_consensus(self, cutoffs=(50, 60, 70, 80, 90)):
+        """
+        Add consensus rows to the MSA object.
+
+        Parameters
+        ----------
+            cutoffs : list of integers
+                Minimum frequency, in each column, required for
+                the conserved residue or residue category 
+
+        Returns
+        -------
+        A copy of the MSA with consensus sequences
+        """
+        result = deepcopy(self)
+        cx = []
+        for cutoff in reversed(sorted(cutoffs)):
+            consensus = self.consensus(cutoff)
+            cx.append([ f'Consensus {cutoff}%', consensus, len(consensus.replace('.','')), "consensus" ])
+        result.df = pd.concat([pd.DataFrame(cx, columns=self._reserved_columns), result.df])
+        return result
+
     def add_hhpred(self, hhpred_file = 'hhpred_file', hhpred_id = ''):
         '''
         Parse HH-suite output file and add the selected result's
         sequence and secondary structure to the MSA.
         '''
         import re
-        from copy import copy, deepcopy
-        import pandas as pd
 
         # Parser
         with open(hhpred_file, 'r') as f:
@@ -469,8 +505,6 @@ class sequence:
         from Bio import pairwise2
         import Bio.PDB.PDBList as PDBList
         from pathlib import Path
-        import pandas as pd
-        from copy import deepcopy
         result = deepcopy(self)
         pdb_id = pdb_id.lower()
 
@@ -507,68 +541,76 @@ class sequence:
         result.df =  pd.concat([pd.DataFrame([[pdbn,pdbss]], columns=['id', 'sequence']),self.df])
         return result
 
-    def to_color(self, color='fg', scale=True):
-        """
-        Fetch aligment as text, colored by residue class.
-        """
-        import pandas as pd
-        df = self.df.copy()
-        alignment_length = self.get_alignment_length()
+    def add_seq(self, seq_to_add, cpu=12, fast=False):
+        import tempfile
+        from subprocess import Popen, PIPE, STDOUT
 
-        def color_res(s, cs):
-            if s in 'A I L M F W V'.split():
-                return cs(s, 33)
-            elif s in 'K R'.split():
-                return cs(s, 124)
-            elif s in 'E D'.split():
-                return cs(s, 127)
-            elif s in 'N Q S T'.split():
-                return cs(s, 34)
-            elif s  == 'C':
-                return cs(s, 168)
-            elif s == 'G':
-                return cs(s, 166)
-            elif s == 'P':
-                return cs(s, 178)
-            elif s in 'H Y'.split():
-                return cs(s, 37)
+        # Dump input sequences
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            # Save current sequences to temporary file
+            self.to_file(f'{tmpdirname}/seqaln') 
+
+            # Save new sequences to temporary file
+            from Bio.SeqRecord import SeqRecord
+            if isinstance(seq_to_add[0],SeqRecord):
+                SeqIO.write(seq_to_add, f'{tmpdirname}/acc.fa', "fasta")
             else:
-                 return s
+                pd.Series(seq_to_add).to_csv(f'{tmpdirname}/acc', index=None, header=None)
+                Popen(f'pfetch {tmpdirname}/acc > {tmpdirname}/acc.fa' , stdout=PIPE,shell=True).communicate() 
 
-        def color_bg(s, color = ''):
-            '''
-            s: String
-            '''
-            if color:
-                color = f'48;5;{color}'
-            return f'\033[{color}m{s}\033[m'
+            # Run MAFFT
+            if fast:
+                child = Popen(f'mafft  --thread {cpu} --add {tmpdirname}/acc.fa {tmpdirname}/seqaln', stdout=PIPE,shell=True).communicate()
+            else:
+                child = Popen(f'mafft  --maxiterate 1000 --localpair --thread {cpu} --add {tmpdirname}/acc.fa  {tmpdirname}/seqaln', stdout=PIPE,shell=True).communicate()
 
-        def color_fg(s, color = ''):
-            if color:
-                color = f'38;5;{color}'
-            return f'\033[{color}m{s}\033[m'
+        # Load output alignment
+        result = self.from_string(child[0].decode("utf-8"), input_format = 'fasta')
+        result.file_path = 'from add_seq function'
+        return result
 
-        color_switch = {'background':color_bg, 'bg':color_bg, 'foreground':color_fg, 'fg':color_fg}
-        df['colored'] = df['sequence'].map(lambda x: ''.join([color_res(y, color_switch[color]) for y in x]))
-        if scale:
-            scale = 10
-            scale_number = list(range(0,alignment_length,scale))
-            scale_number = [ f'{str(x):{scale}}' for x in scale_number ]
-            scale_number[0] = '1        '
-            scale_number = "".join(scale_number)
-            scale_number = scale_number.rstrip() + " " * (alignment_length - len(scale_number.rstrip()))
-            scale_bar = [ f'{"|":{scale}}' for x in range(0,alignment_length,scale) ]
-            scale_bar[0] = '|        '
-            scale_bar = "".join(scale_bar)
-            scale_dot = "".join([ "." for x in range(0,alignment_length) ])
-            scaled = pd.concat([pd.Series([scale_number,scale_bar,scale_dot], index=['position', 'bar', 'dot']), df.set_index('id').colored]) 
-            return scaled.str.ljust(scaled.str.len().max())
-        else:
-            return df.colored.str.ljust(df.colored.str.len().max())
+    def consensus(self, cons):
+        '''
+        Generate consensus strings for the alignment object
 
-    def _aln_freq_df(self, by_type=False):
-        from copy import copy, deepcopy
-        import pandas as pd
+        Parameters
+        ----------
+            cons : integer
+                Minimum frequency for conserved residues or categories
+
+        Returns
+        -------
+        A string representing the consensus sequence
+        '''
+
+        # Ranking of amino acid categories
+        aa_type_dict =  {'a': 6,
+            'l':4,
+            'h':8,
+            '+':3,
+            '-':1,
+            'c':7,
+            'p':10,
+            'o':0,
+            'u':5,
+            's':9,
+            'b':11,
+            '_':12,
+            '.':13,
+            'gap':14
+        }
+
+        # Copying frequency table and building consensus
+        result = deepcopy(self.freq_table)
+        result.rename({'gap':'.'}, inplace=True)
+        result = pd.concat([result, pd.DataFrame(columns=result.columns, index=['.']).fillna(101)])
+        freq = result.melt(ignore_index=False).reset_index().rename({'index':'aa', 'variable':'position', 'value':'freq'}, axis=1)
+        freq['ranking'] = freq.aa.map(aa_type_dict)
+        freq = freq.sort_values(['position', 'ranking'], na_position='first').query(f'freq >={cons}').drop_duplicates(subset='position')
+
+        return ''.join(freq.aa.to_list())
+
+    def residue_frequencies(self, by_type=False):
         result = deepcopy(self)
         freq_df = result.df.sequence.str.split('', expand=True).iloc[:,1:-1].apply(pd.value_counts).fillna(0).astype(int)/len(result.df)*100 
         freq_df.rename({'-':'gap','.':'gap','?':'X'}, inplace=True)
@@ -609,48 +651,110 @@ class sequence:
             freq_df = pd.concat([freq_df,pd.DataFrame({aa_type_names[x][1]:freq_df.loc[aa_type_names[x][0]].sum()}).T])
         return freq_df
 
-    def consensus(self, cons):
-        from copy import copy, deepcopy
-        import pandas as pd
-        '''
-        Generate consensus lines for the alignment object
-        '''
+    def to_bioalign(self):
+        """
+        Convert the MSA to BioPython's Bio.Align.MultipleSeqAlignment.
 
-        # Ranking of amino acid categories
-        aa_type_dict =  {'a': 6,
-            'l':4,
-            'h':8,
-            '+':3,
-            '-':1,
-            'c':7,
-            'p':10,
-            'o':0,
-            'u':5,
-            's':9,
-            'b':11,
-            '_':12,
-            '.':13,
-            'gap':14
-        }
+        See also
+        --------
+        Bio.Align.MultipleSeqAlignment : MSA object in BioPython
+        Bio.AlignIO : BioPython I/O modules for alignments
+        """
+        from Bio.Align import MultipleSeqAlignment
+        return MultipleSeqAlignment(self.to_seqrecords())
 
-        # Copying frequency table and building consensus
-        result = deepcopy(self.freq_table)
-        result.rename({'gap':'.'}, inplace=True)
-        result = pd.concat([result, pd.DataFrame(columns=result.columns, index=['.']).fillna(101)])
-        freq = result.melt(ignore_index=False).reset_index().rename({'index':'aa', 'variable':'position', 'value':'freq'}, axis=1)
-        freq['ranking'] = freq.aa.map(aa_type_dict)
-        freq = freq.sort_values(['position', 'ranking'], na_position='first').query(f'freq >={cons}').drop_duplicates(subset='position')
+    def to_color(self, color='fg', scale=True, interval=10):
+        """
+        Colorize sequence column and return aligment as a DataFrame
+        """
 
-        return ''.join(freq.aa.to_list())
+        def color_res(s, cs):
+            if s in 'A I L M F W V'.split():
+                return cs(s, "033")
+            elif s in 'K R'.split():
+                return cs(s, "124")
+            elif s in 'E D'.split():
+                return cs(s, "127")
+            elif s in 'N Q S T'.split():
+                return cs(s, "034")
+            elif s  == 'C':
+                return cs(s, "168")
+            elif s == 'G':
+                return cs(s, "166")
+            elif s == 'P':
+                return cs(s, "178")
+            elif s in 'H Y'.split():
+                return cs(s, "037")
+            else:
+                 return cs(s, "000")
 
-    def add_consensus(self, consensus=(50, 60, 70, 80, 90)):
-        from copy import deepcopy
-        import pandas as pd
-        result = deepcopy(self)
-        for x in consensus:
-            cx = self.consensus(x)
-            result.df = pd.concat([pd.DataFrame([[f'r_seq consensus{x}%',cx]], columns=['id', 'sequence']),result.df])
+        def color_bg(s, color = ''):
+            '''
+            s: String
+            '''
+            if color == "000":
+                color = f'49;5;000'
+            else:
+                color = f'48;5;{color}'
+            return f'\033[{color}m{s}\033[0m'
+
+        def color_fg(s, color = ''):
+            if color == "000":
+                color = f'39;5;000'
+            else:
+                color = f'38;5;{color}'
+            return f'\033[{color}m{s}\033[m'
+
+        # Make a copy of the input dataframe
+        result = self.df.copy()
+        header = pd.Series(result.columns, index=result.columns).to_frame().T
+
+        # Add scale
+        if scale:
+            scale = self._scale_bar(self.get_alignment_length(), interval=interval)
+            result = pd.concat([ header, scale, result.astype(str) ])
+        else:
+            result = pd.concat([ header, result.astype(str) ])
+
+        # Color the sequence column and return
+        color_switch = {'background':color_bg, 'bg':color_bg, 'foreground':color_fg, 'fg':color_fg}
+        result.sequence = result.sequence.str.pad(result.sequence.str.len().max(), side="right")
+        result.sequence = result.sequence.map(lambda x: ''.join([color_res(y, color_switch[color]) for y in x]))
         return result
+
+    def to_file(self, file_path=None, output_format='fasta', annotations=None, remove_gaps=False):
+        return SeqIO.write(self.to_seqrecords(annotations=annotations, remove_gaps=remove_gaps), file_path, output_format)
+
+    def to_hist(self, bins=10):
+        """
+        This method displays the distribution of sequence
+        lengths for all the sequences in the alignment, 
+        after removal of all their gaps.
+
+        Parameters
+        ----------
+        bins : int
+            Number of histogram bins to discretize the distribution
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+
+        >>> aln.hist(50)
+        """
+        from ascii_graph import Pyasciigraph
+        print(f'Total proteins: {len(self.df)}')
+        a = self.df['length'].value_counts().to_frame().reset_index()
+        a = a.sort_values('index')
+        a['raw_bin'] = pd.cut(a['index'],bins,precision=0)
+        a['bin'] = a.raw_bin.apply(lambda x : '{} - {}'.format(int(x.left),int(x.right)))
+        test = a.groupby('bin').agg({'length':'sum'}).reset_index().apply(tuple, axis=1)
+        graph = Pyasciigraph()
+        for line in  graph.graph('count \t sequence size', test):
+            print(line)
 
     def to_seqrecords(self, annotations=None, remove_gaps=False):
         """
@@ -661,35 +765,23 @@ class sequence:
 
         # Access and filter internal dataframe
         df = self.df
-        if not annotations:
-            df = df[~df.id.str.startswith('r_seq')]
+        if annotations:
+            df = df.query('type == "sequence" or type in @annotations')
+        else:
+            df = df.query('type == "sequence"')
 
         # Convert each row to a SeqRecord
         result = []
         for row in df.values:
-            s = row[1]
             if remove_gaps:
-                s = s.replace("-","")
-            result.append(SeqRecord(id=row[0], seq=Seq(s)))
+                row[1] = row[1].replace("-","")
+            result.append(SeqRecord(id=row[0], seq=Seq(row[1])))
         return result
 
-    def to_file(self, file_path=None, output_format='fasta', annotations=None, remove_gaps=False):
-        from Bio import SeqIO
-        return SeqIO.write(self.to_seqrecords(annotations=annotations, remove_gaps=remove_gaps), file_path, output_format)
-
     def to_string(self, output_format='fasta', annotations=None, remove_gaps=False):
-        from Bio import SeqIO
-        from io import StringIO
         sio = StringIO("")
         SeqIO.write(self.to_seqrecords(annotations=annotations, remove_gaps=remove_gaps), sio, output_format)
         return sio.getvalue()
-
-    def view(self, color=True, annotations=False):
-        from IPython.core.page import page
-        if color:
-            page(self.to_color().__repr__())
-        else:
-            page(self.df.set_index('id').sequence.__repr__())
 
     def realign(self,fast=False, cpu=10):
         from subprocess import Popen, PIPE, STDOUT
@@ -700,28 +792,41 @@ class sequence:
             child = Popen(f'cat|mafft  --maxiterate 1000 --localpair --thread {cpu} -' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
         result = self.from_string(child[0].decode("utf-8"), input_format = 'fasta')
         result.file_path = 'from realign function'
-        #result.freq_table = result._aln_freq_df(by_type=True) 
         return result
 
-    def hhsearch(self, databases=['pdb70','pfam'], database_path=os.path.join(os.environ['ROTIFER_DATA'],"hhsuite")):
+    def view(self, color=True, scale=True, interval=10, columns=True):
+        from IPython.core.page import page
+        if color:
+            df = self.to_color(scale=scale, interval=interval)
+            page(df.to_string(header=False, index=False))
+        else:
+            df = self.df.copy()
+            if scale:
+                scale = self._scale_bar(self.get_alignment_length(), interval=interval)
+                df = pd.concat([ scale, df ]) 
+                df.sequence = df.sequence.str.pad(df.sequence.str.len().max(), side="right")
+            page(df.to_string(index=False))
+
+    def hhsearch(self, databases=['pdb70','pfam'], database_path=os.path.join(os.environ['ROTIFER_DATA'],"hhsuite"), view=True):
         import tempfile
         from subprocess import Popen, PIPE, STDOUT
-        from rotifer.io.hhsuite import parse_hhr
+        from rotifer.io.hhsuite import read_hhr
 
         dbs = " ".join([ " -d " + os.path.join(database_path, x) for x in databases ])
         with tempfile.TemporaryDirectory() as tmpdirname:
             self.to_file(f'{tmpdirname}/seqaln')
             child = f'hhsearch -i {tmpdirname}/seqaln {dbs} -M 50 -cpu 18 -o {tmpdirname}/seqaln.hhr'
             child = Popen(child, stdout=PIPE,shell=True).communicate()
-            hhtable = parse_hhr(f'{tmpdirname}/seqaln')
+            hhtable = read_hhr(f'{tmpdirname}/seqaln.hhr')
             with open(f'{tmpdirname}/seqaln.hhr') as f:
                 hhsearch_result = f.read()
+            if view:
+                from IPython.core.page import page 
+                page(hhsearch_result)
             return (hhsearch_result, hhtable)
 
     def community(self):
         import tempfile
-        import os
-        import pandas as pd
         import community
         import networkx as nx
         import numpy as np
@@ -740,73 +845,40 @@ class sequence:
                 {'index': 'c80e3', 0: 'community'}, axis=1)
         return c
 
-    def add_seq(self, seq_to_add, cpu=12, fast=False):
-        import tempfile
-        from subprocess import Popen, PIPE, STDOUT
-        import pandas as pd
-
-        # Dump input sequences
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            # Save current sequences to temporary file
-            self.to_file(f'{tmpdirname}/seqaln') 
-
-            # Save new sequences to temporary file
-            from Bio.SeqRecord import SeqRecord
-            if isinstance(seq_to_add[0],SeqRecord):
-                from Bio import SeqIO
-                SeqIO.write(seq_to_add, f'{tmpdirname}/acc.fa', "fasta")
-            else:
-                pd.Series(seq_to_add).to_csv(f'{tmpdirname}/acc', index=None, header=None)
-                Popen(f'pfetch {tmpdirname}/acc > {tmpdirname}/acc.fa' , stdout=PIPE,shell=True).communicate() 
-
-            # Run MAFFT
-            if fast:
-                child = Popen(f'mafft  --thread {cpu} --add {tmpdirname}/acc.fa {tmpdirname}/seqaln', stdout=PIPE,shell=True).communicate()
-            else:
-                child = Popen(f'mafft  --maxiterate 1000 --localpair --thread {cpu} --add {tmpdirname}/acc.fa  {tmpdirname}/seqaln', stdout=PIPE,shell=True).communicate()
-
-        # Load output alignment
-        result = self.from_string(child[0].decode("utf-8"), input_format = 'fasta')
-        result.file_path = 'from add_seq function'
-        #result.freq_table = result._aln_freq_df(by_type=True) 
-        return result
-
-    def add_cluster(self, coverage=0.8, identity=0.7):
-        '''
-        Add or update MMseqs2 clustering data for all sequences.
-
-        Parameters
-        ----------
-        coverage : float
-            Minimum coverage required for both sequences in each
-            pairwise alignment
-        identity : float
-            Minimum percentage identity required for both sequences
-            in each pairwise alignment
-
-        Returns
-        -------
-        A new MSA object
-        '''
-        import tempfile
-        from subprocess import Popen, PIPE, STDOUT
-        from copy import deepcopy
-        import pandas as pd
-        import os
-
-        result = deepcopy(self)
-        path = os.getcwd()
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            os.chdir(tmpdirname)
-            result.to_file(f'{tmpdirname}/seqaln', remove_gaps=True)
-            Popen(f'mmseqs easy-cluster {tmpdirname}/seqaln nr --min-seq-id {identity} -c {coverage} tmp', stdout=PIPE,shell=True).communicate()
-            d = pd.read_csv(f'{tmpdirname}/nr_cluster.tsv', sep="\t", names=['cluster', 'pid']).set_index('pid').cluster.to_dict()
-            result.df[f'c{int(float(coverage)*100)}i{int(float(identity)*100)}'] = result.df.id.replace(d)
-            os.chdir(path)
-
-        return result
-
     ## Class methods
+
+    @classmethod
+    def _scale_bar(self, length, interval=10, start=1):
+        # Numbers for the scale bar
+        if length > interval:
+            position = list(range(int(((start / interval)+1))*interval,length,interval))
+            if not length % interval:
+                position.append(length)
+        else:
+            position = [length]
+
+        # Tick marks (vertical bars)
+        scale_bar = [ f'{"|":{interval}}' for x in position ]
+
+        # Format numbers
+        scale_number = [ f'{str(x):{interval}}' for x in position ]
+        if len(str(start)) < position[0] - start - 1:
+            scale_number.insert(0, str(start) + " " * (position[0] - start - len(str(start))))
+            scale_bar.insert(0, "|" + " " * (position[0] - start - 1))
+        else:
+            scale_number.insert(0, " " * (position[0] - start))
+            scale_bar.insert(0, " " * (position[0] - start))
+
+        # Prepare Series
+        scale_bar = "".join(scale_bar)
+        scale_number = "".join(scale_number)
+        scale_number = scale_number.rstrip() + " " * (length - start - len(scale_number.rstrip()) + 1)
+        scale_bar = scale_bar.rstrip() + " " * (len(scale_number) - len(scale_bar.rstrip()))
+        scale_dot = "." * len(scale_number)
+        scale = pd.Series([scale_number,scale_bar,scale_dot], index=['position', 'bar', 'dot'])
+        scale = {'id':scale.index.tolist(), 'sequence':scale, 'length':scale.str.len(), 'type':'view'}
+        scale = pd.DataFrame(scale).astype(str)
+        return scale
 
     @classmethod
     def from_seqrecords(cls, input_data, freq_table=True):
@@ -834,7 +906,6 @@ class sequence:
             freq_table   : bool, default True
                            Calculate amino acid frequency table
         '''
-        from io import StringIO
         return cls.from_file(StringIO(input_data), input_format=input_format, freq_table=freq_table) 
 
     @classmethod
@@ -864,20 +935,20 @@ Examples
 --------
 Simplest usage: visualize a (multi)FASTA file.
 
->>> from rotifer.devel.alpha.sequence import sequence
+>>> from rotifer.devel.beta.sequence import sequence
 >>> aln = sequence("alignment.aln")
 >>> aln.view()
 
 Load alignment from another file format, such as
 StockHolm and show the consensus above the alignment:
 
->>> from rotifer.devel.alpha.sequence import sequence
+>>> from rotifer.devel.beta.sequence import sequence
 >>> sto = sequence("alignment.sto", format="stockholm")
 >>> sto.add_consensus().view()
 
 Parsing a FASTA alignment from an explicit string:
 
->>> from rotifer.devel.alpha.sequence import sequence
+>>> from rotifer.devel.beta.sequence import sequence
 >>> aln = sequence('>Seq1\nACFH--GHT\n>Seq2\nACFW--GHS\n')
 >>> aln.add_consensus().view()
 """

@@ -38,9 +38,6 @@ def read_hhr(indir):
         if os.path.exists(indir) and os.path.isdir(indir):
             indir = os.path.realpath(indir)
             indir = glob(f'{indir}/*.hhr')
-        else:
-            print(f'{__name__}.read_hhr: unknown directory {indir}', file=sys.stderr)
-            return None
     return hhr.hhsuite2pandas(indir)
 
 def parse_hhr(indir):
@@ -67,8 +64,5 @@ def parse_hhr(indir):
         if os.path.exists(indir) and os.path.isdir(indir):
             indir = os.path.realpath(indir)
             indir = glob(f'{indir}/*.hhr')
-        else:
-            print(f'{__name__}.read_hhr: unknown directory {indir}', file=sys.stderr)
-            return None
     for infile in indir:
         yield hhr.hhsuite2pandas(infile)
