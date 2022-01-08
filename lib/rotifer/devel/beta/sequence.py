@@ -794,13 +794,16 @@ class sequence:
         result.file_path = 'from realign function'
         return result
 
-    def view(self, color=True, scale=True, interval=10, columns=True):
+    def view(self, color=True, scale=True, consensus=True, interval=10, columns=True):
         from IPython.core.page import page
+        df = deepcopy(self)
+        if consensus:
+            df = df.add_consensus()
         if color:
-            df = self.to_color(scale=scale, interval=interval)
+            df = df.to_color(scale=scale, interval=interval)
             page(df.to_string(header=False, index=False))
         else:
-            df = self.df.copy()
+            df = df.df.copy()
             if scale:
                 scale = self._scale_bar(self.get_alignment_length(), interval=interval)
                 df = pd.concat([ scale, df ]) 
