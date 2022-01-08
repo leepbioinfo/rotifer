@@ -884,47 +884,47 @@ class sequence:
         return scale
 
     @classmethod
-    def from_seqrecords(cls, input_data, freq_table=True):
+    def from_seqrecords(cls, input_data, frequencies=True):
         """
         Build a MSA object from a list of BioPython objects.
 
         Parameters
         ----------
-            input_data : list of Bio.SeqRecord.SeqRecord
-            freq_table : bool, default True
-                         Calculate amino acid frequency table
+        input_data  : list of Bio.SeqRecord.SeqRecord
+        frequencies : bool, default True
+                      Calculate amino acid frequency table
         """
-        return cls(input_data, input_format=type(input_data[0]), freq_table=freq_table)
+        return cls(input_data, input_format=type(input_data[0]), frequencies=frequencies)
 
     @classmethod
-    def from_string(cls, input_data, input_format='fasta', freq_table=True):
+    def from_string(cls, input_data, input_format='fasta', frequencies=True):
         '''
         This function uses BioPython to parse MSAs from strings.
 
         Parameters
         ----------
-            input_file   : file path or open file handle
-            input_format : Biopython supported file format.
-                           See Bio.SeqIO and/or Bio.AlignIO.
-            freq_table   : bool, default True
-                           Calculate amino acid frequency table
+        input_file   : file path or open file handle
+        input_format : Biopython supported file format.
+                       See Bio.SeqIO and/or Bio.AlignIO.
+        frequencies  : bool, default True
+                       Calculate amino acid frequency table
         '''
-        return cls.from_file(StringIO(input_data), input_format=input_format, freq_table=freq_table) 
+        return cls.from_file(StringIO(input_data), input_format=input_format, frequencies=frequencies) 
 
     @classmethod
-    def from_file(cls, input_file, input_format='fasta', freq_table=True):
+    def from_file(cls, input_file, input_format='fasta', frequencies=True):
         '''
         Parse multiple sequence alignment files using BioPython.
 
         Parameters
         ----------
-            input_file   : file path or open file handle
-            input_format : Biopython supported file format.
-                           See Bio.SeqIO and/or Bio.AlignIO.
-            freq_table   : bool, default True
-                           Calculate amino acid frequency table
+        input_file   : file path or open file handle
+        input_format : Biopython supported file format.
+                       See Bio.SeqIO and/or Bio.AlignIO.
+        frequencies   : bool, default True
+                        Calculate amino acid frequency table
         '''
-        return cls(input_file, input_format=input_format, freq_table=freq_table)
+        return cls(input_file, input_format=input_format, frequencies=frequencies)
 
 __doc__ = """
 ========================
