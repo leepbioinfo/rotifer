@@ -105,7 +105,7 @@ class sequence:
         # Generate empty object
         if input_data is None:
             self.df = pd.DataFrame({}, columns=self._reserved_columns)
-            self.numerical = pd.DataFrame({}, columns=['id','type'])
+            self.input_format = None
             self.file_path = None
             return
 
@@ -117,11 +117,17 @@ class sequence:
                 self.file_path = 'StringIO'
                 input_data = StringIO(input_data)
             input_data = SeqIO.parse(input_data, input_format)
+            self.df = self.__seqrecords_to_dataframe(input_data)
         elif isinstance(input_data, IOBase):
             input_data = SeqIO.parse(input_data, input_format)
+            self.df = self.__seqrecords_to_dataframe(input_data)
+        elif isinstance(input_data, pd.Series):
+            self.df = input_data.reset_index()
+            self.df.columns = ['id','sequence']
+            self.df['length'] = self.df.sequence.str.replace("-","").len()
+            self.df['type'] = 'sequence'
 
         # Parse each sequence and calculate frequencies
-        self.df = self.__seqrecords_to_dataframe(input_data)
         if frequencies:
             self.freq_table = self.residue_frequencies(by_type=True)
 
