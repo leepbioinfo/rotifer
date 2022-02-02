@@ -993,6 +993,29 @@ class sequence:
             c = pd.DataFrame.from_dict(partition,orient='index').reset_index().rename(
                 {'index': 'c80e3', 0: 'community'}, axis=1)
         return c
+    
+    def trim_by_id(self, id_cutoff):
+        '''
+        Method to trim the aligment to a given identity cutoff.
+
+        
+        Examples
+        --------
+
+        - Alignment-based coordinates
+          Fetch columns 20 to 130:
+
+          >>> aln.trim_by_id(70)
+          Remove all the columns from the alignment that presents more
+          than 70% of gaps.
+
+        '''
+        result = deepcopy(self)
+        columns_to_keep = result.freq_table.T.query('gap <= @cut_off').T.columns.to_list()
+        result.df['sequence'] = pd.DataFrame(result.df.sequence.str.split('').to_list()).loc[:, columns_to_keep].sum(axis=1)
+        result.df['length'] = result.df.sequence.str.replace('-', '').str.len()
+        result.freq_table = result.residue_frequencies(by_type=True)
+        return result
 
     ## Class methods
 
