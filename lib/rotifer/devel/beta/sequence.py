@@ -1011,7 +1011,7 @@ class sequence:
 
         '''
         result = deepcopy(self)
-        columns_to_keep = result.freq_table.T.query('gap <= @cut_off').T.columns.to_list()
+        columns_to_keep = result.freq_table.T.query('gap <= @id_cutoff').T.columns.to_list()
         result.df['sequence'] = pd.DataFrame(result.df.sequence.str.split('').to_list()).loc[:, columns_to_keep].sum(axis=1)
         result.df['length'] = result.df.sequence.str.replace('-', '').str.len()
         result.freq_table = result.residue_frequencies(by_type=True)
