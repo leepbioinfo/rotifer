@@ -1002,9 +1002,6 @@ class sequence:
         Examples
         --------
 
-        - Alignment-based coordinates
-          Fetch columns 20 to 130:
-
           >>> aln.trim_by_id(70)
           Remove all the columns from the alignment that presents more
           than 70% of gaps.
