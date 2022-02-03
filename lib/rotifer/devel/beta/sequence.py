@@ -2,6 +2,7 @@ from rotifer import GlobalConfig
 from copy import deepcopy
 from io import StringIO
 from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
 import pandas as pd
 import os
 import re
@@ -121,16 +122,18 @@ class sequence:
         elif isinstance(input_data, IOBase):
             input_data = SeqIO.parse(input_data, input_format)
             self.df = self.__seqrecords_to_dataframe(input_data)
+        elif isinstance(input_data, list) and isinstance(input_data[0],SeqRecord):
+            self.df = self.__seqrecords_to_dataframe(input_data)
         elif isinstance(input_data, pd.DataFrame):
             other = [ x for x in input_data.columns if x not in self._reserved_columns ]
             self.df = input_data[['id','sequence']]
-            self.df['length'] = self.df.sequence.str.replace("-","").len()
+            self.df['length'] = self.df.sequence.str.replace("-","").str.len()
             self.df['type'] = 'sequence'
             self.df[other] = input_data[other]
         elif isinstance(input_data, pd.Series):
-            self.df = input_data.reset_index()
+            self.df = input_data.dropna().reset_index()
             self.df.columns = ['id','sequence']
-            self.df['length'] = self.df.sequence.str.replace("-","").len()
+            self.df['length'] = self.df.sequence.str.replace("-","").str.len()
             self.df['type'] = 'sequence'
 
         # Parse each sequence and calculate frequencies
