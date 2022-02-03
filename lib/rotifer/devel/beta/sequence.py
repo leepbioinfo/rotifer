@@ -235,7 +235,7 @@ class sequence:
 
     def slice(self, position):
         '''
-        Method to select and concatenate one or more sets of columns.
+        Select and concatenate one or more sets of columns.
 
         Coordinate systems
         ------------------
@@ -820,7 +820,6 @@ class sequence:
 
         Examples
         --------
-
         >>> aln.hist(50)
         """
         from ascii_graph import Pyasciigraph
@@ -996,22 +995,23 @@ class sequence:
             c = pd.DataFrame.from_dict(partition,orient='index').reset_index().rename(
                 {'index': 'c80e3', 0: 'community'}, axis=1)
         return c
-    
-    def trim_by_id(self, id_cutoff):
-        '''
-        Method to trim the aligment to a given identity cutoff.
 
-        
+    def trim(self, max_perc_gaps=80):
+        '''
+        Remove alignment columns based on column statistics.
+
+        Parameters
+        ----------
+        max_perc_gaps: integer or float
+          Maximum relative frequency of gaps
+
         Examples
         --------
-
-          >>> aln.trim_by_id(70)
-          Remove all the columns from the alignment that presents more
-          than 70% of gaps.
-
+        Remove all columns with more than 70% of gaps.
+        >>> aln.trim(70)
         '''
         result = deepcopy(self)
-        columns_to_keep = result.freq_table.T.query('gap <= @id_cutoff').T.columns.to_list()
+        columns_to_keep = result.freq_table.T.query('gap <= @max_perc_gaps').T.columns.to_list()
         result.df['sequence'] = pd.DataFrame(result.df.sequence.str.split('').to_list()).loc[:, columns_to_keep].sum(axis=1)
         result.df['length'] = result.df.sequence.str.replace('-', '').str.len()
         result.freq_table = result.residue_frequencies(by_type=True)
