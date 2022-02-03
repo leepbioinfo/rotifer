@@ -996,7 +996,7 @@ class sequence:
                 {'index': 'c80e3', 0: 'community'}, axis=1)
         return c
 
-    def trim(self, max_perc_gaps=80):
+    def trim(self, max_perc_gaps=80, minimum_length=1):
         '''
         Remove alignment columns based on column statistics.
 
@@ -1004,6 +1004,11 @@ class sequence:
         ----------
         max_perc_gaps: integer or float
           Maximum relative frequency of gaps
+
+        minimum_length : integer, default 1
+          Minimum number of consecutive bad quality columns.
+          Columns located in regions shorter than this threshold
+          will not removed.
 
         Examples
         --------
