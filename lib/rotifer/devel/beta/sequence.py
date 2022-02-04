@@ -555,6 +555,7 @@ class sequence:
         --------
             Rotifer's configuration
         """
+        import tempfile
         from Bio import pairwise2
         from Bio.PDB import PDBParser
         from Bio.PDB.DSSP import DSSP
@@ -569,7 +570,6 @@ class sequence:
                 else:
                     # Try using pdb_file as URL
                     import urllib
-                    import tempfile
                     pdb_data = urllib.request.urlopen(pdb).read()
                     pdb_file = tempfile.NamedTemporaryFile(suffix=".pdb", delete=True)
                     pdb_file.write(pdb_data)
@@ -585,15 +585,20 @@ class sequence:
         if isinstance(pdb_file,str) and os.path.exists(pdb_file):
             if pdb_file[-3:] == '.gz':
                 import gzip
-                pdb_file = gzip.open(pdb_file,"rt")
+                orig = gzip.open(pdb_file,"rt")
+                pdb_file = tempfile.NamedTemporaryFile(suffix=".pdb", delete=True, mode="r+t")
+                pdb_file.write(orig.read())
+                pdb_file.flush()
+                pdb_file.seek(0)
+                orig.close()
             else:
-                pdb_file = open(pdb_file,"r+t")
+                pdb_file = open(pdb_file,"rt")
 
         # Parse PDB file to a Pandas DataFrame
         dssp_columns  = ['pdb_id','chain','c1','c2','c3','idx','aa','secstr','rASA','phi','psi']
         dssp_columns += ['NH_O_1_relidx','NH_O_1_energy','O_NH_1_relidx','O_NH_1_energy']
         dssp_columns += ['NH_O_2_relidx','NH_O_2_energy','O_NH_2_relidx','O_NH_2_energy']
-        dssp = PDBParser().get_structure(pdb_id, pdb_file.name)
+        dssp = PDBParser().get_structure(pdb_id, pdb_file)
         dssp = DSSP(dssp[0], pdb_file.name, file_type="PDB")
         dssp = pd.DataFrame([ (pdb_id,x[0],*x[1],*dssp[x]) for x in dssp.keys() ], columns=dssp_columns)
         dssp_to_ehc = {"I":"C","S":"C","H":"H","E":"E","G":"C","B":"E","T":"C","C":"C"}
@@ -611,7 +616,7 @@ class sequence:
         ali = pairwise2.align.localxx(pdb_in_aln, pdb_from_pdb)[0]
         ss = pd.Series(list(ali.seqB)).where(lambda x : x != '-').dropna().to_frame()
         ss['structure'] = dssp.secstr.to_list()
-        pdb_df = pd.Series(list(ali.seqA)).rename('seq').to_frame().join(ss_df['structure']).fillna('-').query(' seq != "-"')
+        pdb_df = pd.Series(list(ali.seqA)).rename('seq').to_frame().join(ss['structure']).fillna('-').query(' seq != "-"')
         to = pd.Series(list(result.df.loc[pdb_index].sequence)).where(lambda x: x !='-').dropna().rename('ung').to_frame()
         to['structure'] = pdb_df.structure.to_list()
         pdbn = f'ss_from:{pdb_id}_{chain_id}'
