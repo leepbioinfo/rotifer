@@ -579,7 +579,7 @@ class sequence:
             # No file!
             if os.path.exists(os.path.join(pdb_dir,pdb_id[1:3].lower(),"pdb"+pdb_id.lower()+".ent.gz")):
                 # Search PDB code in local PDB mirror
-                pdb_file = os.path.join(pdb_dir, pdb_id[1:3].lower(), "pdb"+pdb.lower()+".ent.gz")
+                pdb_file = os.path.join(pdb_dir, pdb_id[1:3].lower(), "pdb"+pdb_id.lower()+".ent.gz")
             else:
                 pdb_file = PDBList(verbose=False).retrieve_pdb_file(pdb_id.lower(), file_format='pdb', pdir=GlobalConfig['cache'])
         if isinstance(pdb_file,str) and os.path.exists(pdb_file):
