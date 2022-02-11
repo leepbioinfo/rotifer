@@ -365,6 +365,7 @@ class sequence:
 
         """
         result = deepcopy(self)
+        result.df = result.df.reset_index()
 
         fields = []
         identifiers = result.df.id
@@ -395,7 +396,8 @@ class sequence:
 
         # Concatenate sorting fields
         fields = pd.concat(fields, axis=1).sort_values(by=by, ascending=ascending)
-        result.df = result.df.reindex(fields.index)
+        #result.df = result.df.reindex(fields.index)
+        result.df = result.df.loc[fields.index]
         return result
 
     def add_cluster(self, coverage=0.8, identity=0.7, name=None, inplace=False):
