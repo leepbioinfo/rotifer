@@ -605,7 +605,7 @@ class sequence:
         dssp.secstr = dssp.secstr.map(dssp_to_ehc).fillna('-')
         dssp = dssp.query('chain == @chain_id')
         pdb_file.close()
-        if os.path.exists(pdb_file.name) and pdb_file.name[0:length(GlobalConfig['cache'])] == GlobalConfig['cache']:
+        if os.path.exists(pdb_file.name) and pdb_file.name[0:len(GlobalConfig['cache'])] == GlobalConfig['cache']:
             os.remove(pdb_file.name)
 
         # Search for pdb sequence in the aligment
