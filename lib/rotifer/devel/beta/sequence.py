@@ -365,7 +365,7 @@ class sequence:
 
         """
         result = deepcopy(self)
-        result.df = result.df.reset_index()
+        result.df.reset_index(inplace=True, drop=True)
 
         fields = []
         identifiers = result.df.id
