@@ -364,6 +364,7 @@ class sequence:
         >>> aln.sort(['list','length'], id_list=['PUA33204.1']).view()
 
         """
+        import sys
         result = deepcopy(self)
         result.df.reset_index(inplace=True, drop=True)
 
