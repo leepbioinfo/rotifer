@@ -614,6 +614,7 @@ class sequence:
         # Search for pdb sequence in the aligment
         pdb_from_pdb = ''.join(dssp.aa.to_list())
         pdb_index = result.df[result.df.id.str.contains(pdb_id, case=False)]
+        pdb_index = pdb_index[~pdb_index.id.str.contains('ss_from')] #Avoids annotating itself
         pdb_index = pdb_index.index[0]
         pdb_in_aln = result.df.loc[pdb_index].sequence.replace('-', '')
         ali = pairwise2.align.localxx(pdb_in_aln, pdb_from_pdb)[0]
