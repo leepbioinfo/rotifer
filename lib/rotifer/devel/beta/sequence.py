@@ -992,7 +992,7 @@ class sequence:
         import numpy as np
 
         with tempfile.TemporaryDirectory() as tmpdirname:
-            self.to_file(f'{tmpdirname}/tt')
+            self.to_file(f'{tmpdirname}/tt', remove_gaps=True)
             os.system(f'mmseqs easy-search {tmpdirname}/tt {tmpdirname}/tt {tmpdirname}/tt.m8 {tmpdirname}/tmp')
             df = pd.read_csv(f'{tmpdirname}/tt.m8',sep="\t", names='source target pident length mismatch gapopen qstart qend sstart send evalue bitscore'.split())
             dfc = df
