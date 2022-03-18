@@ -1002,7 +1002,7 @@ class sequence:
             G = nx.from_pandas_edgelist(dfc[['source', 'target', 'evalue_t']].query('evalue_t >= 3'), edge_attr='evalue_t')
             partition = community.best_partition(G,weight='weight')
             c = pd.DataFrame.from_dict(partition,orient='index').reset_index().rename(
-                {'index': 'c80e3', 0: 'community'}, axis=1)
+                {'index': 'pid', 0: 'community'}, axis=1)
         return c
 
     def trim(self, max_perc_gaps=80, minimum_length=1):
