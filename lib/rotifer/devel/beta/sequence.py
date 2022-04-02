@@ -108,10 +108,9 @@ class sequence:
             self.df = pd.DataFrame({}, columns=self._reserved_columns)
             self.input_format = None
             self.file_path = None
-            return
 
-        # Initialize parser for files, file handles or strings
-        if isinstance(input_data,str):
+        # Initialize for strings
+        elif isinstance(input_data,str):
             if os.path.exists(input_data):
                 self.file_path = input_data
             else:
@@ -119,47 +118,71 @@ class sequence:
                 input_data = StringIO(input_data)
             input_data = SeqIO.parse(input_data, input_format)
             self.df = self.__seqrecords_to_dataframe(input_data)
+
+        # Initialize for IO streams
         elif isinstance(input_data, IOBase):
             input_data = SeqIO.parse(input_data, input_format)
             self.df = self.__seqrecords_to_dataframe(input_data)
+
+        # Initialize for list of Bio.SeqRecords
         elif isinstance(input_data, list) and isinstance(input_data[0],SeqRecord):
             self.df = self.__seqrecords_to_dataframe(input_data)
+
+        # Initialize for Pandas DataFrame
         elif isinstance(input_data, pd.DataFrame):
             other = [ x for x in input_data.columns if x not in self._reserved_columns ]
             self.df = input_data[['id','sequence']]
-            self.df['length'] = self.df.sequence.str.replace("-","").str.len()
             self.df['type'] = 'sequence'
             self.df[other] = input_data[other]
+
+        # Initialize for Pandas Series
         elif isinstance(input_data, pd.Series):
             self.df = input_data.dropna().reset_index()
             self.df.columns = ['id','sequence']
-            self.df['length'] = self.df.sequence.str.replace("-","").str.len()
             self.df['type'] = 'sequence'
 
         # Parse each sequence and calculate frequencies
         if frequencies:
-            self.freq_table = self.residue_frequencies(by_type=True)
+            self.__update()
 
     def __seqrecords_to_dataframe(self, data):
         df = pd.DataFrame([ (s.id,str(s.seq),len(str(s.seq).replace("-","")),'sequence') for s in data ], columns=self._reserved_columns)
         return df
 
+    def __update(self):
+        # Recalculate each sequence's length
+        self.df['length'] = self.df.sequence.str.replace('-', '').str.len()
+
+        # Statistics holder
+        if not hasattr(self,'numerical'):
+            self.numerical = pd.DataFrame(columns=['type']+list(range(1,self.get_alignment_length()+1)))
+
+        # Update residue frequencies
+        freqs = self.residue_frequencies().eval('type = "residue_frequency"')
+        if 'residue_frequency' in self.numerical.type:
+            self.numerical.loc[self.numerical.type == 'residue_frequency'] = freqs
+        else:
+            self.numerical.append(freqs)
+
     def __len__(self):
         return len(self.df)
 
-    def get_alignment_length(self):
+    def explode(self):
         '''
-        Retrieve the number of columns in the alignment.
+        Convert alignment to a matrix of residues.
+
+        Each alignment column will be a column in the returned
+        Pandas dataframe.
 
         Returns
         -------
-        Integer
+        Pandas DataFrame
 
         Examples
         --------
-        >>> al = aln.get_alignment_length()
+        >>> m = aln.explode()
         '''
-        return self.df.sequence.str.len().max()
+        return self.df.sequence.str.split("", expand=True).loc[self.df.type == "sequence", 1:self.get_alignment_length()]
 
     def filter(self, query=None, minlen=0, maxlen=0, keep=[], remove=[], regex=None):
         '''
@@ -230,8 +253,25 @@ class sequence:
                 querystr = f'id in @keep'
         if querystr:
             result.df = result.df.query(querystr)
-            result.freq_table = result.residue_frequencies(by_type=True)
+            result.__update()
         return result
+
+    def get_alignment_length(self):
+        '''
+        Retrieve the number of columns in the alignment.
+
+        Returns
+        -------
+        Integer
+
+        Examples
+        --------
+        >>> al = aln.get_alignment_length()
+        '''
+        if self.df.empty:
+            return 0
+        else:
+            return int(self.df.sequence.str.len().max())
 
     def slice(self, position):
         '''
@@ -291,11 +331,10 @@ class sequence:
                 pos[0] += 1
             stack.append(result.df.sequence.str.slice(pos[0]-1, pos[1]))
         result.df['sequence'] = pd.concat(stack, axis=1).sum(axis=1)
-        result.df['length'] = result.df.sequence.str.replace('-', '').str.len()
-        result.freq_table = result.residue_frequencies(by_type=True)
+        result.__update()
         return result
 
-    def sort(self, by=['length'], ascending=True, id_list=None, tree_file=None, tree_format='newick'):
+    def sort(self, by=['length'], ascending=True, inplace=False, id_list=None, tree_file=None, tree_format='newick'):
         """
         Sort alignment rows.
 
@@ -305,12 +344,12 @@ class sequence:
             List of criteria for sorting.
 
             The following criteria are always supported:
-            - id     : sort by sequence identifiers
-            - length : sequence length
-            - list   : sort by user-provided list
+            - id      : sort by sequence identifiers
+            - length  : sequence length
+            - list    : order follows a list of sequence IDs
                 See parameter ``id_list``.
-            - name   : sort by sequence identifiers
-            - tree   : sort by phylogeny
+            - name    : sort by sequence identifiers
+            - tree    : sort by phylogeny
                 See parameter ``tree_file``.
                 Leaf names must match sequence identifiers.
 
@@ -321,7 +360,15 @@ class sequence:
         ascending : bool or list of bools, default True
             If True, sort in ascending order, otherwise descending.
 
-        id_list : list of sequence identifiers or file name
+        inplace : bool, default False
+            Sort in place, i.e. without copying of the object
+
+        id_list : list of strings or file name
+            A list of sequence identifiers to use in sorting.
+            If a file name is given as a string, the list will be
+            automatically loaded from that file.
+
+        residues : list of alignment column indices
             If a file name is given as a string, the list will be
             automatically loaded from that file.
 
@@ -339,7 +386,7 @@ class sequence:
 
         Returns
         -------
-        Reordered copy of the original MSA
+        MSA with rows in a new order
 
         See also
         --------
@@ -363,10 +410,25 @@ class sequence:
 
         >>> aln.sort(['list','length'], id_list=['PUA33204.1']).view()
 
+        Sort in-place by columns 32 and 27 and by length:
+
+        >>> aln.sort([32,27,'length'], inplace=True)
+
         """
         import sys
-        result = deepcopy(self)
+
+        # Inplace mode
+        if inplace:
+            result = self
+        else:
+            result = deepcopy(self)
         result.df.reset_index(inplace=True, drop=True)
+
+        # Prepare local variables
+        cols = result.df.columns
+        isnumeric = [ x for x in by if x not in cols and isinstance(x,int) ]
+        if isnumeric:
+            matrix = self.explode()
 
         fields = []
         identifiers = result.df.id
@@ -389,8 +451,11 @@ class sequence:
             elif item == 'name':
                 fields.append(identifiers.rename("name"))
 
-            elif item in result.df.columns:
+            elif item in cols:
                 fields.append(result.df[item])
+
+            elif isinstance(item,int):
+                fields.append(matrix.loc[:,item])
 
             else:
                 print(f'sequence.sort: Unsupported criteria or missing annotation ({item})', file=sys.stderr)
@@ -399,7 +464,8 @@ class sequence:
         fields = pd.concat(fields, axis=1).sort_values(by=by, ascending=ascending)
         #result.df = result.df.reindex(fields.index)
         result.df = result.df.loc[fields.index]
-        return result
+        if not inplace:
+            return result
 
     def add_cluster(self, coverage=0.8, identity=0.7, name=None, inplace=False):
         '''
@@ -689,16 +755,15 @@ class sequence:
         # Copying frequency table and building consensus
         result = deepcopy(self.freq_table)
         result.rename({'gap':'.'}, inplace=True)
-        result = pd.concat([result, pd.DataFrame(columns=result.columns, index=['.']).fillna(101)])
-        freq = result.melt(ignore_index=False).reset_index().rename({'index':'aa', 'variable':'position', 'value':'freq'}, axis=1)
-        freq['ranking'] = freq.aa.map(aa_type_dict)
-        freq = freq.sort_values(['position', 'ranking'], na_position='first').query(f'freq >={cons}').drop_duplicates(subset='position')
-
-        return ''.join(freq.aa.to_list())
+        result = pd.concat([result, pd.DataFrame(columns=result.columns, index=['.']).fillna(cons+100)])
+        result = result.melt(ignore_index=False).reset_index().rename({'index':'aa', 'variable':'position', 'value':'freq'}, axis=1)
+        result['ranking'] = result.aa.map(aa_type_dict)
+        result = result.query(f'freq >= {cons}').sort_values(['position','ranking'], na_position='first').drop_duplicates(subset='position')
+        return ''.join(result.aa.to_list())
 
     def residue_frequencies(self, by_type=False):
         result = deepcopy(self)
-        freq_df = result.df.sequence.str.split('', expand=True).iloc[:,1:-1].apply(pd.value_counts).fillna(0).astype(int)/len(result.df)*100 
+        freq_df = result.explode().apply(pd.value_counts).fillna(0).astype(int)/len(result.df)*100 
         freq_df.rename({'-':'gap','.':'gap','?':'X'}, inplace=True)
         if not by_type:
             return  freq_df
@@ -1025,7 +1090,7 @@ class sequence:
         '''
         result = deepcopy(self)
         columns_to_keep = result.freq_table.T.query('gap <= @max_perc_gaps').T.columns.to_list()
-        result.df['sequence'] = pd.DataFrame(result.df.sequence.str.split('').to_list()).loc[:, columns_to_keep].sum(axis=1)
+        result.df['sequence'] = result.explode().loc[:, columns_to_keep].sum(axis=1)
         result.df['length'] = result.df.sequence.str.replace('-', '').str.len()
         result.freq_table = result.residue_frequencies(by_type=True)
         return result
