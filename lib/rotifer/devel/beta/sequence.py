@@ -680,6 +680,7 @@ class sequence:
         # Search for pdb sequence in the aligment
         pdb_from_pdb = ''.join(dssp.aa.to_list())
         pdb_index = result.df[result.df.id.str.contains(pdb_id, case=False)]
+        pdb_index = pdb_index[~pdb_index.id.str.contains('ss_from')] #Avoids annotating itself
         pdb_index = pdb_index.index[0]
         pdb_in_aln = result.df.loc[pdb_index].sequence.replace('-', '')
         ali = pairwise2.align.localxx(pdb_in_aln, pdb_from_pdb)[0]
@@ -1056,7 +1057,7 @@ class sequence:
         import numpy as np
 
         with tempfile.TemporaryDirectory() as tmpdirname:
-            self.to_file(f'{tmpdirname}/tt')
+            self.to_file(f'{tmpdirname}/tt', remove_gaps=True)
             os.system(f'mmseqs easy-search {tmpdirname}/tt {tmpdirname}/tt {tmpdirname}/tt.m8 {tmpdirname}/tmp')
             df = pd.read_csv(f'{tmpdirname}/tt.m8',sep="\t", names='source target pident length mismatch gapopen qstart qend sstart send evalue bitscore'.split())
             dfc = df
@@ -1066,7 +1067,7 @@ class sequence:
             G = nx.from_pandas_edgelist(dfc[['source', 'target', 'evalue_t']].query('evalue_t >= 3'), edge_attr='evalue_t')
             partition = community.best_partition(G,weight='weight')
             c = pd.DataFrame.from_dict(partition,orient='index').reset_index().rename(
-                {'index': 'c80e3', 0: 'community'}, axis=1)
+                {'index': 'id', 0: 'community'}, axis=1)
         return c
 
     def trim(self, max_perc_gaps=80, minimum_length=1):
@@ -1090,7 +1091,12 @@ class sequence:
         '''
         result = deepcopy(self)
         columns_to_keep = result.freq_table.T.query('gap <= @max_perc_gaps').T.columns.to_list()
+<<<<<<< HEAD
         result.df['sequence'] = result.explode().loc[:, columns_to_keep].sum(axis=1)
+=======
+        result.df.reset_index(drop=True, inplace=True)
+        result.df['sequence'] = pd.DataFrame(result.df.sequence.str.split('').to_list()).loc[:, columns_to_keep].sum(axis=1)
+>>>>>>> 5dcc2d0104b09611117428bd59ebbaf8d3198ef4
         result.df['length'] = result.df.sequence.str.replace('-', '').str.len()
         result.freq_table = result.residue_frequencies(by_type=True)
         return result
