@@ -158,8 +158,10 @@ class sequence:
             self.numerical = pd.DataFrame(columns=['type']+list(range(1,self.get_alignment_length()+1)))
 
         # Update residue frequencies
-        self.numerical = self.numerical.query('type != "residue_frequency"')
-        self.numerical.append(self.residue_frequencies().eval('type = "residue_frequency"'))
+        self.numerical = pd.concat([
+                self.numerical.query('type != "residue_frequency"'),
+                self.residue_frequencies().eval('type = "residue_frequency"')
+                ])
 
     def __len__(self):
         return len(self.df)
@@ -763,13 +765,21 @@ class sequence:
     def freq_table(self):
         if 'residue_frequency' not in self.numerical['type']:
             self.__update()
-        return self.numerical[self.numerical['type'] == 'residue_frequency']
+        return self.numerical[self.numerical['type'] == 'residue_frequency'].drop(['type'], axis=1)
 
-    def residue_frequencies(self, by_type=False):
+    def residue_frequencies(self, categories=True):
+        '''
+        Calculate amino acid frequencies
+
+        Parameters
+        ----------
+        categories: boolean, default True
+          Include amino acid groups
+        '''
         result = deepcopy(self)
         freq_df = result.explode().apply(pd.value_counts).fillna(0).astype(int)/len(result.df)*100 
         freq_df.rename({'-':'gap','.':'gap','?':'X'}, inplace=True)
-        if not by_type:
+        if not categories:
             return  freq_df
 
         aromatic = ['F','Y', 'W', 'H']
