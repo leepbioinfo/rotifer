@@ -158,11 +158,8 @@ class sequence:
             self.numerical = pd.DataFrame(columns=['type']+list(range(1,self.get_alignment_length()+1)))
 
         # Update residue frequencies
-        freqs = self.residue_frequencies().eval('type = "residue_frequency"')
-        if 'residue_frequency' in self.numerical.type:
-            self.numerical.loc[self.numerical.type == 'residue_frequency'] = freqs
-        else:
-            self.numerical.append(freqs)
+        self.numerical = self.numerical.query('type != "residue_frequency"')
+        self.numerical.append(self.residue_frequencies().eval('type = "residue_frequency"'))
 
     def __len__(self):
         return len(self.df)
@@ -762,6 +759,12 @@ class sequence:
         result = result.query(f'freq >= {cons}').sort_values(['position','ranking'], na_position='first').drop_duplicates(subset='position')
         return ''.join(result.aa.to_list())
 
+    @property
+    def freq_table(self):
+        if 'residue_frequency' not in self.numerical['type']:
+            self.__update()
+        return self.numerical[self.numerical['type'] == 'residue_frequency']
+
     def residue_frequencies(self, by_type=False):
         result = deepcopy(self)
         freq_df = result.explode().apply(pd.value_counts).fillna(0).astype(int)/len(result.df)*100 
@@ -1091,12 +1094,8 @@ class sequence:
         '''
         result = deepcopy(self)
         columns_to_keep = result.freq_table.T.query('gap <= @max_perc_gaps').T.columns.to_list()
-<<<<<<< HEAD
-        result.df['sequence'] = result.explode().loc[:, columns_to_keep].sum(axis=1)
-=======
         result.df.reset_index(drop=True, inplace=True)
-        result.df['sequence'] = pd.DataFrame(result.df.sequence.str.split('').to_list()).loc[:, columns_to_keep].sum(axis=1)
->>>>>>> 5dcc2d0104b09611117428bd59ebbaf8d3198ef4
+        result.df['sequence'] = result.explode().loc[:, columns_to_keep].sum(axis=1)
         result.df['length'] = result.df.sequence.str.replace('-', '').str.len()
         result.freq_table = result.residue_frequencies(by_type=True)
         return result
