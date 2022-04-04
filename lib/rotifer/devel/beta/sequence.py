@@ -550,8 +550,9 @@ class sequence:
         """
         result = self.copy()
         cx = []
+        frequencies = result.residue_frequencies
         for cutoff in reversed(sorted(cutoffs)):
-            consensus = self.consensus(cutoff)
+            consensus = self.consensus(cutoff, frequencies=frequencies)
             cx.append([ f'Consensus {cutoff}%', consensus, len(consensus.replace('.','')), "consensus" ])
         if separator:
             cx.append([ 'separator', "".join([ separator for x in range(0,self.get_alignment_length()) ]), self.get_alignment_length(), "view" ])
@@ -728,14 +729,17 @@ class sequence:
         result.file_path = 'from add_seq function'
         return result
 
-    def consensus(self, cons):
+    def consensus(self, cutoff=50, frequencies=None):
         '''
         Generate consensus strings for the alignment object
 
         Parameters
         ----------
-            cons : integer
-                Minimum frequency for conserved residues or categories
+        cutoff : integer or float, default 50
+          Minimum frequency for conserved residues or categories
+        frequencies: Pandas DataFrame
+          Frequencies of residues at each column
+          See sequence.residue_frequencies
 
         Returns
         -------
@@ -760,12 +764,15 @@ class sequence:
         }
 
         # Copying frequency table and building consensus
-        result = self.residue_frequencies
+        if isinstance(frequencies,pd.DataFrame) and not frequencies.empty:
+            result = frequencies
+        else:
+            result = self.residue_frequencies
         result.rename({'gap':'.'}, inplace=True)
-        result = pd.concat([result, pd.DataFrame(columns=result.columns, index=['.']).fillna(cons+100)])
+        result = pd.concat([result, pd.DataFrame(columns=result.columns, index=['.']).fillna(cutoff+100)])
         result = result.melt(ignore_index=False).reset_index().rename({'index':'aa', 'variable':'position', 'value':'freq'}, axis=1)
         result['ranking'] = result.aa.map(aa_type_dict)
-        result = result.query(f'freq >= {cons}').sort_values(['position','ranking'], na_position='first').drop_duplicates(subset='position')
+        result = result.query(f'freq >= {cutoff}').sort_values(['position','ranking'], na_position='first').drop_duplicates(subset='position')
         return ''.join(result.aa.to_list())
 
     @property
@@ -1166,8 +1173,6 @@ class sequence:
         Parameters
         ----------
         input_data  : list of Bio.SeqRecord.SeqRecord
-        frequencies : bool, default True
-                      Calculate amino acid frequency table
         """
         return cls(input_data, input_format=type(input_data[0]))
 
@@ -1181,8 +1186,6 @@ class sequence:
         input_file   : file path or open file handle
         input_format : Biopython supported file format.
                        See Bio.SeqIO and/or Bio.AlignIO.
-        frequencies  : bool, default True
-                       Calculate amino acid frequency table
         '''
         return cls.from_file(StringIO(input_data), input_format=input_format) 
 
@@ -1196,8 +1199,6 @@ class sequence:
         input_file   : file path or open file handle
         input_format : Biopython supported file format.
                        See Bio.SeqIO and/or Bio.AlignIO.
-        frequencies   : bool, default True
-                        Calculate amino acid frequency table
         '''
         return cls(input_file, input_format=input_format)
 
