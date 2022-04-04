@@ -1,9 +1,9 @@
 from rotifer import GlobalConfig
-from copy import deepcopy
 from io import StringIO
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 import pandas as pd
+import numpy as np
 import os
 import re
 
@@ -68,8 +68,6 @@ class sequence:
     input_format : str
         Input alignment format. See Bio.SeqIO and/or
         Bio.AlignIO for a list of supported formats
-    frequencies : bool, default True
-        Build/Update the table of per-column aminoacid frequencies.
 
     See also
     --------
@@ -98,7 +96,7 @@ class sequence:
     >>> aln = sequence(">Seq1\nACFH--GHT\n>Seq2\nACFW--GHS\n")
     >>> aln.add_consensus().view()
     """
-    def __init__(self, input_data=None, input_format='fasta', frequencies=True):
+    def __init__(self, input_data=None, input_format='fasta'):
         from io import IOBase
         self._reserved_columns = ['id','sequence','length','type']
         self.input_format = input_format
@@ -117,16 +115,16 @@ class sequence:
                 self.file_path = 'StringIO'
                 input_data = StringIO(input_data)
             input_data = SeqIO.parse(input_data, input_format)
-            self.df = self.__seqrecords_to_dataframe(input_data)
+            self.df = self._seqrecords_to_dataframe(input_data)
 
         # Initialize for IO streams
         elif isinstance(input_data, IOBase):
             input_data = SeqIO.parse(input_data, input_format)
-            self.df = self.__seqrecords_to_dataframe(input_data)
+            self.df = self._seqrecords_to_dataframe(input_data)
 
         # Initialize for list of Bio.SeqRecords
         elif isinstance(input_data, list) and isinstance(input_data[0],SeqRecord):
-            self.df = self.__seqrecords_to_dataframe(input_data)
+            self.df = self._seqrecords_to_dataframe(input_data)
 
         # Initialize for Pandas DataFrame
         elif isinstance(input_data, pd.DataFrame):
@@ -141,47 +139,46 @@ class sequence:
             self.df.columns = ['id','sequence']
             self.df['type'] = 'sequence'
 
-        # Parse each sequence and calculate frequencies
-        if frequencies:
-            self.__update()
+        # Make sure the new object is clean!
+        self._reset()
 
-    def __seqrecords_to_dataframe(self, data):
-        df = pd.DataFrame([ (s.id,str(s.seq),len(str(s.seq).replace("-","")),'sequence') for s in data ], columns=self._reserved_columns)
+    def _seqrecords_to_dataframe(self, data):
+        cols = self._reserved_columns + ['description']
+        parsed = []
+        for s in data:
+            current = [ s.id, str(s.seq) ]
+            current.append(len(current[1].replace("-","")))
+            current.append('sequence')
+            current.append(s.description)
+            parsed.append(current)
+        df = pd.DataFrame(parsed, columns=cols)
         return df
 
-    def __update(self):
+    def _reset(self):
         # Recalculate each sequence's length
-        self.df['length'] = self.df.sequence.str.replace('-', '').str.len()
+        maxlen = self.df.sequence.str.len().max()
+        self.df['length'] = np.where(
+                self.df.type == "sequence",
+                self.df.sequence.str.replace('-', '').str.len(),
+                maxlen)
+        self.df.reset_index(drop=True, inplace=True)
 
         # Statistics holder
         if not hasattr(self,'numerical'):
             self.numerical = pd.DataFrame(columns=['type']+list(range(1,self.get_alignment_length()+1)))
 
-        # Update residue frequencies
-        self.numerical = pd.concat([
-                self.numerical.query('type != "residue_frequency"'),
-                self.residue_frequencies().eval('type = "residue_frequency"')
-                ])
-
     def __len__(self):
-        return len(self.df)
+        return len(self.df.query('type == "sequence"'))
 
-    def explode(self):
+    def copy(self, reset=False):
         '''
-        Convert alignment to a matrix of residues.
-
-        Each alignment column will be a column in the returned
-        Pandas dataframe.
-
-        Returns
-        -------
-        Pandas DataFrame
-
-        Examples
-        --------
-        >>> m = aln.explode()
+        Copy alignment to new object.
         '''
-        return self.df.sequence.str.split("", expand=True).loc[self.df.type == "sequence", 1:self.get_alignment_length()]
+        from copy import deepcopy
+        result = deepcopy(self)
+        if reset:
+            result._reset()
+        return result
 
     def filter(self, query=None, minlen=0, maxlen=0, keep=[], remove=[], regex=None):
         '''
@@ -230,7 +227,7 @@ class sequence:
         >>> aln = aln.add_cluster(identity=0.6)
         >>> aln.filter('c80i80 == "WP_091936315.1"', keep="NPE27555.1")
         '''
-        result = deepcopy(self)
+        result = self.copy(reset=True)
 
         # Build query statement
         querystr = []
@@ -252,7 +249,6 @@ class sequence:
                 querystr = f'id in @keep'
         if querystr:
             result.df = result.df.query(querystr)
-            result.__update()
         return result
 
     def get_alignment_length(self):
@@ -270,7 +266,7 @@ class sequence:
         if self.df.empty:
             return 0
         else:
-            return int(self.df.sequence.str.len().max())
+            return int(self.df.query('type == "sequence"').sequence.str.len().max())
 
     def slice(self, position):
         '''
@@ -278,7 +274,6 @@ class sequence:
 
         Coordinate systems
         ------------------
-
         This method cuts the input aligment based on two types of
         coodinate systems:
 
@@ -316,11 +311,13 @@ class sequence:
           >>> aln.slice([ (10,80),(110,160) ])
 
         '''
-        result = deepcopy(self)
+        result = self.copy()
         if isinstance(position[0],int):
             position = [position]
 
-        stack = []
+        # Cut slices
+        sequence  = []
+        numerical = []
         for pos in position:
             pos = [*pos]
             if len(pos) == 3:
@@ -328,9 +325,19 @@ class sequence:
                 refseq = refseq.where(lambda x: x != '-').dropna().reset_index().rename({'index':'mapped_position'}, axis=1)
                 pos[0:2] = (refseq.loc[pos[0]-1:pos[1]].mapped_position.agg(['min','max'])).tolist()
                 pos[0] += 1
-            stack.append(result.df.sequence.str.slice(pos[0]-1, pos[1]))
-        result.df['sequence'] = pd.concat(stack, axis=1).sum(axis=1)
-        result.__update()
+            sequence.append(result.df.sequence.str.slice(pos[0]-1, pos[1]))
+            numerical.extend(list(range(pos[0],pos[1]+1)))
+
+        # Rebuild sequence
+        result.df['sequence'] = pd.concat(sequence, axis=1).sum(axis=1)
+
+        # Rebuild numerical
+        other = set(self.numerical.columns) - set(['type']) - set(list(range(1, self.get_alignment_length() + 1)))
+        result.numerical = result.numerical[['type'] + numerical + list(other)]
+        result.numerical.columns = ['type'] + list(range(1,len(numerical)+1)) + list(other)
+
+        # Return new sequence object
+        result._reset()
         return result
 
     def sort(self, by=['length'], ascending=True, inplace=False, id_list=None, tree_file=None, tree_format='newick'):
@@ -420,14 +427,14 @@ class sequence:
         if inplace:
             result = self
         else:
-            result = deepcopy(self)
+            result = self.copy()
         result.df.reset_index(inplace=True, drop=True)
 
         # Prepare local variables
         cols = result.df.columns
         isnumeric = [ x for x in by if x not in cols and isinstance(x,int) ]
         if isnumeric:
-            matrix = self.explode()
+            matrix = self.residues
 
         fields = []
         identifiers = result.df.id
@@ -517,7 +524,7 @@ class sequence:
             if inplace:
                 self.df[name] = self.df.id.replace(d)
             else:
-                result = deepcopy(self)
+                result = self.copy()
                 result.df[name] = result.df.id.replace(d)
         os.chdir(path)
 
@@ -541,7 +548,7 @@ class sequence:
         -------
         A copy of the MSA with consensus sequences
         """
-        result = deepcopy(self)
+        result = self.copy()
         cx = []
         for cutoff in reversed(sorted(cutoffs)):
             consensus = self.consensus(cutoff)
@@ -590,7 +597,7 @@ class sequence:
         structure_df = pd.DataFrame({'query':list(sequence_query), 'query_pred': list(Q_ss_pred), 'target':list(sequence_target), 'ss':list(T_ss_dssp)})
 
         # join aln to hhpred results
-        result = deepcopy(self)
+        result = self.copy()
         aln = pd.Series(list(result.df.query('id == @query').sequence.iloc[0])).where(lambda x: x!='-').dropna().reset_index().rename({'index':'position', 0:'sequence'}, axis=1)
         s_aln = ''.join(aln.sequence).find(''.join(structure_df['query'].where(lambda x : x !='-').dropna()))
         e_aln = s_aln + len(''.join(structure_df['query'].where(lambda x : x !='-').dropna())) -1
@@ -621,14 +628,14 @@ class sequence:
 
         See also
         --------
-            Rotifer's configuration
+        Rotifer's configuration
         """
         import tempfile
         from Bio import pairwise2
         from Bio.PDB import PDBParser
         from Bio.PDB.DSSP import DSSP
         import Bio.PDB.PDBList as PDBList
-        result = deepcopy(self)
+        result = self.copy()
 
         # Find local file or download and then open it!
         if pdb_file:
@@ -753,7 +760,7 @@ class sequence:
         }
 
         # Copying frequency table and building consensus
-        result = deepcopy(self.freq_table)
+        result = self.residue_frequencies
         result.rename({'gap':'.'}, inplace=True)
         result = pd.concat([result, pd.DataFrame(columns=result.columns, index=['.']).fillna(cons+100)])
         result = result.melt(ignore_index=False).reset_index().rename({'index':'aa', 'variable':'position', 'value':'freq'}, axis=1)
@@ -763,24 +770,27 @@ class sequence:
 
     @property
     def freq_table(self):
-        if 'residue_frequency' not in self.numerical['type']:
-            self.__update()
-        return self.numerical[self.numerical['type'] == 'residue_frequency'].drop(['type'], axis=1)
-
-    def residue_frequencies(self, categories=True):
         '''
-        Calculate amino acid frequencies
-
-        Parameters
-        ----------
-        categories: boolean, default True
-          Include amino acid groups
+        DEPRECATED: use residue_frequencies instead!
+        Residue and residue categories frequencies.
         '''
-        result = deepcopy(self)
-        freq_df = result.explode().apply(pd.value_counts).fillna(0).astype(int)/len(result.df)*100 
+        return self.residue_frequencies
+
+    @property
+    def residues(self):
+        '''
+        Access alignment columns as a Pandas dataframe.
+        '''
+        return self.df.query('type == "sequence"').sequence.str.split("", expand=True).loc[:,1:self.get_alignment_length()]
+
+    @property
+    def residue_frequencies(self):
+        '''
+        Column-wise frequencies of residues and residue categories.
+        '''
+        freq_df = self.residues
+        freq_df = freq_df.apply(pd.value_counts).fillna(0).astype(int)/len(freq_df)*100 
         freq_df.rename({'-':'gap','.':'gap','?':'X'}, inplace=True)
-        if not categories:
-            return  freq_df
 
         aromatic = ['F','Y', 'W', 'H']
         alifatic = ['I','V','L']
@@ -936,10 +946,12 @@ class sequence:
 
         # Convert each row to a SeqRecord
         result = []
-        for row in df.values:
+        for row in list(self.df.query('type == "sequence"').T.to_dict().values()):
             if remove_gaps:
-                row[1] = row[1].replace("-","")
-            result.append(SeqRecord(id=row[0], seq=Seq(row[1])))
+                row["sequence"] = row["sequence"].replace("-","")
+            if "description" not in row:
+                row["description"] = "unknown sequence"
+            result.append(SeqRecord(id=row["id"], seq=Seq(row["sequence"]), description=row["description"]))
         return result
 
     def to_string(self, output_format='fasta', annotations=None, remove_gaps=False):
@@ -1002,7 +1014,7 @@ class sequence:
             None
         """
         from IPython.core.page import page
-        df = deepcopy(self)
+        df = self.copy()
         if consensus:
             df = df.add_consensus(separator=separator)
         if color:
@@ -1102,12 +1114,13 @@ class sequence:
         Remove all columns with more than 70% of gaps.
         >>> aln.trim(70)
         '''
-        result = deepcopy(self)
-        columns_to_keep = result.freq_table.T.query('gap <= @max_perc_gaps').T.columns.to_list()
-        result.df.reset_index(drop=True, inplace=True)
-        result.df['sequence'] = result.explode().loc[:, columns_to_keep].sum(axis=1)
-        result.df['length'] = result.df.sequence.str.replace('-', '').str.len()
-        result.freq_table = result.residue_frequencies(by_type=True)
+        columns_to_keep = self.residue_frequencies.T.query('gap <= @max_perc_gaps').T.columns.to_list()
+        result = self.copy()
+        result.df['sequence'] = result.residues.loc[:, columns_to_keep].sum(axis=1)
+        other = set(self.numerical.columns) - set(['type']) - set(list(range(1, self.get_alignment_length() + 1)))
+        result.numerical = result.numerical[['type'] + columns_to_keep + list(other)]
+        result.numerical.columns = ['type'] + list(range(1,len(columns_to_keep)+1)) + list(other)
+        result._reset()
         return result
 
     ## Class methods
@@ -1146,7 +1159,7 @@ class sequence:
         return scale
 
     @classmethod
-    def from_seqrecords(cls, input_data, frequencies=True):
+    def from_seqrecords(cls, input_data):
         """
         Build a MSA object from a list of BioPython objects.
 
@@ -1156,10 +1169,10 @@ class sequence:
         frequencies : bool, default True
                       Calculate amino acid frequency table
         """
-        return cls(input_data, input_format=type(input_data[0]), frequencies=frequencies)
+        return cls(input_data, input_format=type(input_data[0]))
 
     @classmethod
-    def from_string(cls, input_data, input_format='fasta', frequencies=True):
+    def from_string(cls, input_data, input_format='fasta'):
         '''
         This function uses BioPython to parse MSAs from strings.
 
@@ -1171,10 +1184,10 @@ class sequence:
         frequencies  : bool, default True
                        Calculate amino acid frequency table
         '''
-        return cls.from_file(StringIO(input_data), input_format=input_format, frequencies=frequencies) 
+        return cls.from_file(StringIO(input_data), input_format=input_format) 
 
     @classmethod
-    def from_file(cls, input_file, input_format='fasta', frequencies=True):
+    def from_file(cls, input_file, input_format='fasta'):
         '''
         Parse multiple sequence alignment files using BioPython.
 
@@ -1186,7 +1199,7 @@ class sequence:
         frequencies   : bool, default True
                         Calculate amino acid frequency table
         '''
-        return cls(input_file, input_format=input_format, frequencies=frequencies)
+        return cls(input_file, input_format=input_format)
 
 __doc__ = """
 ========================

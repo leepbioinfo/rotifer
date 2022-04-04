@@ -38,7 +38,7 @@ def __setup_base_config():
 GlobalConfig = __setup_base_config()
 
 # Load default modules
-from . import cli
+#from . import cli
 from . import functions
 from . import loadpath
 #from . import log
