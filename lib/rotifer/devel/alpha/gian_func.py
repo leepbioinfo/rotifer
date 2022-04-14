@@ -3,6 +3,23 @@ def chunks(l, n):
     for i in range(0, len(l), n):
         yield l[i:i + n]
 
+        
+def cluster_Co_occurrence(df, count='c80e3', freq_cutoff = 0.3):
+    ''' Function to count the co-occurence of clusters within the NeighborhoodDF.
+    The count parameter shoul use to define the clster that would be analysed and 
+    the freq_cutoff is to use to define a minimum cut_off to display
+    '''
+    x = df[['block_id', count]].merge(df[['block_id', count]], how='outer', on='block_id')
+    x.columns = ['block_id', 'query_cluster', 'neighbor_cluster']
+    x = x[x.query_cluster != x.neighbor_cluster]
+    xx = x[x['query_cluster'].isin(df.query('query ==1').pid.unique())]
+    xxx = xx.groupby(['query_cluster', 'neighbor_cluster']).block_id.nunique().reset_index()
+    xxxx = xx.groupby('query_cluster').block_id.nunique().rename('query_blocks').reset_index().merge(xxx, how='left').sort_values(['query_blocks', 'block_id'], ascending=False)
+    xxxx['query_freq'] = xxxx.block_id/xxxx.query_blocks
+    return xxxx.query('query_freq >= @freq_cutoff')
+
+        
+        
 def count_series(series, normalize=False, cut_off=False, count='domain'):
     ''' 
     Function to flatten a pd.Series.value_counts and count the number of domains recognized in the whole proteins set of proteins
