@@ -586,7 +586,7 @@ class sequence:
         match = re.findall(f'No {hhpred_id}(.+?)No ', texto, re.DOTALL)[0].strip()
         target = re.findall('T Consensus.*?\nT\s(.*?)\s',match, re.MULTILINE)[0]
         if hhsearch:
-            query = re.findall('Q\s+(.*?)\s',texto, re.MULTILINE)
+            query = re.findall('Query\s+(.*?)\s',texto, re.MULTILINE)
         else:
             query = re.findall('Q ss_pred.*?\nQ\s(.*?)\s',match, re.MULTILINE)
         
