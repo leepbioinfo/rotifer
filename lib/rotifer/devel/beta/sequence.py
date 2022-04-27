@@ -607,7 +607,7 @@ class sequence:
         # join aln to hhpred results
         result = self.copy()
         aln = pd.Series(list(result.df.query('id == @query').sequence.iloc[0])).where(lambda x: x!='-').dropna().reset_index().rename({'index':'position', 0:'sequence'}, axis=1)
-        s_aln = ''.join(aln.sequence).find(''.join(structure_df['query'].where(lambda x : x !='-').dropna()))
+        s_aln = ''.join(aln.sequence).find(''.join(structure_df['query'].where(lambda x : x !='-').dropna()).upper())
         e_aln = s_aln + len(''.join(structure_df['query'].where(lambda x : x !='-').dropna())) -1
         aln.loc[s_aln : e_aln , 'dssp'] = structure_df[structure_df['query'] != '-'].ss.to_list()
         if not hhsearch:
