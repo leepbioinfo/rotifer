@@ -711,7 +711,12 @@ class sequence:
 
     def add_seq(self, seq_to_add, cpu=12, fast=False):
         import tempfile
+        import subprocess
         from subprocess import Popen, PIPE, STDOUT
+
+        # Make sure input is a list
+        if not isinstance(seq_to_add,list):
+            seq_to_add = [ seq_to_add ]
 
         # Dump input sequences
         with tempfile.TemporaryDirectory() as tmpdirname:
@@ -724,13 +729,13 @@ class sequence:
                 SeqIO.write(seq_to_add, f'{tmpdirname}/acc.fa', "fasta")
             else:
                 pd.Series(seq_to_add).to_csv(f'{tmpdirname}/acc', index=None, header=None)
-                Popen(f'pfetch {tmpdirname}/acc > {tmpdirname}/acc.fa' , stdout=PIPE,shell=True).communicate() 
+                Popen(f'pfetch {tmpdirname}/acc > {tmpdirname}/acc.fa' , stdout=PIPE,shell=True).communicate()
 
             # Run MAFFT
             child = f'mafft --thread {cpu} --add {tmpdirname}/acc.fa'
             if not fast:
                 child = f'{child} --maxiterate 1000 --localpair'
-            child = Popen(f'{child} {tmpdirname}/seqaln', stdout=PIPE,shell=True).communicate()
+            child = Popen(f'{child} {tmpdirname}/seqaln', stdout=PIPE, shell=True).communicate()
 
         # Load output alignment
         result = self.from_string(child[0].decode("utf-8"), input_format = 'fasta')
