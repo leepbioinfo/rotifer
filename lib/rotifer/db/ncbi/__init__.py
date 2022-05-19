@@ -14,34 +14,29 @@ Class attributes
 ----------------
 
 NcbiConfig : NCBI configuration
-             Automatically loaded from ~/.rotifer/etc/db/ncbi.yml
+  Automatically loaded from ~/.rotifer/etc/db/ncbi.yml
 """
 
 # Import external modules
 import os
 import sys
-#import types
+import logging
 import socket
+#import types
 import pandas as pd
 
 # Load module's configuration and defaults
 from rotifer.core import GlobalConfig
+from rotifer.core.functions import loadConfig
 
 # Load NCBI configuration
-from rotifer.core.functions import loadConfig
 NcbiConfig = loadConfig(__name__.replace("rotifer.",":"))
 if 'email' not in NcbiConfig:
     NcbiConfig['email'] = os.environ['USER'] + '@' + socket.gethostname()
 if 'ftpserver' not in NcbiConfig:
     NcbiConfig['ftpserver'] = 'ftp.ncbi.nlm.nih.gov'
-if 'api_key' not in NcbiConfig:
-    if 'NCBI_API_KEY' in os.environ:
-        NcbiConfig['api_key'] = os.environ['NCBI_API_KEY']
-    else:
-        NcbiConfig['api_key'] = input(f'''[{__name__}] Please enter the value of your NCBI API KEY: ''')
-
-# Import submodules
-from rotifer.db.ncbi.ncbi import ncbi
+if 'NCBI_API_KEY' in os.environ:
+    NcbiConfig['api_key'] = os.environ['NCBI_API_KEY']
 
 # FUNCTIONS
 
@@ -51,9 +46,12 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
     Fetch gene neighborhoods directly from NCBI.
 
     Usage:
-      from rotifer.db.ncbi import ncbi
       import rotifer.db.ncbi as ncbiClass
-      a = ncbi().read('assembly_reports')
+      n = ncbiClass.neighbors(['WP_063732599.1','WP_063732345.1'])
+
+      # Using previously loaded assembly reports (slightly faster)
+      import rotifer.db.ncbi as ncbiClass
+      a = ncbiClass.assembly_reports()
       b = ncbiClass.neighbors(['WP_063732599.1'], assembly_reports=a)
 
     Returns:
@@ -63,7 +61,7 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
       query  : list of accessions
       column : column to scan for matches to accessions
 
-      assembly_reports : rotifer.db.ncbi.read.assembly_reports dataframe
+      assembly_reports : rotifer.db.ncbi.assembly_reports dataframe
                          If not given, assembly reports are downloaded
 
                          Keep in mind that ONLY assemblies listed in this
@@ -72,7 +70,8 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
                          Therefore, one can use a slice to fetch entries from
                          a selected set of genomes:
 
-                         a = ncbi().read('assembly_reports')
+                         import rotifer.db.ncbi as ncbiClass
+                         a = ncbiClass.assembly_reports()
                          a = a[a.assembly.isin(['GCF_001650215.1'])
                          b = ncbiClass.neighbors(['WP_063732599.1'], assembly_reports=a)
 
@@ -121,7 +120,7 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
         attempt = 0
         while attempt < tries:
             try:
-                assembly_reports = ncbi().read('assembly_reports', verbose=verbose)
+                assembly_reports = assembly_reports(verbose=verbose)
                 attempt = tries + 1
             except:
                 if verbose > 0:
@@ -221,111 +220,87 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
 
     return ndf
 
-def read(query, method=[], concat=True, *args, **kwargs):
+# Load NCBI assembly reports
+def assembly_reports(baseurl=f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASSEMBLY_REPORTS', taxonomy=None, verbose=0):
     '''
-    Generic function to downlaod and/or parse NCBI data
-
-    Data may be downloaded (source="entrez") or read (source="local")
-    from a local source.
-
-    Please read rotifer.db.ncbi.
-    depending on the method parameter and other parameters.
+    Load NCBI assembly reports from a local directory or from the NCBI FTP site.
 
     Usage:
+      # download from NCBI's FTP site
+      from rotifer.db.ncbi import assembly_reports
+      a = assembly_reports()
 
-        import rotifer.db.ncbi
-        b = ncbi.read(method='assembly_reports') # b is a pandas DataFrame
-        c = ncbi.read(["XP_021339871.1"], method='entrez', db='protein') # c is a list
-
-    Returns:
-      Depends on the method used (see rotifer.db.ncbi.read)
-
-    Parameters:
-      method : (list of) access methods.
-      concat : concatenate results from different methods
-               If concat == False, read() always returns a list.
-      
-      Additional parameters are defined by the access method.
-      See rotifer.db.ncbi.read for details on each method.
-
-    Available methods (see rotifer.db.ncbi.read):
-     * assembly_reports
-         Load asssembly_summary_*.txt files from directory or FTP
-     * entrez
-         Download data from NCBI using Bio.Entrez.
-    '''
-    return self.__MethodDispatcher(_name='read', method=method, concat=concat, *args, **kwargs)
-
-def fetch(self, method=[], concat=False, *args, **kwargs):
-    '''
-    Generic function to download data from NCBI.
-
-    This method can decompress known formats automatically but
-    doesn't make any attempt to parse the data.
-
-    Usage:
-
-        from rotifer.db.ncbi import ncbi
-        a = ncbi()
-        b = a.fetch(method='assembly_reports') # b is a file path
-        a.submit(["AKT35709.1","NP_250592.1"])
-        c = a.fetch(method='entrez', db='protein', format='fasta')
+      # Load local files at /db/ncbi
+      b = assembly_reports(baseurl="/db/ncbi")
 
     Returns:
-      List of fully qualified file paths or open filehandles
+      Pandas DataFrame
 
     Parameters:
-      method : (list of) access methods.
-      concat : if possible, generate a single iterator for all data
+      baseurl    : URL or directory with assembly_summary_*.txt files
+      taxonomy   : ete3's NCBITaxa object
+                   If set to true, a new NCBITaxa object is created
 
-    Available methods (see rotifer.db.ncbi.fetch):
-     * entrez
-         Download data from NCBI using Bio.Entrez.
-     * ftp
-         Fetch data from a local BLAST database.
-    '''
-    return self.__MethodDispatcher(_name='fetch', method=method, concat=concat, *args, **kwargs)
-
-def __MethodDispatcher(self, _name=None, method=[], *args, **kwargs):
-    '''
-    Internal method that selects access methods for each calller routine.
+    Extra columns added by this method:
+      source : NCBI's source database
+      loaded_from : data source (same as baseurl)
     '''
 
-    # Applying each method
-    if not method:
-        print(f'No methods defined!', file=sys.stderr)
-        return None
-    elif type(method) != list:
-        method = [ method ]
-    results = []
-    firstType = None
-    concat = 1
-    for m in method:
-        selectedMethod = getattr(_MAP[_name], m, None)
-        if callable(selectedMethod):
-            if 'verbose' in kwargs and kwargs['verbose'] == True:
-                print(f'Dispatching method {m}...')
-            results.append(selectedMethod(self, *args, **kwargs))
-            if 'verbose' in kwargs and kwargs['verbose'] == True:
-                print(f'Method {m} executed!')
-            curtype = type(results[-1])
-            firstType = type(results[0])
-            concat = concat and (curtype == firstType) and not getattr(selectedMethod,'_never_concatenate',False)
-        else:
-            print(f'Unknown error for method {m} in {_name} {_MAP[_name]}', file=sys.stderr)
+    # Method dependencies
+    import pandas as pd
+    from glob import glob
 
-    # Flatten results from different methods
-    if len(results) == 1:
-        results = results[0]
-    elif firstType == pd.DataFrame:
-        results = pd.concat(results, ignore_index=True, axis=0)
-    elif firstType == list:
-        results = [ x for y in results for x in y ]
-    elif firstType == dict:
-        results = { k: v for x in results for k,v in x.items() }
+    # Set log format
+    logger = logging.getLogger('rotifer.db.ncbi')
+    if verbose:
+        logger.setLevel(verbose)
+        logger.info(f'main: loading assembly reports...')
 
-    # Return
-    return results
+    # Load assembly reports
+    assemblies = list()
+    for x in ['refseq', 'genbank', 'refseq_historical', 'genbank_historical']:
+        if os.path.exists(baseurl): # Local file
+            url = os.path.join(baseurl, f'assembly_summary_{x}.txt')
+            if not os.path.exists(url):
+                if verbose:
+                    logger.warning(f'{__name__}: {url} not found. Ignoring...')
+                continue
+        else: # FTP
+            url = f'{baseurl}/assembly_summary_{x}.txt'
+        _ = pd.read_csv(url, sep ="\t", skiprows=[0])
+        _.rename({'# assembly_accession':'assembly'}, axis=1, inplace=True)
+        _['source'] = x
+        _['loaded_from'] = url
+        assemblies.append(_)
+        if verbose:
+            logger.info(f'{__name__}: {url}, {len(_)} rows, {len(assemblies)} loaded')
+    assemblies = pd.concat(assemblies, ignore_index=True)
+    if verbose:
+        print(f'{__name__}: loaded {len(assemblies)} assembly summaries.', file=sys.stderr)
+
+    # Make sure the ftp_path columns refers to the ftp site as we expect
+    if 'ftp_path' in assemblies.columns:
+        assemblies.ftp_path = assemblies.ftp_path.str.replace('https','ftp')
+
+    # Add taxonomy
+    if isinstance(taxonomy,pd.DataFrame) or taxonomy:
+        if not isinstance(taxonomy,pd.DataFrame):
+            from rotifer.db.ncbi import ncbi as ncbiClass
+            ncbi = ncbiClass(assemblies.taxid.unique().tolist())
+            taxonomy = ncbi.read('taxonomy', ete3=taxonomy, verbose=verbose)
+        if isinstance(taxonomy,pd.DataFrame):
+            assemblies = assemblies.merge(taxonomy, left_on='taxid', right_on='taxid', how='left')
+        if verbose:
+            print(f'{__name__}: {len(assemblies)} assemblies left-merged with taxonomy dataframe.', file=sys.stderr)
+
+    # Filter columns and return pandas object
+    if columns:
+        assemblies = assemblies.filter(columns)
+
+    # Reset ncbi object, update missing list and return
+    if verbose:
+        logger.info(f'main: {len(assemblies)} assembly reports loaded!')
+    return assemblies
 
 # END
 if __name__ == '__main__':
