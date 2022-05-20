@@ -38,6 +38,8 @@ if 'ftpserver' not in NcbiConfig:
     NcbiConfig['ftpserver'] = 'ftp.ncbi.nlm.nih.gov'
 if 'NCBI_API_KEY' in os.environ:
     NcbiConfig['api_key'] = os.environ['NCBI_API_KEY']
+else:
+    NcbiConfig['api_key'] = None
 
 # Import submodules
 from rotifer.db.ncbi.ncbi import ncbi
