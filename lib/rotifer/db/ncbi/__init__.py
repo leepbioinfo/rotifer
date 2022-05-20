@@ -297,10 +297,6 @@ def assembly_reports(baseurl=f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASSEMBLY_
         if verbose:
             print(f'{__name__}: {len(assemblies)} assemblies left-merged with taxonomy dataframe.', file=sys.stderr)
 
-    # Filter columns and return pandas object
-    if columns:
-        assemblies = assemblies.filter(columns)
-
     # Reset ncbi object, update missing list and return
     if verbose:
         logger.info(f'main: {len(assemblies)} assembly reports loaded!')
