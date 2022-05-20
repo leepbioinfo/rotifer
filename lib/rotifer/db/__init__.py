@@ -1,2 +1,2 @@
-from . import neighbors
+#from . import neighbors
 #from . import ncbi
