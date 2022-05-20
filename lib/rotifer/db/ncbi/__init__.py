@@ -28,6 +28,7 @@ import pandas as pd
 # Load module's configuration and defaults
 from rotifer.core import GlobalConfig
 from rotifer.core.functions import loadConfig
+#import rotifer.db.ncbi.ncbi as ncbi
 
 # Load NCBI configuration
 NcbiConfig = loadConfig(__name__.replace("rotifer.",":"))
@@ -37,6 +38,9 @@ if 'ftpserver' not in NcbiConfig:
     NcbiConfig['ftpserver'] = 'ftp.ncbi.nlm.nih.gov'
 if 'NCBI_API_KEY' in os.environ:
     NcbiConfig['api_key'] = os.environ['NCBI_API_KEY']
+
+# Import submodules
+from rotifer.db.ncbi.ncbi import ncbi
 
 # FUNCTIONS
 
