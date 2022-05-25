@@ -1,3 +1,13 @@
+import tempfile
+from subprocess import Popen,PIPE
+def cluster2aln(group_cluster,df,esl_index_file, grouper='c80e3', redundancy_cluster='c80i70', fast=True):
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        df[df[grouper]  == group_cluster][redundancy_cluster].drop_duplicates().dropna().to_csv(f'{tmpdirname}/accs', index=None, header=None)
+        Popen(f'esl-sfetch -f {esl_index_file} {tmpdirname}/accs > {tmpdirname}/accs.fa',stdout=PIPE, shell=True).communicate()
+        b = sequence(f'{tmpdirname}/accs.fa').realign(fast=fast)
+        return b
+
+
 def chunks(l, n):
     """Yield successive n-sized chunks from l."""
     for i in range(0, len(l), n):
