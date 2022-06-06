@@ -1,6 +1,6 @@
-import tempfile
-from subprocess import Popen,PIPE
 def cluster2aln(group_cluster,df,esl_index_file, grouper='c80e3', redundancy_cluster='c80i70', fast=True):
+    import tempfile
+    from subprocess import Popen,PIPE
     with tempfile.TemporaryDirectory() as tmpdirname:
         df[df[grouper]  == group_cluster][redundancy_cluster].drop_duplicates().dropna().to_csv(f'{tmpdirname}/accs', index=None, header=None)
         Popen(f'esl-sfetch -f {esl_index_file} {tmpdirname}/accs > {tmpdirname}/accs.fa',stdout=PIPE, shell=True).communicate()
@@ -13,22 +13,29 @@ def chunks(l, n):
     for i in range(0, len(l), n):
         yield l[i:i + n]
 
-        
-def cluster_Co_occurrence(df, count='c80e3', freq_cutoff = 0.3):
-    ''' Function to count the co-occurence of clusters within the NeighborhoodDF.
-    The count parameter shoul use to define the clster that would be analysed and 
-    the freq_cutoff is to use to define a minimum cut_off to display
-    '''
-    x = df[['block_id', count]].merge(df[['block_id', count]], how='outer', on='block_id')
-    x.columns = ['block_id', 'query_cluster', 'neighbor_cluster']
-    x = x[x.query_cluster != x.neighbor_cluster]
-    xx = x[x['query_cluster'].isin(df.query('query ==1').pid.unique())]
-    xxx = xx.groupby(['query_cluster', 'neighbor_cluster']).block_id.nunique().reset_index()
-    xxxx = xx.groupby('query_cluster').block_id.nunique().rename('query_blocks').reset_index().merge(xxx, how='left').sort_values(['query_blocks', 'block_id'], ascending=False)
-    xxxx['query_freq'] = xxxx.block_id/xxxx.query_blocks
-    return xxxx.query('query_freq >= @freq_cutoff')
-
-        
+ def cluster_Co_occurrence(df, count='c80e3', freq_cutoff = 0.3, only_query=True, annotation=False):
+     ''' Function to count the co-occurence of clusters within the NeighborhoodDF.
+     The count parameter shoul use to define the clster that would be analysed and 
+     the freq_cutoff is to use to define a minimum cut_off to display
+     '''
+     x = df[['block_id', count]].merge(df[['block_id', count]], how='outer', on='block_id')
+     x.columns = ['block_id', 'query_cluster', 'neighbor_cluster']
+     x = x[x.query_cluster != x.neighbor_cluster]
+     if only_query:
+         xx = x[x['query_cluster'].isin(df.query('query ==1').pid.unique())]
+     else:
+         xx = x
+     xxx = xx.groupby(['query_cluster', 'neighbor_cluster']).block_id.nunique().reset_index()
+     xxxx = xx.groupby('query_cluster').block_id.nunique().rename('query_blocks').reset_index().merge(xxx, how='left').sort_values(['query_blocks', 'block_id'], ascending=False)
+     xxxx['query_freq'] = xxxx.block_id/xxxx.query_blocks
+     if not annotation:
+        return xxxx.query('query_freq >= @freq_cutoff')
+     andf= df.groupby(count).agg(pfam = ('pfam', count_series), aravind = ('aravind', count_series)).reset_index()
+     xxxx = xxxx.merge(andf.rename({count:'query_cluster', 'pfam':'query_pfam', 'aravind':'query_aravind'}, axis=1), how='left')
+     xxxx = xxxx.merge(andf.rename({count:'neighbor_cluster', 'pfam':'neighbor_pfam', 'aravind':'neighbor_aravind'}, axis=1), how='left')
+     return xxxx.query('query_freq >= @freq_cutoff')
+             
+         
         
 def count_series(series, normalize=False, cut_off=False, count='domain'):
     ''' 
