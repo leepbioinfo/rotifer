@@ -19,7 +19,6 @@ class df2tax:
         df: A pandas dataframe with a classification column
         column: the column name with NCBI lineage
         '''
-#        self.original = df
         self.df = df
         self.annotation= pd.read_csv('/home/kaihami/projects/gen_scripts/ncbi_tax/taxdump.ncbi.lineage.tsv', sep = '\t')
 
@@ -61,12 +60,13 @@ class df2tax:
         finaldf= finaldf[['name', 'idx','rank']]
 
         return finaldf
-        #'''
+
     def class_level(self):
         '''
         Show possibles taxomony levels
         '''
         print('\n'.join([str(x) for x in list(self.taxonomy['rank'].unique())]))
+
     def class_list(self):
         '''
         Show possibles tax level list format

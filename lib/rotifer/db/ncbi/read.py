@@ -127,11 +127,13 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, batch_siz
     '''
 
     # Method dependencies
+    import numpy as np
     import pandas as pd
     from Bio import Entrez
     Entrez.email = ncbi.email
     cols = ['id','source','nucleotide','start','stop','strand','pid','description','organism','strain','assembly']
-    ipgs = pd.DataFrame(columns=cols)
+    added = ['order','is_query','representative']
+    emptyDF = pd.DataFrame(columns=cols+added)
 
     # Set log format
     logger = logging.getLogger(__name__)
@@ -142,7 +144,7 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, batch_siz
     # Backup and check queries
     queries = ncbi.submit()
     if len(queries) == 0:
-        return pd.DataFrame(columns=[*cols, 'is_query', 'representative'])
+        return emptyDF
     if verbose:
         print(f'{__name__}: searching {len(ncbi)} accessions...', file=sys.stderr)
 
@@ -165,11 +167,14 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, batch_siz
         # Merge Efetch results with Epost+Efetch results
         if handle:
             ipg = pd.read_csv(handle, sep='\t', names=cols, header=0).drop_duplicates()
+            o = pd.Series(range(1, len(ipg) + 1))
+            c = pd.Series(np.where(ipg.id != ipg.id.shift(1), o.values, pd.NA)).ffill()
+            ipg['order'] = (o - c).values
             ipgs.append(ipg)
             handle.close()
 
     # Concatenate all batches
-    ipgs = pd.concat(ipgs).reset_index(drop=True).sort_values('id').drop_duplicates()
+    ipgs = pd.concat(ipgs).reset_index(drop=True).sort_values(['id','order']).drop_duplicates()
     found   = set(queries).intersection(set(ipgs.pid.unique()))
     missing = set(queries) - set(found)
     if verbose:
@@ -179,7 +184,7 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, batch_siz
     ipgs = ipgs[~ipgs.id.apply(lambda x: 'Cannot determine Ipg for accession' in str(x))]
     if ipgs.empty:
         ncbi.missing(missing)
-        return pd.DataFrame(columns=[*cols, 'is_query', 'representative'])
+        return emptyDF
 
     # Register query proteins
     ipgs['is_query'] = ipgs.pid.isin(queries).astype(int)
@@ -207,7 +212,7 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, batch_siz
                 if ipgs.empty:
                     ipgs = ipg
                 else:
-                    ipgs = ipgs.append(ipg, ignore_index=True).drop_duplicates()
+                    ipgs = ipgs.append(ipg, ignore_index=True).drop_duplicates().reset_index(drop=True)
             ncbi.submit(queries) # Reset query list
 
     # Set id to numeric and update list of missing queries
