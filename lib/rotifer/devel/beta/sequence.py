@@ -1035,6 +1035,16 @@ class sequence:
         """
         from IPython.core.page import page
         df = self.copy()
+        basic_columns = ['id', 'sequence','length','type',]
+        if isinstance(columns,bool):
+            if not columns:
+                df.df = df.df[basic_columns]
+        else:
+            if isinstance(columns,list):
+                df.df = df.df[basic_columns + columns]
+            else :
+                print('columns should be either a list or a bool')
+
         if consensus:
             df = df.add_consensus(separator=separator)
         if color:

@@ -13,30 +13,32 @@ def chunks(l, n):
     for i in range(0, len(l), n):
         yield l[i:i + n]
 
- def cluster_Co_occurrence(df, count='c80e3', freq_cutoff = 0.3, only_query=True, annotation=False):
-     ''' Function to count the co-occurence of clusters within the NeighborhoodDF.
-     The count parameter shoul use to define the clster that would be analysed and 
-     the freq_cutoff is to use to define a minimum cut_off to display
-     '''
-     x = df[['block_id', count]].merge(df[['block_id', count]], how='outer', on='block_id')
-     x.columns = ['block_id', 'query_cluster', 'neighbor_cluster']
-     x = x[x.query_cluster != x.neighbor_cluster]
-     if only_query:
-         xx = x[x['query_cluster'].isin(df.query('query ==1').pid.unique())]
-     else:
-         xx = x
-     xxx = xx.groupby(['query_cluster', 'neighbor_cluster']).block_id.nunique().reset_index()
-     xxxx = xx.groupby('query_cluster').block_id.nunique().rename('query_blocks').reset_index().merge(xxx, how='left').sort_values(['query_blocks', 'block_id'], ascending=False)
-     xxxx['query_freq'] = xxxx.block_id/xxxx.query_blocks
-     if not annotation:
-        return xxxx.query('query_freq >= @freq_cutoff')
-     andf= df.groupby(count).agg(pfam = ('pfam', count_series), aravind = ('aravind', count_series)).reset_index()
-     xxxx = xxxx.merge(andf.rename({count:'query_cluster', 'pfam':'query_pfam', 'aravind':'query_aravind'}, axis=1), how='left')
-     xxxx = xxxx.merge(andf.rename({count:'neighbor_cluster', 'pfam':'neighbor_pfam', 'aravind':'neighbor_aravind'}, axis=1), how='left')
-     return xxxx.query('query_freq >= @freq_cutoff')
-             
-         
-        
+def cluster_Co_occurrence(df, count='c80e3', freq_cutoff = 0.3, only_query=True, annotation=False):
+    ''' Function to count the co-occurence of clusters within the NeighborhoodDF.
+    The count parameter shoul use to define the clster that would be analysed and 
+    the freq_cutoff is to use to define a minimum cut_off to display
+    '''
+    x = df[['block_id', count]].merge(df[['block_id', count]], how='outer', on='block_id')
+    x.columns = ['block_id', 'query_cluster', 'neighbor_cluster']
+    x = x[x.query_cluster != x.neighbor_cluster]
+    if only_query:
+        xx = x[x['query_cluster'].isin(df.query('query ==1').pid.unique())]
+    else:
+        xx = x
+
+    xxx = xx.groupby(['query_cluster', 'neighbor_cluster']).block_id.nunique().reset_index()
+    xxxx = xx.groupby('query_cluster').block_id.nunique().rename('query_blocks').reset_index().merge(xxx, how='left').sort_values(['query_blocks', 'block_id'], ascending=False)
+    xxxx['query_freq'] = xxxx.block_id/xxxx.query_blocks
+    if not annotation:
+       return xxxx.query('query_freq >= @freq_cutoff')
+
+    andf= df.groupby(count).agg(pfam = ('pfam', count_series), aravind = ('aravind', count_series)).reset_index()
+    xxxx = xxxx.merge(andf.rename({count:'query_cluster', 'pfam':'query_pfam', 'aravind':'query_aravind'}, axis=1), how='left')
+    xxxx = xxxx.merge(andf.rename({count:'neighbor_cluster', 'pfam':'neighbor_pfam', 'aravind':'neighbor_aravind'}, axis=1), how='left')
+    return xxxx.query('query_freq >= @freq_cutoff')
+
+
+
 def count_series(series, normalize=False, cut_off=False, count='domain'):
     ''' 
     Function to flatten a pd.Series.value_counts and count the number of domains recognized in the whole proteins set of proteins
@@ -72,20 +74,22 @@ def count_series(series, normalize=False, cut_off=False, count='domain'):
             l.append(f'{y}({z})')
     return ', '.join(l)
 
- def fetch_seq(seqs):
-     import time
-     import rotifer.db.ncbi import NcbiConfig
-     from rotifer.devel.alpha.sequence import sequence
-     from rotifer.devel.alpha.gian_func import chunks
-     if isinstance(seqs, list):
-         if len(seqs) > 200:
-             seqs = chunks(seqs, 200)
-     else:
-         seqs = list(seqs)
-     seq_string = ''
-     for x in seqs:
-         f = Entrez.efetch(db = 'protein', rettype = 'fasta', retmode = 'text', id = ','.join(x), api_key = NcbiConfig['api_key']).read()
-         seq_string = seq_string + f
-         time.sleep(1)
-     return sequence.from_string(seq_string)
+def fetch_seq(seqs):
+    import time
+    from Bio import Entrez
+    import rotifer.db.ncbi 
+    from rotifer.db.ncbi import NcbiConfig
+    from rotifer.devel.beta.sequence import sequence
+    from rotifer.devel.alpha.gian_func import chunks
+    if isinstance(seqs, list):
+        if len(seqs) > 200:
+            seqs = chunks(seqs, 200)
+    else:
+        seqs = list(seqs)
+    seq_string = ''
+    for x in seqs:
+        f = Entrez.efetch(db = 'protein', rettype = 'fasta', retmode = 'text', id = ','.join(x), api_key = NcbiConfig['api_key']).read()
+        seq_string = seq_string + f
+        time.sleep(1)
+    return sequence.from_string(seq_string)
 
