@@ -93,3 +93,19 @@ def fetch_seq(seqs):
         time.sleep(1)
     return sequence.from_string(seq_string)
 
+def annotation(seqobj, start, end, annotation):
+    ''' I sill have to finish it, but I  am almost done'''
+    s = seqobj.copy()
+    t = pd.Series(list(s.df.iloc[0,1]))
+    t.iloc[:] =' '
+    size = end - start
+    size_an = len(annotation)
+    m = int((start+end)/2)
+    t.iloc[start:end] ='∞'
+    t.iloc[start] ='∞'
+    t.iloc[end] ='∞'
+    t.iloc[m] ='B'
+    t.iloc[m+1] ='1'
+    s.df = pd.concat([pd.DataFrame([['teste', ''.join(t.to_list()), 'annotation']], columns=['id', 'sequence', 'type']),s.df])
+    return s.view()
+
