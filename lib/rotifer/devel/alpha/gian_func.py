@@ -82,10 +82,10 @@ def fetch_seq(seqs):
     from rotifer.devel.beta.sequence import sequence
     from rotifer.devel.alpha.gian_func import chunks
     if isinstance(seqs, list):
-        if len(seqs) > 200:
-            seqs = chunks(seqs, 200)
+        seqs = chunks(seqs, 200)
     else:
-        seqs = list(seqs)
+     return print('add seuquences as list object')
+
     seq_string = ''
     for x in seqs:
         f = Entrez.efetch(db = 'protein', rettype = 'fasta', retmode = 'text', id = ','.join(x), api_key = NcbiConfig['api_key']).read()
