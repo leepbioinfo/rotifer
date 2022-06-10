@@ -149,22 +149,25 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, batch_siz
         print(f'{__name__}: searching {len(ncbi)} accessions...', file=sys.stderr)
 
     # Using Efetch directly with batch_size IDs per batch!
+    n = 1
     ipgs = []
     pos = list(range(0,len(queries),batch_size))
     for s in pos:
-        if verbose:
-            print(f'{__name__}: downloading batch {s} of {len(pos)}', file=sys.stderr)
         e = s + batch_size
+        if e > pos[-1]:
+            e = pos[-1]+1
         batch = queries[s:e]
+        if verbose:
+            print(f'{__name__}: downloading batch {n} ([{s}:{e}]) of {len(pos)}', file=sys.stderr)
         handle = None
         try:
-            handle = Entrez.efetch(db='protein', rettype='ipg', retmode='text', api_key=NcbiConfig['api_key'], id = ",".join(batch))
+            handle = Entrez.efetch(db='nucleotide', rettype='ipg', retmode='text', api_key=NcbiConfig['api_key'], id = ",".join(batch))
         except RuntimeError:
             if verbose:
-                print(f'{__name__}: batch {s}, runtime error: '+str(sys.exc_info()[1]), file=sys.stderr)
+                print(f'{__name__}: batch {n}, runtime error: '+str(sys.exc_info()[1]), file=sys.stderr)
         except:
             if verbose:
-                print(f'{__name__}: batch {s}, exception: '+str(sys.exc_info()[1]), file=sys.stderr)
+                print(f'{__name__}: batch {n}, exception: '+str(sys.exc_info()[1]), file=sys.stderr)
         if handle:
             try:
                 ipg = pd.read_csv(handle, sep='\t', names=cols, header=0).drop_duplicates()
