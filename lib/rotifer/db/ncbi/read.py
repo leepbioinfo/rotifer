@@ -204,6 +204,9 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, batch_siz
         ncbi.missing(missing)
         return emptyDF
 
+    # Register query proteins
+    ipgs['is_query'] = ipgs.pid.isin(queries).astype(int)
+
     # Process batches of different sizes
     # More than one query?
     if len(queries) > 1: # Many queries
@@ -229,9 +232,6 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, batch_siz
     # One query
     else:
         ipgs['representative'] = queries[0]
-
-    # Register query proteins
-    ipgs['is_query'] = ipgs.pid.isin(queries).astype(int)
 
     # Set id to numeric and update list of missing queries
     ipgs['id'] = pd.to_numeric(ipgs.id)
