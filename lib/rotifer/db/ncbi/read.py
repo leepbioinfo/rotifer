@@ -161,7 +161,7 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, batch_siz
             print(f'{__name__}: downloading batch {n} ([{s}:{e}]) of {len(pos)}', file=sys.stderr)
         handle = None
         try:
-            handle = Entrez.efetch(db='nucleotide', rettype='ipg', retmode='text', api_key=NcbiConfig['api_key'], id = ",".join(batch))
+            handle = Entrez.efetch(db='protein', rettype='ipg', retmode='text', api_key=NcbiConfig['api_key'], id = ",".join(batch))
         except RuntimeError:
             if verbose:
                 print(f'{__name__}: batch {n}, runtime error: '+str(sys.exc_info()[1]), file=sys.stderr)
