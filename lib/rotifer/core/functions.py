@@ -296,6 +296,21 @@ def _flatten(*args):
         ls.append(args)
     return ls
 
+def hierarchy_to_dataframe(x):
+    for i in range(0,len(data)):
+        if isinstance(x, list) or isinstance(x, tuple):
+            for y in hierarchy_to_dataframe(x,data):
+                data[i] += y
+        elif isinstance(x, dict):
+            for k, v in x:
+                data[i] += [k]
+                for z in hierarchy_to_dataframe(v,data):
+                    data[i] += z
+        else:
+            return [x]
+    return data
+
+
 def _fasta_ls(*args):
     '''
     Read fasta file or fasta sequence and output a list, each element is a line in the list.

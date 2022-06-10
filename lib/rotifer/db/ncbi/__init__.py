@@ -22,6 +22,7 @@ import os
 import sys
 import logging
 import pandas as pd
+import numpy as np
 
 # Load NCBI configuration
 import socket
@@ -65,6 +66,7 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
       # Simplest example:
       #   - single accession
 
+      import pandas as pd
       import rotifer.db.ncbi as ncbi
       n = pd.concat(ncbi.neighbors(['WP_011017450.1']))
 
@@ -73,6 +75,7 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
       #   - pre-loaded assembly reports and IPGs
       #   - more neighbors (15)
 
+      import pandas as pd
       import rotifer.db.ncbi as ncbi
       ar = ncbi.assemblies(taxonomy=True)
       i = ncbi.ncbi(["WP_010887045.1", "WP_011017450.1"]).read("ipg")
@@ -125,8 +128,6 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
       Additional arguments are passed to the neighbors method
       of the rotifer.genome.data.NeighborhoodDF class
     """
-
-    import numpy as np
     from Bio import SeqIO, Entrez
     from rotifer.db.ncbi import ncbi
     from rotifer.genome.utils import seqrecords_to_dataframe
@@ -158,18 +159,21 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
         if not isinstance(assembly_reports,pd.DataFrame) or assembly_reports.empty:
             if verbose > 0:
                 print(f'{__fn}: Failed to download assembly reports after {attempt} attempts.', file=sys.stderr)
-            return
+            yield pd.DataFrame()
 
     # Fetch IPGs and discard those unrelated to the query
     if not isinstance(ipgs,pd.DataFrame):
-        ncbiObj = ncbi(query)
-        try:
-            ipgs = ncbiObj.read('ipg', verbose=verbose)
-        except:
-            if verbose > 0:
-                print(f'{__fn}: unexpected error while downloading IPGs: '+str(sys.exc_info()[0:2]), file=sys.stderr)
-            return None
+        ipgs = ncbi(query).read('ipg', verbose=verbose)
+        if ipgs.empty:
+            print(f'{__fn}: failed to download IPGs for {len(query)} queries: {query}', file=sys.stderr)
+            yield pd.DataFrame() # At his point, I can't handle missing IPGs for real NCBI protein accessions: fix using elink or efetch
+
+    # Make sure we only process the IPGs of our queries
     selected = ipgs[ipgs.pid.isin(query) | ipgs.representative.isin(query)].id.unique()
+    if not selected:
+        if verbose > 0:
+            print(f'{__fn}: No query was found in {len(ipgs.id.unique())} IPGs. Queries: {query}', file=sys.stderr)
+        yield pd.DataFrame() # At his point, I can't handle missing IPGs for real NCBI protein accessions: fix using elink or efetch
     ipgs = ipgs[ipgs.id.isin(selected)]
 
     # Select best genomes per target: needs improvement!!!!!
@@ -185,10 +189,10 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
     ipgs.sort_values(['id','order'], inplace=True)
     selected = ipgs.drop_duplicates(['id'], keep='first', ignore_index=True)
     if verbose > 0:
-        print(f'{__fn}: {len(found)} queries were found in {len(selected)} IPGs. Found: {found}, missing: {missing}', file=sys.stderr)
+        print(f'{__fn}: {len(found)} queries were found in {len(selected.id.unique())} IPGs. Found: {found}, missing: {missing}', file=sys.stderr)
 
-    # Prepare list of genome assemblies (use first found in IPG)
     # Download assemblies from NCBI's FTP site and process each of them
+    failed = True
     pos = pd.Series(range(0,len(selected)))
     for s in pos:
         # Fetching next batch
@@ -239,7 +243,14 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
             kwargs['min_block_id'] = ndf.block_id.max() + 1
         else:
             kwargs['min_block_id'] = 1
+        if not ndf.empty:
+            failed = False
         yield ndf
+
+    # I tried everything and found no queries in the target genomes
+    if failed:
+        print(f'{__fn}: No query was found after processing genomes in {len(ipgs.id.unique())} IPGs. Queries: {query}', file=sys.stderr)
+        yield pd.DataFrame()
 
 # Load NCBI assembly reports
 def assemblies(baseurl=f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASSEMBLY_REPORTS', taxonomy=None, verbose=0):

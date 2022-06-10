@@ -56,12 +56,6 @@ class NeighborhoodDF(pd.DataFrame):
         if self._of.lower() in ['gi2operon', 'gi2operons', 'gi2op']:
             self._gi2operon(**kwargs)
 
-        if self._of == 'table':
-            self._table()
-
-        if self._of == 'compact':
-            self._compact()
-
     def _gi2operon(self, **kwargs):
         self._exclude_col = []
         self._include_col = []
@@ -108,12 +102,6 @@ class NeighborhoodDF(pd.DataFrame):
             pass
 
         col_len = self._collen(df)
-
-    def _table(self):
-        pass
-
-    def _compact(self):
-        pass
 
     def _collen(self, df):
         collen_len = []
@@ -428,7 +416,6 @@ class NeighborhoodDF(pd.DataFrame):
             _1 = self.group_strand().copy()
         return _1.groupby(group).apply(main_cnei).reset_index(drop = True).set_index('block_id')
 
-
     def full_neighborhood(self, column='cluster', value='value', stats=False, new_query=True):
         """
         Function that filter a given value in a collumn and fetch
@@ -447,7 +434,6 @@ class NeighborhoodDF(pd.DataFrame):
         if new_query:
             return selected_df
         return selected_df.drop('new_query', axis=1)
-
 
     # Find internal_id (iimin,iimax) and feature_order (fomin,fomax) boundaries
     def boundaries(self, nucleotide=None):
