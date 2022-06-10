@@ -108,7 +108,7 @@ def assembly_reports(ncbi, baseurl=f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASS
     return assemblies
 
 # Load Identical Protein Reports
-def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, batch_size=200, *args, **kwargs):
+def ipg(ncbi, fetch=['entrez'], verbose=False, batch_size=200, *args, **kwargs):
     '''
     Retrieve and annotate NCBI's Identical Protein Reports (IPG).
 
@@ -121,9 +121,10 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, batch_siz
       Pandas DataFrame
 
     Parameters:
-      fetch            : how to download data (see rotifer.db.ncbi.fetch)
-      assembly_reports : assembly reports dataframe to set genome priority
-                         If set to True, the data is downloaded
+      fetch : list of strings
+        How to download data (see rotifer.db.ncbi.fetch)
+      batch_size : integer
+        Number of IPGs to retrieve at each batch
     '''
 
     # Method dependencies
@@ -176,14 +177,21 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, batch_siz
                     print(f'{__name__}: batch {s}, could not read IPG: '+str(sys.exc_info()[1]), file=sys.stderr)
                 continue
             handle.close()
+            if not isinstance(ipg,pd.DataFrame) or ipg.empty:
+                if verbose:
+                        print(f'{__name__}: batch {n} has no IPGs! Download or parsing error? Moving to next batch...')
             numeric = pd.to_numeric(ipg.id, errors="coerce")
             errors = numeric.isna()
             if errors.any():
-                print(f'{__name__}: Errors in IPG for batch {s}:\n'+ipg[errors].to_string(), file=sys.stderr)
+                if verbose:
+                    print(f'{__name__}: Errors in IPG for batch {s}:\n'+ipg[errors].to_string(), file=sys.stderr)
                 continue
             ipg.id = numeric
             ipg = ipg[~errors]
-            ipg = ipg[~ipg.id.apply(lambda x: 'Cannot determine Ipg for accession' in str(x))]
+            if ipg.empty:
+                if verbose:
+                    print(f'{__name__}: after removing errors, batch {n} was found to have no IPGs! Ignoring...')
+                continue
             o = pd.Series(range(1, len(ipg) + 1))
             c = pd.Series(np.where(ipg.id != ipg.id.shift(1), o.values, pd.NA)).ffill()
             ipg['order'] = (o - c).values
@@ -243,14 +251,6 @@ def ipg(ncbi, fetch=['entrez'], assembly_reports=False, verbose=False, batch_siz
     found = set([x for x in queries if x not in missing])
     if verbose:
         print(f'{__name__}: {len(ipgs)} IPG rows fetched, {len(found)} queries found, {len(missing)} missing accessions.', file=sys.stderr)
-
-    # Use assembly_reports to set priority
-    if isinstance(assembly_reports,pd.DataFrame) or assembly_reports == True:
-        col = ['wgs_master','ftp_path','isolate','paired_asm_comp','organism_name','submitter','loaded_from','infraspecific_name','asm_name','relation_to_type_material']
-        if not isinstance(assembly_reports,pd.DataFrame):
-            url = f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASSEMBLY_REPORTS'
-            assembly_reports = type(ncbi)(query=list(ipgs[~ipgs.assembly.isna()].assembly.unique())).read('assembly_reports', baseurl=url, columns=col)
-        ipgs = ipgs.merge(assembly_reports.drop(col, axis=1), left_on='assembly', right_on='assembly', how='left')
 
     # Return the expected dataframe
     if verbose:
