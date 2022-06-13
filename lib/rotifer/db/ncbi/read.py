@@ -155,8 +155,8 @@ def ipg(ncbi, fetch=['entrez'], verbose=False, batch_size=200, *args, **kwargs):
     pos = list(range(0,len(queries),batch_size))
     for s in pos:
         e = s + batch_size
-        if e > pos[-1]:
-            e = pos[-1]+1
+        if e > len(queries):
+            e = len(queries)
         batch = queries[s:e]
         if verbose:
             print(f'{__name__}: downloading batch {n} ([{s}:{e}]) of {len(pos)}', file=sys.stderr)
@@ -166,9 +166,11 @@ def ipg(ncbi, fetch=['entrez'], verbose=False, batch_size=200, *args, **kwargs):
         except RuntimeError:
             if verbose:
                 print(f'{__name__}: batch {n}, runtime error: '+str(sys.exc_info()[1]), file=sys.stderr)
+            continue
         except:
             if verbose:
                 print(f'{__name__}: batch {n}, exception: '+str(sys.exc_info()[1]), file=sys.stderr)
+            continue
         if handle:
             try:
                 ipg = pd.read_csv(handle, sep='\t', names=cols, header=0).drop_duplicates()

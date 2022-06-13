@@ -170,7 +170,7 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
 
     # Make sure we only process the IPGs of our queries
     selected = ipgs[ipgs.pid.isin(query) | ipgs.representative.isin(query)].id.unique()
-    if not selected:
+    if not selected.any():
         if verbose > 0:
             print(f'{__fn}: No query was found in {len(ipgs.id.unique())} IPGs. Queries: {query}', file=sys.stderr)
         yield pd.DataFrame() # At his point, I can't handle missing IPGs for real NCBI protein accessions: fix using elink or efetch
@@ -333,6 +333,41 @@ def assemblies(baseurl=f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASSEMBLY_REPORT
     if verbose:
         logger.info(f'main: {len(df)} assembly reports loaded!')
     return df
+
+def elink(query, dbfrom="protein", dbto="nuccore", verbose=False):
+    """
+    Find related database entries via NCBI's EUtilities.
+
+    Usage:
+      # download from NCBI's FTP site
+      import rotifer.db.ncbi as ncbi
+      a = ncbi.elink("")
+
+    Returns:
+      Pandas DataFrame
+
+    Parameters:
+      dbfrom : string
+        Name of the input database
+      dbto: string
+        Name of the target database
+      verbose : boolean
+        Whether to print warnings and error messages
+    """
+    data = []
+    for acc in query:
+        try:
+            raw = list(Entrez.read(Entrez.elink(dbfrom=dbfrom, linkname=dbfrom + "_" + dbto, id=acc)))
+        except:
+            if (verbose):
+                print(f'{__name__}: Entrez.elink failed for accession {acc}, dbfrom: {dbfrom}, dbto: {dbto}. Error:'+str(sys.exc_info()[0]), file=sys.stderr)
+            continue
+        for d in raw:
+            for x in d["LinkSetDb"]:
+                for y in x["Link"]:
+                    data.append([query, d["IdList"][0], d["DbFrom"], x["LinkName"], dbto, y["Id"]])
+    data = pd.DataFrame(data, columns=["query", "queryUID", "dbfrom", "linkname", "dbto", "uid"])
+    return data
 
 # END
 if __name__ == '__main__':
