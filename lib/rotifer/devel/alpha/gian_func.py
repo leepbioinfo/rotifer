@@ -109,3 +109,22 @@ def annotation(seqobj, start, end, annotation):
     s.df = pd.concat([pd.DataFrame([['teste', ''.join(t.to_list()), 'annotation']], columns=['id', 'sequence', 'type']),s.df])
     return s.view()
 
+def hmmsearch_full2pandas (file, error_lines = True):
+    """
+    Function to load the result of hmmsearch or scan ang obtain the results for the full protein
+    If error_lines = False, it skip the results that gave error loading to the dataframe.
+    Those errors only happens if any field present an string with more than two spaces in sequence (mostly found in  descrption field )
+    """
+    import re
+    from io import StringIO
+    
+    with open(file, 'r') as f:
+        text = f.read()
+    columns = 'Evalue  score  bias    BD_Evalue  BD_score  BD_bias    exp  N  Sequence       Description'.split()
+    u = '------- ------ -----    ------- ------ -----   ---- --  --------       -----------'
+    l = 'Domain annotation for each sequence'
+    match = re.findall(f'{u}(.+?){l}', text, re.DOTALL)[0].strip()
+    m2 = re.sub(r'[^\S\r\n]{2,}', '\t', match)
+    m3 = m2.replace('\n\t', '\n')
+    df = pd.read_csv(StringIO(m3), sep="\t", names=columns, error_bad_lines=error_lines)
+    return df
