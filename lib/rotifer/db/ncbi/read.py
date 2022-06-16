@@ -108,7 +108,7 @@ def assembly_reports(ncbi, baseurl=f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASS
     return assemblies
 
 # Load Identical Protein Reports
-def ipg(ncbi, fetch=['entrez'], verbose=False, batch_size=200, *args, **kwargs):
+def ipg(ncbi, verbose=False, batch_size=200, *args, **kwargs):
     '''
     Retrieve and annotate NCBI's Identical Protein Reports (IPG).
 
@@ -121,8 +121,6 @@ def ipg(ncbi, fetch=['entrez'], verbose=False, batch_size=200, *args, **kwargs):
       Pandas DataFrame
 
     Parameters:
-      fetch : list of strings
-        How to download data (see rotifer.db.ncbi.fetch)
       batch_size : integer
         Number of IPGs to retrieve at each batch
     '''
@@ -176,7 +174,7 @@ def ipg(ncbi, fetch=['entrez'], verbose=False, batch_size=200, *args, **kwargs):
                 ipg = pd.read_csv(handle, sep='\t', names=cols, header=0).drop_duplicates()
             except:
                 if verbose:
-                    print(f'{__name__}: batch {s}, could not read IPG: '+str(sys.exc_info()[1]), file=sys.stderr)
+                    print(f'{__name__}: batch {n}, could not read IPG: '+str(sys.exc_info()[1]), file=sys.stderr)
                 continue
             handle.close()
             if not isinstance(ipg,pd.DataFrame) or ipg.empty:
@@ -186,7 +184,7 @@ def ipg(ncbi, fetch=['entrez'], verbose=False, batch_size=200, *args, **kwargs):
             errors = numeric.isna()
             if errors.any():
                 if verbose:
-                    print(f'{__name__}: Errors in IPG for batch {s}:\n'+ipg[errors].to_string(), file=sys.stderr)
+                    print(f'{__name__}: Errors in IPG for batch {n}:\n'+ipg[errors].to_string(), file=sys.stderr)
                 continue
             ipg.id = numeric
             ipg = ipg[~errors]
@@ -198,6 +196,7 @@ def ipg(ncbi, fetch=['entrez'], verbose=False, batch_size=200, *args, **kwargs):
             c = pd.Series(np.where(ipg.id != ipg.id.shift(1), o.values, pd.NA)).ffill()
             ipg['order'] = (o - c).values
             ipgs.append(ipg)
+        n += 1
 
     # Failure! Give up: no IPG was downloaded! Database failure?
     if not ipgs:
@@ -207,7 +206,7 @@ def ipg(ncbi, fetch=['entrez'], verbose=False, batch_size=200, *args, **kwargs):
 
     # Success! Concatenate all batches
     ipgs = pd.concat(ipgs).reset_index(drop=True).sort_values(['id','order']).drop_duplicates()
-    found   = set(queries).intersection(set(ipgs.pid.unique()))
+    found = set(queries).intersection(set(ipgs.pid.unique()))
     missing = set(queries) - set(found)
     if verbose:
         print(f'{__name__}: {len(ipgs)} IPG rows fetched, {len(found)} queries found, {len(missing)} missing accessions.', file=sys.stderr)
@@ -235,7 +234,7 @@ def ipg(ncbi, fetch=['entrez'], verbose=False, batch_size=200, *args, **kwargs):
         if len(missing) > 0:
             for lost in missing:
                 ncbi.submit(lost)
-                ipg = ncbi.read('ipg', fetch=fetch, verbose=verbose)
+                ipg = ncbi.read('ipg', verbose=verbose)
                 if ipgs.empty:
                     ipgs = ipg
                 else:
