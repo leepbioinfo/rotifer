@@ -1,8 +1,13 @@
-def cluster2aln(group_cluster,df,esl_index_file, grouper='c80e3', redundancy_cluster='c80i70', fast=True):
+def cluster2aln(group_cluster,df,esl_index_file, grouper='c80e3', redundancy_cluster='c80i70', fast=True, query=False):
     import tempfile
     from subprocess import Popen,PIPE
+    
     with tempfile.TemporaryDirectory() as tmpdirname:
-        df[df[grouper]  == group_cluster][redundancy_cluster].drop_duplicates().dropna().to_csv(f'{tmpdirname}/accs', index=None, header=None)
+        if query:
+            df.query(query)[redundancy_cluster].drop_duplicates().dropna().to_csv(f'{tmpdirname}/accs', index=None, header=None)
+        else:
+            df[df[grouper]  == group_cluster][redundancy_cluster].drop_duplicates().dropna().to_csv(f'{tmpdirname}/accs', index=None, header=None)
+
         Popen(f'esl-sfetch -f {esl_index_file} {tmpdirname}/accs > {tmpdirname}/accs.fa',stdout=PIPE, shell=True).communicate()
         b = sequence(f'{tmpdirname}/accs.fa').realign(fast=fast)
         return b
