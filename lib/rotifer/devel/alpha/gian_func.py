@@ -1,3 +1,16 @@
+def load_seq_scan(name, folder):
+    '''
+    load a seqscan result into a dataframe
+    '''
+    pre = f'{folder}/{name}'
+    info = pd.read_csv(f'{pre}.c100i100.tsv', sep='\t', names=['c100i100', 'pid'])
+    info = info.merge(pd.read_csv(f'{pre}.c80i70.tsv', sep='\t', names=['c80i70', 'c100i100']), how="left")
+    info = info.merge(pd.read_csv(f'{pre}.c80e3.tsv', sep='\t', names=['c80e3', 'c80i70']), how="left")
+    info = info.merge(pd.read_csv(f'{pre}.aravind.scan.arch', sep='\t', names=['c100i100', 'aravind'], usecols=[0,1], skiprows=[0]), how="left")
+    info = info.merge(pd.read_csv(f'{pre}.pfam.hmmscan.arch', sep='\t', names=['c100i100', 'pfam'], usecols=[0,1], skiprows=[0]), how="left")
+    return info
+
+
 def cluster2aln(group_cluster,df,esl_index_file, grouper='c80e3', redundancy_cluster='c80i70', fast=True, query=False):
     import tempfile
     from subprocess import Popen,PIPE
