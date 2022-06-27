@@ -25,11 +25,11 @@ rm -fr tmp
 input=${target}.c100i100.fa
 
 # Phobius
-cat ${input} | parallel -N1 -j10 --pipe --recstart ">" phobius > ${target}.phobius.out 2> ${target}.phobius.err
+cut -f1 -d " " ${input} | parallel -N1 -j10 --pipe --recstart ">" phobius > ${target}.phobius.out 2> ${target}.phobius.err
 phobius2table -e 0.0101 ${target}.phobius.out > ${target}.phobius.tsv
 
 # Pfam: hmmscan
-cat ${input} \
+cut -f1 -d " " ${input} \
 | parallel -N1 -j10 --pipe --recstart ">" hmmscan /databases/pfam/Pfam-A.hmm - \
 > ${target}.pfam.hmmscan.out \
 2> ${target}.pfam.hmmscan.err
@@ -40,14 +40,14 @@ ln -s ${target}.pfam.hmmscan.arch ${target}.pfam.scan.arch
 ln -s ${target}.pfam.hmmscan.arch.tsv ${target}.pfam.scan.arch.tsv
 
 # Aravind: hmmscan
-cat ${input} \
+cut -f1 -d " " ${input} \
 | parallel --pipe -N1 -j36 --recstart '>' hmmscan --cpu 1 /databases/profiledb/hmmer/aravinddb - \
 > ${target}.aravind.hmmscan.out \
 2> ${target}.aravind.hmmscan.err
 hmmer2table -c model=version ${target}.aravind.hmmscan.out > ${target}.aravind.hmmscan.tsv
 
 # Aravind: rpsblast
-cat ${input} \
+cut -f1 -d " " ${input} \
 | parallel -N1 -j36 --pipe --recstart '>' rpsblast -db /databases/profiledb/rpsdb/aravinddb \
 > ${target}.aravind.rpsblast.out \
 2> ${target}.aravind.rpsblast.err
