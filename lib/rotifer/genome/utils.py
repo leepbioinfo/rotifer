@@ -14,7 +14,7 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
     Extract BioPython's SeqRecord features data to a Pandas dataframe
     Arguments:
       seqrecs      : rotifer.genome.io.parse generator, Bio.SeqIO generator
-                     or Bio.SeqRecord object(s)
+                     or (list of) Bio.SeqRecord object(s)
       exclude_type : exclude features by type
       autopid      : auto-generate missing PIDs from locus_tag
 

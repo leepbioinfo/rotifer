@@ -1,4 +1,5 @@
 # Dependencies
+import sys
 import pandas as pd
 
 # Access configuration
@@ -258,10 +259,10 @@ class ncbi:
             selectedMethod = getattr(_MAP[_name], m, None)
             if callable(selectedMethod):
                 if 'verbose' in kwargs and kwargs['verbose'] == True:
-                    print(f'Dispatching method {m}...')
+                    print(f'{__name__}: Dispatching method {m}...', file=sys.stderr)
                 results.append(selectedMethod(self, *args, **kwargs))
                 if 'verbose' in kwargs and kwargs['verbose'] == True:
-                    print(f'Method {m} executed!')
+                    print(f'{__name__}: Method {m} executed!', file=sys.stderr)
                 curtype = type(results[-1])
                 firstType = type(results[0])
                 concat = concat and (curtype == firstType) and not getattr(selectedMethod,'_never_concatenate',False)
