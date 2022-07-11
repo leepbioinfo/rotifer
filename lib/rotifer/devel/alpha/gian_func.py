@@ -15,6 +15,7 @@ def cluster2aln(group_cluster,df,esl_index_file, grouper='c80e3', redundancy_clu
     import tempfile
     from subprocess import Popen,PIPE
     import os
+    from rotifer.devel.beta.sequence import sequence
 
     with tempfile.TemporaryDirectory() as tmpdirname:
         if query:
