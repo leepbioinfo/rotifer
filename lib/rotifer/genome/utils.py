@@ -71,7 +71,7 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
                 if hasattr(seqrecs.stream,"filename") and callable(seqrecs.stream.filename):
                     assembly = seqrecs.stream.filename() # rotifer.io.fileinput.FileInput
                 elif hasattr(seqrecs.stream,"name"):
-                    assembly = seqrecs.name # Another _io class
+                    assembly = seqrecs.stream.name # Another _io class
                 if assembly != None:
                     assembly = os.path.basename(assembly)
                     if ncbiaccre.match(assembly):

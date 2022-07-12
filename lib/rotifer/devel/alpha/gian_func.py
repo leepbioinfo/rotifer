@@ -14,6 +14,7 @@ def load_seq_scan(name, folder):
 def cluster2aln(group_cluster,df,esl_index_file, grouper='c80e3', redundancy_cluster='c80i70', fast=True, query=False):
     import tempfile
     from subprocess import Popen,PIPE
+    from rotifer.devel.beta.sequence import sequence
     
     with tempfile.TemporaryDirectory() as tmpdirname:
         if query:

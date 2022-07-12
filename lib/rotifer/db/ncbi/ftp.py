@@ -1,5 +1,6 @@
 import os
 import logging
+import pandas as pd
 from ftplib import FTP
 from rotifer.core import GlobalConfig
 
@@ -10,7 +11,7 @@ def ftp_get(target, avoid_collision=False, outdir=GlobalConfig['cache']):
 
     Usage:
       import rotifer.db.ncbi as ncbi
-      localpath = ncbi.ftpget('genomes/README.txt')
+      localpath = ncbi.ftp_get('genomes/README.txt')
 
     Parameters:
       target : string
@@ -75,6 +76,47 @@ def ftp_get(target, avoid_collision=False, outdir=GlobalConfig['cache']):
     # Return pandas object
     return outfile
 
+# List files in ftp directory
+def ftp_ls(targets):
+    '''
+    List contents of an FTP directory.
+
+    Usage:
+      from rotifer.db.ncbi import ftp
+      contents = ftp.ftp_ls('genomes')
+
+    Parameters:
+      target : (list of) string(s)
+        Path of one or more diretory(ies)
+
+    Returns:
+      Pandas DataFrame
+    '''
+    from rotifer.db.ncbi import NcbiConfig
+    import pandas as pd
+
+    # Connect if necessary
+    ftp = FTP(NcbiConfig['ftpserver'])
+    ftp.login()
+
+    # Process targets
+    d = []
+    if not (isinstance(targets,list) or isinstance(targets,tuple)):
+        targets = [targets]
+    for target in targets:
+        try:
+            for x in ftp.mlsd(target):
+                if x[0] == "." or x[0] == "..":
+                    continue
+                x[1]["target"] = target
+                x[1]["name"] = x[0]
+                d.append(x[1])
+        except:
+            print(f'''Could not retrive list for directory {target} at the NCBI's FTP site.''')
+            continue
+    d = pd.DataFrame(d)
+    return d
+
 # Load NCBI assembly reports
 def ftp_open(target,  mode='rt', avoid_collision=True, delete=True, cache=GlobalConfig['cache']):
     '''
@@ -114,9 +156,50 @@ def ftp_open(target,  mode='rt', avoid_collision=True, delete=True, cache=Global
     # Return pandas object
     return outfh
 
-# Is this library being used as a script?
-if __name__ == '__main__':
-    pass
+def open_genome(accession, assembly_reports=None, cache=GlobalConfig['cache']):
+    """
+    Open the GBFF file of a genome hosted at NCBI's FTP site.
+    """
+    path = _genome_path(accession, assembly_reports=assembly_reports)
+    if path:
+        return ftp_open(path,  mode='rt', avoid_collision=True, delete=True, cache=cache)
+    else:
+        return None
+
+def _genome_path(accession, assembly_reports=None):
+    from rotifer.db.ncbi import NcbiConfig
+    path = None
+
+    # Extract genome path from assembly reports
+    if isinstance(assembly_reports, pd.DataFrame) and not assembly_reports.empty:
+        path = assembly_reports.query(f'assembly == "{accession}"').ftp_path.iloc[0]
+        path = path.replace(f'ftp://{NcbiConfig["ftpserver"]}','')
+
+    # Retrieve genome path for newest version
+    else:
+        path = accession.replace("GCF_","").replace("GCA_","")
+        path = path.split(".")[0]
+        path = "/".join([ path[i : i + 3] for i in range(0, len(path), 3) ])
+        path = f'/genomes/all/{accession[0:3]}/{path}'
+        path = ftp_ls(path)
+        if path.empty:
+            return None
+        path = path.query('type == "dir"')
+        path = path.sort_values(['modify'], ascending=False).iloc[0]
+        path = path.target + "/" + path['name']
+
+    # Retrieve GBFF path
+    if not path:
+        return None
+    path = ftp_ls(path)
+    if path.empty:
+        return None
+    path = path[path['name'].str.contains(".gbff.gz")]
+    if path.empty:
+        return None
+    path = (path.target + "/" + path['name']).iloc[0]
+    return path
+
 def _hook_compressed_text(filename, mode='r', encoding='utf8'):
     ext = os.path.splitext(filename)[1]
     if (mode == 'r') or not mode:
@@ -130,5 +213,6 @@ def _hook_compressed_text(filename, mode='r', encoding='utf8'):
     else:
         return open(filename, mode, encoding=encoding)
 
+# Is this library being used as a script?
 if __name__ == '__main__':
     pass

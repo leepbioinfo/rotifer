@@ -1,0 +1,20 @@
+colname	value	order	vorder
+version_status	latest	1	1
+version_status	suppressed	1	3
+version_status	replaced	1	2
+refseq_category	reference genome	2	4
+refseq_category	representative genome	2	5
+refseq_category	na	2	6
+source	refseq	3	7
+source	genbank	3	8
+source	refseq_historical	3	10
+source	genbank_historical	3	9
+genome_rep	Full	4	11
+genome_rep	Partial	4	12
+assembly_level	Chromosome	5	14
+assembly_level	Scaffold	5	15
+assembly_level	Complete Genome	5	13
+assembly_level	Contig	5	16
+release_type	Major	6	17
+release_type	Patch	6	18
+release_type	Minor	6	19

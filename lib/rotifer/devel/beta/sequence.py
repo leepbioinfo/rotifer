@@ -654,7 +654,7 @@ class sequence:
                 else:
                     # Try using pdb_file as URL
                     import urllib
-                    pdb_data = urllib.request.urlopen(pdb).read()
+                    pdb_data = urllib.request.urlopen(pdb_file).read()
                     pdb_file = tempfile.NamedTemporaryFile(suffix=".pdb", delete=True)
                     pdb_file.write(pdb_data)
                     pdb_file.flush()

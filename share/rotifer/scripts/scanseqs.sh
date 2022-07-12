@@ -41,14 +41,14 @@ ln -s ${target}.pfam.hmmscan.arch.tsv ${target}.pfam.scan.arch.tsv
 
 # Aravind: hmmscan
 cut -f1 -d " " ${input} \
-| parallel --pipe -N1 -j36 --recstart '>' hmmscan --cpu 1 /databases/profiledb/hmmer/aravinddb - \
+| parallel --pipe -N1 -j36 --recstart '>' hmmscan --cpu 1 /databases/profiledb/hmmer/aravindDB.hmm - \
 > ${target}.aravind.hmmscan.out \
 2> ${target}.aravind.hmmscan.err
 hmmer2table -c model=version ${target}.aravind.hmmscan.out > ${target}.aravind.hmmscan.tsv
 
 # Aravind: rpsblast
 cut -f1 -d " " ${input} \
-| parallel -N1 -j36 --pipe --recstart '>' rpsblast -db /databases/profiledb/rpsdb/aravinddb \
+| parallel -N1 -j36 --pipe --recstart '>' rpsblast -db /databases/profiledb/rpsdb/allprofiles \
 > ${target}.aravind.rpsblast.out \
 2> ${target}.aravind.rpsblast.err
 cat ${target}.aravind.rpsblast.out \

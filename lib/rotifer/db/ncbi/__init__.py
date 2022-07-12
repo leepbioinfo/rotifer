@@ -26,6 +26,7 @@ import numpy as np
 
 # Load NCBI configuration
 import socket
+from rotifer import GlobalConfig
 from rotifer.core.functions import loadConfig as loadConfig
 NcbiConfig = loadConfig(__name__.replace("rotifer.",":"))
 if 'email' not in NcbiConfig:
@@ -38,8 +39,9 @@ else:
     NcbiConfig['api_key'] = None
 
 # Import submodules
+from rotifer.core.functions import findDataFiles
 from rotifer.db.ncbi.ncbi import ncbi
-from .ftp import *
+from . import ftp
 from .entrez import *
 
 # Controlling what can be exported with *
@@ -49,18 +51,28 @@ from .entrez import *
 #
 # Note: to avoid exposing a function when * is used
 # its name should start with a _
-__all__ = [
-        'assembly_reports',
-        'neighbors',
-        'ftp_get',
-        'ftp_open',
-        'elink',
-        ]
+#__all__ = [
+#        'assemblies',
+#        'neighbors',
+#        'elink',
+#        ]
 
 # FUNCTIONS
 
 # Gather neighbors of target genes by gene or gene product identifier
-def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_type=['source','gene'], tries=1, verbose=0, *args, **kwargs):
+def neighbors(
+        query=[],
+        column='pid',
+        assembly_reports=None,
+        ipgs=None,
+        eukaryotes=False,
+        exclude_type=['source','gene'],
+        save=None,
+        replace=True,
+        tries=1,
+        verbose=0,
+        *args, **kwargs
+        ):
     """
     Fetch gene neighborhoods directly from NCBI.
 
@@ -118,8 +130,18 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
              Make sure it has the same colums as named
              by the ipg method in rotifer.db.ncbi.read
 
+      eukaryotes : boolean, default False
+        If set to True, neighborhood data for eukaryotic genomes
+        will also be downloaded and processed
+
       exclude_type : list of strings
         Exclude rows by type (column 'type')
+
+      save : string, default None
+        If set, save processed batches to the path given
+
+      replace : boolean, default True
+        When save is set, whether to replace that file
 
       tries : integer
         Number of attempts to download data
@@ -139,7 +161,17 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
     if not "min_block_id" in kwargs:
         kwargs["min_block_id"] = 1
 
-    # Prepare a rotifer.db.ncbi object
+    # Remove output file
+    processed = {} # List of assembies/nucleotides already processed
+    olddf = pd.DataFrame()
+    if save and os.path.exists(save):
+        if replace: 
+            os.remove(save)
+        else:
+            olddf = pd.read_csv(save, sep="\t")
+            processed = olddf.assembly.to_frame().eval("k = True").set_index("assembly").k.to_dict()
+
+    # Make sure input is a list
     if not isinstance(query,list):
         if isinstance(query, pd.Series):
             query = query.tolist()
@@ -148,16 +180,7 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
 
     # Fetch assembly reports
     if not isinstance(assembly_reports,pd.DataFrame) or assembly_reports.empty:
-        attempt = 0
-        while attempt < tries:
-            try:
-                assembly_reports = assemblies(verbose=verbose)
-                attempt = tries + 1
-            except:
-                if verbose > 0:
-                    msg = f'{__fn}: Failed to download assembly reports, {tries - attempt - 1} attempts left. Error: '
-                    print(msg + str(sys.exc_info()[0]), file=sys.stderr)
-                attempt += 1
+        assembly_reports = assemblies(verbose=verbose)
         if not isinstance(assembly_reports,pd.DataFrame) or assembly_reports.empty:
             if verbose > 0:
                 print(f'{__fn}: Failed to download assembly reports after {attempt} attempts.', file=sys.stderr)
@@ -176,26 +199,24 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
         if verbose > 0:
             print(f'{__fn}: No query was found in {len(ipgs.id.unique())} IPGs. Queries: {query}', file=sys.stderr)
         yield pd.DataFrame() # At his point, I can't handle missing IPGs for real NCBI protein accessions: fix using elink or efetch
-    ipgs = ipgs[ipgs.id.isin(selected)]
+    selected = ipgs[ipgs.id.isin(selected)]
 
-    # Select best genomes per target: needs improvement!!!!!
-    #
-    # This code selects only one assembly per genome: identical
-    # sequences will not be ignored!
-    #
-    # See Aureliano's code for better way (rotifer.db.ncbi.read.ipg)
-    replaced = pd.Series(ipgs.representative.values, index=ipgs.pid).to_dict()
-    in_ipg = set(ipgs.pid).union(set(ipgs.representative))
+    # Select best genomes per target
+    replaced = pd.Series(selected.representative.values, index=selected.pid).to_dict()
+    in_ipg = set(selected.pid).union(set(selected.representative))
     found = set(query).intersection(in_ipg)
     missing = set(query) - found
-    ipgs.sort_values(['id','order'], inplace=True)
-    selected = ipgs.drop_duplicates(['id'], keep='first', ignore_index=True)
+    selected = best_ipgs(selected, assembly_reports=assembly_reports, eukaryotes=eukaryotes)
+    #selected['has_assembly'] = selected.assembly.isna().astype(int)
+    #selected.sort_values(['id','has_assembly','order'], inplace=True)
+    #selected = selected.drop_duplicates(['id'], keep='first', ignore_index=True)
     if verbose > 0:
-        print(f'{__fn}: {len(found)} queries were found in {len(selected.id.unique())} IPGs. Found: {found}, missing: {missing}', file=sys.stderr)
+        print(f'{__fn}: {len(found)} queries were found in {len(selected.id.unique())} IPGs, {len(missing} queries missing.', file=sys.stderr)
 
     # Download assemblies from NCBI's FTP site and process each of them
     failed = True
     pos = pd.Series(range(0,len(selected)))
+    ngenomes = selected.assembly.nunique(dropna=True) + selected.query('assembly.isna()').nucleotide.nunique(dropna=True)
     for s in pos:
         # Fetching next batch
         row = selected.iloc[s]
@@ -204,12 +225,18 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
             acc = row.nucleotide
             if pd.isna(acc):
                 continue # No solution yet for IPGs without nucleotides
+            elif acc in processed:
+                continue
             else:
-                ndf = SeqIO.parse(Entrez.efetch(db="nucleotide", rettype="gbwithparts", retmode="text", id=acc),"genbank")
+                ndf = Entrez.efetch(db="nucleotide", rettype="gbwithparts", retmode="text", id=acc)
+        elif acc in processed:
+            continue
         else:
-            ndf = ncbi(acc).parse('genomes', assembly_reports=assembly_reports)
+            ndf = ftp.open_genome(acc, assembly_reports=assembly_reports)
+            #ndf = ncbi(acc).parse('genomes', assembly_reports=assembly_reports)
 
         # Parsing
+        ndf = SeqIO.parse(ndf,"genbank")
         try:
             ndf = seqrecords_to_dataframe(ndf, exclude_type=exclude_type)
         except:
@@ -247,6 +274,20 @@ def neighbors(query=[], column='pid', assembly_reports=None, ipgs=None, exclude_
             kwargs['min_block_id'] = 1
         if not ndf.empty:
             failed = False
+
+        # Register, save and return current batch
+        processed[acc] = True
+        done = len(processed)
+        if verbose > 0 and ((done % 1000 == 0) or (done == 1)):
+            print(f'{__fn}: {len(processed)} genomes processed, {ngenomes-done} to go, total: {ngenomes}.', file=sys.stderr)
+        if save:
+            if os.path.exists(save):
+                ndf.to_csv(save, sep="\t", header=False, index=False, mode="a")
+            else:
+                ndf.to_csv(save, sep="\t", index=False)
+            if not olddf.empty:
+                ndf = pd.concat([olddf,ndf])
+                olddf = pd.DataFrame()
         yield ndf
 
     # I tried everything and found no queries in the target genomes
@@ -311,7 +352,8 @@ def assemblies(baseurl=f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASSEMBLY_REPORT
         _['loaded_from'] = url
         df.append(_)
         if verbose:
-            logger.info(f'{__name__}: {url}, {len(_)} rows, {len(df)} loaded')
+            print(f'{__name__}: {url}, {len(_)} rows, {len(df)} loaded', file=sys.stderr)
+            #logger.info(f'{__name__}: {url}, {len(_)} rows, {len(df)} loaded')
     df = pd.concat(df, ignore_index=True)
     if verbose:
         print(f'{__name__}: loaded {len(df)} assembly summaries.', file=sys.stderr)
@@ -335,6 +377,62 @@ def assemblies(baseurl=f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASSEMBLY_REPORT
     if verbose:
         logger.info(f'main: {len(df)} assembly reports loaded!')
     return df
+
+def best_ipgs(ipgs, assembly_reports=None, eukaryotes=False, criteria=findDataFiles(':db.ncbi.criteria.tsv')[0], verbose=True):
+    """
+    Select best IPGs based on genome quality.
+    """
+    # Filter assembly_reports
+    if ipgs.assembly.notna().any():
+        if not isinstance(assembly_reports,pd.DataFrame) or assembly_reports.empty:
+            assembly_reports = assemblies(taxonomy=True, verbose=verbose)
+        assembly_reports = assembly_reports[assembly_reports.assembly.isin(ipgs.assembly.dropna())]
+        assembly_reports.excluded_from_refseq = assembly_reports.excluded_from_refseq.notna().astype(int)
+
+        # Load criteria
+        if not isinstance(criteria, pd.DataFrame):
+            criteria = pd.read_csv(criteria, sep="\t")
+        value_to_order = criteria.filter(["value", "vorder"]).set_index("value").vorder.to_dict()
+        cols = criteria.sort_values(["order", "vorder"]).colname.drop_duplicates().to_list()
+        if 'excluded_from_refseq' in cols:
+            cols = [ x for x in cols if x != "excluded_from_refseq" ]
+        assembly_reports = assembly_reports.filter(['assembly','excluded_from_refseq','superkingdom','domain'] + cols)
+
+    # IPG statistics
+    tmp = ipgs.query('assembly.notna()').groupby("assembly").agg(aid=('id','nunique')).reset_index()
+    ga = ipgs[['id','assembly','nucleotide']].merge(tmp, on='assembly', how='left')
+    tmp = ipgs.query('nucleotide.notna()').groupby("nucleotide").agg(nid=('id','nunique')).reset_index()
+    ga = ga.merge(tmp, on='nucleotide', how='left')
+    ga.aid = ga.aid.fillna(0).astype(int)
+    ga.nid = ga.nid.fillna(0).astype(int)
+
+    # Assembly data
+    if ipgs.assembly.notna().any():
+        ga = ga.merge(assembly_reports, on="assembly", how="left")
+        ga[cols] = ga[cols].replace(value_to_order)
+        sorting = [True, True, False, False] + len(cols) * [True]
+        cols = ["id", "excluded_from_refseq", "aid", "nid"] + cols
+    else:
+        sorting = [True, False, False]
+        cols = ["id", "aid", "nid"]
+
+    # Find best genomes
+    ga.sort_values(cols, ascending=sorting, inplace=True)
+    ga = ga.drop_duplicates("id", keep="first", ignore_index=True)
+
+    # Drop eukaryotes
+    if not eukaryotes:
+        if 'superkingdom' in ga.columns:
+            ga = ga[ga.superkingdom != "Eukaryota"]
+        elif 'domain' in ga.columns:
+            ga = ga[ga.domain != "Eukaryota"]
+
+    # Apply choices
+    ga = ipgs.merge(ga.filter(["id", "assembly","nucleotide"]), on=['id','assembly','nucleotide'], how='inner')
+    ga.sort_values(['id','order'], ascending=True, inplace=True)
+    ga.drop_duplicates("id", keep="first", ignore_index=True, inplace=True)
+    ga = ga[ga.assembly.notna() | ga.nucleotide.notna()]
+    return ga
 
 # END
 if __name__ == '__main__':
