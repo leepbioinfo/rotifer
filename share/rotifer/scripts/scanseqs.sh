@@ -41,7 +41,7 @@ ln -s ${target}.pfam.hmmscan.arch.tsv ${target}.pfam.scan.arch.tsv
 
 # Aravind: hmmscan
 cut -f1 -d " " ${input} \
-| parallel --pipe -N1 -j36 --recstart '>' hmmscan --cpu 1 /databases/profiledb/hmmer/aravindDB.hmm - \
+| parallel --pipe -N1 -j36 --recstart '>' hmmscan --cpu 1 /databases/profiledb/hmmdb/aravindDB.hmm - \
 > ${target}.aravind.hmmscan.out \
 2> ${target}.aravind.hmmscan.err
 hmmer2table -c model=version ${target}.aravind.hmmscan.out > ${target}.aravind.hmmscan.tsv

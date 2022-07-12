@@ -170,6 +170,7 @@ def neighbors(
         else:
             olddf = pd.read_csv(save, sep="\t")
             processed = olddf.assembly.to_frame().eval("k = True").set_index("assembly").k.to_dict()
+            kwargs["min_block_id"] = processed.block_id.max() + 1
 
     # Make sure input is a list
     if not isinstance(query,list):
