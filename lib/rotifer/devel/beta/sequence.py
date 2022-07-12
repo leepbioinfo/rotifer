@@ -1058,6 +1058,53 @@ class sequence:
                 df.sequence = df.sequence.str.pad(df.sequence.str.len().max(), side="right")
             page(df.to_string(index=False))
 
+    def hhblits(self, databases=['pdb70','pfam'], database_path=os.path.join(os.environ['ROTIFER_DATA'],"hhsuite"), view=True):
+        """
+        Search the alignment against a HMM databases using hhsearch.
+
+        Parameters
+        ----------
+        databases : list of strings, default ['pfam','pdb70']
+            List of HMM databases to include in the search
+        database_path : string, default is ROTIFER_DATA/hhsuite
+            Path to the directory where the HMM databases are stored
+        view : bool, default True
+
+        Returns
+        -------
+            A tuple of two elements:
+            - The HHblits output as a string
+            - HHblits output as a Pandas DataFrame
+              See rotifer.io.hhsuite
+
+        See also
+        --------
+            rotifer environment configuration
+
+        Examples
+        --------
+        Load alignment in multi-FASTA format and compare it to Pfam
+
+        >>> aln = sequence("myaln.aln")
+        >>> (hhout,hhdf) = aln.hhblits(databases=['pfam'])
+        """
+        import tempfile
+        from subprocess import Popen, PIPE, STDOUT
+        from rotifer.io.hhsuite import read_hhr
+
+        dbs = " ".join([ " -d " + os.path.join(database_path, x) for x in databases ])
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            self.to_file(f'{tmpdirname}/seqaln')
+            child = f'hhblits -i {tmpdirname}/seqaln {dbs} -M 50 -cpu 18 -o {tmpdirname}/seqaln.hhr'
+            child = Popen(child, stdout=PIPE,shell=True).communicate()
+            hhtable = read_hhr(f'{tmpdirname}/seqaln.hhr')
+            with open(f'{tmpdirname}/seqaln.hhr') as f:
+                hhr_result = f.read()
+            if view:
+                from IPython.core.page import page
+                page(hhr_result)
+            return (hhr_result, hhtable)
+
     def hhsearch(self, databases=['pdb70','pfam'], database_path=os.path.join(os.environ['ROTIFER_DATA'],"hhsuite"), view=True):
         """
         Search the alignment against a HMM databases using hhsearch.

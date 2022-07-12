@@ -12,16 +12,17 @@ def load_seq_scan(name, folder):
 
 
 def cluster2aln(group_cluster,df,esl_index_file, grouper='c80e3', redundancy_cluster='c80i70', fast=True, query=False):
+    import os
     import tempfile
     from subprocess import Popen,PIPE
     from rotifer.devel.beta.sequence import sequence
-    
     with tempfile.TemporaryDirectory() as tmpdirname:
         if query:
             df.query(query)[redundancy_cluster].drop_duplicates().dropna().to_csv(f'{tmpdirname}/accs', index=None, header=None)
         else:
             df[df[grouper]  == group_cluster][redundancy_cluster].drop_duplicates().dropna().to_csv(f'{tmpdirname}/accs', index=None, header=None)
-
+        if not os.path.exists(esl_index_file+'.ssi'):
+            Popen(f'esl-sfetch --index {esl_index_file}',stdout=PIPE, shell=True).communicate()
         Popen(f'esl-sfetch -f {esl_index_file} {tmpdirname}/accs > {tmpdirname}/accs.fa',stdout=PIPE, shell=True).communicate()
         b = sequence(f'{tmpdirname}/accs.fa').realign(fast=fast)
         return b
