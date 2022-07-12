@@ -212,7 +212,7 @@ def neighbors(
     #selected.sort_values(['id','has_assembly','order'], inplace=True)
     #selected = selected.drop_duplicates(['id'], keep='first', ignore_index=True)
     if verbose > 0:
-        print(f'{__fn}: {len(found)} queries were found in {len(selected.id.unique())} IPGs, {len(missing} queries missing.', file=sys.stderr)
+        print(f'{__fn}: {len(found)} queries were found in {len(selected.id.unique())} IPGs, {len(missing)} queries missing.', file=sys.stderr)
 
     # Download assemblies from NCBI's FTP site and process each of them
     failed = True
