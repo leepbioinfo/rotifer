@@ -181,7 +181,7 @@ def neighbors(
 
     # Fetch assembly reports
     if not isinstance(assembly_reports,pd.DataFrame) or assembly_reports.empty:
-        assembly_reports = assemblies(verbose=verbose)
+        assembly_reports = assemblies(verbose=verbose, taxonomy=True)
         if not isinstance(assembly_reports,pd.DataFrame) or assembly_reports.empty:
             if verbose > 0:
                 print(f'{__fn}: Failed to download assembly reports after {attempt} attempts.', file=sys.stderr)
