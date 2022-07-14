@@ -1239,7 +1239,7 @@ class sequence:
             a3 = pd.Series(list(jnet.loc[1, 'b'])).rename('conf')
             a4 = pd.Series(list(result.df.query('id == @query').iloc[0,1]))
             a5 = a1.join(a2).join(a3).set_index('index')
-            a6 = pd.concat([a4, a5], axis = 1).fillna(' ').sum().reset_index()
+            a6 = pd.concat([a5,a4], axis = 1).fillna(' ').sum().reset_index()
             a6.columns = ['id', 'sequence']
             a6['type'] = 'structure prediction'
 
