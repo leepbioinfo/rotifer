@@ -1207,6 +1207,7 @@ class sequence:
         import re
         from subprocess import Popen, PIPE, STDOUT, check_output
         import os
+        import io
         
         if not email:
             from rotifer.db.ncbi import NcbiConfig
