@@ -1,11 +1,12 @@
 import os
+import sys
 import logging
 import pandas as pd
 from ftplib import FTP
 from rotifer.core import GlobalConfig
 
 # Load NCBI assembly reports
-def ftp_get(target, avoid_collision=False, outdir=GlobalConfig['cache']):
+def ftp_get(target, avoid_collision=False, outdir=GlobalConfig['cache'], verbose=None):
     '''
     Download a file from the NCBI's FTP site.
 
@@ -28,9 +29,16 @@ def ftp_get(target, avoid_collision=False, outdir=GlobalConfig['cache']):
     from rotifer.db.ncbi import NcbiConfig
 
     # Set log format
-    logger = logging.getLogger('rotifer.db.ncbi.ftp')
-    logger.setLevel(logging.DEBUG)
-    logger.info(f'main: downloading files from {NcbiConfig["ftpserver"]}')
+    logger = logging.getLogger(f'{__name__}.ftp_get')
+    shandler = logging.StreamHandler(sys.stderr)
+    formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s : %(message)s")
+    shandler.setFormatter(formatter)
+    logger.addHandler(shandler)
+    if verbose:
+        logger.setLevel(getattr(logging,verbose))
+    else:
+        logger.setLevel(logging.ERROR)
+    logger.debug(f'fetching {NcbiConfig["ftpserver"]}{target}')
 
     # Connect if necessary
     ftp = FTP(NcbiConfig['ftpserver'])
@@ -74,6 +82,7 @@ def ftp_get(target, avoid_collision=False, outdir=GlobalConfig['cache']):
     outfh.close()
 
     # Return pandas object
+    logger.debug(f'downloaded {NcbiConfig["ftpserver"]}{target}')
     return outfile
 
 # List files in ftp directory
@@ -118,7 +127,7 @@ def ftp_ls(targets):
     return d
 
 # Load NCBI assembly reports
-def ftp_open(target,  mode='rt', avoid_collision=True, delete=True, cache=GlobalConfig['cache']):
+def ftp_open(target,  mode='rt', avoid_collision=True, delete=True, cache=GlobalConfig['cache'], verbose=None):
     '''
     Open a file stored at the NCBI FTP site.
 
@@ -150,30 +159,43 @@ def ftp_open(target,  mode='rt', avoid_collision=True, delete=True, cache=Global
       file is accessed by `open()`.
     '''
     from tempfile import _TemporaryFileWrapper
-    outfile = ftp_get(target, outdir=cache, avoid_collision=avoid_collision)
+    outfile = ftp_get(target, outdir=cache, avoid_collision=avoid_collision, verbose=verbose)
     outfh = _TemporaryFileWrapper(_hook_compressed_text(outfile, mode), outfile, delete)
 
     # Return pandas object
     return outfh
 
-def open_genome(accession, assembly_reports=None, cache=GlobalConfig['cache']):
+def open_genome(accession, assembly_reports=None, cache=GlobalConfig['cache'], tries=3, verbose=None):
     """
     Open the GBFF file of a genome hosted at NCBI's FTP site.
     """
+    import rotifer.core.functions as rcf
     path = _genome_path(accession, assembly_reports=assembly_reports)
-    if path:
-        return ftp_open(path,  mode='rt', avoid_collision=True, delete=True, cache=cache)
+    if len(path) > 0:
+        md5 = pd.read_csv(ftp_open("/".join([path[0],"md5checksums.txt"])), sep=' +', names=['md5','filename'])
+        md5 = md5[md5.filename.str.contains('_genomic.gbff.gz')].md5.iloc[0]
+        gz = None
+        gzmd5 = None
+        attempt = 1
+        while md5 != gzmd5 and attempt < tries:
+            gz = ftp_open("/".join(path),  mode='rt', avoid_collision=True, delete=True, cache=cache, verbose=verbose)
+            gzmd5 = rcf.md5(gz.name)
+            if md5 == gzmd5:
+                break
+            attempt += 1
+        return gz
     else:
         return None
 
 def _genome_path(accession, assembly_reports=None):
     from rotifer.db.ncbi import NcbiConfig
-    path = None
+    path = ()
 
     # Extract genome path from assembly reports
     if isinstance(assembly_reports, pd.DataFrame) and not assembly_reports.empty:
         path = assembly_reports.query(f'assembly == "{accession}"').ftp_path.iloc[0]
         path = path.replace(f'ftp://{NcbiConfig["ftpserver"]}','')
+        path = (path,os.path.basename(path) + "_genomic.gbff.gz")
 
     # Retrieve genome path for newest version
     else:
@@ -188,16 +210,17 @@ def _genome_path(accession, assembly_reports=None):
         path = path.sort_values(['modify'], ascending=False).iloc[0]
         path = path.target + "/" + path['name']
 
-    # Retrieve GBFF path
-    if not path:
-        return None
-    path = ftp_ls(path)
-    if path.empty:
-        return None
-    path = path[path['name'].str.contains(".gbff.gz")]
-    if path.empty:
-        return None
-    path = (path.target + "/" + path['name']).iloc[0]
+        # Retrieve GBFF path
+        if not path:
+            return None
+        path = ftp_ls(path)
+        if path.empty:
+            return None
+        path = path[path['name'].str.contains(".gbff.gz")]
+        if path.empty:
+            return None
+        path = (path.target.iloc[0], path['name'].iloc[0])
+
     return path
 
 def _hook_compressed_text(filename, mode='r', encoding='utf8'):

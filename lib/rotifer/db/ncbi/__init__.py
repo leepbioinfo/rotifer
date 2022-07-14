@@ -42,7 +42,7 @@ else:
 from rotifer.core.functions import findDataFiles
 from rotifer.db.ncbi.ncbi import ncbi
 from . import ftp
-from .entrez import *
+from . import entrez 
 
 # Controlling what can be exported with *
 #
@@ -237,8 +237,8 @@ def neighbors(
             #ndf = ncbi(acc).parse('genomes', assembly_reports=assembly_reports)
 
         # Parsing
-        ndf = SeqIO.parse(ndf,"genbank")
         try:
+            ndf = SeqIO.parse(ndf,"genbank")
             ndf = seqrecords_to_dataframe(ndf, exclude_type=exclude_type)
         except:
             if verbose > 0:
