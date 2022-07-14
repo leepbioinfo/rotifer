@@ -1199,7 +1199,45 @@ class sequence:
         result.numerical.columns = ['type'] + list(range(1,len(columns_to_keep)+1)) + list(other)
         result._reset()
         return result
+    def add_jpred(self, email=False):
+        import tempfile
+        import re
+        from subprocess import Popen, PIPE, STDOUT, check_output
+        import os
+        
+        if not email:
+            from rotifer.db.ncbi import NcbiConfig
+            email = NcbiConfig['email']
+        
+        result = self.copy()
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            cd = os.getcwd()
+            os.chdir(tmpdirname)
+            self.to_file('seqaln')
+            child = f'jpredapi submit mode=msa format=fasta email={email} file=seqaln name=rotifer'
+            child = check_output(child, shell=True).decode()
+            match = re.findall(f'jobid=(.+?)\s', child, re.DOTALL)[0]
+            child = f'jpredapi status jobid={match} getResults=yes checkEvery=10'
+            child = Popen(child, stdout=PIPE,shell=True).communicate()
+            with tarfile.open(f'{match}/{match}.tar.gz', 'r:gz') as tar:
+                ss_file = tar.getmember(f'{match}.jnet')
+                query_file = tar.getmember(f'{match}.msf.query')
+                jnet = pd.read_csv(io.BytesIO(tar.extractfile(ss_file).read()), sep=":", names = ['a', 'b'])
+                query = tar.extractfile(query_file).read()
+                query = re.findall('>(.+?)\n', query.decode(), re.DOTALL)[0]
+            
+            os.chdir(cd)
+            jnet = jnet.iloc[0:2,:]
+            jnet.b = jnet.b.str.replace(',', '')
+            jnet.iloc[0,1] = jnet.query('a  == "jnetpred"').iloc[0,1].replace(',', '').replace('E', '>').replace('H', '∞')
+            g = pd.concat([pd.Series(list(result.df.query('id ==@query').iloc[0,1])).where(lambda x: x !='-').dropna().rename('seq').reset_index().join(pd.Series(list(jnet.loc[0, 'b'])).rename('jnet')).join(pd.Series(list(jnet.loc[1, 'b'])).rename('conf')).set_index('index'), pd.Series(list(s.df.iloc[0,1]))], axis=1).fillna(' ').sum().rename('sequence').to_frame().reset_index()
+            g.columns = ['id', 'sequence']
+            g['type'] = 'structure prediction'
+            result.df = pd.concat([g.iloc[1:3,:],result.df])
 
+            return result
+        
+        
     ## Class methods
 
     @classmethod
