@@ -1200,6 +1200,9 @@ class sequence:
         result._reset()
         return result
     def add_jpred(self, email=False):
+        ''' Function to add secondary structure from the Jpred server
+        '''
+        import tarfile
         import tempfile
         import re
         from subprocess import Popen, PIPE, STDOUT, check_output
