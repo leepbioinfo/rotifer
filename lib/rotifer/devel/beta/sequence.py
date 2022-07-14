@@ -1200,7 +1200,11 @@ class sequence:
         result._reset()
         return result
     def add_jpred(self, email=False):
-        ''' Function to add secondary structure from the Jpred server
+        ''' 
+        Function to add secondary structure from the Jpred server
+        ∞ = Alpha helix
+        > = Beta strand
+        - = Turn
         '''
         import tarfile
         import tempfile
