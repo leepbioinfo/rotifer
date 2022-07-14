@@ -1234,10 +1234,16 @@ class sequence:
             jnet = jnet.iloc[0:2,:]
             jnet.b = jnet.b.str.replace(',', '')
             jnet.iloc[0,1] = jnet.query('a  == "jnetpred"').iloc[0,1].replace(',', '').replace('E', '>').replace('H', '∞')
-            g = pd.concat([pd.Series(list(result.df.query('id ==@query').iloc[0,1])).where(lambda x: x !='-').dropna().rename('seq').reset_index().join(pd.Series(list(jnet.loc[0, 'b'])).rename('jnet')).join(pd.Series(list(jnet.loc[1, 'b'])).rename('conf')).set_index('index'), pd.Series(list(result.df.query('id ==@query').iloc[0,1]))], axis=1).fillna('-').sum().rename('sequence').to_frame().reset_index()
-            g.columns = ['id', 'sequence']
-            g['type'] = 'structure prediction'
-            result.df = pd.concat([g.iloc[1:3,:],result.df])
+            a1 = pd.Series(list(result.df.query('id ==@query').iloc[0,1])).where(lambda x: x !='-').dropna().rename('seq').reset_index()
+            a2 = pd.Series(list(jnet.loc[0, 'b'])).rename('jnet')
+            a3 = pd.Series(list(jnet.loc[1, 'b'])).rename('conf')
+            a4 = pd.Series(list(result.df.query('id == @query').iloc[0,1]))
+            a5 = a1.join(a2).join(a3).set_index('index')
+            a6 = pd.concat([a4, a5], axis = 1).fillna(' ').sum().reset_index()
+            a6.columns = ['id', 'sequence']
+            a6['type'] = 'structure prediction'
+
+            result.df = pd.concat([a6.iloc[1:3,:],result.df])
 
             return result
         
