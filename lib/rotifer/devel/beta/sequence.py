@@ -1199,6 +1199,7 @@ class sequence:
         result.numerical.columns = ['type'] + list(range(1,len(columns_to_keep)+1)) + list(other)
         result._reset()
         return result
+
     def add_jpred(self, email=False):
         ''' 
         Function to add secondary structure from the Jpred server
@@ -1212,11 +1213,11 @@ class sequence:
         from subprocess import Popen, PIPE, STDOUT, check_output
         import os
         import io
-        
+
         if not email:
             from rotifer.db.ncbi import NcbiConfig
             email = NcbiConfig['email']
-        
+
         result = self.copy()
         with tempfile.TemporaryDirectory() as tmpdirname:
             cd = os.getcwd()
@@ -1233,7 +1234,7 @@ class sequence:
                 jnet = pd.read_csv(io.BytesIO(tar.extractfile(ss_file).read()), sep=":", names = ['a', 'b'])
                 query = tar.extractfile(query_file).read()
                 query = re.findall('>(.+?)\n', query.decode(), re.DOTALL)[0]
-            
+
             os.chdir(cd)
             jnet = jnet.iloc[0:2,:]
             jnet.b = jnet.b.str.replace(',', '')
@@ -1250,8 +1251,7 @@ class sequence:
             result.df = pd.concat([a6.iloc[2:4,:],result.df])
 
             return result
-        
-        
+
     ## Class methods
 
     @classmethod
