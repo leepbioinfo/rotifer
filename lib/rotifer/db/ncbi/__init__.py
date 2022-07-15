@@ -41,8 +41,6 @@ else:
 # Import submodules
 from rotifer.core.functions import findDataFiles
 from rotifer.db.ncbi.ncbi import ncbi
-from . import ftp
-from . import entrez 
 
 # Controlling what can be exported with *
 #
@@ -155,7 +153,9 @@ def neighbors(
     from Bio import SeqIO, Entrez
     from rotifer.db.ncbi import ncbi
     from rotifer.genome.utils import seqrecords_to_dataframe
+    from rotifer.db.ncbi.ftp import NcbiFTPCursor
     __fn = "rotifer.db.ncbi.neighbors"
+    ftp = NcbiFTPCursor()
 
     # Adjust minimum block ID
     if not "min_block_id" in kwargs:
@@ -434,6 +434,19 @@ def best_ipgs(ipgs, assembly_reports=None, eukaryotes=False, criteria=findDataFi
     ga.drop_duplicates("id", keep="first", ignore_index=True, inplace=True)
     ga = ga[ga.assembly.notna() | ga.nucleotide.notna()]
     return ga
+
+def genome(accession, assembly_reports=None, exclude_type=['source','gene'], tries=3, cache=GlobalConfig['cache'], loglevel=None):
+    """
+    Load genome annotation from the NCBI FTP site.
+    """
+    from Bio import SeqIO
+    from rotifer.genome.utils import seqrecords_to_dataframe
+    from rotifer.db.ncbi.ftp import NcbiFTPCursor
+    ftp = NcbiFTPCursor(tries=tries, loglevel=loglevel)
+    g = ftp.open_genome(accession, assembly_reports=assembly_reports, cache=cache)
+    g = SeqIO.parse(g, "genbank")
+    g = seqrecords_to_dataframe(g, exclude_type=exclude_type)
+    return g
 
 # END
 if __name__ == '__main__':

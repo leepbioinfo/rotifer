@@ -459,7 +459,7 @@ class NeighborhoodDF(pd.DataFrame):
         dflim = dflim.merge(bidlim, left_on=['assembly'], right_on=['assembly'], how='left')
         return dflim
 
-    def vicinity(self, targets=['query == 1'], before=3, after=3, min_block_distance=0, fttype='same', min_block_id=1):
+    def vicinity(self, targets=['query == 1'], before=3, after=3, min_block_distance=0, fttype='same', min_block_id=0):
         """
         Locate genomic regions that contain features selected by some criteria.
 
@@ -571,7 +571,7 @@ class NeighborhoodDF(pd.DataFrame):
                     #print("First and last are too close:\n"+blks.iloc[bidminIndex.append(bidmaxIndex)].to_string()+"\n")
                     blks.loc[bidminIndex,'foup']     = blks.loc[bidminIndex,'fomin'] # Set foup   = fomin
                     blks.loc[bidmaxIndex,'fodown']   = blks.loc[bidmaxIndex,'fomax'] # Set fodown = fomax
-                    blks.loc[bidmaxIndex,'block_id'] = blks.loc[bidminIndex,'block_id'] # Set block_ids to be the same
+                    blks.loc[bidmaxIndex,'block_id'] = blks.loc[bidminIndex,'block_id'].to_list() # Set block_ids to be the same
                     blks.loc[bidminIndex,'origin']   = 1
                     blks.loc[bidmaxIndex,'origin']   = 1
                     circular = circular[~tooclose]
@@ -651,7 +651,7 @@ class NeighborhoodDF(pd.DataFrame):
         blks.drop_duplicates(inplace=True)
         return blks
 
-    def neighbors(self, targets=['query == 1'], before=3, after=3, min_block_distance=0, strand=None, fttype='same', min_block_id=0):
+    def neighbors(self, targets=['query == 1'], before=3, after=3, min_block_distance=0, strand=None, fttype='same', min_block_id=1):
         """
         Find sets of rows, representing genomic regions, that are located near a set of targets.
 

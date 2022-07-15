@@ -9,6 +9,9 @@ import pandas as pd
 
 # Rotifer libraries
 
+# Data
+_columns = ['nucleotide', 'start', 'end', 'strand', 'nlen', 'block_id', 'query', 'pid', 'type', 'plen', 'locus', 'seq_type', 'assembly', 'gene', 'origin', 'topology', 'product', 'organism', 'lineage', 'classification', 'feature_order', 'internal_id', 'is_fragment']
+
 def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=None, codontable='Bacterial', block_id=-1):
     '''
     Extract BioPython's SeqRecord features data to a Pandas dataframe
@@ -183,6 +186,7 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
                     'topology': topology,
                     'product': product,
                     'organism': organism,
+                    'lineage':pd.NA,
                     'classification': taxonomy,
                     'feature_order':feature_order[feature_type],
                     'internal_id':internal_id,
@@ -203,5 +207,5 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
         df = NeighborhoodDF(df, update_lineage='classification')
         return(df)
     else:
-        return(pd.DataFrame())
+        return(NeighborhoodDF(pd.DataFrame(columns=_columns)))
 
