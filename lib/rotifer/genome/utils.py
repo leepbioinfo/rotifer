@@ -145,24 +145,22 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
 
             # Feature location: check if multiple locations imply running through the origin
             origin = 0
-            if len(ft.location.parts) == 1:
-                start = ft.location.start+1
-                end = int(ft.location.end)
-                location = [[start, end]]
-            else:
-                location = []
-                for l in ft.location.parts:
-                    start = l.start+1
-                    end = int(l.end)
-                    if location:
-                        if ((end - location[-1][1]) * strand) <= 0:
-                            location.append([start,end])
-                            origin = 1
+            location = []
+            for l in ft.location.parts:
+                start = l.start+1
+                end = int(l.end)
+                if location:
+                    if ((end - location[-1][1]) * strand) <= 0:
+                        if end == nlen and location[-1][0] == 1:
+                            location.insert(-1,[start,end])
                         else:
-                            location[-1][0] = min(location[-1][0],start)
-                            location[-1][1] = max(location[-1][1],end)
+                            location.append([start,end])
+                        origin = 1
                     else:
-                        location.append([start,end])
+                        location[-1][0] = min(location[-1][0],start)
+                        location[-1][1] = max(location[-1][1],end)
+                else:
+                    location.append([start,end])
 
             # Store each location
             for l in location:
@@ -189,10 +187,10 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
                     'feature_order':feature_order[feature_type],
                     'internal_id':internal_id,
                     'is_fragment':0})
+                internal_id += 1
 
             # Increment feature counters
             feature_order[feature_type] += 1
-            internal_id += 1
 
         # Decrement block_id and last feature id
         block_id -= 1

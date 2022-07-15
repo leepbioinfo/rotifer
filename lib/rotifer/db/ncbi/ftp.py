@@ -167,7 +167,7 @@ def ftp_open(target,  mode='rt', avoid_collision=True, delete=True, cache=Global
 
 def open_genome(accession, assembly_reports=None, cache=GlobalConfig['cache'], tries=3, verbose=None):
     """
-    Open the GBFF file of a genome hosted at NCBI's FTP site.
+    Open the GBFF file of a genome from the NCBI FTP site.
     """
     import rotifer.core.functions as rcf
     path = _genome_path(accession, assembly_reports=assembly_reports)
@@ -205,20 +205,20 @@ def _genome_path(accession, assembly_reports=None):
         path = f'/genomes/all/{accession[0:3]}/{path}'
         path = ftp_ls(path)
         if path.empty:
-            return None
+            return ()
         path = path.query('type == "dir"')
         path = path.sort_values(['modify'], ascending=False).iloc[0]
         path = path.target + "/" + path['name']
 
         # Retrieve GBFF path
         if not path:
-            return None
+            return ()
         path = ftp_ls(path)
         if path.empty:
-            return None
+            return ()
         path = path[path['name'].str.contains(".gbff.gz")]
         if path.empty:
-            return None
+            return ()
         path = (path.target.iloc[0], path['name'].iloc[0])
 
     return path

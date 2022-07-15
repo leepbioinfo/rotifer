@@ -208,6 +208,7 @@ def neighbors(
     found = set(query).intersection(in_ipg)
     missing = set(query) - found
     selected = best_ipgs(selected, assembly_reports=assembly_reports, eukaryotes=eukaryotes)
+    ngenomes = selected.assembly.nunique(dropna=True) + selected.query('assembly.isna()').nucleotide.nunique(dropna=True)
     #selected['has_assembly'] = selected.assembly.isna().astype(int)
     #selected.sort_values(['id','has_assembly','order'], inplace=True)
     #selected = selected.drop_duplicates(['id'], keep='first', ignore_index=True)
@@ -217,7 +218,6 @@ def neighbors(
     # Download assemblies from NCBI's FTP site and process each of them
     failed = True
     pos = pd.Series(range(0,len(selected)))
-    ngenomes = selected.assembly.nunique(dropna=True) + selected.query('assembly.isna()').nucleotide.nunique(dropna=True)
     for s in pos:
         # Fetching next batch
         row = selected.iloc[s]

@@ -27,7 +27,6 @@ def cluster2aln(group_cluster,df,esl_index_file, grouper='c80e3', redundancy_clu
         b = sequence(f'{tmpdirname}/accs.fa').realign(fast=fast)
         return b
 
-
 def chunks(l, n):
     """Yield successive n-sized chunks from l."""
     for i in range(0, len(l), n):
@@ -56,8 +55,6 @@ def cluster_Co_occurrence(df, count='c80e3', freq_cutoff = 0.3, only_query=True,
     xxxx = xxxx.merge(andf.rename({count:'query_cluster', 'pfam':'query_pfam', 'aravind':'query_aravind'}, axis=1), how='left')
     xxxx = xxxx.merge(andf.rename({count:'neighbor_cluster', 'pfam':'neighbor_pfam', 'aravind':'neighbor_aravind'}, axis=1), how='left')
     return xxxx.query('query_freq >= @freq_cutoff')
-
-
 
 def count_series(series, normalize=False, cut_off=False, count='domain'):
     ''' 
