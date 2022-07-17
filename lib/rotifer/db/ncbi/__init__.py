@@ -454,7 +454,7 @@ def genome(accession, assembly_reports=None, exclude_type=['source','gene'], tri
     from Bio import SeqIO
     from rotifer.genome.utils import seqrecords_to_dataframe
     import rotifer.db.ncbi.ftp as ncbiftp
-    ftp = ncbiftp.cursor(tries=tries, loglevel=loglevel)
+    ftp = ncbiftp.cursor(tries=tries)
     g = ftp.open_genome(accession, assembly_reports=assembly_reports, cache=cache)
     g = SeqIO.parse(g, "genbank")
     g = seqrecords_to_dataframe(g, exclude_type=exclude_type)
