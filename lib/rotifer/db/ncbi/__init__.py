@@ -67,8 +67,9 @@ def neighbors(
         exclude_type=['source','gene'],
         save=None,
         replace=True,
-        tries=1,
-        verbose=0,
+        progress=False,
+        tries=3,
+        loglevel=None,
         *args, **kwargs
         ):
     """
@@ -141,11 +142,14 @@ def neighbors(
       replace : boolean, default True
         When save is set, whether to replace that file
 
+      progress : boolean, default False
+        Show progress bar
+
       tries : integer
         Number of attempts to download data
 
-      verbose : integer
-        Control verbosity for debugging
+      loglevel : integer or str
+        Controls verbosity for debugging
 
       Additional arguments are passed to the neighbors method
       of the rotifer.genome.data.NeighborhoodDF class
@@ -153,9 +157,9 @@ def neighbors(
     from Bio import SeqIO, Entrez
     from rotifer.db.ncbi import ncbi
     from rotifer.genome.utils import seqrecords_to_dataframe
-    from rotifer.db.ncbi.ftp import NcbiFTPCursor
+    from rotifer.db.ncbi import ftp as ncbiftp
     __fn = "rotifer.db.ncbi.neighbors"
-    ftp = NcbiFTPCursor()
+    ftp = ncbiftp.cursor(tries=tries, loglevel=loglevel)
 
     # Adjust minimum block ID
     if not "min_block_id" in kwargs:
@@ -170,7 +174,7 @@ def neighbors(
         else:
             olddf = pd.read_csv(save, sep="\t")
             processed = olddf.assembly.to_frame().eval("k = True").set_index("assembly").k.to_dict()
-            kwargs["min_block_id"] = processed.block_id.max() + 1
+            kwargs["min_block_id"] = olddf.block_id.max() + 1
 
     # Make sure input is a list
     if not isinstance(query,list):
@@ -181,15 +185,15 @@ def neighbors(
 
     # Fetch assembly reports
     if not isinstance(assembly_reports,pd.DataFrame) or assembly_reports.empty:
-        assembly_reports = assemblies(verbose=verbose, taxonomy=True)
+        assembly_reports = assemblies(verbose=True, taxonomy=True)
         if not isinstance(assembly_reports,pd.DataFrame) or assembly_reports.empty:
-            if verbose > 0:
+            if loglevel:
                 print(f'{__fn}: Failed to download assembly reports after {attempt} attempts.', file=sys.stderr)
             yield pd.DataFrame()
 
     # Fetch IPGs and discard those unrelated to the query
     if not isinstance(ipgs,pd.DataFrame):
-        ipgs = ncbi(query).read('ipg', verbose=verbose)
+        ipgs = ncbi(query).read('ipg', verbose=True)
         if ipgs.empty:
             print(f'{__fn}: failed to download IPGs for {len(query)} queries: {query}', file=sys.stderr)
             yield pd.DataFrame() # At his point, I can't handle missing IPGs for real NCBI protein accessions: fix using elink or efetch
@@ -197,7 +201,7 @@ def neighbors(
     # Make sure we only process the IPGs of our queries
     selected = ipgs[ipgs.pid.isin(query) | ipgs.representative.isin(query)].id.unique()
     if not selected.any():
-        if verbose > 0:
+        if loglevel:
             print(f'{__fn}: No query was found in {len(ipgs.id.unique())} IPGs. Queries: {query}', file=sys.stderr)
         yield pd.DataFrame() # At his point, I can't handle missing IPGs for real NCBI protein accessions: fix using elink or efetch
     selected = ipgs[ipgs.id.isin(selected)]
@@ -212,7 +216,7 @@ def neighbors(
     #selected['has_assembly'] = selected.assembly.isna().astype(int)
     #selected.sort_values(['id','has_assembly','order'], inplace=True)
     #selected = selected.drop_duplicates(['id'], keep='first', ignore_index=True)
-    if verbose > 0:
+    if loglevel:
         print(f'{__fn}: {len(found)} queries were found in {len(selected.id.unique())} IPGs, {len(missing)} queries missing.', file=sys.stderr)
 
     # Download assemblies from NCBI's FTP site and process each of them
@@ -235,33 +239,41 @@ def neighbors(
         else:
             ndf = ftp.open_genome(acc, assembly_reports=assembly_reports)
             #ndf = ncbi(acc).parse('genomes', assembly_reports=assembly_reports)
+        if ndf == None:
+            tried = (pos.values == s).sum()
+            if loglevel:
+                msg = f'{__fn}: Failed to parse accession {acc}, {tries - tried} attempts left. Error: {sys.exc_info()[0]}'
+                print(msg, file=sys.stderr)
+            if tried < tries:
+                pos.loc[pos.index.max() + 1] = s
+            continue
 
         # Parsing
         try:
             ndf = SeqIO.parse(ndf,"genbank")
             ndf = seqrecords_to_dataframe(ndf, exclude_type=exclude_type)
         except:
-            if verbose > 0:
-                msg = f'{__fn}: Failed to parse accession {acc}, {tries - pos.count(s)} attempts left. Error: '
-                print(msg + sys.exc_info()[0], file=sys.stderr)
+            if loglevel:
+                msg = f'{__fn}: Failed to parse accession {acc}, {tries - tried} attempts left. Error: {sys.exc_info()[0]}'
+                print(msg, file=sys.stderr)
             if (pos.values == s).sum() < tries:
                 pos.loc[pos.index.max() + 1] = s
             continue
 
         # Checking
         if ndf.empty:
-            if verbose > 0:
+            if loglevel:
                 print(f'{__fn}: Empty NeighborhoodDF for accession {acc}, ignoring...', file=sys.stderr)
             continue
         elif column not in ndf.columns:
-            if verbose > 0:
+            if loglevel:
                 print(f'{__fn}: NeighborhoodDF missing column {column} for accession {acc}', file=sys.stderr)
             continue
 
         # Identify queries
         select  = ndf[column].isin(in_ipg)
         if not select.any():
-            if verbose > 0:
+            if loglevel:
                 print(f'{__fn}: No matches in {acc}. Ignoring accession...', file=sys.stderr)
             continue
 
@@ -279,7 +291,7 @@ def neighbors(
         # Register, save and return current batch
         processed[acc] = True
         done = len(processed)
-        if verbose > 0 and ((done % 1000 == 0) or (done == 1)):
+        if loglevel and ((done % 1000 == 0) or (done == 1)):
             print(f'{__fn}: {len(processed)} genomes processed, {ngenomes-done} to go, total: {ngenomes}.', file=sys.stderr)
         if save:
             if os.path.exists(save):
