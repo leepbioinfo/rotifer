@@ -10,7 +10,7 @@ import pandas as pd
 # Rotifer libraries
 
 # Data
-_columns = ['nucleotide', 'start', 'end', 'strand', 'nlen', 'block_id', 'query', 'pid', 'type', 'plen', 'locus', 'seq_type', 'assembly', 'gene', 'origin', 'topology', 'product', 'organism', 'lineage', 'classification', 'feature_order', 'internal_id', 'is_fragment']
+_columns = ['nucleotide', 'start', 'end', 'strand', 'nlen', 'block_id', 'query', 'pid', 'type', 'plen', 'locus', 'seq_type', 'assembly', 'gene', 'origin', 'topology', 'product', 'taxid', 'organism', 'lineage', 'classification', 'feature_order', 'internal_id', 'is_fragment']
 
 def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=None, codontable='Bacterial', block_id=-1):
     '''
@@ -92,6 +92,15 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
 
             # Feature type
             feature_type = ft.type
+            taxid = pd.NA
+            if feature_type = "source":
+                if "db_xref" in ft.qualifiers:
+                    for dbx in ft.qualifier['db_xref']:
+                        if "taxon:" == dbx[0:6]:
+                            taxid = int(dbx[6:])
+                            break
+
+            # Pseudogenes
             if feature_type not in feature_order:
                 feature_order[feature_type] = 0
             if feature_type == 'pseudogene':
@@ -185,6 +194,7 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
                     'origin':origin,
                     'topology': topology,
                     'product': product,
+                    'taxid': taxid,
                     'organism': organism,
                     'lineage':pd.NA,
                     'classification': taxonomy,
