@@ -93,7 +93,7 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
             # Feature type
             feature_type = ft.type
             taxid = pd.NA
-            if feature_type = "source":
+            if feature_type == "source":
                 if "db_xref" in ft.qualifiers:
                     for dbx in ft.qualifier['db_xref']:
                         if "taxon:" == dbx[0:6]:
