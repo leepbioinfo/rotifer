@@ -6,6 +6,7 @@ import types
 
 # Pandas
 import pandas as pd
+import numpy as np
 
 # Rotifer libraries
 
@@ -87,12 +88,12 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
         feature_order = {}
         internal_id = 0
         seqrecord.features.sort(key=lambda x: (x.location.start, x.location.end))
+        taxid = np.NaN
         for ft in seqrecord.features:
             qualifiers = ft.qualifiers
 
             # Feature type
             feature_type = ft.type
-            taxid = pd.NA
             if feature_type == "source":
                 if "db_xref" in ft.qualifiers:
                     for dbx in ft.qualifiers['db_xref']:
