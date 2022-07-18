@@ -130,7 +130,7 @@ def ipg(ncbi, verbose=False, batch_size=200, *args, **kwargs):
     import pandas as pd
     from Bio import Entrez
     Entrez.email = ncbi.email
-    cols = ['id','source','nucleotide','start','stop','strand','pid','description','organism','strain','assembly']
+    cols = ['id','ipg_source','nucleotide','start','stop','strand','pid','description','ipg_organism','strain','assembly']
     added = ['order','is_query','representative']
     emptyDF = pd.DataFrame(columns=cols+added)
 
@@ -278,7 +278,7 @@ def taxonomy(ncbi, fetch=['ete3','entrez'], missing=False, ete3=None, preferred_
 
     Returns:
       Pandas DataFrame
-      Columns: taxid, organism, domain, lineage, taxonomy
+      Columns: taxid, organism, superkingdom, lineage, taxonomy
 
     Parameters:
       fetch    : list of fetchers
@@ -315,7 +315,7 @@ def taxonomy(ncbi, fetch=['ete3','entrez'], missing=False, ete3=None, preferred_
     if len(stack) > 0:
         tax = pd.concat(stack).drop_duplicates()
     else:
-        tax = pd.DataFrame(columns='taxid organism domain lineage taxonomy'.split(' '))
+        tax = pd.DataFrame(columns='taxid organism superkingdom lineage taxonomy'.split(' '))
 
     # Return
     ncbi.submit(queries)
@@ -373,7 +373,7 @@ def __taxonomy_from_ete3(ncbi, ete3=None, preferred_taxa=None, verbose=False):
         print(f'{__name__}: loaded {len(l)} taxon names.', file=sys.stderr)
 
     # Translate all lineages
-    cols = ['taxid','organism','domain','taxonomy']
+    cols = ['taxid','organism','superkingdom','taxonomy']
     data = { k: [] for k in cols }
     for x in query:
         # Register missing taxids

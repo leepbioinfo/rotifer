@@ -23,6 +23,7 @@ def elink(query, dbfrom="protein", dbto="nuccore", linkname=None, verbose=False)
       verbose : boolean
         Whether to print warnings and error messages
     """
+    import pandas as pd
     from Bio import Entrez
 
     # Fix input

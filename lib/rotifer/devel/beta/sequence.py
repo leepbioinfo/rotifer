@@ -654,7 +654,7 @@ class sequence:
                 else:
                     # Try using pdb_file as URL
                     import urllib
-                    pdb_data = urllib.request.urlopen(pdb).read()
+                    pdb_data = urllib.request.urlopen(pdb_file).read()
                     pdb_file = tempfile.NamedTemporaryFile(suffix=".pdb", delete=True)
                     pdb_file.write(pdb_data)
                     pdb_file.flush()
@@ -1199,6 +1199,58 @@ class sequence:
         result.numerical.columns = ['type'] + list(range(1,len(columns_to_keep)+1)) + list(other)
         result._reset()
         return result
+
+    def add_jpred(self, email=False):
+        ''' 
+        Function to add secondary structure from the Jpred server
+        ∞ = Alpha helix
+        > = Beta strand
+        - = Turn
+        '''
+        import tarfile
+        import tempfile
+        import re
+        from subprocess import Popen, PIPE, STDOUT, check_output
+        import os
+        import io
+
+        if not email:
+            from rotifer.db.ncbi import NcbiConfig
+            email = NcbiConfig['email']
+
+        result = self.copy()
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            cd = os.getcwd()
+            os.chdir(tmpdirname)
+            self.to_file('seqaln')
+            child = f'jpredapi submit mode=msa format=fasta email={email} file=seqaln name=rotifer'
+            child = check_output(child, shell=True).decode()
+            match = re.findall(f'jobid=(.+?)\s', child, re.DOTALL)[0]
+            child = f'jpredapi status jobid={match} getResults=yes checkEvery=10'
+            child = Popen(child, stdout=PIPE,shell=True).communicate()
+            with tarfile.open(f'{match}/{match}.tar.gz', 'r:gz') as tar:
+                ss_file = tar.getmember(f'{match}.jnet')
+                query_file = tar.getmember(f'{match}.msf.query')
+                jnet = pd.read_csv(io.BytesIO(tar.extractfile(ss_file).read()), sep=":", names = ['a', 'b'])
+                query = tar.extractfile(query_file).read()
+                query = re.findall('>(.+?)\n', query.decode(), re.DOTALL)[0]
+
+            os.chdir(cd)
+            jnet = jnet.iloc[0:2,:]
+            jnet.b = jnet.b.str.replace(',', '')
+            jnet.iloc[0,1] = jnet.query('a  == "jnetpred"').iloc[0,1].replace(',', '').replace('E', '>').replace('H', '∞')
+            a1 = pd.Series(list(result.df.query('id ==@query').iloc[0,1])).where(lambda x: x !='-').dropna().rename('seq').reset_index()
+            a2 = pd.Series(list(jnet.loc[0, 'b'])).rename('jnet')
+            a3 = pd.Series(list(jnet.loc[1, 'b'])).rename('conf')
+            a4 = pd.Series(list(result.df.query('id == @query').iloc[0,1]))
+            a5 = a1.join(a2).join(a3).set_index('index')
+            a6 = pd.concat([a4,a5], axis = 1).fillna(' ').sum().reset_index()
+            a6.columns = ['id', 'sequence']
+            a6['type'] = 'structure prediction'
+
+            result.df = pd.concat([a6.iloc[2:4,:],result.df])
+
+            return result
 
     ## Class methods
 

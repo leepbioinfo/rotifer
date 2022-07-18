@@ -311,30 +311,6 @@ def hierarchy_to_dataframe(x):
     return data
 
 
-def _fasta_ls(*args):
-    '''
-    Read fasta file or fasta sequence and output a list, each element is a line in the list.
-    -----------
-    PARAMETERS:
-    args: a list containing a fasta sequence or file
-    -----------
-    RETURNS:
-    List: each element is a line of the fasta file
-    -----------
-    EXAMPLE:
-
-    '''
-    fasta_res = []
-    for arg in args:
-        if isinstance(arg, (list, tuple)):
-            fasta_res.extend(list(arg))
-        else:
-            try:
-                fasta_res += open(arg).read().splitlines()
-            except:
-                fasta_res += arg.split('\n')
-    return fasta_res
-
 def not_kwargs(dict_args, key, value):
     """ Small function to check if an element is not in a dictionary.
     It is useful to set a default value to functions that exceeds the
@@ -689,3 +665,39 @@ def import_path(path):
     spec.loader.exec_module(module)
     sys.modules[module_name] = module
     return module
+
+def md5(filename):
+    '''
+    Calculate MD5 checksum for a file.
+    '''
+    # Copied from https://stackoverflow.com/questions/3431825/generating-an-md5-checksum-of-a-file
+    import hashlib
+    hash_md5 = hashlib.md5()
+    with open(filename,"rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_md5.update(chunk)
+    return hash_md5.hexdigest()
+
+def _fasta_ls(*args):
+    '''
+    Read fasta file or fasta sequence and output a list, each element is a line in the list.
+    -----------
+    PARAMETERS:
+    args: a list containing a fasta sequence or file
+    -----------
+    RETURNS:
+    List: each element is a line of the fasta file
+    -----------
+    EXAMPLE:
+
+    '''
+    fasta_res = []
+    for arg in args:
+        if isinstance(arg, (list, tuple)):
+            fasta_res.extend(list(arg))
+        else:
+            try:
+                fasta_res += open(arg).read().splitlines()
+            except:
+                fasta_res += arg.split('\n')
+    return fasta_res
