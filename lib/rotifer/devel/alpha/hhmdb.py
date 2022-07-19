@@ -16,6 +16,7 @@ def hhmdb(
     import tempfile
     from subprocess import Popen, PIPE, STDOUT
     import os
+    from rotifer.devel.beta.sequence import sequence
 
     curr_dir = os.getcwd()
     if not os.path.exists(curr_dir+"/hhmdb/aln/"):
