@@ -1240,7 +1240,7 @@ class sequence:
             os.chdir(cd)
             jnet = jnet.iloc[0:2,:]
             jnet.b = jnet.b.str.replace(',', '')
-            jnet.iloc[0,1] = jnet.query('a  == "jnetpred"').iloc[0,1].replace(',', '').replace('E', '>').replace('H', '∞')
+            jnet.iloc[0,1] = jnet.query('a  == "jnetpred"').iloc[0,1].replace(',', '')
             a1 = pd.Series(list(result.df.query('id ==@query').iloc[0,1])).where(lambda x: x !='-').dropna().rename('seq').reset_index()
             a2 = pd.Series(list(jnet.loc[0, 'b'])).rename('jnet')
             a3 = pd.Series(list(jnet.loc[1, 'b'])).rename('conf')
