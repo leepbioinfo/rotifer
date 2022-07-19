@@ -1,3 +1,4 @@
+import rotifer
 from rotifer import GlobalConfig
 from io import StringIO
 from Bio import SeqIO
@@ -6,6 +7,7 @@ import pandas as pd
 import numpy as np
 import os
 import re
+logger = rotifer.logging.getLogger(__name__)
 
 class sequence:
     """
@@ -464,7 +466,7 @@ class sequence:
                 fields.append(matrix.loc[:,item])
 
             else:
-                print(f'sequence.sort: Unsupported criteria or missing annotation ({item})', file=sys.stderr)
+                logger.error(f'sequence.sort: Unsupported criteria or missing annotation ({item})')
 
         # Concatenate sorting fields
         fields = pd.concat(fields, axis=1).sort_values(by=by, ascending=ascending)
@@ -1043,7 +1045,7 @@ class sequence:
             if isinstance(columns,list):
                 df.df = df.df[basic_columns + columns]
             else :
-                print('columns should be either a list or a bool')
+                logger.error('columns should be either a list or a bool')
 
         if consensus:
             df = df.add_consensus(separator=separator)

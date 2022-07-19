@@ -3,7 +3,9 @@ import sys
 import pandas as pd
 
 # Access configuration
+import rotifer
 from rotifer.db.ncbi import NcbiConfig
+logger = rotifer.logging.getLogger(__name__)
 
 # Import submodules used by _DispatchMethod
 import rotifer.db.ncbi.fetch as fetcher
@@ -15,13 +17,14 @@ _MAP = {
     'read'  : reader
     }
 
-class ncbi:
+class NcbiCursor:
     def __init__(self, query=None, email=NcbiConfig['email'], api_key=NcbiConfig['api_key']):
         '''
         Search, download and parse NCBI data.
 
         Usage:
-          a = ncbi(query=['WP_013925940.1','AMX08087.1','WP_009227829.1'])
+          from rotifer.db.ncbi.cursor import NcbiCursor
+          a = NcbiCursor(query=['WP_013925940.1','AMX08087.1','WP_009227829.1'])
           b = a.read(method=['blastdbcmd','entrez'], format='fasta')
 
         Parameters:
@@ -140,8 +143,8 @@ class ncbi:
 
         Usage:
 
-            from rotifer.db.ncbi import ncbi
-            a = ncbi()
+            from rotifer.db.ncbi.cursor import NcbiCursor
+            a = NcbiCursor()
             b = a.read(method='assembly_reports') # b is a pandas DataFrame
             a.submit(["AKT35709.1","NP_250592.1"])
             c = a.read(method='entrez', db='protein') # c is a list
@@ -179,8 +182,8 @@ class ncbi:
 
         Usage:
 
-            from rotifer.db.ncbi import ncbi
-            a = ncbi()
+            from rotifer.db.ncbi.cursor import NcbiCursor
+            a = NcbiCursor()
             a.submit(['GCF_900504695.1', 'GCF_004636045.1', 'GCF_902726645.1'])
             c = a.parse(method='genomes') # c is a generator / iterator
 
@@ -214,8 +217,8 @@ class ncbi:
 
         Usage:
 
-            from rotifer.db.ncbi import ncbi
-            a = ncbi()
+            from rotifer.db.ncbi.cursor import NcbiCursor
+            a = NcbiCursor()
             b = a.fetch(method='assembly_reports') # b is a file path
             a.submit(["AKT35709.1","NP_250592.1"])
             c = a.fetch(method='entrez', db='protein', format='fasta')
@@ -258,11 +261,9 @@ class ncbi:
         for m in method:
             selectedMethod = getattr(_MAP[_name], m, None)
             if callable(selectedMethod):
-                if 'verbose' in kwargs and kwargs['verbose'] == True:
-                    print(f'{__name__}: Dispatching method {m}...', file=sys.stderr)
+                logger.info(f'Dispatching method {m}...')
                 results.append(selectedMethod(self, *args, **kwargs))
-                if 'verbose' in kwargs and kwargs['verbose'] == True:
-                    print(f'{__name__}: Method {m} executed!', file=sys.stderr)
+                logger.info(f'Method {m} executed!')
                 curtype = type(results[-1])
                 firstType = type(results[0])
                 concat = concat and (curtype == firstType) and not getattr(selectedMethod,'_never_concatenate',False)

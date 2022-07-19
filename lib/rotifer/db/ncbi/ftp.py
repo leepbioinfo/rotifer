@@ -3,15 +3,10 @@ import sys
 import logging
 import pandas as pd
 from ftplib import FTP
+import rotifer
 from rotifer.core import GlobalConfig
 from rotifer.db.ncbi import NcbiConfig
-
-# Create logger
-logger = logging.getLogger(__name__)
-shandler = logging.StreamHandler()
-formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s : %(message)s")
-shandler.setFormatter(formatter)
-logger.addHandler(shandler)
+logger = rotifer.logging.getLogger(__name__)
 
 class cursor():
     """
