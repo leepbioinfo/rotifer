@@ -714,7 +714,10 @@ class sequence:
     def add_seq(self, seq_to_add, cpu=12, fast=False):
         import tempfile
         import subprocess
+        from rotifer.db.ncbi import NcbiConfig
         from subprocess import Popen, PIPE, STDOUT
+        if 'fetch_method' not in NcbiConfig:
+            NcbiConfig['fetch_method']= 'pfetch'
 
         # Make sure input is a list
         if not isinstance(seq_to_add,list):
@@ -731,7 +734,7 @@ class sequence:
                 SeqIO.write(seq_to_add, f'{tmpdirname}/acc.fa', "fasta")
             else:
                 pd.Series(seq_to_add).to_csv(f'{tmpdirname}/acc', index=None, header=None)
-                Popen(f'pfetch {tmpdirname}/acc > {tmpdirname}/acc.fa' , stdout=PIPE,shell=True).communicate()
+                Popen(f'{NcbiConfig["fetch_method"]} {tmpdirname}/acc > {tmpdirname}/acc.fa' , stdout=PIPE,shell=True).communicate()
 
             # Run MAFFT
             child = f'mafft --thread {cpu} --add {tmpdirname}/acc.fa'
@@ -942,6 +945,8 @@ class sequence:
         >>> aln.hist(50)
         """
         from ascii_graph import Pyasciigraph
+        import collections
+        collections.Iterable = collections.abc.Iterable
         print(f'Total proteins: {len(self.df)}')
         a = self.df['length'].value_counts().to_frame().reset_index()
         a = a.sort_values('index')
