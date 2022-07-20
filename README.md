@@ -13,7 +13,16 @@ It also provides a collection of easy to use command line tools based on this fr
 
 Installing ROTIFER package with conda enviroments:
 
-conda create --name rotifer biopython pandas numpy termcolor PyYAML tqdm ipython ascii_graph
-
+1. Clone this git reposytory.
+2. Create a rotifer's conda enviroment:
+  ```Bash
+  conda create --name rotifer biopython pandas numpy termcolor PyYAML tqdm ipython ascii_graph
+  ```
+3. Create a rotifer profile to the ipython:
+  ```
+  mkdir ~/.ipython/profile_rotifer
+  mkdir ~/.ipython/profile_rotifer/startup
+  
+  
 
 
