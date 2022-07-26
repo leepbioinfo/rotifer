@@ -986,7 +986,7 @@ class sequence:
         SeqIO.write(self.to_seqrecords(annotations=annotations, remove_gaps=remove_gaps), sio, output_format)
         return sio.getvalue()
 
-    def realign(self,fast=False, cpu=10):
+    def realign(self,fast=False,method='linsi', cpu=10):
         """
         Rebuild the alignment using Mafft.
 
@@ -1006,10 +1006,20 @@ class sequence:
         """
         from subprocess import Popen, PIPE, STDOUT
         seq_string = self.to_string(remove_gaps=True).encode()
+
+
         if fast:
+            method = 'kalign'
+
+        if method =='mafft':
             child = Popen(f'cat|mafft  --thread {cpu} -' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
-        else:
+        elif method == 'linsi':
             child = Popen(f'cat|mafft  --maxiterate 1000 --localpair --thread {cpu} -' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
+        elif method =='famsa':
+            child = Popen(f'cat|famsa -t {cpu} -v STDIN STDOUT' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
+        elif method =='kalign':
+            child = Popen(f'cat|kalign' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
+            
         result = self.from_string(child[0].decode("utf-8"), input_format = 'fasta')
         result.file_path = 'from realign function'
         return result
