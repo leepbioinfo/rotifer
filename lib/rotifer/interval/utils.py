@@ -4,6 +4,59 @@ import sys
 import pandas as pd
 import numpy as np
 from collections import OrderedDict
+_criteria = OrderedDict({'sum_probs':False, 'probability':False, 'score':False, 'region_length':False})
+
+def architecture(df, reference=['query'], collapse='hit', start='qstart', end='qend', maximum_overlap=0.1, criteria=_criteria):
+    '''
+    This function builds a compact representation of all non-overlapping
+    regions for a given reference column.
+
+    It is often used to produce a compact protein domain architecture table
+
+    The input Pandas DataFrame must contain columns corresponding
+    to unidimensional interval coordinates (start and end columns)
+    and at least one reference column (e.g. pid or sequence).
+
+    Parameters
+    ----------
+    df : Pandas dataframe
+       The dataframe must have at least a reference column and coordinates
+    reference : (list of) strings, default ['query']
+        Name of the column storing sequence identifiers
+    collapse : (list of) strings, default 'hits'
+        Name of the column storing region identifiers
+    start : string, default estart
+        Name of the column with the first coordinate of each interval
+    end : string, default eend
+        Name of the column with the last coordinate of each interval
+    maximum_overlap : integer, default 0.1 (10% of the shortest)
+        Maximum number of overlapping residues to ignore.
+        If maximum_overlap < 1, the parameter is treated as a percentage 
+    criteria : ordered dictionary
+        Criteria for best interval selection.
+
+        Keys in this dictionary must match column names in the input
+        Pandas DataFrame. Values should be booleans (True or False).
+
+        'region_length' is an exception: this column is automatically
+        calculated from the start and end coordinates of each region.
+
+        A True value for a given column will give precedence for rows
+        with the smallest value in that column. A False value
+        will select rows with the largest values.
+
+    Examples
+    --------
+    HH-suite results based on the largest probability and/or region length:
+
+    >>> from rotifer.interval.utils import architecture
+    >>> df = pd.read_csv("results.hhsuite2table.tsv", sep="\t")
+    >>> dfc = architecture(df, start='qstart', end='qend', criteria=c)
+    '''
+    arch = filter_nonoverlapping_regions(df, reference=reference, start=start, end=end, maximum_overlap=maximum_overlap, criteria=criteria)
+    arch.sort_values([*reference, start, end], ascending=True, inplace=True)
+    arch = arch.groupby(reference).agg(architecture=(collapse,lambda x: "+".join([ str(y) for y in x ]))).reset_index()
+    return arch
 
 def filter_nonoverlapping_regions(df, reference=['sequence'], start='estart', end='eend', maximum_overlap=0.1, criteria = OrderedDict({'evalue':True, 'region_length':False})):
     '''
@@ -19,13 +72,13 @@ def filter_nonoverlapping_regions(df, reference=['sequence'], start='estart', en
        The dataframe must have at least a reference column and coordinates
     reference : (list of) strings, default ['sequence']
         Name of the column storing sequence identifiers
-    maximum_overlap : integer, default 0.1 (10% of the shortest)
-        Maximum number of overlapping residues to ignore.
-        If maximum_overlap < 1, the parameter is treated as a percentage 
     start : string, default estart
         Name of the column with the first coordinate of each interval
     end : string, default eend
         Name of the column with the last coordinate of each interval
+    maximum_overlap : integer, default 0.1 (10% of the shortest)
+        Maximum number of overlapping residues to ignore.
+        If maximum_overlap < 1, the parameter is treated as a percentage 
     criteria : ordered dictionary
         Criteria for best interval selection.
 

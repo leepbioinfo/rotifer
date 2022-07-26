@@ -1,5 +1,6 @@
 import rotifer
 from rotifer import GlobalConfig
+from rotifer.core.functions import loadConfig
 from io import StringIO
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
@@ -8,6 +9,14 @@ import numpy as np
 import os
 import re
 logger = rotifer.logging.getLogger(__name__)
+
+# Defaults
+_config = {
+    'pdb_dir': os.path.join(os.environ['ROTIFER_DATA'],"pdb"),
+    'databases':['pdb','pfam'],
+    'databases_path': os.path.join(os.environ['ROTIFER_DATA'],"hhsuite"),
+    **loadConfig(__name__.replace('rotifer.',':'))
+}
 
 class sequence:
     """
@@ -140,6 +149,10 @@ class sequence:
             self.df = input_data.dropna().reset_index()
             self.df.columns = ['id','sequence']
             self.df['type'] = 'sequence'
+
+        # For creating an empty object
+        else:
+            self.df = pd.DataFrame(columns=self._reserved_columns)
 
         # Make sure the new object is clean!
         self._reset()
@@ -621,7 +634,7 @@ class sequence:
 
         return result
 
-    def add_pdb(self, pdb_id, chain_id='A', pdb_file=None, pdb_dir=os.path.join(os.environ['ROTIFER_DATA'],"pdb")):
+    def add_pdb(self, pdb_id, chain_id='A', pdb_file=None, pdb_dir=_config['pdb_dir']):
         """
         Add structure annotation from PDB.
 
@@ -1072,7 +1085,7 @@ class sequence:
                 df.sequence = df.sequence.str.pad(df.sequence.str.len().max(), side="right")
             page(df.to_string(index=False))
 
-    def hhblits(self, databases=['pdb70','pfam'], database_path=os.path.join(os.environ['ROTIFER_DATA'],"hhsuite"), view=True):
+    def hhblits(self, databases=_config['databases'], database_path=_config['databases_path'], view=True):
         """
         Search the alignment against a HMM databases using hhsearch.
 
@@ -1109,7 +1122,7 @@ class sequence:
         dbs = " ".join([ " -d " + os.path.join(database_path, x) for x in databases ])
         with tempfile.TemporaryDirectory() as tmpdirname:
             self.to_file(f'{tmpdirname}/seqaln')
-            child = f'hhblits -i {tmpdirname}/seqaln {dbs} -M 50 -cpu 18 -o {tmpdirname}/seqaln.hhr'
+            child = f'hhblits -i {tmpdirname}/seqaln -d {dbs} -M 50 -cpu 18 -o {tmpdirname}/seqaln.hhr'
             child = Popen(child, stdout=PIPE,shell=True).communicate()
             hhtable = read_hhr(f'{tmpdirname}/seqaln.hhr')
             with open(f'{tmpdirname}/seqaln.hhr') as f:
@@ -1119,7 +1132,7 @@ class sequence:
                 page(hhr_result)
             return (hhr_result, hhtable)
 
-    def hhsearch(self, databases=['pdb70','pfam'], database_path=os.path.join(os.environ['ROTIFER_DATA'],"hhsuite"), view=True):
+    def hhsearch(self, databases=_config['databases'], database_path=_config['databases_path'], view=True):
         """
         Search the alignment against a HMM databases using hhsearch.
 
