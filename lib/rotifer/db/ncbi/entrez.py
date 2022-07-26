@@ -1,4 +1,7 @@
-def elink(query, dbfrom="protein", dbto="nuccore", linkname=None, verbose=False):
+import rotifer
+logger = rotifer.logging.getLogger(__name__)
+
+def elink(query, dbfrom="protein", dbto="nuccore", linkname=None):
     """
     Find related database entries via NCBI's EUtilities.
 
@@ -20,8 +23,6 @@ def elink(query, dbfrom="protein", dbto="nuccore", linkname=None, verbose=False)
       linkname: string
         Type of link between dbfrom and dbto
         If not set, {dbfrom}_{dbto} is used
-      verbose : boolean
-        Whether to print warnings and error messages
     """
     import pandas as pd
     from Bio import Entrez
@@ -37,8 +38,7 @@ def elink(query, dbfrom="protein", dbto="nuccore", linkname=None, verbose=False)
         try:
             raw = list(Entrez.read(Entrez.elink(dbfrom=dbfrom, linkname=linkname, id=acc)))
         except:
-            if (verbose):
-                print(f'{__name__}: Entrez.elink failed for accession {acc}, dbfrom: {dbfrom}, dbto: {dbto}. Error: '+str(sys.exc_info()[0]), file=sys.stderr)
+            logger.info(f'Entrez.elink failed for accession {acc}, dbfrom: {dbfrom}, dbto: {dbto}. Error: '+str(sys.exc_info()[0]))
             continue
         for d in raw:
             for x in d["LinkSetDb"]:

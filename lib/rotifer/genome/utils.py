@@ -9,6 +9,8 @@ import pandas as pd
 import numpy as np
 
 # Rotifer libraries
+import rotifer
+logger = rotifer.logging.getLogger(__name__)
 
 # Data
 _columns = ['nucleotide', 'start', 'end', 'strand', 'nlen', 'block_id', 'query', 'pid', 'type', 'plen', 'locus', 'seq_type', 'assembly', 'gene', 'origin', 'topology', 'product', 'taxid', 'organism', 'lineage', 'classification', 'feature_order', 'internal_id', 'is_fragment']
@@ -45,10 +47,10 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
     for seqrecord in seqrecs:
         # Check input
         if not isinstance(seqrecord, Bio.SeqRecord.SeqRecord):
-            print(f'Element is not a seqrecord: {seqrecord}', file=sys.stderr)
+            logger.error(f'Element is not a seqrecord: {seqrecord}')
             continue
         if not seqrecord.features:
-            #print(f'Bio.Reqrecord {seqrecord.id} contains has features to extract', file=sys.stderr)
+            #logger.error(f'Bio.Reqrecord {seqrecord.id} contains has features to extract')
             continue
         digits = max(6,ceil(log10(len(seqrecord.features))))
 
@@ -83,23 +85,28 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
         if assembly == None:
             assembly = seqrecord.id
 
-        # Extract data for each feature
+        # Process source feature
+        taxid = np.NaN
         seq_type = 'chromosome'
+        ftsource = [ x for x in seqrecord.features if x.type == "source" ]
+        if len(ftsource):
+            ftsource = ftsource[0]
+            if "db_xref" in ftsource.qualifiers:
+                for dbx in ftsource.qualifiers['db_xref']:
+                    if "taxon:" == dbx[0:6]:
+                        taxid = int(dbx[6:])
+            if 'plasmid' in ftsource.qualifiers:
+                seq_type = 'plasmid'
+
+        # Extract data for each feature
         feature_order = {}
         internal_id = 0
         seqrecord.features.sort(key=lambda x: (x.location.start, x.location.end))
-        taxid = np.NaN
         for ft in seqrecord.features:
             qualifiers = ft.qualifiers
 
             # Feature type
             feature_type = ft.type
-            if feature_type == "source":
-                if "db_xref" in ft.qualifiers:
-                    for dbx in ft.qualifiers['db_xref']:
-                        if "taxon:" == dbx[0:6]:
-                            taxid = int(dbx[6:])
-                            break
 
             # Pseudogenes
             if feature_type not in feature_order:
@@ -141,10 +148,8 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
                         pid = locus
 
             # Other feature attributes
-            if 'plasmid' in qualifiers:
-                seq_type = 'plasmid'
-            gene = qualifiers['gene'][0] if 'gene' in qualifiers else ''
-            product = ''
+            gene = qualifiers['gene'][0] if 'gene' in qualifiers else np.NaN
+            product = np.NaN
             for tag in ['product','inference']:
                 if tag in qualifiers:
                     product = qualifiers[tag][0]

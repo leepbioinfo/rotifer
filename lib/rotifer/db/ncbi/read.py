@@ -2,113 +2,13 @@
 
 import os
 import sys
-import logging
+import rotifer
 import pandas as pd
 from rotifer.db.ncbi import NcbiConfig
-
-# Load NCBI assembly reports
-def assembly_reports(ncbi, baseurl=f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASSEMBLY_REPORTS', columns=[], query_type='assembly', taxonomy=None, verbose=0, *args, **kwargs):
-    '''
-    Load NCBI assembly reports from a local directory or FTP.
-
-    Usage:
-      a = ncbi()
-      b = a.read(method='assembly_reports')
-
-      or, with filters,
-
-      a = ncbi()
-      a.submit(['GCF_900504695.1', 'GCF_004636045.1'])
-      b = a.read(method='assembly_reports', columns=['id','pid'])
-
-    Returns:
-      Pandas DataFrame
-
-    Parameters:
-      baseurl    : URL or directory with assembly_summary_*.txt files
-      columns    : (optional) list of columns to retrieve
-      query_type : column name to use for filtering returned rows
-                   Set to None to use pd.DataFrame.query
-      taxonomy   : ete3's NCBITaxa object
-                   If set to true, a new NCBITaxa object is created
-
-    Extra attributes:
-      loaded_from : data source (same as baseurl)
-    '''
-
-    # Method dependencies
-    import pandas as pd
-    from glob import glob
-
-    # Set log format
-    logger = logging.getLogger('rotifer.db.ncbi')
-    if verbose:
-        logger.setLevel(verbose)
-        logger.info(f'main: loading assembly reports...')
-
-    # Load assembly reports
-    assemblies = list()
-    for x in ['refseq', 'genbank', 'refseq_historical', 'genbank_historical']:
-        if os.path.exists(baseurl): # Local file
-            url = os.path.join(baseurl, f'assembly_summary_{x}.txt')
-            if not os.path.exists(url):
-                if verbose:
-                    logger.warning(f'{__name__}: {url} not found. Ignoring...')
-                continue
-        else: # FTP
-            url = f'{baseurl}/assembly_summary_{x}.txt'
-        _ = pd.read_csv(url, sep ="\t", skiprows=[0])
-        _.rename({'# assembly_accession':'assembly'}, axis=1, inplace=True)
-        _['source'] = x
-        _['loaded_from'] = url
-        assemblies.append(_)
-        if verbose:
-            logger.info(f'{__name__}: {url}, {len(_)} rows, {len(assemblies)} loaded')
-    assemblies = pd.concat(assemblies, ignore_index=True)
-    if verbose:
-        print(f'{__name__}: loaded {len(assemblies)} assembly summaries.', file=sys.stderr)
-
-    # Make sure the ftp_path columns refers to the ftp site as we expect
-    if 'ftp_path' in assemblies.columns:
-        assemblies.ftp_path = assemblies.ftp_path.str.replace('https','ftp')
-
-    # Filter rows and columns in the assemblies dataframe
-    queries = ncbi.submit()
-    if queries:
-        if query_type in assemblies.columns: # Exact match values in a column
-            assemblies = assemblies[assemblies[query_type].isin(queries)]
-            if verbose:
-                print(f'{__name__}: {len(queries)} exact matches required for column {query_type}: {len(assemblies)} rows left.', file=sys.stderr)
-        else: # Queries are logical statements
-            for query in queries:
-                assemblies = assemblies.query(query)
-            if verbose:
-                print(f'{__name__}: {len(queries)} filters applied: {len(assemblies)} rows left.', file=sys.stderr)
-
-    # Add taxonomy
-    if isinstance(taxonomy,pd.DataFrame) or taxonomy:
-        if not isinstance(taxonomy,pd.DataFrame):
-            ncbi.submit(list(assemblies.taxid.unique()))
-            taxonomy = ncbi.read('taxonomy', ete3=taxonomy, verbose=verbose)
-        if isinstance(taxonomy,pd.DataFrame):
-            assemblies = assemblies.merge(taxonomy, left_on='taxid', right_on='taxid', how='left')
-        if verbose:
-            print(f'{__name__}: {len(assemblies)} assemblies left-merged with taxonomy dataframe.', file=sys.stderr)
-
-    # Filter columns and return pandas object
-    if columns:
-        assemblies = assemblies.filter(columns)
-
-    # Reset ncbi object, update missing list and return
-    ncbi.submit(queries)
-    found = set(list(assemblies.assembly))
-    ncbi.missing([ x for x in queries if x not in found ])
-    if verbose:
-        logger.info(f'main: {len(assemblies)} assembly reports loaded!')
-    return assemblies
+logger = rotifer.logging.getLogger(__name__)
 
 # Load Identical Protein Reports
-def ipg(ncbi, verbose=False, batch_size=200, *args, **kwargs):
+def ipg(ncbi, batch_size=200, *args, **kwargs):
     '''
     Retrieve and annotate NCBI's Identical Protein Reports (IPG).
 
@@ -135,17 +35,13 @@ def ipg(ncbi, verbose=False, batch_size=200, *args, **kwargs):
     emptyDF = pd.DataFrame(columns=cols+added)
 
     # Set log format
-    logger = logging.getLogger(__name__)
-    if verbose:
-        logger.setLevel(logging.DEBUG)
-        logger.info(f'main: downloading IPG reports for {len(ncbi)} protein accessions...')
+    logger.info(f'main: downloading IPG reports for {len(ncbi)} protein accessions...')
 
     # Backup and check queries
     queries = ncbi.submit()
     if len(queries) == 0:
         return emptyDF
-    if verbose:
-        print(f'{__name__}: searching {len(ncbi)} accessions...', file=sys.stderr)
+    logger.info(f'searching {len(ncbi)} accessions...')
 
     # Using Efetch directly with batch_size IDs per batch!
     n = 1
@@ -156,41 +52,34 @@ def ipg(ncbi, verbose=False, batch_size=200, *args, **kwargs):
         if e > len(queries):
             e = len(queries)
         batch = queries[s:e]
-        if verbose:
-            print(f'{__name__}: downloading batch {n} ([{s}:{e}]) of {len(pos)}', file=sys.stderr)
+        logger.info(f'downloading batch {n} ([{s}:{e}]) of {len(pos)}')
         handle = None
         try:
             handle = Entrez.efetch(db='protein', rettype='ipg', retmode='text', api_key=NcbiConfig['api_key'], id = ",".join(batch))
         except RuntimeError:
-            if verbose:
-                print(f'{__name__}: batch {n}, runtime error: '+str(sys.exc_info()[1]), file=sys.stderr)
+            logger.info(f'batch {n}, runtime error: '+str(sys.exc_info()[1]))
             continue
         except:
-            if verbose:
-                print(f'{__name__}: batch {n}, exception: '+str(sys.exc_info()[1]), file=sys.stderr)
+            logger.info(f'batch {n}, exception: '+str(sys.exc_info()[1]))
             continue
         if handle:
             try:
                 ipg = pd.read_csv(handle, sep='\t', names=cols, header=0).drop_duplicates()
             except:
-                if verbose:
-                    print(f'{__name__}: batch {n}, could not read IPG: '+str(sys.exc_info()[1]), file=sys.stderr)
+                logger.info(f'batch {n}, could not read IPG: '+str(sys.exc_info()[1]))
                 continue
             handle.close()
             if not isinstance(ipg,pd.DataFrame) or ipg.empty:
-                if verbose:
-                        print(f'{__name__}: batch {n} has no IPGs! Download or parsing error? Moving to next batch...')
+                logger.info(f'batch {n} has no IPGs! Download or parsing error? Moving to next batch...')
             numeric = pd.to_numeric(ipg.id, errors="coerce")
             errors = numeric.isna()
             if errors.any():
-                if verbose:
-                    print(f'{__name__}: Errors in IPG for batch {n}:\n'+ipg[errors].to_string(), file=sys.stderr)
+                logger.info(f'Errors in IPG for batch {n}:\n'+ipg[errors].to_string())
                 continue
             ipg.id = numeric
             ipg = ipg[~errors]
             if ipg.empty:
-                if verbose:
-                    print(f'{__name__}: after removing errors, batch {n} was found to have no IPGs! Ignoring...')
+                logger.info(f'after removing errors, batch {n} was found to have no IPGs! Ignoring...')
                 continue
             o = pd.Series(range(1, len(ipg) + 1))
             c = pd.Series(np.where(ipg.id != ipg.id.shift(1), o.values, pd.NA)).ffill()
@@ -200,16 +89,14 @@ def ipg(ncbi, verbose=False, batch_size=200, *args, **kwargs):
 
     # Failure! Give up: no IPG was downloaded! Database failure?
     if not ipgs:
-        if verbose:
-            print(f'{__name__}: {len(ncbi)} queries but 0 IPGs! Make sure your queries belong to the NCBI protein database.', file=sys.stderr)
+        logger.info(f'{len(ncbi)} queries but 0 IPGs! Make sure your queries belong to the NCBI protein database.')
         return emptyDF
 
     # Success! Concatenate all batches
     ipgs = pd.concat(ipgs).reset_index(drop=True).sort_values(['id','order']).drop_duplicates()
     found = set(queries).intersection(set(ipgs.pid.unique()))
     missing = set(queries) - set(found)
-    if verbose:
-        print(f'{__name__}: {len(ipgs)} IPG rows fetched, {len(found)} queries found, {len(missing)} missing accessions.', file=sys.stderr)
+    logger.info(f'{len(ipgs)} IPG rows fetched, {len(found)} queries found, {len(missing)} missing accessions.')
 
     # Filter error messages
     if ipgs.empty:
@@ -234,7 +121,7 @@ def ipg(ncbi, verbose=False, batch_size=200, *args, **kwargs):
         if len(missing) > 0:
             for lost in missing:
                 ncbi.submit(lost)
-                ipg = ncbi.read('ipg', verbose=verbose)
+                ipg = ncbi.read('ipg')
                 if ipgs.empty:
                     ipgs = ipg
                 else:
@@ -250,16 +137,13 @@ def ipg(ncbi, verbose=False, batch_size=200, *args, **kwargs):
     missing = set([x for x in queries if x not in ipgs.pid.append(ipgs.representative).unique()])
     ncbi.missing(missing)
     found = set([x for x in queries if x not in missing])
-    if verbose:
-        print(f'{__name__}: {len(ipgs)} IPG rows fetched, {len(found)} queries found, {len(missing)} missing accessions.', file=sys.stderr)
+    logger.info(f'{len(ipgs)} IPG rows fetched, {len(found)} queries found, {len(missing)} missing accessions.')
 
     # Return the expected dataframe
-    if verbose:
-        print(f'{__name__}: {len(ipgs)} IPG rows fetched, {len(found)} queries found, {len(missing)} missing accessions.', file=sys.stderr)
     return ipgs
 
 # Load taxonomy data as a simple dataframe (tree as linearized path)
-def taxonomy(ncbi, fetch=['ete3','entrez'], missing=False, ete3=None, preferred_taxa=None, verbose=False, *args, **kwargs):
+def taxonomy(ncbi, fetch=['ete3','entrez'], missing=False, ete3=None, preferred_taxa=None, *args, **kwargs):
     '''
     Load NCBI taxonomy data
 
@@ -288,10 +172,7 @@ def taxonomy(ncbi, fetch=['ete3','entrez'], missing=False, ete3=None, preferred_
     '''
 
     # Set log format
-    logger = logging.getLogger('rotifer.db.ncbi')
-    if verbose:
-        logger.setLevel(logging.DEBUG)
-        logger.info(f'main: loading assembly reports...')
+    logger.info(f'main: loading assembly reports...')
 
     # Loop over methods
     stack = []
@@ -305,13 +186,12 @@ def taxonomy(ncbi, fetch=['ete3','entrez'], missing=False, ete3=None, preferred_
             break
         ncbi.submit(missing)
         if method == 'ete3':
-            tax = __taxonomy_from_ete3(ncbi, ete3=ete3, preferred_taxa=preferred_taxa, verbose=verbose)
+            tax = __taxonomy_from_ete3(ncbi, ete3=ete3, preferred_taxa=preferred_taxa)
         elif method == 'entrez':
             continue
         missing = ncbi.missing().copy()
         stack.append(tax)
-        if verbose:
-            print(f'{__name__}: {len(tax)} taxa loaded by {method}.', file=sys.stderr)
+        logger.info(f'{len(tax)} taxa loaded by {method}.')
     if len(stack) > 0:
         tax = pd.concat(stack).drop_duplicates()
     else:
@@ -320,19 +200,17 @@ def taxonomy(ncbi, fetch=['ete3','entrez'], missing=False, ete3=None, preferred_
     # Return
     ncbi.submit(queries)
     ncbi.missing(missing)
-    if verbose:
-        logger.info(f'main: {len(tax.taxid.unique())} taxids found and {len(missing)} missing!')
+    logger.info(f'main: {len(tax.taxid.unique())} taxids found and {len(missing)} missing!')
     return tax
 
 # Internal methods
 
-def __taxonomy_from_ete3(ncbi, ete3=None, preferred_taxa=None, verbose=False):
+def __taxonomy_from_ete3(ncbi, ete3=None, preferred_taxa=None):
     # Make sure ete3 is a ete3.ncbi_taxonomy.ncbiquery.NCBITaxa
     from ete3.ncbi_taxonomy.ncbiquery import NCBITaxa
     if not isinstance(ete3,NCBITaxa):
         ete3 = NCBITaxa()
-    if verbose:
-        print(f'{__name__}: Searching for {len(ncbi.submit())} taxa.', file=sys.stderr)
+    logger.info(f'Searching for {len(ncbi.submit())} taxa.')
 
     # Fetch lineages
     i = 0
@@ -364,13 +242,11 @@ def __taxonomy_from_ete3(ncbi, ete3=None, preferred_taxa=None, verbose=False):
         l.update(v)
         s[query[i]] = v
         i = i + 1
-    if verbose:
-        print(f'{__name__}: loaded {len(s)} lineages.', file=sys.stderr)
+    logger.info(f'loaded {len(s)} lineages.')
 
     # Fetch names
     l = ete3.get_taxid_translator(list(l))
-    if verbose:
-        print(f'{__name__}: loaded {len(l)} taxon names.', file=sys.stderr)
+    logger.info(f'loaded {len(l)} taxon names.')
 
     # Translate all lineages
     cols = ['taxid','organism','superkingdom','taxonomy']
@@ -395,8 +271,7 @@ def __taxonomy_from_ete3(ncbi, ete3=None, preferred_taxa=None, verbose=False):
             data[cols[j]].append(r[j])
 
     # Let the user knows we got here
-    if verbose:
-        print(f'{__name__}: translated {len(data[cols[0]])} lineages.', file=sys.stderr)
+    logger.info(f'translated {len(data[cols[0]])} lineages.')
 
     # Cleanup: remove missing taxids and register
     data = pd.DataFrame(data)

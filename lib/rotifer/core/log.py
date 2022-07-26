@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from datetime import datetime as dt
-import mdv
 from os.path import expanduser
 import yaml
 import os
