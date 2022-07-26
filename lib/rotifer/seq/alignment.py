@@ -3,7 +3,6 @@
 import os
 import sys
 # TESTING LINES
-#sys.path.insert(0, '/home/kaihami/local/modified_structure/rotifer/lib')
 
 from subprocess import Popen, PIPE, STDOUT
 from tempfile import mkstemp
@@ -749,12 +748,4 @@ def _colors_dict_and_cmap():
     return (colors, cmap, bounds, norm)
 
 if __name__ == '__main__':
-    print("test read fasta")
-
-
-    a = MSA.read('/home/kaihami/projects/ammonium_transp/work/20190208/amt.nr.0d8.amt.domain.sliced.filtered.formated.ordered.modified.trimmed.long_branches_removed.msa')
-
-    b = MSA.read('/home/kaihami/test/fasta/chpT.fa')
-
-
-
+    pass

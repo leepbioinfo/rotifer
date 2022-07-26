@@ -1,3 +1,0 @@
-uri: 'clickhouse://default:@localhost/rotifer'
-table_name: 'genomes2'
-beta: 'Haha'

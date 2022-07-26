@@ -75,7 +75,6 @@ class parser:
 
         self._action_switch = {'action.autoload': action.autoload,
                           'action.autoopen': action.autoopen,
-                          'action.fun': action.fun
                          }
 
         self._type_switch = {'read': argparse.FileType(mode = 'r')
@@ -521,11 +520,6 @@ class parser:
                     delattr(args, 'accession')
                 except: pass
                 
-                try:
-                    delattr(args, 'fun')
-                except:
-                    pass
-                
                 for arg in vars(args):
                     if getattr(args,arg) is not None:
                         k = {arg: getattr(args, arg)}
@@ -754,36 +748,6 @@ class action:
                     f[i] = tmp.name
                     namespace._rotifer_stdin_tempfile = tmp
                     break
-            setattr(namespace, self.dest, f)
-
-    class fun(argparse.Action):
-        '''
-        Fun or not fun message
-        Usage:
-        if fun:
-            sys.stderr.write(fun.fun)
-        or
-        if fun:
-            # Error?
-            sys.stderr.write(fun.notfun)
-        '''
-        def __init__(self, option_strings, *args, **kwargs):
-            super(action.fun, self).__init__(option_strings = option_strings, *args, **kwargs)
-            self.nargs = 0
-        def __call__(self, parser, namespace, values, option_string = None):
-            fun_msg = '''
- (\_/)
- (^_^)
- (")(")
-'''
-            nofun_msg = '''
- (\_/)
- (. .)
-C(")(")
-'''
-            f = dotdict({'fun':fun_msg,
-                         'nofun': nofun_msg})
-#            f2 = action().nofun
             setattr(namespace, self.dest, f)
 
     class dict_options_dev(argparse._AppendAction):

@@ -6,7 +6,6 @@ import copy as _copy
 import yaml
 from collections import defaultdict
 import os
-#sys.path.insert(0, '/home/kaihami/mymodules')
 
 # from rotifer.core.loadpath import path as rpath
 

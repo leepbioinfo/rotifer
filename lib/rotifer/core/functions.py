@@ -469,7 +469,7 @@ def loadConfig(filepath, user_path=GlobalConfig['userConfig'], system_path=Globa
                 print(f'Error while parsing file {load}: {sys.exc_info[1]}', file=sys.stderr)
                 return {}
         else:
-            print(f'File {load} not found.', file=sys.stderr)
+            print(f'File {filepath} not found.', file=sys.stderr)
             return {}
 
     # Loading configuration from 
@@ -501,8 +501,10 @@ def yaml_search(string, path):
         from yaml import Loader
     exts = ['.yml','.yaml','.config']
 
+    last = None
     data = {}
     ls = string.split('.')
+    query = ls[-1]
     while ls:
 
         # Check if any file or directory matches
@@ -519,13 +521,17 @@ def yaml_search(string, path):
         if os.path.isfile(path) and [x for x in exts if path.endswith(x)]:
             if not data:
                 data = yaml_load(open(path), Loader=Loader)
+                #print(f'Loading file {path}', file=sys.stderr)
+                last = ls[0]
             # Search for matching elements in data
             if isinstance(data, dict):
                 if ls[0] in data.keys():
                     data = data[ls[0]]
+                    last = ls[0]
             elif isinstance(data,list):
                 try:
                     data = data[int(ls[0])]
+                    last = ls[0]
                 except:
                     pass
 
@@ -534,7 +540,8 @@ def yaml_search(string, path):
     #while ls:
 
     # Return
-    return data
+    if query == last:
+        return data
 
 def loadClasses(load, user_path=os.path.join(GlobalConfig['user'],'lib'), system_path=os.path.join(GlobalConfig['base'],'lib','rotifer')):
     '''

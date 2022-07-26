@@ -3,12 +3,8 @@
 import os
 import argparse
 import sys
-
 import threading
 from threading import Thread
-import rotifer.core.cli as corecli
-import rotifer.core.functions as rcf
-from rotifer.db.ncbi import NcbiConfig
 import time
 from tqdm import trange
 import tqdm
@@ -20,6 +16,14 @@ from Bio import Entrez
 from multiprocessing import Process
 import argcomplete
 
+# Rotifer
+rotifer_root = os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[0])))
+sys.path.insert(0,os.path.join(rotifer_root,"lib"))
+from rotifer.db.ncbi import NcbiConfig
+import rotifer.core.cli as corecli
+import rotifer.core.functions as rcf
+
+# Globals
 __version__ = '0.5'
 __authors__ = 'Gilberto Kaihami; Aureliano Guedes'
 __rdoc__='''
@@ -34,44 +38,45 @@ Parallel esl-sfetch, with epost and efetch
 ### Arguments
 # TODO change for a better helper
 def parse_cli():
+    pfetchConfig = rcf.loadConfig(':apps.pfetch')
     parser = corecli.parser(description ='Parallel esl-sfetch, with epost and efetch')
-
     parser.add(rconfig=':cli.acc')
 
-    parser.add(long_arg = '--database',
-               short_arg = '-db',
-               default = 'nr',
-               dest = 'database',
-               helper = 'Protein fasta DB (nr,call, bacteria, archaea) (Default: nr)'
-               )
-
-    parser.add(long_arg ='--api_key',
-                        helper = 'Insert a valid NCBI API key or a valid config file username',
-                        default = '')
-
-    parser.add(long_arg = '--show',
-    helper = 'Show databases',
-    action = 'store_true')
+    parser.add(
+        long_arg = '--database',
+        short_arg = '-db',
+        default = pfetchConfig['database'] or 'nr',
+        dest = 'database',
+        helper = 'Protein fasta DB'
+   )
 
     parser.add(
-    short_arg ="-v",
-    long_arg ='--verbose',
-    action = 'store_true',
-    helper = "Verbose"
+        long_arg ='--api_key',
+        helper = 'Insert a valid NCBI API key or a valid config file username',
+        default = NcbiConfig["api_key"],
     )
 
     parser.add(
-    short_arg = "-p",
-    long_arg = '--progress',
-    action = 'store_true',
-    helper = "Progress bar",
+        short_arg ="-v",
+        long_arg ='--verbose',
+        action = 'store_true',
+        helper = "Verbose"
     )
 
-    parser.add(short_arg = '-t',
-               long_arg = '--threads',
-                default = 5,
-                arg_type = int,
-                helper = 'Number pf threads (Default:5)')
+    parser.add(
+        short_arg = "-p",
+        long_arg = '--progress',
+        action = 'store_true',
+        helper = "Progress bar",
+    )
+
+    parser.add(
+        short_arg = '-t',
+        long_arg = '--threads',
+        default = pfetchConfig['threads'] if 'threads' in pfetchConfig else 5,
+        arg_type = int,
+        helper = 'Number pf threads (Default:5)',
+    )
 
     argcomplete.autocomplete(parser)
 
@@ -136,7 +141,7 @@ def find_entrez(accs, api_key):
                 tries +=1
                 time.sleep(1)
 
-def find_sequences(tmp_f, database, output, thread = 5, api_key = '935f49538aaa065207b4582a5cc4fcd59408'):
+def find_sequences(tmp_f, database, output, thread = 5, api_key = NcbiConfig['api_key']):
     os.system("cat %s | parallel -j 18 esl-sfetch %s 2> %s.err {} |tee %s " % (tmp_f, database, output, output))
     to_open = open('{0}.err'.format(output)).read().splitlines()
     missing_accs = [x.split(' ')[1] for x in to_open if x != '']
@@ -186,76 +191,23 @@ def progress(initial, final):
     except:
         pass
 
-def show():
-    home = expanduser("~")
-    db_local_path = os.path.join(home, '.rotifer/config')
-
-    try:
-        n = open(os.path.join(db_local_path, 'pfetch.config'))
-        db_local = yaml.load(n)
-
-    except:
-        pass
-
-    db_global_path = '/home/kaihami/mymodules/rotifer/etc/rotifer/pfetch.config'
-    db_global = yaml.load(open(db_global_path))
-
-    try:
-        print('## Local Database')
-        print('## Path: {0}'.format(os.path.join(db_local_path,'pfetch.config')))
-        print('Name\tPath')
-        for k,v in db_local['database'].items():
-            print(k+'\t'+v)
-        print()
-    except:
-        pass
-
-    try:
-        print('## Global Database')
-        print('## Path: {0}'.format(db_global_path))
-        print('Name\tPath')
-        for k,v in db_global['database'].items():
-            print(k+'\t'+v)
-        sys.exit()
-
-    except:
-        pass
-
-def loadDB():
-    database = rcf.loadConfig(':pfetch.database')
-    return database
-
 ############
 ### MAIN ###
 ############
 
 if __name__ == '__main__':
-    Entrez.email = 'kaihami@gmail.com'
+    Entrez.email = NcbiConfig['email']
     # Arguments
     args = parse_cli()
 
     # Load NCBI API key
-    api_key = ''
-    if args.api_key:
-        api_key = args.api_key
-    else:
-        from rotifer.db.ncbi import NcbiConfig
-        api_key = NcbiConfig["api_key"]
+    api_key = args.api_key
     if args.verbose: print(f'NCBI_API_KEY: {api_key}', file=sys.stderr)
 
     # Number of threads
     threads = args.threads if args.threads <= 5 else 5
-    
+
     # Checking if it is valid
-    if args.show:
-        show()
-        sys.exit(0)
-    databases = loadDB()
-    if args.database in databases.keys():
-        database = databases[args.database]
-    else:
-        database = args.database
-    # Create a tmp file        tmp = args.accession
     acc = args.accession
     fd, path_accession = mkstemp()
 
@@ -263,10 +215,7 @@ if __name__ == '__main__':
         f.write('\n'.join(acc))
 
     fd2, path_output = mkstemp()
-#        if args.output == "":
-#            args.output = check_tmp()
-    # Peform the parallel search, returns a .err file with no hits
-    first = Thread(target = find_sequences, args = (path_accession, database, path_output, threads, api_key))
+    first = Thread(target = find_sequences, args = (path_accession, args.database, path_output, threads, api_key))
     time.sleep(0.4)
 
     if args.progress:

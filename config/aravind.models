@@ -1,2 +1,0 @@
-'''/home/rfsouza/data/profiledb/all/ | grep .hmm'''
-'''runprofiles --mode show all | grep -w -F .hmm | cut -f 2 '''

@@ -6,8 +6,3 @@ configdump:
   long_arg: '--configdump'
   helper: 'Dump a configuration file'
   action: 'store_true'
-fun:
-  long_arg: '--fun'
-  default: ''
-  action: 'action.fun'
-  helper: 'supress'

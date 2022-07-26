@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 
-from rotifer.table import table as tb
+import sys
 
+# Rotifer
+rotifer_root = os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[0])))
+sys.path.insert(0,os.path.join(rotifer_root,"lib"))
+from rotifer.table import table as tb
 import rotifer.core.cli as corecli
 
+# Globals
 __version__ = 0.001
 __authors__ = 'Gilberto Kaihami; Robson F. Souza'
 __rdoc__='''

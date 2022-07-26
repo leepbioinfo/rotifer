@@ -1,6 +1,0 @@
-accession:
-  dest: 'accession'
-  helper: 'Input an accession file(s)'
-  action: action.autoload
-  nargs: '*'
-
