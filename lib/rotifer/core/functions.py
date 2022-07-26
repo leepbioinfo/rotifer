@@ -4,7 +4,6 @@ from datetime import datetime as dt
 import os
 import sys
 from os.path import expanduser
-import yaml
 import warnings
 import signal
 import inspect
@@ -425,7 +424,7 @@ def findDataFiles(load=[], user_path=os.path.join(GlobalConfig['user'],'share'),
     # Return
     return files
 
-def loadConfig(load, user_path=GlobalConfig['userConfig'], system_path=GlobalConfig['baseConfig']):
+def loadConfig(filepath, user_path=GlobalConfig['userConfig'], system_path=GlobalConfig['baseConfig']):
     '''
     This routine loads configuration parameters from YAML file(s).
 
@@ -456,11 +455,16 @@ def loadConfig(load, user_path=GlobalConfig['userConfig'], system_path=GlobalCon
     Rotifer's installation path so that user customizations
     always apply first.
     '''
+    from yaml import load as yaml_load
+    try:
+        from yaml import CLoader as Loader
+    except ImportError:
+        from yaml import Loader
 
-    if load[0] != ":":
-        if os.path.exists(load):
+    if filepath[0] != ":":
+        if os.path.exists(filepath):
             try:
-                return yaml.load(open(load))
+                return yaml_load(open(filepath), Loader=Loader)
             except:
                 print(f'Error while parsing file {load}: {sys.exc_info[1]}', file=sys.stderr)
                 return {}
@@ -469,7 +473,7 @@ def loadConfig(load, user_path=GlobalConfig['userConfig'], system_path=GlobalCon
             return {}
 
     # Loading configuration from 
-    expand_load = load.replace(':','')
+    expand_load = filepath.replace(':','')
 
     # User path
     config = {}
@@ -477,19 +481,24 @@ def loadConfig(load, user_path=GlobalConfig['userConfig'], system_path=GlobalCon
         try:
             config = yaml_search(expand_load, user_path)
         except:
-            print(f'Error while parsing file {os.path.join(user_path,expand_load)}: {sys.exc_info[1]}', file=sys.stderr)
+            print(f'Error while parsing file {os.path.join(user_path,expand_load)}: {sys.exc_info}', file=sys.stderr)
 
     # System path
     if not config and os.path.exists(system_path):
         try:
             config = yaml_search(expand_load, system_path)
         except:
-            print(f'Error while parsing file {os.path.join(system_path,expand_load)}: {sys.exc_info[1]}', file=sys.stderr)
+            print(f'Error while parsing file {os.path.join(system_path,expand_load)}: {sys.exc_info}', file=sys.stderr)
 
     # Return
     return config
 
 def yaml_search(string, path):
+    from yaml import load as yaml_load
+    try:
+        from yaml import CLoader as Loader
+    except ImportError:
+        from yaml import Loader
     exts = ['.yml','.yaml','.config']
 
     data = {}
@@ -509,7 +518,7 @@ def yaml_search(string, path):
         # Load matching file that matches an extension
         if os.path.isfile(path) and [x for x in exts if path.endswith(x)]:
             if not data:
-                data = yaml.load(open(path))
+                data = yaml_load(open(path), Loader=Loader)
             # Search for matching elements in data
             if isinstance(data, dict):
                 if ls[0] in data.keys():
