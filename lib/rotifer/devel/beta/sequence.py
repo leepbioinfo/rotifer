@@ -12,8 +12,9 @@ logger = rotifer.logging.getLogger(__name__)
 
 # Defaults
 _config = {
+    'fetch': 'pfetch',
     'pdb_dir': os.path.join(os.environ['ROTIFER_DATA'] if 'ROTIFER_DATA' in os.environ else '/databases',"pdb"),
-    'databases':['pdb','pfam'],
+    'databases': ['pdb','pfam'],
     'databases_path': os.path.join(os.environ['ROTIFER_DATA'] if 'ROTIFER_DATA' in os.environ else '/databases',"hhsuite"),
     **loadConfig(__name__.replace('rotifer.',':'))
 }
@@ -724,13 +725,11 @@ class sequence:
         result.df =  pd.concat([pd.DataFrame([[pdbn,pdbss,len(pdbss),"residue_annotation"]], columns=self._reserved_columns),self.df])
         return result
 
-    def add_seq(self, seq_to_add, cpu=12, fast=False):
+    def add_seq(self, seq_to_add, cpu=12, fast=False, fetch=_config["fetch"]):
         import tempfile
         import subprocess
         from rotifer.db.ncbi import NcbiConfig
         from subprocess import Popen, PIPE, STDOUT
-        if 'fetch_method' not in NcbiConfig:
-            NcbiConfig['fetch_method']= 'pfetch'
 
         # Make sure input is a list
         if not isinstance(seq_to_add,list):
@@ -747,7 +746,7 @@ class sequence:
                 SeqIO.write(seq_to_add, f'{tmpdirname}/acc.fa', "fasta")
             else:
                 pd.Series(seq_to_add).to_csv(f'{tmpdirname}/acc', index=None, header=None)
-                Popen(f'{NcbiConfig["fetch_method"]} {tmpdirname}/acc > {tmpdirname}/acc.fa' , stdout=PIPE,shell=True).communicate()
+                Popen(f'{fetch} {tmpdirname}/acc > {tmpdirname}/acc.fa' , stdout=PIPE,shell=True).communicate()
 
             # Run MAFFT
             child = f'mafft --thread {cpu} --add {tmpdirname}/acc.fa'
