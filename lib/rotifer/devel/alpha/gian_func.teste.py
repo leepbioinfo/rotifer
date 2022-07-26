@@ -11,7 +11,7 @@ def load_seq_scan(name, folder):
     return info
 
 
-def cluster2aln(group_cluster,df,esl_index_file, grouper='c80e3', redundancy_cluster='c80i70',realign_method='famsa', query=False, cpu=12):
+def cluster2aln(group_cluster,df,esl_index_file, grouper='c80e3', redundancy_cluster='c80i70', fast=True, query=False):
     import os
     import tempfile
     from subprocess import Popen,PIPE
@@ -24,7 +24,7 @@ def cluster2aln(group_cluster,df,esl_index_file, grouper='c80e3', redundancy_clu
         if not os.path.exists(esl_index_file+'.ssi'):
             Popen(f'esl-sfetch --index {esl_index_file}',stdout=PIPE, shell=True).communicate()
         Popen(f'esl-sfetch -f {esl_index_file} {tmpdirname}/accs > {tmpdirname}/accs.fa',stdout=PIPE, shell=True).communicate()
-        b = sequence(f'{tmpdirname}/accs.fa').realign(method=realign_method, cpu=cpu)
+        b = sequence(f'{tmpdirname}/accs.fa').realign(fast=fast)
         return b
 
 def chunks(l, n):
@@ -149,6 +149,6 @@ def hmmsearch_full2pandas (file, error_lines=True, keep_threshold=False ):
         return df
     
     df = df.query('~Evalue.str.contains("threshold")')
-    df.Evalue = df.Evalue.astype(float)
+    df.Evalue = df.Evalue.astype(float))
 
     return df

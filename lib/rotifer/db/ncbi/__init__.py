@@ -337,6 +337,9 @@ def assemblies(baseurl=f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASSEMBLY_REPORT
 
       # Load local files at /db/ncbi
       b = ncbi.assembly_reports(baseurl="/db/ncbi")
+      
+      # If working at NIH servers use
+      a = ncbi.assembly_reports(baseurl="/am/ftp-genomes/ASSEMBLY_REPORTS")
 
     Returns:
       Pandas DataFrame

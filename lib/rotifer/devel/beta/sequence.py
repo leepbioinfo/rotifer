@@ -714,7 +714,10 @@ class sequence:
     def add_seq(self, seq_to_add, cpu=12, fast=False):
         import tempfile
         import subprocess
+        from rotifer.db.ncbi import NcbiConfig
         from subprocess import Popen, PIPE, STDOUT
+        if 'fetch_method' not in NcbiConfig:
+            NcbiConfig['fetch_method']= 'pfetch'
 
         # Make sure input is a list
         if not isinstance(seq_to_add,list):
@@ -731,7 +734,7 @@ class sequence:
                 SeqIO.write(seq_to_add, f'{tmpdirname}/acc.fa', "fasta")
             else:
                 pd.Series(seq_to_add).to_csv(f'{tmpdirname}/acc', index=None, header=None)
-                Popen(f'pfetch {tmpdirname}/acc > {tmpdirname}/acc.fa' , stdout=PIPE,shell=True).communicate()
+                Popen(f'{NcbiConfig["fetch_method"]} {tmpdirname}/acc > {tmpdirname}/acc.fa' , stdout=PIPE,shell=True).communicate()
 
             # Run MAFFT
             child = f'mafft --thread {cpu} --add {tmpdirname}/acc.fa'
@@ -942,6 +945,8 @@ class sequence:
         >>> aln.hist(50)
         """
         from ascii_graph import Pyasciigraph
+        import collections
+        collections.Iterable = collections.abc.Iterable
         print(f'Total proteins: {len(self.df)}')
         a = self.df['length'].value_counts().to_frame().reset_index()
         a = a.sort_values('index')
@@ -981,19 +986,19 @@ class sequence:
         SeqIO.write(self.to_seqrecords(annotations=annotations, remove_gaps=remove_gaps), sio, output_format)
         return sio.getvalue()
 
-    def realign(self,fast=False, cpu=10):
+    def realign(self,method='famsa', cpu=12):
         """
         Rebuild the alignment using Mafft.
 
         Parameters
         ----------
-        fast : bool, default is False
-            Enable/disable alignment refining and pairwise comparisons
-            using the Smith-Waterman algorithm. If set to True,
-            options ```--maxiterate 1000``` and ```--localpair```
-            **will not** be included in Mafft's external call.
-        cpu : integer, default is 10
-            Number of threads to use when running Mafft
+        method : string, default is famsa
+            famsa ,
+            mafft runs maaft with defaul parameter 
+            linsi runs mafft  using the Smith-Waterman algorithm with options ```--maxiterate 1000``` and ```--localpair```
+            kalign 
+        cpu : integer, default is 12
+            Number of threads to use, kalign do not have thread option
 
         Returns
         -------
@@ -1001,10 +1006,17 @@ class sequence:
         """
         from subprocess import Popen, PIPE, STDOUT
         seq_string = self.to_string(remove_gaps=True).encode()
-        if fast:
+
+
+        if method =='mafft':
             child = Popen(f'cat|mafft  --thread {cpu} -' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
-        else:
+        elif method == 'linsi':
             child = Popen(f'cat|mafft  --maxiterate 1000 --localpair --thread {cpu} -' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
+        elif method =='famsa':
+            child = Popen(f'cat|famsa -t {cpu} -v STDIN STDOUT' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
+        elif method =='kalign':
+            child = Popen(f'cat|kalign' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
+            
         result = self.from_string(child[0].decode("utf-8"), input_format = 'fasta')
         result.file_path = 'from realign function'
         return result
