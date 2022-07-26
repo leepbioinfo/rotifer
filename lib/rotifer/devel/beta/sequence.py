@@ -986,19 +986,19 @@ class sequence:
         SeqIO.write(self.to_seqrecords(annotations=annotations, remove_gaps=remove_gaps), sio, output_format)
         return sio.getvalue()
 
-    def realign(self,fast=False,method='linsi', cpu=10):
+    def realign(self,method='famsa', cpu=12):
         """
         Rebuild the alignment using Mafft.
 
         Parameters
         ----------
-        fast : bool, default is False
-            Enable/disable alignment refining and pairwise comparisons
-            using the Smith-Waterman algorithm. If set to True,
-            options ```--maxiterate 1000``` and ```--localpair```
-            **will not** be included in Mafft's external call.
-        cpu : integer, default is 10
-            Number of threads to use when running Mafft
+        method : string, default is famsa
+            famsa ,
+            mafft runs maaft with defaul parameter 
+            linsi runs mafft  using the Smith-Waterman algorithm with options ```--maxiterate 1000``` and ```--localpair```
+            kalign 
+        cpu : integer, default is 12
+            Number of threads to use, kalign do not have thread option
 
         Returns
         -------
@@ -1007,9 +1007,6 @@ class sequence:
         from subprocess import Popen, PIPE, STDOUT
         seq_string = self.to_string(remove_gaps=True).encode()
 
-
-        if fast:
-            method = 'kalign'
 
         if method =='mafft':
             child = Popen(f'cat|mafft  --thread {cpu} -' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
