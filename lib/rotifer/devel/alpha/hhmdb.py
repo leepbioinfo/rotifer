@@ -51,4 +51,5 @@ def hhmdb(
         Popen(f"mv {td}/{prefix}.cs219.ffindex ./hhmdb/{prefix}_cs219.ffindex", stdout=PIPE, shell=True).communicate()
         Popen(f"mv {td}/{prefix}.a3m.ordered.ffindex ./hhmdb/{prefix}_a3m.ffindex", stdout=PIPE, shell=True).communicate()
         Popen(f"mv {td}/{prefix}.hhm.ordered.ffindex ./hhmdb/{prefix}_hhm.ffindex", stdout=PIPE, shell=True).communicate()
+    Popen(f'for x in ./hhmdb/aln/*.aln; do y=$(echo $x|cut -f 4 -d "/" | sed "s/\.aln//"); hhsearch --cpu {cpu} -i $x -d ./hhmdb/{prefix} -o ./hhmdb/aln/$y.hhr;done', stdout=PIPE, shell=True).communicate()
         return()
