@@ -5,15 +5,15 @@ import os
 import psycopg2
 from psycopg2.extras import DictCursor
 import sys
+import rotifer
+logger = rotifer.logging.getLogger(__name__)
 
 class rneighbors:
     def __init__(self, above = 3, below = 3,
                  outformat = 'gi2operons', input_file ='',
                  gacc = [], asm = [],
-
                  database = 'rotifer', port = '5433',
                  host = '10.1.1.1', user = 'rotifer',
-                 debug = 0, log = ''
                  ):
 
         self.above = above # get above
@@ -28,17 +28,13 @@ class rneighbors:
         self.host = host # DB host
         self.user = user # DB user
 
-        self.debug = debug # Debug flag
-        self.logf(log) # Debug log
-
-
     def connect(self):
         try:
             dsn = "dbname=" + self.database + " user=" + self.user + " host=" + self.host + ' port=' + self.port
             self.db  = psycopg2.connect(dsn, cursor_factory=DictCursor)
 
         except:
-            self.log.write("I am unable to connect to the database\n")
+            logger.critical("I am unable to connect to the database")
             exit(1)
 
     def lsqlAsm(self):
@@ -128,19 +124,13 @@ class rneighbors:
             lsql = self.baseSql() + self.lsqlGacc()
         else:
             lsql = self.baseSql() + self.basicSql()
-
         cursor = self.db.cursor()
-        for sql in lsql: cursor.execute(sql)
-
+        for sql in lsql:
+            cursor.execute(sql)
         cursor.execute("SELECT count(*) from upid")
-        self.debugMsg(cursor.fetchone()[0],
-                "## Number of protein accession numbers in input: ")
-
-        cursor.execute('''
-                SELECT count(distinct product_accession) as proteins from uquery
-                ''')
-        self.debugMsg(cursor.fetchone()[0],
-                "## Number of proteins found in the SQL database: ")
+        logger.debug(f'## Number of protein accession numbers in input: {cursor.fetchone()[0]')
+        cursor.execute('''SELECT count(distinct product_accession) as proteins from uquery''')
+        logger.debug(f'## Number of proteins found in the SQL database: {cursor.fetchone()[0]}')
 
     def runRneighbors(self, stop = True):
         self.connect() # connect to DB
@@ -159,10 +149,11 @@ class rneighbors:
                 self.fetch_intervals(intervals, nt['genomic_accession'], self.above, self.below)
                 old = intervals.fetchone()
                 for new in intervals:
-                    if not isinstance(new[4],(int)): selfs.log.write(
-                        "Last upstream neighbor for " + old["product_accession"]
-                        + " is not an integer: " + str(type(old[4])) + "\n"
-                    )
+                    if not isinstance(new[4],(int)):
+                        logger.info(
+                                "Last upstream neighbor for " + old["product_accession"]
+                                + " is not an integer: " + str(type(old[4])) + "\n"
+                        )
                     if int(old[4])+1 >= int(new[3]):
                         old[4] = new[4] # merge old and new intervals
                     else: # print old, put new in old
@@ -177,34 +168,26 @@ class rneighbors:
                     elif self.outformat == 'table':
                         print_header = self.table(cursor, nt, old, print_header)
                     else:
-                        self.log.write("Unsupported output format: " + self.outformat)
+                        logger.warning("Unsupported output format: " + self.outformat)
             intervals.close()
         cursor.close()
         self.db.close()
-        self.log.close()
         if stop:
             sys.exit(0)
         else:
             pass
 
-    def debugMsg(self, prop, msg):
-        # write to log
-        if self.debug > 0:
-            self.log.write(msg)
-            self.log.write(str(prop)+'\n')
-
-    def logf(self,name):
-        self.log = sys.stderr
-
     def missing(self, cursor):
         lost = self.fetch_missing_queries(cursor)
         lost = list(map(lambda x: str(x[0]), lost))
-        if len(lost): self.log.write('\n'.join(lost)+'\n')
+        if len(lost):
+            logger.warning('\n'.join(lost))
 
     def query(self, cursor):
         lost = self.fetch_queries(cursor)
         lost = list(map(lambda x: str(x[0], lost)))
-        if len(lost): self.log.write('\n',join(lost) + '\n')
+        if len(lost):
+            logger.warning('\n',join(lost))
 
     def gi2operons(self, cursor, contig, interval):
         # Prepare main query to fetch a block

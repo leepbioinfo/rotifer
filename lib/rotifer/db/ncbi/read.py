@@ -33,9 +33,7 @@ def ipg(ncbi, batch_size=200, *args, **kwargs):
     cols = ['id','ipg_source','nucleotide','start','stop','strand','pid','description','ipg_organism','strain','assembly']
     added = ['order','is_query','representative']
     emptyDF = pd.DataFrame(columns=cols+added)
-
-    # Set log format
-    logger.info(f'main: downloading IPG reports for {len(ncbi)} protein accessions...')
+    logger.info(f'downloading IPG reports for {len(ncbi)} protein accessions...')
 
     # Backup and check queries
     queries = ncbi.submit()

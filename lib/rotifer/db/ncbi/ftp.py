@@ -172,12 +172,13 @@ class cursor():
           Open data stream (file handle-like) object
         '''
         from tempfile import _TemporaryFileWrapper
+        import rotifer.core.functions as rcf
         self.connect()
         outfile = self.ftp_get(target, outdir=cache, avoid_collision=avoid_collision)
         if self._error:
             return None
         else:
-            return _TemporaryFileWrapper(self._hook_compressed_text(outfile, mode), outfile, delete)
+            return _TemporaryFileWrapper(rcf.open_compressed(outfile, mode), outfile, delete)
 
     def open_genome(self, accession, assembly_reports=None, cache=GlobalConfig['cache']):
         """
@@ -311,19 +312,6 @@ class cursor():
             path = (path.target.iloc[0], path['name'].iloc[0])
 
         return path
-
-    def _hook_compressed_text(self, filename, mode='r', encoding='utf8'):
-        ext = os.path.splitext(filename)[1]
-        if (mode == 'r') or not mode:
-            mode = 'rt'
-        if ext == '.gz':
-            import gzip
-            return gzip.open(filename, mode, encoding=encoding)
-        elif ext == '.bz2':
-            import bz2
-            return bz2.open(filename, mode, encoding=encoding)
-        else:
-            return open(filename, mode, encoding=encoding)
 
 # Is this library being used as a script?
 if __name__ == '__main__':

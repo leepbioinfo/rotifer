@@ -4,7 +4,6 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[0]))), "lib"))
 import rotifer.core.cli as corecli
 import rotifer.core.functions as rcf
-from rotifer.core.log import log
 from rotifer.neighborhood import neighborhood
 from rotifer.alchemy.connect import clickhouse
 

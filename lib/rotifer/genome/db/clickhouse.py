@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 import pandas as pd
-import rotifer.core.log as rlog
+import rotifer
 from rotifer.core.functions import loadConfig
+logger = rotifer.logging.getLogger(__name__)
 
 class clickhouse:
-    def __init__(self, config= {},
-                 table_name = '',
-                 uri = '',
-                 verbose = 0,
-                 log_file =''):
+    def __init__(
+            self,
+            config= {},
+            table_name = '',
+            uri = '',
+            ):
 
         '''
         Connect to clickhouse
@@ -16,18 +18,16 @@ class clickhouse:
 
         from rotifer.alchemy.connect import clickhouse
 
-        rlog.log({1:'click'}, level = 1, name = __name__)
+        logger.info(__name__)
         try:
             if config.startswith(':'):
                 config = (loadConfig(config))
-
-        except: pass
+        except:
+            pass
 
         self.config = config
         self.uri = 'clickhouse://default:@localhost/rotifer'
         self.table_name = 'genomes'
-        self._log_file = log_file
-        self._verbose = verbose
 
         for c in config.keys():
             if c in ['uri', 'table_name']:
@@ -35,45 +35,20 @@ class clickhouse:
                     setattr(self,c, config[c])
                 except:
                     if self.uri == '' or self.table_name == '':
-                        rlog.log({2: f'Argument not {c} is empty'
-                                  },
-                            level = self._verbose,
-                            log_file = self._log_file,
-                            name = __name__)
-
+                        logger.warning(f'Argument not {c} is empty')
             else:
-                rlog.log({2: f'Argument not used in the config[{c}]',
-                          3: f'Loading CH configuration argument not used [{c}]'
-                          },
-                    level = self._verbose,
-                    log_file = self._log_file,
-                    name = __name__)
+                logger.warning( f'Argument not used in the config[{c}]')
+                logger.error(f'Loading CH configuration argument not used [{c}]')
 
         try:
-            rlog.log({3: f'Connecting to ClickHouse DB',
-                      },
-                level = self._verbose,
-                log_file = self._log_file,
-                name = __name__)
-
+            logger.error(f'Connecting to ClickHouse DB')
             db =  clickhouse(uri = self.uri,
                                     table_name = self.table_name)
             self._conn = db.conn
             self._db_columns = db.table_columns()
-            rlog.log({3: f'Connected to ClickHouse DB',
-                      },
-                level = self._verbose,
-                log_file = self._log_file,
-                name = __name__)
-
+            logger.error(f'Connected to ClickHouse DB')
         except:
-            rlog.log({
-                 3: f'Unable to connect to ClickHouse Database'
-                },
-                level = self._verbose,
-                log_file = self._log_file,
-                name = __name__
-                )
+            logger.error(f'Unable to connect to ClickHouse Database')
 
     def submit(self, accs,
                input_type = ['protein_acc'],
@@ -141,17 +116,9 @@ class clickhouse:
         for ipt in input_type:
             try:
                 self._input_type.append(_switch_ipttype[ipt])
-
             except:
-                rlog.log({
-                     2: f'ClickHouse invalid input type [{ipt}]',
-                     3: f'Invalid input type for ClickHouse [{ipt}], valid options [{", ".join(list(_switch_ipttype.keys()) )}]'
-                    },
-                    level = self._verbose,
-                    log_file = self._log_file,
-                    name = __name__
-                    )
-
+                logger.warning( f'ClickHouse invalid input type [{ipt}]')
+                logger.error(f'Invalid input type for ClickHouse [{ipt}], valid options [{", ".join(list(_switch_ipttype.keys()) )}]')
         self.accs = accs
 
         # Testing
@@ -233,13 +200,12 @@ class clickhouse:
         q_ipt_type = ''
         for x in range(0, len(self.accs), n_partition):
             self.accs_formated = ["'" + x + "'" for x in self.accs[x:x+n_partition]]
-            rlog.log({1:'message'})
 
             for ipt_type in self._input_type:
                 if ipt_type in self._db_columns:
                     q_ipt_type += f"{ipt_type} IN ({','.join(self.accs_formated)}) OR "
                 else:
-                    rlog.log({2: f'No column named [{ipt_type}]'}, level = 2)
+                    logger.warning(f'No column named [{ipt_type}]')
 
             self.q_ipt_type = q_ipt_type.rstrip(' OR ')
             print(self._filterby)
@@ -274,28 +240,17 @@ class clickhouse:
                 else:
                     print(self.q_ipt_type)
                     print('Debug query')
-                    print(f''' SELECT DISTINCT nucleotide, nuc_asm
-                                                        FROM {self.table_name}
-                                                        {self.q_ipt_type}
-''')
+                    print(f'''SELECT DISTINCT nucleotide, nuc_asm
+                              FROM {self.table_name}
+                              {self.q_ipt_type}''')
                     _ = self._conn.execute(f'''SELECT DISTINCT nucleotide, nuc_asm
                                                         FROM {self.table_name}
                                                         {self.q_ipt_type}
                                              ''')
                 self.nucleotide_in_db.extend([(nuc, nuc_asm) for nuc, nuc_asm in _])
             except:
-                rlog.log({3: 'MSG error'},
-                         level = self._verbose,
-                         name = __name__)
-
-
+                logger.error(f'Issue with partition {x}')
         return self.nucleotide_in_db
-
-    def _next_nucleotide(self, block_id = 0):
-        pass
-
-    def _next_assembly(self, block_id = 0):
-        pass
 
     def _next_block(self):
         # Add filter by query

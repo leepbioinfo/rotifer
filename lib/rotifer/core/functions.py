@@ -17,6 +17,34 @@ Rotifer core functions
 
 __version__ = 0.15
 
+def open_compressed(filename, mode='r', encoding='utf8'):
+    """
+    Open a bzip2 or a gzip file as if it was uncompressed.
+
+    Usage:
+      import rotifer.core.functions as rcf
+      fh = open_compressed(filename, "rb")
+
+    Parameters:
+      filename:
+        Path to the compressed file
+      mode: string, default 'rb'
+        Access mode
+      enconding: string, default 'utf-8'
+        File enconding
+    """
+    ext = os.path.splitext(filename)[1]
+    if (mode == 'r') or not mode:
+        mode = 'rt'
+    if ext == '.gz':
+        import gzip
+        return gzip.open(filename, mode, encoding=encoding)
+    elif ext == '.bz2':
+        import bz2
+        return bz2.open(filename, mode, encoding=encoding)
+    else:
+        return open(filename, mode, encoding=encoding)
+
 def vmsg(message = ''):
     """
     Output a message to stderr.

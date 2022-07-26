@@ -41,5 +41,3 @@ GlobalConfig = __setup_base_config()
 from . import cli
 from . import functions
 from . import loadpath
-#from . import log
-

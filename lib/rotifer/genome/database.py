@@ -2,11 +2,8 @@
 import os
 import sys
 import pandas as pd
-import rotifer.core.log as rlog
-
 from rotifer.core.functions import loadClasses
 from rotifer.genome.data import NeighborhoodDF
-
 
 # Core class
 class database:
@@ -59,16 +56,6 @@ class database:
             self.sources.append(source)
 
         self.config.update({source: config})
-
-        # rlog.log({3: f'Source is {source}'},
-        #          level = self._verbose,
-        #          log_file = self._log_file,
-        #          name = __name__)
-        #
-        # rlog.log({3: f'Loading config is {config}'},
-        #          level = self._verbose,
-        #          log_file = self._log_file,
-        #          name = __name__)
 
     def submit(self, accs = '',
                input_type =['protein_acc'],

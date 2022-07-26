@@ -4,16 +4,8 @@
 import os
 import sys
 import time
-import shutil
-import logging
-import datetime
-import warnings
-import subprocess
-import argcomplete
 import random, string
 from io import StringIO
-from os.path import expanduser
-from datetime import datetime as dt
 from multiprocessing import Process, Manager
 
 # Other
@@ -37,11 +29,11 @@ from clickhouse_sqlalchemy import Table, make_session, get_declarative_base, typ
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[0]))), "lib"))
 import rotifer.core.cli as corecli
 import rotifer.core.functions as rcf
-from rotifer.core.log import log
 from rotifer.neighborhood import neighborhood
 from rotifer.alchemy.connect import clickhouse
 
 # Warnings: why???????????
+import warnings
 warnings.filterwarnings('ignore')
 
 # Version
@@ -100,6 +92,7 @@ Get gene neighborhood
 # TODO: Still need to put efetch/esearch feature
 
 def parse_cli():
+    import argcomplete
     parser = corecli.parser(description = 'Get gene neighborhood')
 
     parser.add(rconfig = ':cli.acc')
@@ -224,6 +217,7 @@ block 1:
     return args
 
 def verbose_msg(message = ''):
+    from datetime import datetime as dt
     now = dt.now().strftime('[%D %H:%M:%S]')
     if isinstance(message, list):
         message = ' '.join(message)
@@ -268,6 +262,7 @@ def asm2ftp(gbks, db, verbose = False,progress = False, position = 0, threads = 
     db       folder to save the genbank
     verbose: verbose level
     '''
+    import subprocess
 
     if verbose:
         ngbks = len(gbks)
@@ -642,6 +637,7 @@ def features2df(gbk, df, db = '', pair_acc = '', verbose = False):
     db:   Database folder
     pair_acc
     '''
+    import datetime
 #    sys.stderr.write(gbk+'\n')
     # , accs = sub_accs, pair_acc = old_new_acc
 
@@ -1023,7 +1019,7 @@ def collen(df):
     return collen_len
 
 def makeDB(verbose = False):
-    home = expanduser("~") #Get home folder platform independent
+    home = os.path.expanduser("~") #Get home folder platform independent
     db = os.path.join(home, '.cache/rotifer/acc2operon')
     try:
         os.makedirs(db)

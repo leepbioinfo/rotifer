@@ -5,20 +5,17 @@
 import itertools
 import numpy as np
 import pandas as pd
-import rotifer.core.log as rlog
+import rotifer
 from rotifer.core.functions import not_kwargs
 from rotifer.taxonomy.utils import lineage as rtlineage
+logger = rotifer.logging.getLogger(__name__)
 
 class NeighborhoodDF(pd.DataFrame):
     # mandatory columns????
-    _metadata = ['filterby',
-                 'verbose',
-                 'log_file']
+    _metadata = ['filterby']
 
     def __init__(self, *args, **kwargs):
         self.filterby  = kwargs.pop('filterby', None)
-        self.verbose   = kwargs.pop('verbose', None)
-        self.log_file  = kwargs.pop('log_file', None)
         update_lineage = kwargs.pop('update_lineage',False)
         preferred_taxa = kwargs.pop('preferred_taxa',None)
         super(NeighborhoodDF, self).__init__(*args, **kwargs)
@@ -89,10 +86,7 @@ class NeighborhoodDF(pd.DataFrame):
                 if x in df.columns:
                     include.append(x)
                 else:
-                    rlog.log({2: f"Column named [{columns}] was not included the DataFrame"},
-                         level = self._verbose,
-                         name = __name__,
-                         log_file = self._log_file)
+                    logger.warning(f"Column named [{columns}] was not included the DataFrame")
             df = df[include]
 
         try:

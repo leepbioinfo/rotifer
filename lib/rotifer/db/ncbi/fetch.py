@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
 import os
-import logging
 from tempfile import NamedTemporaryFile, _TemporaryFileWrapper
 from ftplib import FTP
+import rotifer
 from rotifer.io import fileinput
 from rotifer.core import GlobalConfig
 from rotifer.db.ncbi import NcbiConfig
+logger = rotifer.logging.getLogger(__name__)
 
 # Load NCBI assembly reports
 def ftp(ncbi, outdir=GlobalConfig['cache'], mode='r', concat=False, tempfile=False, delete=False, *args, **kwargs):
@@ -44,11 +45,7 @@ def ftp(ncbi, outdir=GlobalConfig['cache'], mode='r', concat=False, tempfile=Fal
       One or more file names or file objects.
       File objects may be file or rotifer.io.fileinput objects.
     '''
-
-    # Set log format
-    logger = logging.getLogger('rotifer.db.ncbi.fetch')
-    logger.setLevel(logging.DEBUG)
-    logger.info(f'main: downloading files from {NcbiConfig["ftpserver"]}')
+    logger.info(f'Downloading files from {NcbiConfig["ftpserver"]}')
 
     # Connect if necessary
     ftp = FTP(NcbiConfig['ftpserver'])

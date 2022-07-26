@@ -226,7 +226,7 @@ def neighbors(
     for s in pos:
         # Fetching next batch
         row = selected.iloc[s]
-        logger.debug(f'Processing {row.tolist()}')
+        logger.debug(f'Processing {row.loc[["pid", "replaced", "assembly", "nucleotide"]].tolist()}')
         acc = row.assembly
         acctype = "assembly"
         if pd.isna(acc):
