@@ -110,21 +110,31 @@ def fetch_seq(seqs):
         time.sleep(1)
     return sequence.from_string(seq_string)
 
-def annotation(seqobj, start, end, annotation):
-    ''' I sill have to finish it, but I  am almost done'''
+def annotation(seqobj, coordinates):
+    '''
+    Method that recives an sequence object and a list with tuples containing [(start, end annotation)]
+    To add annotaion in aligment
+    Example:
+        gf.annotation(seqobject, [(35, 217, ' domain 1 (probability 90%)'), (240, 380, 'domain 2')] )
+    
+    I sill have to finish it, but I  am almost done
+
+
+    '''
+    import pandas as pd
     s = seqobj.copy()
     t = pd.Series(list(s.df.iloc[0,1]))
     t.iloc[:] =' '
-    size = end - start
-    size_an = len(annotation)
-    m = int((start+end)/2)
-    t.iloc[start:end] ='∞'
-    t.iloc[start] ='∞'
-    t.iloc[end] ='∞'
-    t.iloc[m] ='B'
-    t.iloc[m+1] ='1'
+    for x in coordinates:
+        start = x[0]
+        end = x[1]
+        annotation = x[2]
+        size = end - start
+        size_an = len(annotation)
+        an = f'|{annotation}|'.center(size,'x')
+        t.update(pd.Series(list(an), index=range(start,end)))
     s.df = pd.concat([pd.DataFrame([['teste', ''.join(t.to_list()), 'annotation']], columns=['id', 'sequence', 'type']),s.df])
-    return s.view()
+    return s
 
 def hmmsearch_full2pandas (file, error_lines=True, keep_threshold=False ):
     """
