@@ -12,6 +12,9 @@ from ete3 import Tree
 from io import StringIO
 import warnings
 from Bio import BiopythonWarning
+from ascii_graph import Pyasciigraph
+import collections
+collections.Iterable = collections.abc.Iterable
 warnings.simplefilter('ignore', BiopythonWarning)
 
 __version__ = 0.4
@@ -314,7 +317,6 @@ if not hist:
 
 else:
     print('Total proteins: {}'.format(len(z)))
-    from ascii_graph import Pyasciigraph
     a = z.len.value_counts().to_frame().reset_index()
     a= a.sort_values('index')
     a['raw_bin'] = pd.cut(a['index'],args.bins,precision=0)

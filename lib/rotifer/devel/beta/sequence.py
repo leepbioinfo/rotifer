@@ -1121,7 +1121,7 @@ class sequence:
         dbs = " ".join([ " -d " + os.path.join(database_path, x) for x in databases ])
         with tempfile.TemporaryDirectory() as tmpdirname:
             self.to_file(f'{tmpdirname}/seqaln')
-            child = f'hhblits -i {tmpdirname}/seqaln -d {dbs} -M 50 -cpu 18 -o {tmpdirname}/seqaln.hhr'
+            child = f'hhblits -i {tmpdirname}/seqaln {dbs} -M 50 -cpu 18 -o {tmpdirname}/seqaln.hhr'
             child = Popen(child, stdout=PIPE,shell=True).communicate()
             hhtable = read_hhr(f'{tmpdirname}/seqaln.hhr')
             with open(f'{tmpdirname}/seqaln.hhr') as f:
