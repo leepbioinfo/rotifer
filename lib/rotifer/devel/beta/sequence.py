@@ -14,7 +14,7 @@ logger = rotifer.logging.getLogger(__name__)
 _config = {
     'fetch': 'pfetch',
     'pdb_dir': os.path.join(os.environ['ROTIFER_DATA'] if 'ROTIFER_DATA' in os.environ else '/databases',"pdb"),
-    'databases': ['pdb','pfam'],
+    'databases': ['pdb70','pfam'],
     'databases_path': os.path.join(os.environ['ROTIFER_DATA'] if 'ROTIFER_DATA' in os.environ else '/databases',"hhsuite"),
     **loadConfig(__name__.replace('rotifer.',':'))
 }
