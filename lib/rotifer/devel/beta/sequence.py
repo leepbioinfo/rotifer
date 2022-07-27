@@ -14,7 +14,7 @@ logger = rotifer.logging.getLogger(__name__)
 _config = {
     'fetch': 'pfetch',
     'pdb_dir': os.path.join(os.environ['ROTIFER_DATA'] if 'ROTIFER_DATA' in os.environ else '/databases',"pdb"),
-    'databases': ['pdb','pfam'],
+    'databases': ['pdb70','pfam'],
     'databases_path': os.path.join(os.environ['ROTIFER_DATA'] if 'ROTIFER_DATA' in os.environ else '/databases',"hhsuite"),
     **loadConfig(__name__.replace('rotifer.',':'))
 }
@@ -1121,7 +1121,7 @@ class sequence:
         dbs = " ".join([ " -d " + os.path.join(database_path, x) for x in databases ])
         with tempfile.TemporaryDirectory() as tmpdirname:
             self.to_file(f'{tmpdirname}/seqaln')
-            child = f'hhblits -i {tmpdirname}/seqaln -d {dbs} -M 50 -cpu 18 -o {tmpdirname}/seqaln.hhr'
+            child = f'hhblits -i {tmpdirname}/seqaln {dbs} -M 50 -cpu 18 -o {tmpdirname}/seqaln.hhr'
             child = Popen(child, stdout=PIPE,shell=True).communicate()
             hhtable = read_hhr(f'{tmpdirname}/seqaln.hhr')
             with open(f'{tmpdirname}/seqaln.hhr') as f:
