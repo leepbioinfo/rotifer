@@ -158,6 +158,13 @@ class sequence:
         # Make sure the new object is clean!
         self._reset()
 
+    # Functionis to alow item assignment to the sequence class.
+    def __setitem__(self, key, value):
+        setattr(self, key, value)
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+
     def _seqrecords_to_dataframe(self, data):
         cols = self._reserved_columns + ['description']
         parsed = []
