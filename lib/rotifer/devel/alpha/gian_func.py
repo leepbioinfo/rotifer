@@ -139,6 +139,10 @@ def annotation(seqobj, coordinates ):
         annotation = x[2]
         size = end - start
         size_an = len(annotation)
+        if size  -2 < size_an :            
+                x =   size -size_an + -2  
+                annotation = annotation[0:x]
+
         an = f'|{annotation}|'.center(size,'x')
         t.update(pd.Series(list(an), index=range(start,end)))
     s.df = pd.concat([pd.DataFrame([['teste', ''.join(t.to_list()), 'annotation']], columns=['id', 'sequence', 'type']),s.df])
@@ -264,4 +268,8 @@ def hhr_to_aln(seqobj, hhr, database=False):
         reference='query',
         criteria=OrderedDict([('Probab', False), ('region_length', True)]
                              ))
+    # ISSUE !!!!!! When the rep seq do not have the first domains
+    # it breaks the code because there is no way to map the domain.
+    # This is an imporvisation that will overpass it, but with error in annotation!!
+    hhr_nolr = hhr_nolr[hhr_nolr.end > hhr_nolr.start]
     return hhr_nolr
