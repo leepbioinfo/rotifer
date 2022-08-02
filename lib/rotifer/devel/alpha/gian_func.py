@@ -110,12 +110,12 @@ def fetch_seq(seqs):
         time.sleep(1)
     return sequence.from_string(seq_string)
 
-def annotation(seqobj, coordinates):
+def annotation(seqobj, coordinates ):
     '''
     Method that recives an sequence object and a list with tuples containing [(start, end annotation)]
     To add annotaion in aligment
     Example:
-        gf.annotation(seqobject, [(35, 217, ' domain 1 (probability 90%)'), (240, 380, 'domain 2')] )
+        gf.annotation(seqobject, [(35, 217, ' domain 1 (probability 90%, WP_xxxxxx)'), (240, 380, 'domain 2')] )
     
     I sill have to finish it, but I  am almost done
 
@@ -124,10 +124,18 @@ def annotation(seqobj, coordinates):
     import pandas as pd
     s = seqobj.copy()
     t = pd.Series(list(s.df.iloc[0,1]))
+
     t.iloc[:] =' '
     for x in coordinates:
-        start = x[0]
-        end = x[1]
+        if len(x) > 3:
+            query_anchor = x[3]
+            tq = pd.Series(list(s.df.query('id ==@query_anchor').sequence.values[0])) 
+            start = tq.where(lambda x: x!='-').dropna().iloc[x[0]:x[1]].index.min() 
+            end = tq.where(lambda x: x!='-').dropna().iloc[x[0]:x[1]].index.max() 
+        else:
+            start = x[0]
+            end = x[1]
+
         annotation = x[2]
         size = end - start
         size_an = len(annotation)
