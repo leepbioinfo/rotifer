@@ -170,3 +170,98 @@ def hmmsearch_full2pandas (file, error_lines=True, keep_threshold=False ):
     df.Evalue = df.Evalue.astype(float)
 
     return df
+
+
+
+def hhr_to_aln(seqobj, hhr, database=False):
+
+    """
+    Function to add hhr info into sequence object aligment
+    """
+    from rotifer.devel.alpha import gian_func as gf
+    import rotifer.interval.utils as ru
+    from collections import OrderedDict
+    import re
+    import pandas as pd
+
+
+    si = re.findall(f'No ([0-9]+)', hhr, re.DOTALL)
+    si = [int(x) for x in si]
+    query = re.findall('Query\s+(.*?)\s',hhr, re.MULTILINE)[0]
+    tdf = pd.DataFrame()
+    for x in range(len(si)):
+        try:
+            match = re.findall(
+                f'No {si[x]}(.+?)No ',
+                hhr,
+                re.DOTALL
+            )[0].strip()
+        except IndexError:
+            match = re.findall(
+                f'No {si[x]}(.+)\n',
+                hhr,
+                re.DOTALL
+            )[0].strip()
+        if database == "pfam":    
+            try:
+                idp = re.findall(
+                    f'>.+?;(.+?);',
+                    match,
+                    re.DOTALL
+                )[0].strip()
+            except IndexError:
+                idp = re.findall(
+                    f'>(.+?)\n',
+                    match,
+                    re.DOTALL
+                )[0].strip()
+        else:        
+            try:
+                idp = re.findall(
+                    f'>(.+?)\.',
+                    match,
+                    re.DOTALL
+                )[0].strip()
+            except IndexError:
+                idp = re.findall(
+                    f'>(.+?)\n',
+                    match,
+                    re.DOTALL
+                )[0].strip()
+
+
+        values = match.split('\n')[1].split()
+        values =pd.Series(values).str.split(
+            '=',
+            expand=True
+        ).rename({
+            0: 'col',
+            1:'val'},
+                 axis=1)
+        values['model'] = idp
+        values = values.pivot(
+            index='model',
+            columns ='col',
+            values = 'val'
+        )
+        values['query'] = query
+        values['start'] = re.findall(
+            f'{query}\s+([0-9]+) ',
+            match,
+            re.DOTALL
+        )[0]
+        values['end'] = re.findall(
+            f'{query}.+?([0-9]+?) \(',
+            match,
+            re.DOTALL)[-1]
+
+        tdf = pd.concat([tdf, values])
+
+    hhr_nolr = ru.filter_nonoverlapping_regions(
+        tdf.astype({'start':int, 'end':int}).reset_index(),
+        end='end',
+        start='start',
+        reference='query',
+        criteria=OrderedDict([('Probab', False), ('region_length', True)]
+                             ))
+    return hhr_nolr
