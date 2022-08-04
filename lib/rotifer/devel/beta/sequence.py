@@ -1005,7 +1005,7 @@ class sequence:
         SeqIO.write(self.to_seqrecords(annotations=annotations, remove_gaps=remove_gaps), sio, output_format)
         return sio.getvalue()
 
-    def realign(self,method='famsa', cpu=12):
+    def realign(self,method='famsa', cpu=12, region=False):
         """
         Rebuild the alignment using Mafft.
 
@@ -1025,6 +1025,9 @@ class sequence:
         """
         from subprocess import Popen, PIPE, STDOUT
         seq_string = self.to_string(remove_gaps=True).encode()
+        if region:
+            seq_string = self.slice((region[0],region[1])).to_string(remove_gaps=True).encode()
+
 
 
         if method =='mafft':
@@ -1037,6 +1040,13 @@ class sequence:
             child = Popen(f'cat|kalign' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
             
         result = self.from_string(child[0].decode("utf-8"), input_format = 'fasta')
+        if region:
+            r1 = self.slice((1, region[0] -1))
+            r2 = self.slice((region[1] +1, len(self.df.iloc[0,1])))
+            r3 = self.copy()
+            r3.df.sequence = r1.df.sequence + result.df.sequence + r3.df.sequence
+            result = r3
+
         result.file_path = 'from realign function'
         return result
 
