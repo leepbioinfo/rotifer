@@ -1005,7 +1005,7 @@ class sequence:
         SeqIO.write(self.to_seqrecords(annotations=annotations, remove_gaps=remove_gaps), sio, output_format)
         return sio.getvalue()
 
-    def realign(self,method='famsa', cpu=12, region=False):
+    def align(self, method='famsa', cpu=12, region=False):
         """
         Rebuild the alignment using Mafft.
 
