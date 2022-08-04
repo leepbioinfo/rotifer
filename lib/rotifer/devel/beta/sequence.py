@@ -1028,8 +1028,6 @@ class sequence:
         if region:
             seq_string = self.slice((region[0],region[1])).to_string(remove_gaps=True).encode()
 
-
-
         if method =='mafft':
             child = Popen(f'cat|mafft  --thread {cpu} -' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
         elif method == 'linsi':
@@ -1041,8 +1039,8 @@ class sequence:
             
         result = self.from_string(child[0].decode("utf-8"), input_format = 'fasta')
         if region:
-            r1 = self.slice((1, region[0] -1))
-            r2 = self.slice((region[1] +1, len(self.df.iloc[0,1])))
+            r1 = self.slice((1, region[0] - 1))
+            r2 = self.slice((region[1] + 1, len(self.df.iloc[0,1])))
             r3 = self.copy()
             r3.df.sequence = r1.df.sequence + result.df.sequence + r3.df.sequence
             result = r3
