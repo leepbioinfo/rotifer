@@ -11,7 +11,7 @@ def load_seq_scan(name, folder):
     return info
 
 
-def cluster2aln(group_cluster,df,esl_index_file, grouper='c80e3', redundancy_cluster='c80i70',realign_method='famsa', query=False, cpu=12):
+def cluster2aln(group_cluster,df,esl_index_file, grouper='c80e3', redundancy_cluster='c80i70',align_method='famsa', query=False, cpu=12):
     import os
     import tempfile
     from subprocess import Popen,PIPE
@@ -24,7 +24,7 @@ def cluster2aln(group_cluster,df,esl_index_file, grouper='c80e3', redundancy_clu
         if not os.path.exists(esl_index_file+'.ssi'):
             Popen(f'esl-sfetch --index {esl_index_file}',stdout=PIPE, shell=True).communicate()
         Popen(f'esl-sfetch -f {esl_index_file} {tmpdirname}/accs > {tmpdirname}/accs.fa',stdout=PIPE, shell=True).communicate()
-        b = sequence(f'{tmpdirname}/accs.fa').realign(method=realign_method, cpu=cpu)
+        b = sequence(f'{tmpdirname}/accs.fa').align(method=align_method, cpu=cpu)
         return b
 
 def chunks(l, n):

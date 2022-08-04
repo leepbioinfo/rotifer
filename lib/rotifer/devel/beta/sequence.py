@@ -1047,7 +1047,7 @@ class sequence:
             r3.df.sequence = r1.df.sequence + result.df.sequence + r3.df.sequence
             result = r3
 
-        result.file_path = 'from realign function'
+        result.file_path = 'from align function'
         return result
 
     def view(self, color=True, scale=True, consensus=True, separator="=", interval=10, columns=True):
