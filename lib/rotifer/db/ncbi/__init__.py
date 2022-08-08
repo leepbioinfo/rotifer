@@ -75,6 +75,7 @@ def neighbors(
         replace=True,
         progress=False,
         tries=3,
+        sleep_between_tries=2,
         *args, **kwargs
         ):
     """
@@ -149,8 +150,11 @@ def neighbors(
       progress : boolean, default False
         Show progress bar
 
-      tries : integer
+      tries : integer, default 3
         Number of attempts to download data
+
+      sleep_between_tries : integer, default 2
+        Number of seconds between download attempts
 
       Additional arguments are passed to the neighbors method
       of the rotifer.genome.data.NeighborhoodDF class
@@ -209,9 +213,6 @@ def neighbors(
     found = set(query).intersection(in_ipg)
     missing = set(query) - found
     selected = best_ipgs(selected, assembly_reports=assembly_reports, eukaryotes=eukaryotes)
-    #selected['has_assembly'] = selected.assembly.isna().astype(int)
-    #selected.sort_values(['id','has_assembly','order'], inplace=True)
-    #selected = selected.drop_duplicates(['id'], keep='first', ignore_index=True)
     logger.info(f'{len(found)} queries were found in {len(selected.id.unique())} IPGs, {len(missing)} queries missing.')
 
     # Prepare progress bar
@@ -226,7 +227,7 @@ def neighbors(
     for s in pos:
         # Fetching next batch
         row = selected.iloc[s]
-        logger.debug(f'Processing {row.loc[["pid", "replaced", "assembly", "nucleotide"]].tolist()}')
+        logger.debug(f'Processing {row.loc[["pid", "representative", "assembly", "nucleotide"]].tolist()}')
         acc = row.assembly
         acctype = "assembly"
         if pd.isna(acc):
@@ -242,7 +243,7 @@ def neighbors(
 
         # Open nucleotide data stream
         if acctype == "nucleotide":
-            ndf = Entrez.efetch(db="nucleotide", rettype="gbwithparts", retmode="text", id=acc)
+            ndf = Entrez.efetch(db="nucleotide", rettype="gbwithparts", retmode="text", id=acc, max_tries=tries, sleep_between_tries=sleep_between_tries)
         else:
             ndf = ftp.open_genome(acc, assembly_reports=assembly_reports)
         if ndf == None:
