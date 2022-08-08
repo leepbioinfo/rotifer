@@ -2,6 +2,7 @@ def load_seq_scan(name, folder):
     '''
     load a seqscan result into a dataframe
     '''
+    import pandas as pd
     pre = f'{folder}/{name}'
     info = pd.read_csv(f'{pre}.c100i100.tsv', sep='\t', names=['c100i100', 'pid'])
     info = info.merge(pd.read_csv(f'{pre}.c80i70.tsv', sep='\t', names=['c80i70', 'c100i100']), how="left")
