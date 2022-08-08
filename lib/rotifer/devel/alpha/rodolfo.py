@@ -2,7 +2,10 @@
 
 
 def dataframe_to_community(df, source='query', target='hit', weight='probability', directed=False):
-
+    '''
+    Extract communities from a dataframe using the Louvain algorithm.
+    '''
+    import numpy as np
     import networkx as nx
     import community
 
