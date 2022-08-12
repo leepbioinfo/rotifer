@@ -16,7 +16,7 @@ Installing ROTIFER package with conda enviroments:
 1. Clone this git reposytory.
 2. Create a rotifer's conda enviroment:
   ```Bash
-  conda create --name rotifer biopython pandas numpy termcolor PyYAML tqdm ipython ascii_graph matplotlib
+  conda create --name rotifer biopython pandas numpy termcolor PyYAML tqdm ipython ascii_graph matplotlib ete3
   ```
 3. Activating the rotifer enviroment:
   ```Bash
