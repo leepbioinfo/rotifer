@@ -111,7 +111,7 @@ def fetch_seq(seqs):
         time.sleep(1)
     return sequence.from_string(seq_string)
 
-def annotation(seqobj, coordinates ):
+def annotation(seqobj, coordinates, delimiter=True ):
     '''
     Method that recives an sequence object and a list with tuples containing [(start, end annotation)]
     To add annotaion in aligment
@@ -144,7 +144,10 @@ def annotation(seqobj, coordinates ):
                 x =   size -size_an + -2  
                 annotation = annotation[0:x]
 
-        an = f'|{annotation}|'.center(size,'x')
+        if delimiter:
+             an = f'|{annotation}|'.center(size,'x')
+        else:
+            an = f'{annotation}'.center(size,'x')
         t.update(pd.Series(list(an), index=range(start,end)))
     s.df = pd.concat([pd.DataFrame([['teste', ''.join(t.to_list()), 'annotation']], columns=['id', 'sequence', 'type']),s.df])
     return s
