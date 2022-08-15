@@ -12,4 +12,5 @@ To do
 - [ ] ADD the two HHSEARCH line resutls (the one with |, +, and the one with consensus ) to the annotation function, to use it blast result.
 - [ ] ADD  option to the to_file to be able to export it in tab format with all annotation, and selecting the delimiter ( use np.savetxt, to be able to use two charcater as delimiter).
 - [ ] Fix the sort function to automatically detect a list or string in the by options.
+- [ ] Sort aln by specific position (more than one is also possible)
 
