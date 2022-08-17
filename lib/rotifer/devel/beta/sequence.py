@@ -986,16 +986,18 @@ class sequence:
         # Access and filter internal dataframe
         df = self.df
         if annotations:
-            df = df.query('type == "sequence" or type in @annotations')
+            df = df.query('type == "sequence" or type in @annotations').reset_index(drop=True)
         else:
             df = df.query('type == "sequence"')
 
         # Convert each row to a SeqRecord
         result = []
-        for row in list(self.df.query('type == "sequence"').T.to_dict().values()):
+        for row in list(df.T.to_dict().values()):
             if remove_gaps:
                 row["sequence"] = row["sequence"].replace("-","")
             if "description" not in row:
+                row["description"] = "unknown sequence"
+            if not isinstance(row["description"], str):
                 row["description"] = "unknown sequence"
             result.append(SeqRecord(id=row["id"], seq=Seq(row["sequence"]), description=row["description"]))
         return result
