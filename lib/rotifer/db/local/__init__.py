@@ -15,8 +15,14 @@ from rotifer import GlobalConfig
 import rotifer.devel.beta.sequence as rdbs
 logger = rotifer.logging.getLogger(__name__)
 
+# Defaults
+_config = {
+    'local_database_path': os.path.join(GlobalConfig['data'],"fadb","nr","nr"),
+    **loadConfig(__name__.replace('rotifer.',':'))
+}
+
 class esl_sfetch:
-    def __init__(self, query=None, database_path=os.path.join(GlobalConfig['data'],"fadb","nr","nr"), batch_size=200, threads=5):
+    def __init__(self, query=None, database_path=_config["local_database_path"], batch_size=200, threads=5):
         self.query = query
         self.path = database_path
         self.batch_size = batch_size
