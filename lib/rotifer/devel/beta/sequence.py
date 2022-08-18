@@ -16,6 +16,7 @@ _config = {
     'pdb_dir': os.path.join(os.environ['ROTIFER_DATA'] if 'ROTIFER_DATA' in os.environ else '/databases',"pdb"),
     'databases': ['pdb70','pfam'],
     'databases_path': os.path.join(os.environ['ROTIFER_DATA'] if 'ROTIFER_DATA' in os.environ else '/databases',"hhsuite"),
+    'local_database_path': os.path.join(GlobalConfig['data'],"fadb","nr","nr"),
     **loadConfig(__name__.replace('rotifer.',':'))
 }
 
@@ -110,7 +111,7 @@ class sequence:
     >>> aln = sequence(">Seq1\nACFH--GHT\n>Seq2\nACFW--GHS\n")
     >>> aln.add_consensus().view()
     """
-    def __init__(self, input_data=None, input_format='fasta', name=None, local_database_path=os.path.join(GlobalConfig['data'],"fadb","nr","nr")):
+    def __init__(self, input_data=None, input_format='fasta', name=None, local_database_path=_config['local_database_path']):
         from io import IOBase
         self._reserved_columns = ['id','sequence','length','type']
         self.input_format = input_format
