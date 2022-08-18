@@ -80,6 +80,8 @@ class sequence:
     input_format : str
         Input alignment format. See Bio.SeqIO and/or
         Bio.AlignIO for a list of supported formats
+    name:
+        An (optional) name for the multiple sequence alignment
 
     See also
     --------
@@ -108,10 +110,11 @@ class sequence:
     >>> aln = sequence(">Seq1\nACFH--GHT\n>Seq2\nACFW--GHS\n")
     >>> aln.add_consensus().view()
     """
-    def __init__(self, input_data=None, input_format='fasta'):
+    def __init__(self, input_data=None, input_format='fasta', name=None, local_database_path=os.path.join(GlobalConfig['data'],"fadb","nr","nr")):
         from io import IOBase
         self._reserved_columns = ['id','sequence','length','type']
         self.input_format = input_format
+        self.name = name
 
         # Generate empty object
         if input_data is None:
@@ -123,9 +126,13 @@ class sequence:
         elif isinstance(input_data,str):
             if os.path.exists(input_data):
                 self.file_path = input_data
+                if not name:
+                    self.name = os.path.basename(input_data)
             else:
                 self.file_path = 'StringIO'
                 input_data = StringIO(input_data)
+                if not name:
+                    self.name = str(input_data)
             input_data = SeqIO.parse(input_data, input_format)
             self.df = self._seqrecords_to_dataframe(input_data)
 
@@ -135,8 +142,13 @@ class sequence:
             self.df = self._seqrecords_to_dataframe(input_data)
 
         # Initialize for list of Bio.SeqRecords
-        elif isinstance(input_data, list) and isinstance(input_data[0],SeqRecord):
-            self.df = self._seqrecords_to_dataframe(input_data)
+        elif isinstance(input_data, list):
+            if isinstance(input_data[0],SeqRecord):
+                self.df = self._seqrecords_to_dataframe(input_data)
+            elif isinstance(input_data[0],str):
+                import rotifer.db as rdb
+                seqrecords = rdb.fetch_proteins(input_data, local_database_path=local_database_path)
+                self.df = self._seqrecords_to_dataframe(seqrecords)
 
         # Initialize for Pandas DataFrame
         elif isinstance(input_data, pd.DataFrame):
@@ -154,6 +166,16 @@ class sequence:
         # For creating an empty object
         else:
             self.df = pd.DataFrame(columns=self._reserved_columns)
+
+        # Still unnamed? Try using the input filename
+        if not name:
+            if hasattr(input_data,"stream"):
+                if hasattr(input_data.stream,"filename") and callable(input_data.stream.filename):
+                    self.name = os.path.basename(input_data.stream.filename())
+                elif hasattr(input_data.stream,"name"):
+                    self.name = os.path.basename(input_data.stream.name)
+            elif not self.df.empty:
+                self.name = self.df.id.loc[0]
 
         # Make sure the new object is clean!
         self._reset()
@@ -870,6 +892,20 @@ class sequence:
             freq_df = pd.concat([freq_df,pd.DataFrame({aa_type_names[x][1]:freq_df.loc[aa_type_names[x][0]].sum()}).T])
         return freq_df
 
+    def to_a3m(self, name=None, remove_gaps=False):
+        name = self.name
+        if not name:
+            name = self.df.id.iloc[0]
+        a3m = f'#{name}\n'
+        ss = self.df.query('type == "structure prediction"')
+        if not ss.empty:
+            a3m += ">ss_pred " + ss.query('id != "conf"').id.iloc[0].upper() + "\n"
+            a3m += ss.query('id != "conf"').sequence.iloc[0].replace(" ","-") + "\n"
+            a3m += ">ss_conf " + ss.query('id != "conf"').id.iloc[0].upper() + "\n"
+            a3m += ss.query('id == "conf"').sequence.iloc[0].replace(" ","0") + "\n"
+        a3m += self.to_string(remove_gaps=remove_gaps)
+        return a3m
+
     def to_bioalign(self):
         """
         Convert the MSA to BioPython's Bio.Align.MultipleSeqAlignment.
@@ -942,7 +978,14 @@ class sequence:
         return result
 
     def to_file(self, file_path=None, output_format='fasta', annotations=None, remove_gaps=False):
-        return SeqIO.write(self.to_seqrecords(annotations=annotations, remove_gaps=remove_gaps), file_path, output_format)
+        if output_format == "a3m":
+            fh = open(file_path,"wt")
+            fh.write(self.to_a3m())
+            fh.flush()
+            fh.close()
+            return len(self)
+        else:
+            return SeqIO.write(self.to_seqrecords(annotations=annotations, remove_gaps=remove_gaps), file_path, output_format)
 
     def to_hist(self, bins=10):
         """
@@ -1036,7 +1079,7 @@ class sequence:
             child = Popen(f'cat|famsa -t {cpu} -v STDIN STDOUT' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
         elif method =='kalign':
             child = Popen(f'cat|kalign' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
-            
+
         result = self.from_string(child[0].decode("utf-8"), input_format = 'fasta')
         if region:
             r1 = self.slice((1, region[0] - 1))

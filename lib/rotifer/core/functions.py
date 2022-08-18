@@ -3,12 +3,9 @@
 from datetime import datetime as dt
 import os
 import sys
-from os.path import expanduser
-import warnings
-import signal
-import inspect
-from rotifer.core import GlobalConfig
-warnings.filterwarnings("ignore")
+import rotifer
+from rotifer import GlobalConfig
+logger = rotifer.logging.getLogger(__name__)
 
 """
 Rotifer core functions
@@ -347,7 +344,7 @@ def not_kwargs(dict_args, key, value):
         return dict_args[key]
     return value
 
-def findDataFiles(load=[], user_path=os.path.join(GlobalConfig['user'],'share'), system_path=os.path.join(GlobalConfig['base'],'share/rotifer/')):
+def findDataFiles(load, path=None):
     '''
     This routine locates data files under Rotifer's standard locations.
 
@@ -356,8 +353,8 @@ def findDataFiles(load=[], user_path=os.path.join(GlobalConfig['user'],'share'),
     the following standard locations:
 
       1) The user folder ~/.rotifer/share
-      2) <rotifer installation path>/share/rotifer
-      3) The path set by the environment variable ROTIFER_DATA
+      2) The path set by the environment variable ROTIFER_DATA
+      3) <rotifer installation path>/share/rotifer
 
     If the load parameter starts with the prefix ':' and subdirectory
     names are separated by dots ('.'), files will be loaded from the
@@ -369,14 +366,22 @@ def findDataFiles(load=[], user_path=os.path.join(GlobalConfig['user'],'share'),
       
     means
     
-      ~/rotifer/share/data/taxonomy/taxonomy.txt
+      ~/.rotifer/share/taxonomy/taxonomy.txt
 
-    if the user location above exists, or
+    and the path above is used if it exists. Otherwise, this
+    example will map to
+
+      ${ROTIFER_DATA}/taxonomy/taxonomy.txt
+
+    if the ROTIFER_DATA variable is set and a taxonomy.txt file
+    exists in the taxonomy subdirectory under ${ROTIFER_DATA}.
+
+    Finally, if neither of the paths above exist, the file will be
+    searched for under rotifer's installation directory, subdirectory
+    share/rotifer:
 
       <path to rotifer>/share/rotifer/taxonomy/taxonomy.txt
     
-    if only the file from the rotifer installation directory exists.
-
     Notice that files from the user standard location take precedence
     over files under rotifer's installation path.
     '''
@@ -404,22 +409,25 @@ def findDataFiles(load=[], user_path=os.path.join(GlobalConfig['user'],'share'),
                 del(g[-1])
 
         # User path
+        user_path = GlobalConfig['userDataDirectory']
         if os.path.exists(os.path.join(user_path, *f)):
             files.append(os.path.join(user_path, *f))
         elif len(g) > 0 and os.path.exists(os.path.join(user_path, *g)):
             files.append(os.path.join(user_path, *g))
 
+        # Databases
+        databases = GlobalConfig['data']
+        if os.path.exists(os.path.join(databases, *f)):
+            files.append(os.path.join(databases, *f))
+        elif len(g) > 0 and os.path.exists(os.path.join(databases, *g)):
+            files.append(os.path.join(databases, *g))
+
         # System path
+        system_path = GlobalConfig['baseDataDirectory']
         if os.path.exists(os.path.join(system_path, *f)):
             files.append(os.path.join(system_path, *f))
         elif len(g) > 0 and os.path.exists(os.path.join(system_path, *g)):
             files.append(os.path.join(system_path, *g))
-
-        # Databases
-        if 'ROTIFER_DATA' in os.environ and os.path.exists(os.path.join(os.environ['ROTIFER_DATA'], *f)):
-            files.append(os.path.join(os.environ['ROTIFER_DATA'], *f))
-        elif len(g) > 0 and 'ROTIFER_DATA' in os.environ and os.path.exists(os.path.join(os.environ['ROTIFER_DATA'], *g)):
-            files.append(os.path.join(os.environ['ROTIFER_DATA'], *g))
 
     # Return
     return files
@@ -548,6 +556,7 @@ def loadClasses(load, user_path=os.path.join(GlobalConfig['user'],'lib'), system
     This function list all classes and methods
     The main problem is the import
     '''
+    import inspect
 
     classes = {}
 
@@ -585,7 +594,7 @@ def loadClasses(load, user_path=os.path.join(GlobalConfig['user'],'lib'), system
 
         ls = load.split('.')
         if ls[0].startswith('~'):
-            path = expanduser('~')
+            path = os.path.expanduser('~')
 
         else:
             path = os.path.join(os.path.sep, ls[0])
@@ -651,17 +660,6 @@ def loadClasses(load, user_path=os.path.join(GlobalConfig['user'],'lib'), system
         os.chdir(old)
 
     return classes
-
-class wait2finish:
-    kill_now = False
-    def __init__(self):
-        signal.signal(signal.SIGINT, self.exit_nicely)
-        signal.signal(signal.SIGTERM, self.exit_nicely)
-
-    def exit_nicely(self,signum, frame):
-        self.kill_now = True
-
-
 
 def openread(largs):
     '''

@@ -5,7 +5,7 @@ from tempfile import NamedTemporaryFile, _TemporaryFileWrapper
 from ftplib import FTP
 import rotifer
 from rotifer.io import fileinput
-from rotifer.core import GlobalConfig
+from rotifer import GlobalConfig
 from rotifer.db.ncbi import NcbiConfig
 logger = rotifer.logging.getLogger(__name__)
 

@@ -4,7 +4,7 @@ import logging
 import pandas as pd
 from ftplib import FTP
 import rotifer
-from rotifer.core import GlobalConfig
+from rotifer import GlobalConfig
 from rotifer.db.ncbi import NcbiConfig
 logger = rotifer.logging.getLogger(__name__)
 

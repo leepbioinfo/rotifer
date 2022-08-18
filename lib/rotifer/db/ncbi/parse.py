@@ -10,7 +10,7 @@ import Bio.SeqIO
 import pandas as pd
 
 # Rotifer libraries and data
-from rotifer.core    import GlobalConfig
+from rotifer import GlobalConfig
 from rotifer.db.ncbi import NcbiConfig
 
 # Load NCBI genome assemblies
