@@ -101,7 +101,6 @@ def build_hhuite_database(
     with tempfile.TemporaryDirectory() as td:
         cmd = rotifer.GlobalConfig['base'] + f'/share/rotifer/scripts/build_hhdb.sh'
         Popen(f'{cmd} {td}/{output_directory} {output_directory}/aln').communicate()
-
         for orig in ['cs219','a3m.ordered','hhm.ordered']:
             dest = orig.replace(".ordered","")
             os.rename(f'{td}/{output_directory}.{orig}.ffdata',f'./{output_directory}/{output_directory}_{dest}.ffdata')
