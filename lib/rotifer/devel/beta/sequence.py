@@ -1092,6 +1092,7 @@ class sequence:
             result = r3
 
         result.file_path = 'from align function'
+        result.name = self.name
         return result
 
     def view(self, color=True, scale=True, consensus=True, separator="=", interval=10, columns=True):
