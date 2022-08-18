@@ -1243,7 +1243,7 @@ class sequence:
         result._reset()
         return result
 
-    def add_jpred(self, email=False):
+    def add_jpred(self, email=False, symbol=False):
         ''' 
         Function to add secondary structure from the Jpred server
         ∞ = Alpha helix
@@ -1282,6 +1282,9 @@ class sequence:
             jnet = jnet.iloc[0:2,:]
             jnet.b = jnet.b.str.replace(',', '')
             jnet.iloc[0,1] = jnet.query('a  == "jnetpred"').iloc[0,1].replace(',', '')
+            if symbol:
+                jnet.iloc[0,1] = jnet.iloc[0,1].replace('E', '>').replace('H', "=")
+
             a1 = pd.Series(list(result.df.query('id ==@query').iloc[0,1])).where(lambda x: x !='-').dropna().rename('seq').reset_index()
             a2 = pd.Series(list(jnet.loc[0, 'b'])).rename('jnet')
             a3 = pd.Series(list(jnet.loc[1, 'b'])).rename('conf')
@@ -1290,6 +1293,8 @@ class sequence:
             a6 = pd.concat([a4,a5], axis = 1).fillna(' ').sum().reset_index()
             a6.columns = ['id', 'sequence']
             a6['type'] = 'structure prediction'
+            a6.iloc[2:3,2] = 'Jpred'
+            a6.iloc[3:4,2] = 'confidance'
 
             result.df = pd.concat([a6.iloc[2:4,:],result.df])
 
