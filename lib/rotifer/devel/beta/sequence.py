@@ -1344,7 +1344,7 @@ class sequence:
 
             return result
 
-    def to_png(self, consensus,output_file):
+    def to_html(self, consensus,output_file):
         """TODO: Docstring for function.
 
         :consensus: TODO
@@ -1413,16 +1413,16 @@ class sequence:
         con.index +=1
         aln_r = pd.concat([aln_r, con.rename('consensus').to_frame().T], axis=0)
         # Funtion that works!!!
-        def highlight_max(s, props=''):
+        def highlight_max(s):
             import numpy as np
             d = aa_groups_colors[s.iloc[-1]]
             return np.where(
                 s == s.iloc[-1],
-                props,
+                'font-size: 12px;text-align: center;font-family:"Lucida Console", Monaco, monospace;color:white;background-color:black',
                 np.where(
                     s.isin(d[0]),
-                    f'font-family:"Lucida Console", Monaco, monospace; color:black;background-color:{d[1]}',
-                    'color:black;background-color:white'))
+                    f'font-size: 12px;text-align: center;font-family:"Lucida Console", Monaco, monospace; color:black;background-color:{d[1]}',
+                    'font-size: 12px;text-align: center;font-family:"Lucida Console", Monaco, monospace;color:black;background-color:white'))
 
         def highlight_consensus(s):
             import numpy as np
@@ -1435,22 +1435,24 @@ class sequence:
             """
             return np.where(
                 s.isin(all_aa),
-                'font-family:"Lucida Console", Monaco, monospace;color:white;background-color:black',
-                f'font-family:"Lucida Console", Monaco, monospace; color:black;background-color:{d[1]}',
+                'font-size: 12px;text-align: center;font-family:"Lucida Console", Monaco, monospace;color:white;background-color:black',
+                f'font-size: 12px;text-align: center;font-family:"Lucida Console", Monaco, monospace; color:black;background-color:{d[1]}',
                 )
+
 
         idx = pd.IndexSlice
         corte = idx[idx['consensus'],idx[:]]
-        dfi.export(
-            aln_r.style.apply(
-            highlight_max,
-                props='font-family:"Lucida Console", Monaco, monospace;color:white;background-color:black',
-                axis=0
-            ).hide(
-                axis='columns').apply(highlight_consensus, subset=corte),
-            output_file,
-            max_cols=-1,
-            max_rows=-1)
+        headers = {
+            'selector': 'th:not(.index_name)',
+            'props': 'font-size: 12px;text-align: left;font-family:"Lucida Console", Monaco, monospace;color:black;background-color:white'
+        }
+        html = aln_r.style.apply(highlight_max, axis=0).hide(axis='columns').apply(
+            highlight_consensus, subset=corte
+        ).set_table_styles(
+            [headers]
+        ).render(table_attributes='cellspacing=0, cellpadding=0')
+        with open(output_file, 'w') as f:
+            f.write(html)
     ## Class methods
 
     @classmethod
