@@ -1300,6 +1300,113 @@ class sequence:
 
             return result
 
+    def to_png(self, consensus,output_file):
+        """TODO: Docstring for function.
+
+        :consensus: TODO
+        :output_file: TODO
+        :returns: TODO
+
+        """
+        import dataframe_image as dfi
+        import pandas as pd
+        import pandas as pd
+        from rotifer.devel.beta.sequence import sequence
+        import numpy as np
+        aln = self.copy()
+
+        aromatic = ['F','Y', 'W', 'H']
+        alifatic = ['I','V','L']
+        hydrophobic = alifatic + [ 'A', 'C', 'F', 'M', 'W', 'Y']
+        positive = ['H', 'K', 'R']
+        negative = [ 'D', 'E']
+        charged = positive + negative
+        polar = charged + ['p','Q', 'N', 'S', 'T','C']
+        alcohol = ['S','T']
+        tiny = ['G', 'A', 'S']
+        small = tiny + [ 'V', 'T', 'D', 'N', 'P', 'C']
+        big = ['K', 'F', 'I', 'L','M', 'Q', 'R', 'W', 'Y', 'E']
+        all_aa = ['G','A','V','I','L','M','F','Y','W','H','C','P','K','R','D','E','Q','N','S','T']
+
+        aa_groups_colors = {'a':[aromatic,  '#2C68F3'],
+                            'l':[alifatic, '#2CF3EA'],
+                            'h':[hydrophobic,  '#F3E42C'],
+                            '+':[positive,  '#2C68F3'],
+                            '-':[negative,  '#F50EF1'],
+                            'c':[charged,  '#38F50E'],
+                            'p':[polar,  'red'],
+                            'o':[alcohol,  '#AE5BF8'],
+                            'u':[tiny,  '#EE9C0C'],
+                            's':[small,  '#DA1477'],
+                            'b':[big,  '#A28694'],
+                            '.':[all_aa,  'white'],
+                            'G':[all_aa,'white'],
+                            'A':[all_aa,'white'],
+                            'V':[all_aa,'white'],
+                            'I':[all_aa,'white'],
+                            'L':[all_aa,'white'],
+                            'M':[all_aa,'white'],
+                            'F':[all_aa,'white'],
+                            'Y':[all_aa,'white'],
+                            'W':[all_aa,'white'],
+                            'H':[all_aa,'white'],
+                            'C':[all_aa,'white'],
+                            'P':[all_aa,'white'],
+                            'K':[all_aa,'white'],
+                            'R':[all_aa,'white'],
+                            'D':[all_aa,'white'],
+                            'E':[all_aa,'white'],
+                            'Q':[all_aa,'white'],
+                            'N':[all_aa,'white'],
+                            'S':[all_aa,'white'],
+                            'T':[all_aa,'white'],
+                            '_':[all_aa,'white']}
+
+        # Geting the residues tabele:
+        aln_r = aln.residues
+        con = pd.Series(list(aln.consensus(consensus)))
+        aln_r = aln_r.set_index(aln.df.id)
+        con.index +=1
+        aln_r = pd.concat([aln_r, con.rename('consensus').to_frame().T], axis=0)
+        # Funtion that works!!!
+        def highlight_max(s, props=''):
+            import numpy as np
+            d = aa_groups_colors[s.iloc[-1]]
+            return np.where(
+                s == s.iloc[-1],
+                props,
+                np.where(
+                    s.isin(d[0]),
+                    f'font-family:"Lucida Console", Monaco, monospace; color:black;background-color:{d[1]}',
+                    'color:black;background-color:white'))
+
+        def highlight_consensus(s):
+            import numpy as np
+            d = aa_groups_colors[s.iloc[-1]]
+            """TODO: Docstring for highlight_consensus.
+
+            :arg1: TODO
+            :returns: TODO
+
+            """
+            return np.where(
+                s.isin(all_aa),
+                'font-family:"Lucida Console", Monaco, monospace;color:white;background-color:black',
+                f'font-family:"Lucida Console", Monaco, monospace; color:black;background-color:{d[1]}',
+                )
+
+        idx = pd.IndexSlice
+        corte = idx[idx['consensus'],idx[:]]
+        dfi.export(
+            aln_r.style.apply(
+            highlight_max,
+                props='font-family:"Lucida Console", Monaco, monospace;color:white;background-color:black',
+                axis=0
+            ).hide(
+                axis='columns').apply(highlight_consensus, subset=corte),
+            output_file,
+            max_cols=-1,
+            max_rows=-1)
     ## Class methods
 
     @classmethod
