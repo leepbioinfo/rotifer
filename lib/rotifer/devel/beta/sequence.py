@@ -1345,11 +1345,13 @@ class sequence:
 
             return result
 
-    def to_html(self, consensus,output_file):
+    def to_html(self, consensus,output_file, annotations=False):
         """TODO: Docstring for function.
 
-        :consensus: TODO
-        :output_file: TODO
+        :consensus: The consensus threshold that should be used to color the aligment
+        :output_file: output file name
+        :annotation: List of annotations rows that should be keept in the  html file
+        The annotation label should be the same as in the id seq object df columm
         :returns: TODO
 
         """
@@ -1375,14 +1377,14 @@ class sequence:
 
         aa_groups_colors = {'a':[aromatic,  '#2C68F3'],
                             'l':[alifatic, '#2CF3EA'],
-                            'h':[hydrophobic,  '#F3E42C'],
+                            'h':[hydrophobic,  '#F3E42C90'],
                             '+':[positive,  '#2C68F3'],
-                            '-':[negative,  '#F50EF1'],
+                            '-':[negative,  '#F50EF195'],
                             'c':[charged,  '#38F50E'],
-                            'p':[polar,  'red'],
+                            'p':[polar,  '#0EF5A150'],
                             'o':[alcohol,  '#AE5BF8'],
                             'u':[tiny,  '#EE9C0C'],
-                            's':[small,  '#DA1477'],
+                            's':[small,  '#DA147750'],
                             'b':[big,  '#A28694'],
                             '.':[all_aa,  'white'],
                             'G':[all_aa,'white'],
@@ -1405,25 +1407,38 @@ class sequence:
                             'N':[all_aa,'white'],
                             'S':[all_aa,'white'],
                             'T':[all_aa,'white'],
+                            ' ':[all_aa,'white'],
                             '_':[all_aa,'white']}
 
         # Geting the residues tabele:
         aln_r = aln.residues
         con = pd.Series(list(aln.consensus(consensus)))
-        aln_r = aln_r.set_index(aln.df.id)
+        aln_r = aln_r.set_index(aln.df.query('type == "sequence"').id)
         con.index +=1
         aln_r = pd.concat([aln_r, con.rename('consensus').to_frame().T], axis=0)
+        if annotations:
+            if isinstance(annotations, str):
+                ann = pd.Series(list(aln.df.query('id ==@annotations').sequence[0]))
+                ann.index +=1
+                aln_r = pd.concat([ann.rename(annotations).to_frame().T,aln_r])
+            else:
+                for x in annotations:
+                    ann = pd.Series(list(aln.df.query('id ==@x').sequence[0]))
+                    ann.index +=1
+                    aln_r = pd.concat([ann.rename(x).to_frame().T,aln_r])
+
+
         # Funtion that works!!!
-        def highlight_max(s):
+        def highlight_aln(s):
             import numpy as np
             d = aa_groups_colors[s.iloc[-1]]
             return np.where(
                 s == s.iloc[-1],
-                'font-size: 12px;text-align: center;font-family:"Lucida Console", Monaco, monospace;color:white;background-color:black',
+                'color:white;background-color:black',
                 np.where(
                     s.isin(d[0]),
-                    f'font-size: 12px;text-align: center;font-family:"Lucida Console", Monaco, monospace; color:black;background-color:{d[1]}',
-                    'font-size: 12px;text-align: center;font-family:"Lucida Console", Monaco, monospace;color:black;background-color:white'))
+                    f'color:black;background-color:{d[1]}',
+                    'color:black;background-color:white'))
 
         def highlight_consensus(s):
             import numpy as np
@@ -1436,22 +1451,38 @@ class sequence:
             """
             return np.where(
                 s.isin(all_aa),
-                'font-size: 12px;text-align: center;font-family:"Lucida Console", Monaco, monospace;color:white;background-color:black',
-                f'font-size: 12px;text-align: center;font-family:"Lucida Console", Monaco, monospace; color:black;background-color:{d[1]}',
+                'color:white;background-color:black',
+                f'color:black;background-color:{d[1]}',
                 )
 
+        #Making slice index where the functions should be applied:
+        # One function should be applien only in the consensus row
+        # Other function should be appplied only in seq rows
+        idx1 = pd.IndexSlice
+        corte = idx1[idx1['consensus'],idx1[:]]
+        idx2 = pd.IndexSlice
+        #Getting the firs sequence (fs) row to map the slice:
+        fs = aln.df.query('type == "sequence"').id.iloc[0]    
+        corte2 = idx2[idx2[fs:],idx2[:]]
 
-        idx = pd.IndexSlice
-        corte = idx[idx['consensus'],idx[:]]
         headers = {
             'selector': 'th:not(.index_name)',
-            'props': 'font-size: 12px;text-align: left;font-family:"Lucida Console", Monaco, monospace;color:black;background-color:white'
+            'props': '''font-size: 12px;
+            text-align: left;
+            font-family:"Lucida Console", Monaco, monospace;
+            color:black;
+            background-color:white'''
         }
-        html = aln_r.style.apply(highlight_max, axis=0).hide(axis='columns').apply(
+        html = aln_r.style.set_properties(**{
+            'font-size': '12px',
+            'font-family':'"Lucida Console", Monaco,monospace',
+            "text-align": "center"}
+        ).apply(highlight_aln, axis=0, subset=corte2).hide(axis='columns').apply(
             highlight_consensus, subset=corte
         ).set_table_styles(
             [headers]
-        ).render(table_attributes='cellspacing=0, cellpadding=0')
+        ).set_sticky(axis="index").render(table_attributes='cellspacing=0, cellpadding=0')
+        #if whant to send to latex, replace set_stick... to:to_latex(environment='longtable', convert_css=True)
         with open(output_file, 'w') as f:
             f.write(html)
     ## Class methods
