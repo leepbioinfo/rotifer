@@ -1345,13 +1345,15 @@ class sequence:
 
             return result
 
-    def to_html(self, consensus,output_file, annotations=False):
+    def to_html(self, consensus,output_file, annotations=False, remove_gaps=False):
         """TODO: Docstring for function.
 
         :consensus: The consensus threshold that should be used to color the aligment
         :output_file: output file name
         :annotation: List of annotations rows that should be keept in the  html file
         The annotation label should be the same as in the id seq object df columm
+        :remove_gaps: Query sequence to use as model to remove the gaps, 
+        it will add numbers of aminoacid suppressed in the sequence that contain the insertions.
         :returns: TODO
 
         """
@@ -1361,6 +1363,9 @@ class sequence:
         from rotifer.devel.beta.sequence import sequence
         import numpy as np
         aln = self.copy()
+        if remove_gaps:
+            gaps,gdf = aln.gaps_to_numbers(remove_gaps)
+            gdf.index = aln.df.query('type == "sequence"').id
 
         aromatic = ['F','Y', 'W', 'H']
         alifatic = ['I','V','L']
@@ -1408,6 +1413,7 @@ class sequence:
                             'S':[all_aa,'white'],
                             'T':[all_aa,'white'],
                             ' ':[all_aa,'white'],
+                            '  ':[all_aa,'white'],
                             '_':[all_aa,'white']}
 
         # Geting the residues tabele:
@@ -1416,6 +1422,8 @@ class sequence:
         aln_r = aln_r.set_index(aln.df.query('type == "sequence"').id)
         con.index +=1
         aln_r = pd.concat([aln_r, con.rename('consensus').to_frame().T], axis=0)
+        if remove_gaps:
+            aln_r =  aln_r.drop(gaps,axis=1).join(gdf).sort_index(axis=1).fillna(0).astype(int, errors='ignore').astype(str).replace('0','  ')
         if annotations:
             if isinstance(annotations, str):
                 ann = pd.Series(list(aln.df.query('id ==@annotations').sequence.iloc[0]))
@@ -1433,12 +1441,15 @@ class sequence:
             import numpy as np
             d = aa_groups_colors[s.iloc[-1]]
             return np.where(
-                s == s.iloc[-1],
-                'color:white;background-color:black',
+                s == '  ',
+                'color:white;background-color:white',
                 np.where(
-                    s.isin(d[0]),
-                    f'color:black;background-color:{d[1]}',
-                    'color:black;background-color:white'))
+                    s == s.iloc[-1],
+                    'color:white;background-color:black',
+                    np.where(
+                        s.isin(d[0]),
+                        f'color:black;background-color:{d[1]}',
+                        'color:black;background-color:white')))
 
         def highlight_consensus(s):
             import numpy as np
@@ -1485,6 +1496,41 @@ class sequence:
         #if whant to send to latex, replace set_stick... to:to_latex(environment='longtable', convert_css=True)
         with open(output_file, 'w') as f:
             f.write(html)
+
+
+    def gaps_to_numbers(self, smodel):
+        """: This function will retunr a tuple. The first element of the tuple is 
+        a list containing the index of columns that contains gap on the model sequence.
+        It should be used to drop the columns from the residues df.
+        >>> aln.residues.drop(firs element of the tuple output, axis =1).
+        
+        The seccond element is a df that should be joined with the residues df after the drop:
+        >>> aln.residues.join(second elemnet of tuple).sort_index(axis=1)
+        :smodel: Sequence used as model to remove the gaps.
+
+        """
+        midx = self.df.query('id == @smodel').index
+        gaps = self.residues.loc[midx].iloc[0].where(lambda x: x=='-').dropna()
+        grouper_map = gaps.reset_index().drop(0, axis=1).rename(
+            {'index':'region'},
+            axis=1
+        ).eval(
+            'inter = ~region.diff().fillna(1).le(1)'
+        ).eval(
+            'grouper = inter.cumsum()'
+        )
+        gap_df = grouper_map.groupby('grouper').agg(
+            first = ('region','min'),
+            last = ('region', 'max'),
+            rsize = ('region', 'nunique'),
+            rlist = ('region', list)
+        )
+        num_gaps = grouper_map.set_index('region')[['grouper']].join(
+            (self.residues[gaps.index] != '-').T
+        ).groupby('grouper').sum().T
+        num_gaps.columns = gap_df['first'].to_list()
+        return (list(gaps.index),num_gaps)
+
     ## Class methods
 
     @classmethod
