@@ -1511,7 +1511,7 @@ class sequence:
         """
         midx = self.df.query('id == @smodel').index
         gaps = self.residues.loc[midx].iloc[0].where(lambda x: x=='-').dropna()
-        grouper_map = gaps.reset_index().drop(0, axis=1).rename(
+        grouper_map = gaps.reset_index().drop(midx, axis=1).rename(
             {'index':'region'},
             axis=1
         ).eval(
