@@ -1418,12 +1418,12 @@ class sequence:
         aln_r = pd.concat([aln_r, con.rename('consensus').to_frame().T], axis=0)
         if annotations:
             if isinstance(annotations, str):
-                ann = pd.Series(list(aln.df.query('id ==@annotations').sequence[0]))
+                ann = pd.Series(list(aln.df.query('id ==@annotations').sequence.iloc[0]))
                 ann.index +=1
                 aln_r = pd.concat([ann.rename(annotations).to_frame().T,aln_r])
             else:
                 for x in annotations:
-                    ann = pd.Series(list(aln.df.query('id ==@x').sequence[0]))
+                    ann = pd.Series(list(aln.df.query('id ==@x').sequence.iloc[0]))
                     ann.index +=1
                     aln_r = pd.concat([ann.rename(x).to_frame().T,aln_r])
 
