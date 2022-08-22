@@ -1439,7 +1439,7 @@ class sequence:
         # Funtion that works!!!
         def highlight_aln(s):
             import numpy as np
-            d = aa_groups_colors[s.iloc[-1]]
+            d = aa_groups_colors[s.fillna('  ').iloc[-1]]
             return np.where(
                 s == '  ',
                 'color:white;background-color:white',
