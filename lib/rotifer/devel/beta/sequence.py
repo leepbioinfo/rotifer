@@ -1345,7 +1345,7 @@ class sequence:
 
             return result
 
-    def to_html(self, consensus,output_file, annotations=False, remove_gaps=False):
+    def _to_df_style(self, consensus, annotations=False, remove_gaps=False):
         """TODO: Docstring for function.
 
         :consensus: The consensus threshold that should be used to color the aligment
@@ -1484,7 +1484,7 @@ class sequence:
             color:black;
             background-color:white'''
         }
-        html = aln_r.style.set_properties(**{
+        df_style = aln_r.style.set_properties(**{
             'font-size': '12px',
             'font-family':'"Lucida Console", Monaco,monospace',
             "text-align": "center"}
@@ -1492,10 +1492,34 @@ class sequence:
             highlight_consensus, subset=corte
         ).set_table_styles(
             [headers]
-        ).set_sticky(axis="index").render(table_attributes='cellspacing=0, cellpadding=0')
+        )
         #if whant to send to latex, replace set_stick... to:to_latex(environment='longtable', convert_css=True)
+        return df_style
+
+    def to_html(self, consensus,output_file, annotations=False, remove_gaps=False, fixed_index=True):
+        """TODO: Docstring for function.
+
+        :consensus: The consensus threshold that should be used to color the aligment
+        :output_file: output file name
+        :annotation: List of annotations rows that should be keept in the  html file
+        The annotation label should be the same as in the id seq object df columm
+        :remove_gaps: Query sequence to use as model to remove the gaps, 
+        it will add numbers of aminoacid suppressed in the sequence that contain the insertions.
+        :fixed_index, It makes the index fixed on the html page 
+        :returns: TODO
+
+        """
+        html = self._to_df_style(
+            consensus,
+            annotations=annotations,
+            remove_gaps=remove_gaps
+        )
+        if fixed_index:
+            html = html.set_sticky(axis="index")
+            
         with open(output_file, 'w') as f:
-            f.write(html)
+            f.write(html.render(table_attributes='cellspacing=0, cellpadding=0'))
+            return(f'{output_file} saved on the working path')
 
 
     def gaps_to_numbers(self, smodel):
