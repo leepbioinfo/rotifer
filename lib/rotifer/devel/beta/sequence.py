@@ -1453,7 +1453,7 @@ class sequence:
 
         def highlight_consensus(s):
             import numpy as np
-            d = aa_groups_colors[s.iloc[-1]]
+            d = aa_groups_colors[s.fillna('  ').iloc[-1]]
             """TODO: Docstring for highlight_consensus.
 
             :arg1: TODO
