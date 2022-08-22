@@ -1422,8 +1422,6 @@ class sequence:
         aln_r = aln_r.set_index(aln.df.query('type == "sequence"').id)
         con.index +=1
         aln_r = pd.concat([aln_r, con.rename('consensus').to_frame().T], axis=0)
-        if remove_gaps:
-            aln_r =  aln_r.drop(gaps,axis=1).join(gdf).sort_index(axis=1).fillna(0).astype(int, errors='ignore').astype(str).replace('0','  ')
         if annotations:
             if isinstance(annotations, str):
                 ann = pd.Series(list(aln.df.query('id ==@annotations').sequence.iloc[0]))
@@ -1435,6 +1433,8 @@ class sequence:
                     ann.index +=1
                     aln_r = pd.concat([ann.rename(x).to_frame().T,aln_r])
 
+        if remove_gaps:
+            aln_r =  aln_r.drop(gaps,axis=1).join(gdf).sort_index(axis=1).fillna(0).astype(int, errors='ignore').astype(str).replace('0','  ')
 
         # Funtion that works!!!
         def highlight_aln(s):
