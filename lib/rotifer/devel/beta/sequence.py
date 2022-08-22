@@ -1471,8 +1471,8 @@ class sequence:
         # Other function should be appplied only in seq rows
         idx1 = pd.IndexSlice
         corte = idx1[idx1['consensus'],idx1[:]]
-        idx2 = pd.IndexSlice
         #Getting the firs sequence (fs) row to map the slice:
+        idx2 = pd.IndexSlice
         fs = aln.df.query('type == "sequence"').id.iloc[0]    
         corte2 = idx2[idx2[fs:],idx2[:]]
 
