@@ -1359,8 +1359,6 @@ class sequence:
         :returns: TODO
 
         """
-        import dataframe_image as dfi
-        import pandas as pd
         import pandas as pd
         from rotifer.devel.beta.sequence import sequence
         import numpy as np
