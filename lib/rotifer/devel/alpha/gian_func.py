@@ -145,11 +145,11 @@ def annotation(seqobj, coordinates, delimiter=True ):
                 annotation = annotation[0:x]
 
         if delimiter:
-             an = f'|{annotation}|'.center(size,'x')
+             an = f'|{annotation}|'.center(size,'*')
         else:
-            an = f'{annotation}'.center(size,'x')
+            an = f'{annotation}'.center(size,'*')
         t.update(pd.Series(list(an), index=range(start,end)))
-    s.df = pd.concat([pd.DataFrame([['teste', ''.join(t.to_list()), 'annotation']], columns=['id', 'sequence', 'type']),s.df])
+    s.df = pd.concat([pd.DataFrame([['annotation', ''.join(t.to_list()), 'annotation']], columns=['id', 'sequence', 'type']),s.df])
     return s
 
 def hmmsearch_full2pandas (file, error_lines=True, keep_threshold=False ):
