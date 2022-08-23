@@ -79,9 +79,12 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
                 elif hasattr(seqrecs.stream,"name"):
                     assembly = seqrecs.stream.name # Another _io class
                 if assembly != None:
-                    assembly = os.path.basename(assembly)
-                    if ncbiaccre.match(assembly):
-                        assembly = ncbiaccre.search(assembly).group(0)
+                    try:
+                        assembly = os.path.basename(assembly)
+                        if ncbiaccre.match(assembly):
+                            assembly = ncbiaccre.search(assembly).group(0)
+                    except:
+                        logger.debug(f"Assembly {str(assembly)} doesn't parse as a string")
         if assembly == None:
             assembly = seqrecord.id
 

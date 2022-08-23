@@ -207,6 +207,8 @@ class sequence:
                 self.df.type == "sequence",
                 self.df.sequence.str.replace('-', '').str.len(),
                 maxlen)
+        if not self.name and not self.df.empty:
+            self.name = self.df.id.loc[0]
         self.df.reset_index(drop=True, inplace=True)
 
         # Statistics holder

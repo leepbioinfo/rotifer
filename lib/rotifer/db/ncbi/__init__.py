@@ -45,7 +45,6 @@ else:
 
 # Load NCBI subclasses
 from rotifer.db.ncbi.cursor import NcbiCursor
-from rotifer.db.ncbi import ftp as ncbiftp
 logger = rotifer.logging.getLogger(__name__)
 
 # Controlling what can be exported with *
@@ -60,6 +59,117 @@ logger = rotifer.logging.getLogger(__name__)
 #        'neighbors',
 #        'elink',
 #        ]
+
+# Classes
+
+class GenomeCursor:
+    """
+    Rotifer's NCBI Genome Assemblies Database.
+
+    Usage
+    -----
+    Exame with a random sample of genomes
+    >>> import rotifer.db.ncbi as ncbi
+    >>> ar = ncbi.assembly_reports()
+    >>> g = ar.assembly.sample(10)
+    >>> gdb = ncbi.GenomeCursor(g, assembly_reports=ar)
+    >>> df = gdb.fetch()
+    """
+    def __init__(
+            self,
+            accessions=[],
+            assembly_reports=None,
+            exclude_type=['source','gene'],
+            autopid=False,
+            codontable='Bacterial',
+            block_id=-1,
+            progress=False,
+            tries=3,
+            sleep_between_tries=2,
+            threads=15,
+            cache=GlobalConfig['cache'],
+        ):
+        """
+        Parameters
+        ----------
+        accessions: list of strings
+          A list of genome accession numbers
+        assembly_reports: Pandas Dataframe
+          Table of genomes
+        exclude_type: list of strings
+          List of names for the features that must be ignored
+        autopid: boolean
+          
+        """
+        self._query = set()
+        self.missing = set()
+        self.assembly_reports = assembly_reports
+        self.exclude_type = exclude_type
+        self.autopid = autopid
+        self.codontable = codontable
+        self.block_id = -1
+        self.progress = progress
+        self.tries = tries
+        self.sleep_between_tries = sleep_between_tries
+        self.threads = threads
+        self.cache = cache
+        self._reset(accessions)
+
+    def _reset(self, accessions=None):
+        if accessions:
+            self._query = set(accessions)
+        self.missing = set()
+
+    def __len__(self):
+        return len(self._query)
+
+    def __getitem__(self, accession):
+        """
+        Download, parse and load a genome.
+
+        Returns
+        -------
+        A rotifer.genome.data.NeighborhoodDF object.
+        """
+        from Bio import SeqIO
+        from rotifer.genome.utils import seqrecords_to_dataframe
+        import rotifer.db.ncbi.ftp as ncbiftp
+        ftp = ncbiftp.cursor(tries=self.tries, cache=self.cache)
+        g = ftp.open_genome(accession, assembly_reports=self.assembly_reports)
+        if g == None:
+            logger.warn(f'Could not download genome {accession}')
+            self.missing.add(accession)
+            return seqrecords_to_dataframe([])
+        g = SeqIO.parse(g, "genbank")
+        g = seqrecords_to_dataframe(
+                g,
+                exclude_type = self.exclude_type,
+                autopid = self.autopid,
+                assembly = accession,
+                codontable = self.codontable,
+                block_id = self.block_id
+        )
+        return g
+
+    def _add_to_stack(self,accession,stack):
+        g = self[accession]
+        if not g.empty:
+            stack.append(g)
+
+    def fetch(self, accessions=None):
+        from threading import Thread
+        from rotifer.devel.alpha.gian_func import chunks
+        self._reset(accessions)
+        stack = []
+        for chunk in chunks(list(self._query), self.threads):
+            p = []
+            for assembly in chunk:
+                j = Thread(target=self._add_to_stack, args=(assembly,stack))
+                j.start()
+                p.append(j)
+            for x in p:
+                x.join()
+        return pd.concat(stack)
 
 # FUNCTIONS
 
@@ -162,6 +272,7 @@ def neighbors(
     from Bio import SeqIO, Entrez
     from rotifer.db.ncbi.cursor import NcbiCursor
     from rotifer.genome.utils import seqrecords_to_dataframe
+    from rotifer.db.ncbi import ftp as ncbiftp
     ftp = ncbiftp.cursor(tries=tries)
 
     # Make sure input is a list
@@ -453,20 +564,6 @@ def best_ipgs(ipgs, assembly_reports=None, eukaryotes=False, criteria=findDataFi
     ga = ga[ga.assembly.notna() | ga.nucleotide.notna()]
     return ga
 
-def genome(accession, assembly_reports=None, exclude_type=['source','gene'], tries=3, cache=GlobalConfig['cache']):
-    """
-    Load genome annotation from the NCBI FTP site.
-    """
-    from Bio import SeqIO
-    from rotifer.genome.utils import seqrecords_to_dataframe
-    import rotifer.db.ncbi.ftp as ncbiftp
-    ftp = ncbiftp.cursor(tries=tries)
-    g = ftp.open_genome(accession, assembly_reports=assembly_reports, cache=cache)
-    g = SeqIO.parse(g, "genbank")
-    g = seqrecords_to_dataframe(g, exclude_type=exclude_type)
-    return g
-
 # END
 if __name__ == '__main__':
     pass
-

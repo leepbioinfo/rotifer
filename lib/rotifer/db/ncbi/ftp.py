@@ -12,11 +12,25 @@ class cursor():
     """
     This class represents a live connection to the NCBI FTP server.
     """
-    def __init__(self, url=NcbiConfig['ftpserver'], tries=3, timeout=60):
+    def __init__(self, url=NcbiConfig['ftpserver'], tries=3, timeout=50, cache=GlobalConfig['cache']):
+        """
+        Parameters
+        ----------
+        url: string
+          NCBI FTP server URL
+        tries: integer
+          Maximum number of attempts to download a file
+        timeout: integer
+          Maximum amount of time, in seconds, to wait 
+          for a connection to the server
+        cache: directory path
+          Folder to store temporary files
+        """
         self._error = 0
         self.url = url
         self.tries = tries
         self.timeout = timeout
+        self.cache = cache
         self.connection = FTP(url, timeout=timeout)
         self.connection.login()
 
@@ -27,12 +41,16 @@ class cursor():
         try:
             self.connection.sendcmd("NOOP")
         except:
-            self.connection = FTP(NcbiConfig["ftpserver"], timeout=self.timeout)
-            self.connection.login()
+            try:
+                self.connection = FTP(NcbiConfig["ftpserver"], timeout=self.timeout)
+                self.connection.login()
+            except:
+                self._error = 1
+                return
         self._error = 0
 
     # Load NCBI assembly reports
-    def ftp_get(self, target, avoid_collision=False, outdir=GlobalConfig['cache']):
+    def ftp_get(self, target, avoid_collision=False, outdir=None):
         '''
         Download a file from the NCBI's FTP site.
 
@@ -46,7 +64,7 @@ class cursor():
             URL or relative path of the file
           avoid_collision : boolean, default False
             Avoid name collision by adding random suffixes
-          outdir : string
+          outdir : string, default is the object's cache
             Output directory
 
         Returns:
@@ -57,6 +75,8 @@ class cursor():
         logger.debug(f'downloading {NcbiConfig["ftpserver"]}{target}')
 
         # Create output directory, if necessary
+        if not outdir:
+            outdir = self.cache
         if not os.path.exists(outdir):
             try:
                 os.makedirs(outdir)
@@ -140,7 +160,7 @@ class cursor():
         return d
 
     # Mimick opening of local files
-    def ftp_open(self, target,  mode='rt', avoid_collision=True, delete=True, cache=GlobalConfig['cache']):
+    def ftp_open(self, target,  mode='rt', avoid_collision=True, delete=True):
         '''
         Open a file stored at the NCBI FTP site.
 
@@ -165,8 +185,6 @@ class cursor():
           delete : boolean, default True
             Whether files should be automatically removed when closed
             If set to False, the file will remain in the cache directory
-          cache : string
-            Path to a local directory to use as a temporary cache
 
         Returns:
           Open data stream (file handle-like) object
@@ -174,13 +192,13 @@ class cursor():
         from tempfile import _TemporaryFileWrapper
         import rotifer.core.functions as rcf
         self.connect()
-        outfile = self.ftp_get(target, outdir=cache, avoid_collision=avoid_collision)
+        outfile = self.ftp_get(target, avoid_collision=avoid_collision)
         if self._error:
             return None
         else:
             return _TemporaryFileWrapper(rcf.open_compressed(outfile, mode), outfile, delete)
 
-    def open_genome(self, accession, assembly_reports=None, cache=GlobalConfig['cache']):
+    def open_genome(self, accession, assembly_reports=None):
         """
         Open the GBFF file of a genome from the NCBI FTP site.
 
@@ -209,9 +227,6 @@ class cursor():
               from rotifer.db.ncbi as ncbi
               ar = ncbi.assembly_reports()
 
-          cache: directory path
-            Folder to store temporary files
-
         Returns:
           Open data stream (file handle-like) object
         """
@@ -227,7 +242,7 @@ class cursor():
         md5url = "/".join([path[0],"md5checksums.txt"])
         attempt = 1
         while attempt < self.tries:
-            md5 = self.ftp_open(md5url, mode='rt', avoid_collision=True, delete=True, cache=cache)
+            md5 = self.ftp_open(md5url, mode='rt', avoid_collision=True, delete=True)
             if self._error:
                 logger.error(f'''Could not fetch checksum for {accession}.''')
             else:
@@ -244,7 +259,7 @@ class cursor():
         md5gz = None
         attempt = 1
         while md5 != md5gz and attempt < self.tries:
-            gz = self.ftp_open("/".join(path),  mode='rt', avoid_collision=True, delete=True, cache=cache)
+            gz = self.ftp_open("/".join(path),  mode='rt', avoid_collision=True, delete=True)
             if self._error:
                 logger.error(f'''Could not open GBFF for {accession}.''')
             else:
@@ -252,6 +267,8 @@ class cursor():
                 if md5 == md5gz:
                     break
             attempt += 1
+
+        # Return file object
         return gz
 
     def genome_path(self, accession, assembly_reports=None):
@@ -282,12 +299,14 @@ class cursor():
 
         # Extract genome path from assembly reports
         if isinstance(assembly_reports, pd.DataFrame) and not assembly_reports.empty:
-            path = assembly_reports.query(f'assembly == "{accession}"').ftp_path.iloc[0]
-            path = path.replace(f'ftp://{NcbiConfig["ftpserver"]}','')
-            path = (path,os.path.basename(path) + "_genomic.gbff.gz")
+            path = assembly_reports.query(f'assembly == "{accession}"')
+            if not path.empty:
+                path = path.ftp_path.iloc[0]
+                path = path.replace(f'ftp://{NcbiConfig["ftpserver"]}','')
+                path = (path,os.path.basename(path) + "_genomic.gbff.gz")
 
         # Retrieve genome path for newest version
-        else:
+        if len(path) == 0:
             path = accession.replace("GCF_","").replace("GCA_","")
             path = path.split(".")[0]
             path = "/".join([ path[i : i + 3] for i in range(0, len(path), 3) ])
