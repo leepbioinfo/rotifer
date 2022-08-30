@@ -130,18 +130,19 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
                     feature_type = 'PSE'
                     if 'PSE' not in feature_order:
                         feature_order['PSE'] = 0
-                if 'translation' in qualifiers:
-                    plen = len(qualifiers['translation'][0])
                 else:
-                    selectedTable = codontable
-                    if 'transl_table' in qualifiers:
-                        selectedTable = int(qualifiers['transl_table'][0])
-                    try:
-                        plen = len(ft.translate(seqrecord, table=selectedTable, cds=False, to_stop=True))
-                    except:
-                        feature_type = 'PSE'
-                        if 'PSE' not in feature_order:
-                            feature_order['PSE'] = 0
+                    if 'translation' in qualifiers:
+                        plen = len(qualifiers['translation'][0])
+                    else:
+                        selectedTable = codontable
+                        if 'transl_table' in qualifiers:
+                            selectedTable = int(qualifiers['transl_table'][0])
+                        try:
+                            plen = len(ft.translate(seqrecord, table=selectedTable, cds=False, to_stop=True))
+                        except:
+                            feature_type = 'PSE'
+                            if 'PSE' not in feature_order:
+                                feature_order['PSE'] = 0
                 if feature_type == 'CDS':
                     if 'protein_id' in qualifiers:
                         pid = qualifiers['protein_id'][0]
@@ -215,7 +216,7 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
             # Increment feature counters
             feature_order[feature_type] += 1
 
-        # Decrement block_id and last feature id
+        # Decrement block_id
         block_id -= 1
         #END: for ft in seqrecord.features
     #END: for seqrecord in seqrecs

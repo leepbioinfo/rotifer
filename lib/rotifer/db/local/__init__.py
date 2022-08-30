@@ -26,8 +26,8 @@ _config = {
 }
 
 class esl_sfetch:
-    def __init__(self, query=None, database_path=_config["local_database_path"], batch_size=200, threads=5):
-        self.query = query
+    def __init__(self, accessions=None, database_path=_config["local_database_path"], batch_size=200, threads=5):
+        self.query = accessions
         self.path = database_path
         self.batch_size = batch_size
         self.threads = threads
@@ -86,7 +86,7 @@ class esl_sfetch:
         for batch in gian_func.chunks(self.query, self.batch_size):
             seqrecords.extend(self._fetch(batch))
         return seqrecords
-    
+
     def _fetch(self, query):
         """
         Fetch many sequences from the database.

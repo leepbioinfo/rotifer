@@ -236,28 +236,34 @@ class cursor():
         path = self.genome_path(accession, assembly_reports=assembly_reports)
         if len(path) == 0:
            return None
-        self.connect()
 
         # Download checksum
         md5url = "/".join([path[0],"md5checksums.txt"])
-        attempt = 1
+        attempt = 0
+        self.connect()
         while attempt < self.tries:
             md5 = self.ftp_open(md5url, mode='rt', avoid_collision=True, delete=True)
             if self._error:
                 logger.error(f'''Could not fetch checksum for {accession}.''')
             else:
                 try:
-                    md5 = pd.read_csv(md5, sep=' +', names=['md5','filename'])
-                    md5 = md5[md5.filename.str.contains('_genomic.gbff.gz')].md5.iloc[0]
-                    break
+                    md5 = pd.read_csv(md5, sep=' +', names=['md5','filename'], engine="python")
+                    md5 = md5[md5.filename.fillna("_").str.contains('_genomic.gbff.gz')]
+                    md5 = md5.md5.iloc[0]
+                    if md5:
+                        break
                 except:
                     logger.error(f'''Parsing of checksum for {accession} failed.''')
             attempt += 1
+        if not md5:
+            self._error = 1
+            return None
 
         # Download genome
         gz = None
         md5gz = None
-        attempt = 1
+        attempt = 0
+        self.connect()
         while md5 != md5gz and attempt < self.tries:
             gz = self.ftp_open("/".join(path),  mode='rt', avoid_collision=True, delete=True)
             if self._error:
@@ -321,7 +327,6 @@ class cursor():
             # Retrieve GBFF path
             if not path:
                 return ()
-            self.connect()
             path = self.ftp_ls(path)
             if path.empty:
                 return ()

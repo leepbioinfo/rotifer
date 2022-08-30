@@ -717,7 +717,7 @@ class NeighborhoodDF(pd.DataFrame):
 
         # Expand list of features within each neighborhood, tag queries
         # IMPORTANT: row number may increase if min_block_distance < 0!
-        blks['internal_id'] = pd.Series(blks[['up','down']].values.tolist()).apply(lambda x: range(x[0],x[1]+1))
+        blks['internal_id'] = list(map(lambda x: list(range(x[0], x[1] + 1)), blks[["up", "down"]].values.tolist()))
         blks = blks.filter(['assembly','nucleotide','internal_id','block_id','rid','origin','is_fragment']).explode('internal_id')
         blks = blks.merge(select.drop_duplicates(), on=['assembly','nucleotide','internal_id'], how="left")
 
@@ -750,7 +750,6 @@ class NeighborhoodDF(pd.DataFrame):
 
         # Return
         return copy
-
 
 ###### New functions added 03/12/2021 Gian
     def jaccard(self, min_c80e3=3):
