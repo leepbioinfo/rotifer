@@ -71,7 +71,7 @@ class GenomeCursor:
     Load a random sample of genomes, except eukaryotes
     >>> import rotifer.db.ncbi as ncbi
     >>> ar = ncbi.assemblies(taxonomy=True)
-    >>> ar = ar[~ar.taxonomy.fillna("_").str.contains("Eukaryot")]
+    >>> ar = ar.query('superkingdom != "Eukaryota"')
     >>> g = ar.assembly.sample(10)
     >>> gc = ncbi.GenomeCursor(g, assembly_reports=ar)
     >>> df = gc.fetch_all()
@@ -90,6 +90,8 @@ class GenomeCursor:
       Whether to print a progress bar
     tries: int, default 3
       Number of attempts to download data
+    threads: integer, default 15
+      Number of processes to run parallel downloads
     batch_size: int, default 1
       Number of accessions per batch
     cache: path-like string
@@ -104,7 +106,8 @@ class GenomeCursor:
             codontable='Bacterial',
             progress=False,
             tries=3,
-            batch_size=10,
+            batch_size=None,
+            threads=15,
             cache=GlobalConfig['cache'],
         ):
         self.missing = set()
@@ -115,6 +118,7 @@ class GenomeCursor:
         self.progress = progress
         self.tries = tries
         self.batch_size = batch_size
+        self.threads = threads
         self.cache = cache
 
     def __getitem__(self, accession):
@@ -148,6 +152,7 @@ class GenomeCursor:
                             assembly = accession,
                             codontable = self.codontable,
                     )
+                    break
                 except:
                     g = seqrecords_to_dataframe([])
             attempt += 1
@@ -162,8 +167,10 @@ class GenomeCursor:
     def _fetch_many(self,accessions):
         stack = []
         for accession in set(accessions):
-            stack.append(self[accession])
-        return pd.concat(stack, ignore_index=True)
+            df = self[accession]
+            if not df.empty:
+                stack.append(df)
+        return stack
 
     def fetch_each(self,accessions):
         """
@@ -181,17 +188,26 @@ class GenomeCursor:
         from concurrent.futures import ProcessPoolExecutor, as_completed
         from rotifer.devel.alpha.gian_func import chunks
 
-        accessions = list(set(accessions))
-        if len(accessions) > 15:
-            size = int(len(accessions) / 15)
-        else:
-            size = 1
-        with ProcessPoolExecutor(max_workers=15) as executor:
+        accessions = set(accessions)
+        size = self.batch_size
+        if size == None or size == 0:
+            size = max(int(len(accessions) / self.threads),1)
+        if self.progress:
+            p = tqdm(total=len(accessions), initial=0)
+        with ProcessPoolExecutor(max_workers=self.threads) as executor:
             tasks = []
-            for chunk in chunks(accessions, size):
+            for chunk in chunks(list(accessions), size):
                 tasks.append(executor.submit(self._fetch_many, chunk))
+            found = set()
             for x in as_completed(tasks):
-                yield x.result()
+                for df in x.result():
+                    found.add(df.assembly.iloc[0])
+                    if self.progress:
+                        p.update(1)
+                    yield df
+            self.missing.union(accessions - found)
+        if self.progress:
+            p.close()
 
     def fetch_all(self, accessions):
         """
@@ -335,8 +351,13 @@ class NucleotideCursor:
             tasks = []
             for chunk in chunks(accessions, size):
                 tasks.append(executor.submit(self._fetch_many, chunk))
+            found = set()
             for x in as_completed(tasks):
-                yield x.result()
+                result = x.result()
+                for assembly, df in result.groupby('assembly'):
+                    found.add(assembly)
+                    yield df
+            self.missing.union(set(accessions) - found)
 
     def fetch_all(self, accessions):
         from rotifer.genome.utils import seqrecords_to_dataframe

@@ -31,23 +31,35 @@ class cursor():
         self.tries = tries
         self.timeout = timeout
         self.cache = cache
-        self.connection = FTP(url, timeout=timeout)
-        self.connection.login()
+        self.connect()
 
     def connect(self):
         """
         Connect or reconnect to server.
         """
-        try:
-            self.connection.sendcmd("NOOP")
-        except:
-            try:
-                self.connection = FTP(NcbiConfig["ftpserver"], timeout=self.timeout)
-                self.connection.login()
-            except:
-                self._error = 1
-                return
+        import time
         self._error = 0
+        attempt = 0
+        while attempt < self.tries:
+            try:
+                if hasattr(self,"connection"):
+                    self.connection.sendcmd("NOOP")
+                else:
+                    self.connection = FTP(url, timeout=timeout)
+                    self.connection.login()
+                break
+            except:
+                try:
+                    self.connection = FTP(self.url, timeout=self.timeout)
+                    self.connection.login()
+                    self._error = 0
+                    break
+                except socket.timeout:
+                    time.sleep(1)
+                except TimeoutError:
+                    time.sleep(1)
+                self._error = 1
+            attempt += 1
 
     # Load NCBI assembly reports
     def ftp_get(self, target, avoid_collision=False, outdir=None):
