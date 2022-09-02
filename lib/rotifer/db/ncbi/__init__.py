@@ -205,7 +205,7 @@ class GenomeCursor:
                     if self.progress:
                         p.update(1)
                     yield df
-            self.missing.union(accessions - found)
+            self.missing = self.missing.union(accessions - found)
         if self.progress:
             p.close()
 
@@ -357,7 +357,7 @@ class NucleotideCursor:
                 for assembly, df in result.groupby('assembly'):
                     found.add(assembly)
                     yield df
-            self.missing.union(set(accessions) - found)
+            self.missing = self.missing.union(set(accessions) - found)
 
     def fetch_all(self, accessions):
         from rotifer.genome.utils import seqrecords_to_dataframe
