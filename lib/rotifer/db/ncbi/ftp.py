@@ -1,12 +1,21 @@
 import os
 import sys
+import types
+import socket
+import typing
 import logging
 import pandas as pd
+from tqdm import tqdm
 from ftplib import FTP
 import rotifer
+import rotifer.db.core
 from rotifer import GlobalConfig
 from rotifer.db.ncbi import NcbiConfig
+from rotifer.db.ncbi import utils as rdnu
+from rotifer.genome.utils import seqrecords_to_dataframe
 logger = rotifer.logging.getLogger(__name__)
+
+# Classes
 
 class cursor():
     """
@@ -45,7 +54,7 @@ class cursor():
                 if hasattr(self,"connection"):
                     self.connection.sendcmd("NOOP")
                 else:
-                    self.connection = FTP(url, timeout=timeout)
+                    self.connection = FTP(self.url, timeout=self.timeout)
                     self.connection.login()
                 break
             except:
@@ -251,9 +260,8 @@ class cursor():
 
         # Download checksum
         md5url = "/".join([path[0],"md5checksums.txt"])
-        attempt = 0
         self.connect()
-        while attempt < self.tries:
+        for attempt in range(0,self.tries):
             md5 = self.ftp_open(md5url, mode='rt', avoid_collision=True, delete=True)
             if self._error:
                 logger.error(f'''Could not fetch checksum for {accession}.''')
@@ -266,17 +274,14 @@ class cursor():
                         break
                 except:
                     logger.error(f'''Parsing of checksum for {accession} failed.''')
-            attempt += 1
         if not md5:
             self._error = 1
             return None
 
         # Download genome
         gz = None
-        md5gz = None
-        attempt = 0
         self.connect()
-        while md5 != md5gz and attempt < self.tries:
+        for attempt in range(0,self.tries):
             gz = self.ftp_open("/".join(path),  mode='rt', avoid_collision=True, delete=True)
             if self._error:
                 logger.error(f'''Could not open GBFF for {accession}.''')
@@ -284,7 +289,6 @@ class cursor():
                 md5gz = rcf.md5(gz.name)
                 if md5 == md5gz:
                     break
-            attempt += 1
 
         # Return file object
         return gz
@@ -332,7 +336,7 @@ class cursor():
             path = self.ftp_ls(path)
             if path.empty:
                 return ()
-            path = path.query('type == "dir"')
+            path = path.query(f'type == "dir" and name.str.contains("{accession}")')
             path = path.sort_values(['name'], ascending=False).iloc[0]
             path = path.target + "/" + path['name']
 
@@ -348,6 +352,499 @@ class cursor():
             path = (path.target.iloc[0], path['name'].iloc[0])
 
         return path
+
+#class GenomeCursor(BaseCursor):
+class GenomeCursor(rotifer.db.core.SimpleParallelProcessCursor):
+    """
+    Fetch genome sequences from the NCBI FTP site.
+
+    Usage
+    -----
+    Load a random sample of genomes, except eukaryotes
+    >>> import rotifer.db.ncbi as ncbi
+    >>> ar = ncbi.assemblies(taxonomy=True)
+    >>> ar = ar.query('superkingdom != "Eukaryota"')
+    >>> g = ar.assembly.sample(10)
+    >>> from rotifer.db.ncbi import ftp
+    >>> gc = ftp.GenomeCursor(g, assembly_reports=ar)
+    >>> genomes = gc.fetch_all()
+
+    Parameters
+    ----------
+    assembly_reports: Pandas Dataframe
+      Table of genomes
+    progress: boolean, deafult False
+      Whether to print a progress bar
+    tries: int, default 3
+      Number of attempts to download data
+    threads: integer, default 15
+      Number of processes to run parallel downloads
+    batch_size: int, default 1
+      Number of accessions per batch
+    cache: path-like string
+      Where to place temporary files
+
+    """
+    def __init__(
+            self,
+            assembly_reports=None,
+            progress=False,
+            tries=3,
+            batch_size=None,
+            threads=15,
+            cache=GlobalConfig['cache'],
+        ):
+        super().__init__(
+            progress=progress,
+            tries=tries,
+            batch_size=batch_size,
+            threads=threads
+        )
+        self.assembly_reports = assembly_reports
+        self.cache = cache
+
+    def _getids(self,obj):
+        return {obj.assembly}
+
+    def _fetcher(self, accession, assembly_reports=None):
+        import rotifer.db.ncbi.ftp as ncbiftp
+        gfc = ncbiftp.cursor(tries=1, cache=self.cache)
+        return gfc.open_genome(accession, assembly_reports=self.assembly_reports)
+
+    def _parser(self, stream, accession):
+        from Bio import SeqIO
+        stack = []
+        for s in SeqIO.parse(stream,"genbank"):
+            s.assembly = accession
+            stack.append(s)
+        return stack
+
+    def __getitem__(self, accession):
+        """
+        Download, parse and load a genome.
+
+        Returns
+        -------
+        List of Bio.SeqRecord objects
+        """
+        objlist = []
+        for attempt in range(0,self.tries):
+            # Download and/or open data file
+            try:
+                stream = self._fetcher(accession, assembly_reports=self.assembly_reports)
+            except RuntimeError:
+                logger.error(f'Runtime error: '+str(sys.exc_info()[1]))
+                continue
+            except:
+                logger.debug(f"Failed to download genome {accession}: {sys.exc_info()}")
+                continue
+
+            # Use parser and process results
+            try:
+                objlist = self._parser(stream, accession)
+                break
+            except:
+                logger.debug(f"Failed to parse genome {accession}: {sys.exc_info()}")
+
+        if len(objlist) == 0:
+            logger.warn(f'Could not download genome {accession}')
+            self.missing.add(accession)
+
+        # Return data
+        return objlist
+
+    def _splitter(self, accessions):
+        from rotifer.devel.alpha.gian_func import chunks
+        size = self.batch_size
+        if size == None or size == 0:
+            size = max(int(len(accessions) / self.threads),1)
+        return chunks(list(accessions), size)
+
+    def _worker(self,accessions):
+        stack = []
+        for accession in accessions:
+            objlist = self[accession]
+            if len(objlist) != 0:
+                stack.extend(objlist)
+        return stack
+
+class GenomeFeaturesCursor(GenomeCursor):
+    """
+    Fetch genome annotation as dataframes.
+
+    Usage
+    -----
+    Load a random sample of genomes, except eukaryotes
+    >>> import rotifer.db.ncbi as ncbi
+    >>> ar = ncbi.assemblies(taxonomy=True)
+    >>> ar = ar.query('superkingdom != "Eukaryota"')
+    >>> g = ar.assembly.sample(10)
+    >>> from rotifer.db.ncbi import ftp
+    >>> gfc = ftp.GenomeFeaturesCursor(g, assembly_reports=ar)
+    >>> df = gfc.fetch_all()
+
+    Parameters
+    ----------
+    assembly_reports: Pandas Dataframe
+      Table of genomes
+    exclude_type: list of strings
+      List of names for the features that must be ignored
+    autopid: boolean
+      Automatically set protein identifiers
+    codontable: string por int, default 'Bacterial'
+      Default codon table, if not set within the data
+    progress: boolean, deafult False
+      Whether to print a progress bar
+    tries: int, default 3
+      Number of attempts to download data
+    threads: integer, default 15
+      Number of processes to run parallel downloads
+    batch_size: int, default 1
+      Number of accessions per batch
+    cache: path-like string
+      Where to place temporary files
+
+    """
+    def __init__(
+            self,
+            assembly_reports=None,
+            exclude_type=['source','gene','mRNA'],
+            autopid=False,
+            codontable='Bacterial',
+            progress=False,
+            tries=3,
+            batch_size=None,
+            threads=15,
+            cache=GlobalConfig['cache'],
+        ):
+        super().__init__(
+            assembly_reports=assembly_reports,
+            progress=progress,
+            tries=tries,
+            batch_size=batch_size,
+            threads=threads,
+            cache=cache,
+        )
+        self.exclude_type = exclude_type
+        self.autopid = autopid
+        self.codontable = codontable
+
+    def _getids(self,obj):
+        return set(obj.assembly)
+
+    def __getitem__(self, accession):
+        item = super().__getitem__(accession)
+        if len(item) == 0:
+            item = seqrecords_to_dataframe(item)
+        return item
+
+    def _parser(self, stream, accession):
+        from Bio import SeqIO
+        stream = SeqIO.parse(stream,"genbank")
+        stream = seqrecords_to_dataframe(
+            stream,
+            exclude_type = self.exclude_type,
+            autopid = self.autopid,
+            assembly = accession,
+            codontable = self.codontable,
+        )
+        return stream
+
+    def _worker(self, accessions):
+        stack = []
+        for accession in accessions:
+            df = self.__getitem__(accessions)
+            if len(df) != 0:
+                stack.append(df)
+        return stack
+
+    def fetch_all(self, accessions):
+        """
+        Fetch genomes.
+
+        Parameters
+        ----------
+        accessions: list of strings
+          NCBI genomes accessions
+
+        Returns
+        -------
+        rotifer.genome.data.NeighborhoodDF
+        """
+        stack = []
+        for df in self.fetch_each(accessions):
+            stack.append(df)
+        if stack:
+            return pd.concat(stack, ignore_index=True)
+        else:
+            return seqrecords_to_dataframe([])
+
+class GeneNeighborhoodCursor(GenomeFeaturesCursor):
+    """
+    Fetch genome annotation as dataframes.
+
+    Usage
+    -----
+    Load a random sample of genomes, except eukaryotes
+    >>> from rotifer.db.ncbi import ftp
+    >>> gfc = ftp.GeneNeighborhoodCursor(progress=True)
+    >>> df = gfc.fetch_all(["EEE9598493.1"])
+
+    Parameters
+    ----------
+    column : string
+      Name of the column to scan for matches to the accessions
+      See rotifer.genome.data.NeighborhoodDF
+    before : int
+      Keep at most this number of features, of the same type as the
+      target, before each target
+    after  : nt
+      Keep at most this number of features, of the same type as the
+      target, after each target
+    min_block_distance : int
+      Minimum distance between two consecutive blocks
+    strand : string
+      How to evaluate rows concerning the value of the strand column
+      Possible values for this option are:
+      - None : ignore strand
+      - same : same strand as the targets
+      -    + : positive strand features and targets only
+      -    - : negative strand features and targets only
+    fttype : string
+      How to process feature types of neighbors
+      Supported values:
+      - same : consider only features of the same type as the target
+      - any  : ignore feature type and count all features when
+               setting neighborhood boundaries
+    min_block_id : int
+      Starting number for block_ids, useful if calling this method
+      multiple times
+    assembly_reports: Pandas Dataframe
+     Table of genomes
+    exclude_type: list of strings
+      List of names for the features that must be ignored
+    autopid: boolean
+      Automatically set protein identifiers
+    codontable: string por int, default 'Bacterial'
+      Default codon table, if not set within the data
+    progress: boolean, deafult False
+      Whether to print a progress bar
+    tries: int, default 3
+      Number of attempts to download data
+    threads: integer, default 15
+      Number of processes to run parallel downloads
+    batch_size: int, default 1
+      Number of accessions per batch
+    cache: path-like string
+      Where to place temporary files
+
+    """
+    def __init__(
+            self,
+            column = 'pid',
+            before = 7,
+            after = 7,
+            min_block_distance = 0,
+            strand = None,
+            fttype = 'same',
+            min_block_id = 1,
+            assembly_reports=None,
+            exclude_type=['source','gene','mRNA'],
+            autopid=False,
+            codontable='Bacterial',
+            progress=False,
+            tries=3,
+            batch_size=None,
+            threads=15,
+            cache=GlobalConfig['cache'],
+        ):
+        super().__init__(
+            assembly_reports = assembly_reports,
+            exclude_type = exclude_type,
+            autopid = autopid,
+            codontable = codontable,
+            progress = progress,
+            tries = tries,
+            batch_size = batch_size,
+            threads = threads,
+            cache = cache,
+        )
+        self.column = column
+        self.before = before
+        self.after = after
+        self.min_block_distance = min_block_distance
+        self.strand = strand
+        self.fttype = fttype
+        self.min_block_id = min_block_id
+
+    def __getitem__(self, protein, ipgs=None):
+        """
+        Find gene neighborhoods in a genome.
+
+        Returns
+        -------
+        rotifer.genome.data.NeighborhoodDF
+        """
+        objlist = seqrecords_to_dataframe([])
+        if not isinstance(protein,typing.Iterable) or isinstance(protein,str):
+            protein = [protein]
+
+        if isinstance(ipgs,types.NoneType):
+            from rotifer.db.ncbi import entrez
+            ic = entrez.IPGCursor(progress=False, tries=self.tries, batch_size=self.batch_size, threads=self.threads)
+            ipgs = ic.fetch_all(protein)
+        ipgs = ipgs[ipgs.id.isin(ipgs[ipgs.pid.isin(protein) | ipgs.representative.isin(protein)].id)]
+        best = rdnu.best_ipgs(ipgs)
+        best = best[best.assembly.notna()]
+        ipgs = ipgs[ipgs.assembly.isin(best.assembly)]
+        if len(ipgs) == 0:
+            self.missing.union(protein)
+            return objlist
+
+        # Identify DNA data
+        assemblies, nucleotides = rdnu.ipgs_to_dicts(ipgs, best=False, full=False)
+
+        # Download and parse
+        objlist = []
+        for accession in assemblies.keys():
+            obj = None
+            for attempt in range(0,self.tries):
+                # Download and open data file
+                try:
+                    stream = self._fetcher(accession, assembly_reports=self.assembly_reports)
+                except RuntimeError:
+                    logger.error(f'Runtime error: '+str(sys.exc_info()[1]))
+                    continue
+                except:
+                    logger.debug(f"Failed to download genome {accession}: {sys.exc_info()}")
+                    continue
+
+                # Use parser to process results
+                try:
+                    obj = self._parser(stream, accession, assemblies[accession])
+                    break
+                except:
+                    logger.debug(f"Failed to parse genome {accession}: {sys.exc_info()}")
+
+            if isinstance(obj, types.NoneType):
+                logger.warn(f'Could not download genome {accession}')
+            elif len(obj) == 0:
+                logger.warn(f'No anchors in genome {accession}')
+            else:
+                objlist.append(obj)
+
+        # No data?
+        if len(objlist) == 0:
+            return seqrecords_to_dataframe([])
+
+        # Concatenate and evaluate
+        objlist = pd.concat(objlist, ignore_index=True)
+        found = set(objlist.pid).union(set(objlist.replaced))
+        found = set(protein).intersection(found)
+        self.missing = self.missing.union(set(protein) - found)
+
+        # Return data
+        return objlist
+
+    def _parser(self, stream, accession, proteins):
+        stream = super()._parser(stream, accession)
+        stream = stream.neighbors(
+            stream[self.column].isin(proteins.keys()),
+            before = self.before,
+            after = self.after,
+            min_block_distance = self.min_block_distance,
+            strand = self.strand,
+            fttype = self.fttype,
+            min_block_id = self.min_block_id
+        )
+        stream['replaced'] = stream.pid.replace(proteins)
+        return stream
+
+    def _worker(self, chunk):
+        return [self.__getitem__(*chunk)]
+
+    def _splitter(self, ipgs, query):
+        for x, y in ipgs.groupby('assembly'):
+            proteins = set(y.pid).union(y.representative)
+            yield (proteins, y.copy())
+
+    def fetch_each(self, proteins, ipgs=None):
+        """
+        Asynchronously fetch gene neighborhoods from NCBI.
+
+        Parameters
+        ----------
+        proteins: list of strings
+          NCBI protein identifiers
+
+        Returns
+        -------
+        A generator for rotifer.genome.data.NeighborhoodDF objects
+        """
+        from concurrent.futures import ProcessPoolExecutor, as_completed
+
+        # Make sure no identifiers are used twice
+        if not isinstance(proteins,typing.Iterable) or isinstance(proteins,str):
+            proteins = [proteins]
+        proteins = set(proteins)
+
+        # Make sure we have IPGs
+        if isinstance(ipgs,types.NoneType):
+            from rotifer.db.ncbi import entrez
+            if self.progress:
+                tqdm.write(f'Downloading IPGs for {len(proteins)} proteins...')
+            ic = entrez.IPGCursor(progress=self.progress, tries=self.tries, batch_size=self.batch_size, threads=self.threads)
+            ipgs = ic.fetch_all(list(proteins))
+        ipgs = ipgs[ipgs.pid.isin(proteins) | ipgs.representative.isin(proteins)]
+        if len(ipgs) == 0:
+            self.missing = self.missing.union(proteins)
+            yield seqrecords_to_dataframe([])
+        assemblies = rdnu.best_ipgs(ipgs)
+        assemblies = assemblies[assemblies.assembly.notna()]
+        assemblies = ipgs[ipgs.assembly.isin(assemblies.assembly)]
+
+        # Split jobs and execute
+        todo = set(assemblies.assembly.unique())
+        self.missing = self.missing.union(proteins)
+        with ProcessPoolExecutor(max_workers=self.threads) as executor:
+            if self.progress:
+                p = tqdm(total=len(todo), initial=0)
+            tasks = []
+            for chunk in self._splitter(assemblies, proteins):
+                tasks.append(executor.submit(self._worker, chunk))
+            for x in as_completed(tasks):
+                for obj in x.result():
+                    found = self._getids(obj)
+                    done = todo.intersection(found)
+                    ok = set(obj.pid)
+                    if 'replaced' in obj:
+                        ok = ok.union(obj.replaced)
+                    self.missing = self.missing - ok
+                    if self.progress and len(done) > 0:
+                        p.update(len(done))
+                    todo = todo - done
+                    yield obj
+
+    def fetch_all(self, proteins, ipgs=None):
+        """
+        Fetch genomes.
+
+        Parameters
+        ----------
+        proteins: list of strings
+          NCBI protein identifiers
+
+        Returns
+        -------
+        rotifer.genome.data.NeighborhoodDF
+        """
+        stack = []
+        for df in self.fetch_each(proteins, ipgs=ipgs):
+            stack.append(df)
+        if stack:
+            return pd.concat(stack, ignore_index=True)
+        else:
+            return seqrecords_to_dataframe([])
 
 # Is this library being used as a script?
 if __name__ == '__main__':

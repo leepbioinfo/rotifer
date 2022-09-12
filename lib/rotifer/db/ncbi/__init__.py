@@ -29,6 +29,7 @@ from tqdm import tqdm
 # Import submodules
 import rotifer
 from rotifer import GlobalConfig
+from rotifer.db.core import BaseCursor
 from rotifer.core.functions import findDataFiles
 from rotifer.core.functions import loadConfig
 
@@ -62,24 +63,22 @@ logger = rotifer.logging.getLogger(__name__)
 
 # Classes
 
-class GenomeCursor:
+class GeneNeighborhoodCursor(BaseCursor):
     """
-    Fetch genome annotation for NCBI Genomes via FTP.
+    Fetch gene neighborhoods as dataframes.
 
     Usage
     -----
     Load a random sample of genomes, except eukaryotes
     >>> import rotifer.db.ncbi as ncbi
-    >>> ar = ncbi.assemblies(taxonomy=True)
-    >>> ar = ar.query('superkingdom != "Eukaryota"')
-    >>> g = ar.assembly.sample(10)
-    >>> gc = ncbi.GenomeCursor(g, assembly_reports=ar)
-    >>> df = gc.fetch_all()
+    >>> gfc = ncbi.GeneNeighborhoodCursor(g)
+    >>> df = gfc.fetch_all([""])
 
     Parameters
     ----------
-    assembly_reports: Pandas Dataframe
-      Table of genomes
+    column : string
+      Name of the column to scan for matches to the accessions
+      See rotifer.genome.data.NeighborhoodDF
     exclude_type: list of strings
       List of names for the features that must be ignored
     autopid: boolean
@@ -100,8 +99,8 @@ class GenomeCursor:
     """
     def __init__(
             self,
-            assembly_reports=None,
-            exclude_type=['source','gene'],
+            column='pid',
+            exclude_type=['source','gene','mRNA'],
             autopid=False,
             codontable='Bacterial',
             progress=False,
@@ -110,264 +109,128 @@ class GenomeCursor:
             threads=15,
             cache=GlobalConfig['cache'],
         ):
-        self.missing = set()
-        self.assembly_reports = assembly_reports
+        super().__init__(progress=progress, tries=tries, batch_size=batch_size, threads=threads)
+        self.column = column
         self.exclude_type = exclude_type
         self.autopid = autopid
         self.codontable = codontable
-        self.progress = progress
-        self.tries = tries
-        self.batch_size = batch_size
-        self.threads = threads
         self.cache = cache
 
-    def __getitem__(self, accession):
+    def __getitem__(self, accession, ipgs=None, assembly_reports=None):
         """
-        Download, parse and load a genome.
+        Dictionary-like access to gene neighbors.
+        """
+        from rotifer.db.ncbi.cursor import NcbiCursor
+        from rotifer.genome.utils import seqrecords_to_dataframe
+
+        # Prepare DNA accessions
+        assemblies, nucleotides, proteins = self.get_nucleotide_ids(accession, ipgs)
+
+        # Download nucleotide annotation using FTP
+        if assemblies:
+            gfc = ftp.GenomeFeaturesCursor(
+                assembly_reports = self.assembly_reports,
+                exclude_type = self.exclude_type,
+                autopid = self.autopid,
+                codontable = self.codontable,
+                progress=False,
+                tries = self.tries,
+                batch_size = self.batch_size,
+                threads = self.threads,
+                cache = self.cache
+            )
+            df = gfc.fetch_all(accession)
+            df = df.neighbors(
+                df.pid.isin(proteins.keys()),
+                before = self.before,
+                after = self.after,
+                min_block_distance = self.min_block_distance,
+                strand = self.strand,
+                fttype = self.fttype,
+                min_block_id = self.min_block_id
+            )
+            ndf['replaced'] = ndf.pid.replace(proteins)
+
+    def fetch_each(self, accessions, eukaryotes=False, ipgs=None, assembly_reports=None, save=None, replace=False):
+        """
+        Fetch each gene neighborhood iteratively.
+
+        Parameters
+        ----------
+        accessions: list of strings
+          Database identifiers.
+        ipgs : rotifer.db.ncbi.read.ipg dataframe
+          This parameter may be used to avoid downloading IPGs
+          from NCBI. Example:
+
+          >>> import rotifer.db.ncbi as ncbi
+          >>> i = ncbi.NcbiCursor(['WP_063732599.1']).read("ipg")
+          >>> n = ncbi.neighbors(['WP_063732599.1'], ipgs=i)
+
+          Make sure it has the same colums as named
+          by the ipg method in rotifer.db.ncbi.read
+        assembly_reports : Pandas dataframe
+          If not given, assembly reports are downloaded.
+          See rotifer.db.ncbi.assemblies
+        save : string, default None
+          If set, save processed batches to the path given
+        replace : boolean, default True
+          When save is set, whether to replace that file
+
+        Returns
+        -------
+        Generator of rotifer.genome.data.NeighborhoodDF
+        """
+        return NotImplementedError
+
+    def fetch_all(self, accessions, eukaryotes=False, ipgs=None, assembly_reports=None, save=None, replace=False):
+        """
+        Fetch all gene neighborhoods in a single dataframe.
+
+        Parameters
+        ----------
+        accessions: list of strings
+          Database identifiers.
+        eukaryotes : boolean, default False
+          Set to True to download neighborhood data for eukaryotes
+        ipgs : rotifer.db.ncbi.read.ipg dataframe
+          This parameter may be used to avoid downloading IPGs
+          from NCBI. Example:
+
+          >>> import rotifer.db.ncbi as ncbi
+          >>> i = ncbi.NcbiCursor(['WP_063732599.1']).read("ipg")
+          >>> n = ncbi.neighbors(['WP_063732599.1'], ipgs=i)
+
+          Make sure it has the same colums as named
+          by the ipg method in rotifer.db.ncbi.read
+        assembly_reports : Pandas dataframe
+          If not given, assembly reports are downloaded.
+          See rotifer.db.ncbi.assemblies
+        save : string, default None
+          If set, save processed batches to the path given
+        replace : boolean, default True
+          When save is set, whether to replace that file
 
         Returns
         -------
         rotifer.genome.data.NeighborhoodDF
         """
-        from Bio import SeqIO
-        from rotifer.genome.utils import seqrecords_to_dataframe
-        import rotifer.db.ncbi.ftp as ncbiftp
-        ftp = ncbiftp.cursor(tries=1, cache=self.cache)
+        return NotImplementedError
 
-        attempt = 0
-        while attempt < self.tries:
-            try:
-                g = ftp.open_genome(accession, assembly_reports=self.assembly_reports)
-            except:
-                g = None
-            if g == None:
-                g = seqrecords_to_dataframe([])
-            else:
-                g = SeqIO.parse(g, "genbank")
-                try:
-                    g = seqrecords_to_dataframe(
-                            g,
-                            exclude_type = self.exclude_type,
-                            autopid = self.autopid,
-                            assembly = accession,
-                            codontable = self.codontable,
-                    )
-                    break
-                except:
-                    g = seqrecords_to_dataframe([])
-            attempt += 1
-
-        if g.empty:
-            logger.warn(f'Could not download genome {accession}')
-            self.missing.add(accession)
-            return seqrecords_to_dataframe([])
-
-        return g
-
-    def _fetch_many(self,accessions):
-        stack = []
-        for accession in set(accessions):
-            df = self[accession]
-            if not df.empty:
-                stack.append(df)
-        return stack
-
-    def fetch_each(self,accessions):
-        """
-        Asynchronously fetch genomes in random order.
-
-        Parameters
-        ----------
-        accessions: list of strings
-          NCBI genomes accessions
-
-        Returns
-        -------
-        A generator for rotifer.genome.data.NeighborhoodDF objects
-        """
-        from concurrent.futures import ProcessPoolExecutor, as_completed
-        from rotifer.devel.alpha.gian_func import chunks
-
-        accessions = set(accessions)
-        size = self.batch_size
-        if size == None or size == 0:
-            size = max(int(len(accessions) / self.threads),1)
-        if self.progress:
-            p = tqdm(total=len(accessions), initial=0)
-        with ProcessPoolExecutor(max_workers=self.threads) as executor:
-            tasks = []
-            for chunk in chunks(list(accessions), size):
-                tasks.append(executor.submit(self._fetch_many, chunk))
-            found = set()
-            for x in as_completed(tasks):
-                for df in x.result():
-                    found.add(df.assembly.iloc[0])
-                    if self.progress:
-                        p.update(1)
-                    yield df
-            self.missing = self.missing.union(accessions - found)
-        if self.progress:
-            p.close()
-
-    def fetch_all(self, accessions):
-        """
-        Fetch genomes.
-
-        Parameters
-        ----------
-        accessions: list of strings
-          NCBI genomes accessions
-
-        Returns
-        -------
-        rotifer.genome.data.NeighborhoodDF
-        """
-        from rotifer.genome.utils import seqrecords_to_dataframe
-        stack = []
-        for df in self.fetch_each(accessions):
-            stack.append(df)
-        if stack:
-            return pd.concat(stack, ignore_index=True)
-        else:
-            return seqrecords_to_dataframe([])
-
-class NucleotideCursor:
-    """
-    Fetch nucleotide sequence annotations via Entrez.
-
-    Usage
-    -----
-    >>> import rotifer.db.ncbi as ncbi
-    >>> nc = ncbi.NucleotideCursor(["QJEQ01000001.1"])
-    >>> df = gc.fetch_all()
-
-    Parameters
-    ----------
-    exclude_type: list of strings
-      List of names for the features that must be ignored
-    autopid: boolean
-      Automatically set protein identifiers
-    codontable: string por int, default 'Bacterial'
-      Default codon table, if not set within the data
-    progress: boolean, deafult False
-      Whether to print a progress bar
-    tries: int, default 3
-      Number of attempts to download data
-    batch_size: int, default 1
-      Number of accessions per batch
-    cache: path-like string
-      Where to place temporary files
-
-    """
-    def __init__(
-            self,
-            exclude_type=['source','gene'],
-            autopid=False,
-            codontable='Bacterial',
-            progress=False,
-            tries=3,
-            batch_size=10,
-            cache=GlobalConfig['cache'],
-        ):
-        self.missing = set()
-        self.exclude_type = exclude_type
-        self.autopid = autopid
-        self.codontable = codontable
-        self.progress = progress
-        self.tries = tries
-        self.batch_size = batch_size
-        self.cache = cache
-
-    def __getitem__(self, accession):
-        """
-        Download, parse and load a nucleotide sequence.
-
-        Returns
-        -------
-        rotifer.genome.data.NeighborhoodDF
-        """
-        from Bio import SeqIO, Entrez
-        from rotifer.genome.utils import seqrecords_to_dataframe
-        Entrez.email = NcbiConfig["email"]
-        Entrez.api_key = NcbiConfig["api_key"]
-
-        attempt = 0
-        while attempt < self.tries:
-            try:
-                g = Entrez.efetch(db="nucleotide", rettype="gbwithparts", retmode="text", id=accession)
-            except:
-                g = None
-            if g == None:
-                g = seqrecords_to_dataframe([])
-            else:
-                g = SeqIO.parse(g, "genbank")
-                try:
-                    g = seqrecords_to_dataframe(
-                            g,
-                            exclude_type = self.exclude_type,
-                            autopid = self.autopid,
-                            assembly = accession,
-                            codontable = self.codontable,
-                    )
-                except:
-                    g = seqrecords_to_dataframe([])
-            attempt += 1
-
-        if g.empty:
-            logger.warn(f'Could not download nucleotide sequence {accession}')
-            self.missing.add(accession)
-            return seqrecords_to_dataframe([])
-
-        return g
-
-    def _fetch_many(self,accessions):
-        stack = []
-        for accession in set(accessions):
-            stack.append(self[accession])
-        return pd.concat(stack, ignore_index=True)
-
-    def fetch_each(self,accessions):
-        """
-        Asynchronously fetch genomes in random order.
-
-        Parameters
-        ----------
-        accessions: list of strings
-          NCBI genomes accessions
-
-        Returns
-        -------
-        A generator for rotifer.genome.data.NeighborhoodDF objects
-        """
-        from concurrent.futures import ProcessPoolExecutor, as_completed
-        from rotifer.devel.alpha.gian_func import chunks
-
-        accessions = list(set(accessions))
-        if len(accessions) > 15:
-            size = int(len(accessions) / 15)
-        else:
-            size = 1
-        with ProcessPoolExecutor(max_workers=15) as executor:
-            tasks = []
-            for chunk in chunks(accessions, size):
-                tasks.append(executor.submit(self._fetch_many, chunk))
-            found = set()
-            for x in as_completed(tasks):
-                result = x.result()
-                for assembly, df in result.groupby('assembly'):
-                    found.add(assembly)
-                    yield df
-            self.missing = self.missing.union(set(accessions) - found)
-
-    def fetch_all(self, accessions):
-        from rotifer.genome.utils import seqrecords_to_dataframe
-        stack = []
-        for df in self.fetch_each(accessions):
-            stack.append(df)
-        if stack:
-            return pd.concat(stack, ignore_index=True)
-        else:
-            return seqrecords_to_dataframe([])
+    def get_nucleotide_ids(self, accessions, ipgs=None):
+        import types
+        if isinstance(ipgs, types.NoneType):
+            ic = ncbi.IPGCursor(progress=self.progress, tries=self.tries, batch_size=self.batch_size, threads=self.threads)
+            ipgs = ic.fetch_all(accessions)
+        best = ipgs.sort_values(['id','order'], ascending=[True,True])
+        best = best.drop_duplicates(['id'], keep='first')
+        assemblies = best.assembly.dropna().unique().tolist()
+        nucleotides = best[best.assembly.isna()].nucleotide.dropna().tolist()
+        proteins = ipgs[ipgs.assembly.isin(assemblies) | ipgs.nucleotide.isin(nucleotides)]
+        representative = { x:x for x in proteins.representative.unique() }
+        proteins = proteins.set_index('pid').representative.to_dict()
+        proteins.update(representative)
+        return assemblies, nucleotides, proteins
 
 # FUNCTIONS
 
@@ -422,15 +285,12 @@ def neighbors(
     Parameters:
       query  : list of strings
           List of accessions
-
       column : string
           Name of the column to scan for matches to the accessions
           See rotifer.genome.data.NeighborhoodDF
-
       assembly_reports : Pandas dataframe
         If not given, assembly reports are downloaded.
         See rotifer.db.ncbi.assemblies
-
       ipgs : rotifer.db.ncbi.read.ipg dataframe
         This parameter may be used to avoid downloading IPGs
         from NCBI. Example:
@@ -441,26 +301,19 @@ def neighbors(
 
              Make sure it has the same colums as named
              by the ipg method in rotifer.db.ncbi.read
-
       eukaryotes : boolean, default False
         If set to True, neighborhood data for eukaryotic genomes
         will also be downloaded and processed
-
       exclude_type : list of strings
         Exclude rows by type (column 'type')
-
       save : string, default None
         If set, save processed batches to the path given
-
       replace : boolean, default True
         When save is set, whether to replace that file
-
       progress : boolean, default False
         Show progress bar
-
       tries : integer, default 3
         Number of attempts to download data
-
       sleep_between_tries : integer, default 2
         Number of seconds between download attempts
 

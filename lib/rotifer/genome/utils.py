@@ -15,7 +15,7 @@ logger = rotifer.logging.getLogger(__name__)
 # Data
 _columns = ['nucleotide', 'start', 'end', 'strand', 'nlen', 'block_id', 'query', 'pid', 'type', 'plen', 'locus', 'seq_type', 'assembly', 'gene', 'origin', 'topology', 'product', 'taxid', 'organism', 'lineage', 'classification', 'feature_order', 'internal_id', 'is_fragment']
 
-def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=None, codontable='Bacterial', block_id=-1):
+def seqrecords_to_dataframe(seqrecs=None, exclude_type=[], autopid=False, assembly=None, codontable='Bacterial', block_id=-1):
     '''
     Extract BioPython's SeqRecord features data to a Pandas dataframe
     Arguments:
@@ -53,6 +53,7 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
             #logger.error(f'Bio.Reqrecord {seqrecord.id} contains has features to extract')
             continue
         digits = max(6,ceil(log10(len(seqrecord.features))))
+        assemblyID = None
 
         # Extract SeqRecord data
         nlen = len(seqrecord)
@@ -61,9 +62,9 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
             topology = annotations['topology'] if 'topology' in annotations else 'linear'
             organism = annotations['organism'] if 'organism' in annotations else 'Unknown'
             taxonomy = '; '.join(annotations['taxonomy']) if 'taxonomy' in annotations else ''
-            assemblyID = [ x.split(':')[-1] for x in seqrecord.dbxrefs if 'Assembly:' in x ]
-            if assemblyID:
-                assembly = assemblyID[0]
+            for x in seqrecord.dbxrefs:
+                if 'Assembly:' in x:
+                    assemblyID = x.split(':')[-1]
         else:
             topology = 'linear'
             organism = 'Unknown'
@@ -72,21 +73,24 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
         # SeqRecord doesn't contain a reference to its assembly ID
         # Let's assume all sequences in the current file belong to
         # the same assembly
-        if assembly == None:
+        if assemblyID == None:
             if hasattr(seqrecs,"stream"): # Bio.SeqIO.Interfaces.SequenceIterator!
                 if hasattr(seqrecs.stream,"filename") and callable(seqrecs.stream.filename):
-                    assembly = seqrecs.stream.filename() # rotifer.io.fileinput.FileInput
+                    assemblyID = seqrecs.stream.filename() # rotifer.io.fileinput.FileInput
                 elif hasattr(seqrecs.stream,"name"):
-                    assembly = seqrecs.stream.name # Another _io class
-                if assembly != None:
+                    assemblyID = seqrecs.stream.name # Another _io class
+                if assemblyID != None:
                     try:
-                        assembly = os.path.basename(assembly)
-                        if ncbiaccre.match(assembly):
-                            assembly = ncbiaccre.search(assembly).group(0)
+                        assemblyID = os.path.basename(assemblyID)
+                        if ncbiaccre.match(assemblyID):
+                            assemblyID = ncbiaccre.search(assemblyID).group(0)
                     except:
-                        logger.debug(f"Assembly {str(assembly)} doesn't parse as a string")
-        if assembly == None:
-            assembly = seqrecord.id
+                        logger.debug(f"Assembly {str(assemblyID)} doesn't parse as a string")
+        if assemblyID == None:
+            if assembly:
+                assemblyID = assembly
+            else:
+                assemblyID = seqrecord.id
 
         # Process source feature
         taxid = np.NaN
@@ -124,7 +128,7 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
             # PID
             locus = qualifiers['locus_tag'][0] if 'locus_tag' in qualifiers else seqrecord.id + f'.{internal_id:0{digits}}'
             plen = sum([ len(x) for x in ft.location.parts ])
-            pid = ''
+            pid = np.NaN
             if feature_type == 'CDS':
                 if 'pseudo' in qualifiers:
                     feature_type = 'PSE'
@@ -199,7 +203,7 @@ def seqrecords_to_dataframe(seqrecs, exclude_type=[], autopid=False, assembly=No
                     'plen': plen,
                     'locus': locus,
                     'seq_type': seq_type,
-                    'assembly': assembly,
+                    'assembly': assemblyID,
                     'gene':gene,
                     'origin':origin,
                     'topology': topology,
