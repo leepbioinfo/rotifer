@@ -1,4 +1,4 @@
-def load_seq_scan(name, folder):
+def load_seq_scan(name, folder, haldane=False):
     '''
     load a seqscan result into a dataframe
     '''
@@ -7,8 +7,12 @@ def load_seq_scan(name, folder):
     info = pd.read_csv(f'{pre}.c100i100.tsv', sep='\t', names=['c100i100', 'pid'])
     info = info.merge(pd.read_csv(f'{pre}.c80i70.tsv', sep='\t', names=['c80i70', 'c100i100']), how="left")
     info = info.merge(pd.read_csv(f'{pre}.c80e3.tsv', sep='\t', names=['c80e3', 'c80i70']), how="left")
-    info = info.merge(pd.read_csv(f'{pre}.aravind.scan.arch', sep='\t', names=['c100i100', 'aravind'], usecols=[0,1], skiprows=[0]), how="left")
-    info = info.merge(pd.read_csv(f'{pre}.pfam.hmmscan.arch', sep='\t', names=['c100i100', 'pfam'], usecols=[0,1], skiprows=[0]), how="left")
+    if haldane:
+        info = info.merge(pd.read_csv(f'{pre}.aravind.scan.arch', sep='\t', names=['c100i100', 'aravind'], usecols=[0,1], skiprows=[0]), how="left")
+        info = info.merge(pd.read_csv(f'{pre}.pfam.hmmscan.arch', sep='\t', names=['c100i100', 'pfam'], usecols=[0,1], skiprows=[0]), how="left")
+    else:    
+        info = info.merge(pd.read_csv(f'{pre}.query.profiledb.rps.arch', sep='\t', names=['c100i100', 'aravind'], usecols=[0,1], skiprows=[0]), how="left")
+        info = info.merge(pd.read_csv(f'{pre}.query.pfam.rps.arch', sep='\t', names=['c100i100', 'pfam'], usecols=[0,1], skiprows=[0]), how="left")
     return info
 
 
@@ -165,7 +169,8 @@ def hmmsearch_full2pandas (file, error_lines=True, keep_threshold=False ):
     with open(file, 'r') as f:
         text = f.read()
     columns = 'Evalue  score  bias    BD_Evalue  BD_score  BD_bias    exp  N  Sequence       Description'.split()
-    u = '------- ------ -----    ------- ------ -----   ---- --  --------       -----------'
+    #u = '------- ------ -----    ------- ------ -----   ---- --  --------       -----------'
+    u =  '------- ------ -----    ------- ------ -----   ---- --  --------   -----------'
     l = 'Domain annotation for each sequence'
     match = re.findall(f'{u}(.+?){l}', text, re.DOTALL)[0].strip()
     m2 = re.sub(r'[^\S\r\n]{2,}', '\t', match)
