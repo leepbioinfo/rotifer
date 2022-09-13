@@ -116,10 +116,7 @@ def filter_nonoverlapping_regions(df, reference=['sequence'], start='estart', en
     # Sort row priority: best rows must appear first
     crit = list(criteria.keys())
     clean = df.copy()
-    if 'region_length' in criteria:
-        if 'region_length' in clean.columns:
-            clean.rename({'region_length':'_original_region_length'}, axis=1, inplace=True)
-        clean['region_length'] = clean[end] - clean[start] + 1
+    clean['__rl'] = clean[end] - clean[start] + 1
     clean.sort_values(reference + crit, ascending=len(reference)*[True] + [ criteria[x] for x in crit ], inplace=True)
 
     # Remove non-optimal layers
@@ -133,14 +130,11 @@ def filter_nonoverlapping_regions(df, reference=['sequence'], start='estart', en
         overlap += 1
         maxoverlap = maximum_overlap
         if maxoverlap < 1:
-            maxoverlap = np.floor(maxoverlap * np.where(s.region_length_x < s.region_length_y, s.region_length_x, s.region_length_y))
+            maxoverlap = np.floor(maxoverlap * np.where(s.__rl_x < s.__rl_y, s.__rl_x, s.__rl_y))
         s = s[overlap > maxoverlap]._oid.unique().tolist()
         clean.drop(s, inplace=True)
 
     # Remove region_length and return
-    if 'region_length' in criteria:
-        clean.drop(['region_length'], axis=1, inplace=True)
-        if '_original_region_length' in clean.columns:
-            clean.rename({'_original_region_length':'region_length'}, axis=1, inplace=True)
+    clean.drop(['__rl'], axis=1, inplace=True)
     clean.sort_values(reference + [start,end], ascending=(len(reference)+2)*[True], inplace=True)
     return clean

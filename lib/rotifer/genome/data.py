@@ -8,6 +8,7 @@ import pandas as pd
 import rotifer
 from rotifer.core.functions import not_kwargs
 from rotifer.taxonomy.utils import lineage as rtlineage
+from rotifer.genome.utils import seqrecords_to_dataframe
 logger = rotifer.logging.getLogger(__name__)
 
 class NeighborhoodDF(pd.DataFrame):
@@ -707,17 +708,17 @@ class NeighborhoodDF(pd.DataFrame):
         # Find targets and their neighborhood
         if (not isinstance(select,pd.Series)) or (select.sum() == 0):
             print(f'No anchors to search for neighbors were found! Revise your list of targets!')
-            return pd.DataFrame()
+            return seqrecords_to_dataframe([])
 
         # Initialize dataframe for each region (blocks)
         select = self.filter(['assembly','nucleotide','internal_id']).assign(query=select)
         blks = self.vicinity(select['query'], before, after, min_block_distance, fttype, min_block_id)
         if blks.empty:
-            return pd.DataFrame()
+            return seqrecords_to_dataframe([])
 
         # Expand list of features within each neighborhood, tag queries
         # IMPORTANT: row number may increase if min_block_distance < 0!
-        blks['internal_id'] = pd.Series(blks[['up','down']].values.tolist()).apply(lambda x: range(x[0],x[1]+1))
+        blks['internal_id'] = list(map(lambda x: list(range(x[0], x[1] + 1)), blks[["up", "down"]].values.tolist()))
         blks = blks.filter(['assembly','nucleotide','internal_id','block_id','rid','origin','is_fragment']).explode('internal_id')
         blks = blks.merge(select.drop_duplicates(), on=['assembly','nucleotide','internal_id'], how="left")
 
@@ -750,7 +751,6 @@ class NeighborhoodDF(pd.DataFrame):
 
         # Return
         return copy
-
 
 ###### New functions added 03/12/2021 Gian
     def jaccard(self, min_c80e3=3):

@@ -29,6 +29,7 @@ from tqdm import tqdm
 # Import submodules
 import rotifer
 from rotifer import GlobalConfig
+from rotifer.db.core import BaseCursor
 from rotifer.core.functions import findDataFiles
 from rotifer.core.functions import loadConfig
 
@@ -62,114 +63,174 @@ logger = rotifer.logging.getLogger(__name__)
 
 # Classes
 
-class GenomeCursor:
+class GeneNeighborhoodCursor(BaseCursor):
     """
-    Rotifer's NCBI Genome Assemblies Database.
+    Fetch gene neighborhoods as dataframes.
 
     Usage
     -----
-    Exame with a random sample of genomes
+    Load a random sample of genomes, except eukaryotes
     >>> import rotifer.db.ncbi as ncbi
-    >>> ar = ncbi.assembly_reports()
-    >>> g = ar.assembly.sample(10)
-    >>> gdb = ncbi.GenomeCursor(g, assembly_reports=ar)
-    >>> df = gdb.fetch()
+    >>> gfc = ncbi.GeneNeighborhoodCursor(g)
+    >>> df = gfc.fetch_all([""])
+
+    Parameters
+    ----------
+    column : string
+      Name of the column to scan for matches to the accessions
+      See rotifer.genome.data.NeighborhoodDF
+    exclude_type: list of strings
+      List of names for the features that must be ignored
+    autopid: boolean
+      Automatically set protein identifiers
+    codontable: string por int, default 'Bacterial'
+      Default codon table, if not set within the data
+    progress: boolean, deafult False
+      Whether to print a progress bar
+    tries: int, default 3
+      Number of attempts to download data
+    threads: integer, default 15
+      Number of processes to run parallel downloads
+    batch_size: int, default 1
+      Number of accessions per batch
+    cache: path-like string
+      Where to place temporary files
+
     """
     def __init__(
             self,
-            accessions=[],
-            assembly_reports=None,
-            exclude_type=['source','gene'],
+            column='pid',
+            exclude_type=['source','gene','mRNA'],
             autopid=False,
             codontable='Bacterial',
-            block_id=-1,
             progress=False,
             tries=3,
-            sleep_between_tries=2,
+            batch_size=None,
             threads=15,
             cache=GlobalConfig['cache'],
         ):
-        """
-        Parameters
-        ----------
-        accessions: list of strings
-          A list of genome accession numbers
-        assembly_reports: Pandas Dataframe
-          Table of genomes
-        exclude_type: list of strings
-          List of names for the features that must be ignored
-        autopid: boolean
-          
-        """
-        self._query = set()
-        self.missing = set()
-        self.assembly_reports = assembly_reports
+        super().__init__(progress=progress, tries=tries, batch_size=batch_size, threads=threads)
+        self.column = column
         self.exclude_type = exclude_type
         self.autopid = autopid
         self.codontable = codontable
-        self.block_id = -1
-        self.progress = progress
-        self.tries = tries
-        self.sleep_between_tries = sleep_between_tries
-        self.threads = threads
         self.cache = cache
-        self._reset(accessions)
 
-    def _reset(self, accessions=None):
-        if accessions:
-            self._query = set(accessions)
-        self.missing = set()
-
-    def __len__(self):
-        return len(self._query)
-
-    def __getitem__(self, accession):
+    def __getitem__(self, accession, ipgs=None, assembly_reports=None):
         """
-        Download, parse and load a genome.
+        Dictionary-like access to gene neighbors.
+        """
+        from rotifer.db.ncbi.cursor import NcbiCursor
+        from rotifer.genome.utils import seqrecords_to_dataframe
+
+        # Prepare DNA accessions
+        assemblies, nucleotides, proteins = self.get_nucleotide_ids(accession, ipgs)
+
+        # Download nucleotide annotation using FTP
+        if assemblies:
+            gfc = ftp.GenomeFeaturesCursor(
+                assembly_reports = self.assembly_reports,
+                exclude_type = self.exclude_type,
+                autopid = self.autopid,
+                codontable = self.codontable,
+                progress=False,
+                tries = self.tries,
+                batch_size = self.batch_size,
+                threads = self.threads,
+                cache = self.cache
+            )
+            df = gfc.fetch_all(accession)
+            df = df.neighbors(
+                df.pid.isin(proteins.keys()),
+                before = self.before,
+                after = self.after,
+                min_block_distance = self.min_block_distance,
+                strand = self.strand,
+                fttype = self.fttype,
+                min_block_id = self.min_block_id
+            )
+            ndf['replaced'] = ndf.pid.replace(proteins)
+
+    def fetch_each(self, accessions, eukaryotes=False, ipgs=None, assembly_reports=None, save=None, replace=False):
+        """
+        Fetch each gene neighborhood iteratively.
+
+        Parameters
+        ----------
+        accessions: list of strings
+          Database identifiers.
+        ipgs : rotifer.db.ncbi.read.ipg dataframe
+          This parameter may be used to avoid downloading IPGs
+          from NCBI. Example:
+
+          >>> import rotifer.db.ncbi as ncbi
+          >>> i = ncbi.NcbiCursor(['WP_063732599.1']).read("ipg")
+          >>> n = ncbi.neighbors(['WP_063732599.1'], ipgs=i)
+
+          Make sure it has the same colums as named
+          by the ipg method in rotifer.db.ncbi.read
+        assembly_reports : Pandas dataframe
+          If not given, assembly reports are downloaded.
+          See rotifer.db.ncbi.assemblies
+        save : string, default None
+          If set, save processed batches to the path given
+        replace : boolean, default True
+          When save is set, whether to replace that file
 
         Returns
         -------
-        A rotifer.genome.data.NeighborhoodDF object.
+        Generator of rotifer.genome.data.NeighborhoodDF
         """
-        from Bio import SeqIO
-        from rotifer.genome.utils import seqrecords_to_dataframe
-        import rotifer.db.ncbi.ftp as ncbiftp
-        ftp = ncbiftp.cursor(tries=self.tries, cache=self.cache)
-        g = ftp.open_genome(accession, assembly_reports=self.assembly_reports)
-        if g == None:
-            logger.warn(f'Could not download genome {accession}')
-            self.missing.add(accession)
-            return seqrecords_to_dataframe([])
-        g = SeqIO.parse(g, "genbank")
-        g = seqrecords_to_dataframe(
-                g,
-                exclude_type = self.exclude_type,
-                autopid = self.autopid,
-                assembly = accession,
-                codontable = self.codontable,
-                block_id = self.block_id
-        )
-        return g
+        return NotImplementedError
 
-    def _add_to_stack(self,accession,stack):
-        g = self[accession]
-        if not g.empty:
-            stack.append(g)
+    def fetch_all(self, accessions, eukaryotes=False, ipgs=None, assembly_reports=None, save=None, replace=False):
+        """
+        Fetch all gene neighborhoods in a single dataframe.
 
-    def fetch(self, accessions=None):
-        from threading import Thread
-        from rotifer.devel.alpha.gian_func import chunks
-        self._reset(accessions)
-        stack = []
-        for chunk in chunks(list(self._query), self.threads):
-            p = []
-            for assembly in chunk:
-                j = Thread(target=self._add_to_stack, args=(assembly,stack))
-                j.start()
-                p.append(j)
-            for x in p:
-                x.join()
-        return pd.concat(stack)
+        Parameters
+        ----------
+        accessions: list of strings
+          Database identifiers.
+        eukaryotes : boolean, default False
+          Set to True to download neighborhood data for eukaryotes
+        ipgs : rotifer.db.ncbi.read.ipg dataframe
+          This parameter may be used to avoid downloading IPGs
+          from NCBI. Example:
+
+          >>> import rotifer.db.ncbi as ncbi
+          >>> i = ncbi.NcbiCursor(['WP_063732599.1']).read("ipg")
+          >>> n = ncbi.neighbors(['WP_063732599.1'], ipgs=i)
+
+          Make sure it has the same colums as named
+          by the ipg method in rotifer.db.ncbi.read
+        assembly_reports : Pandas dataframe
+          If not given, assembly reports are downloaded.
+          See rotifer.db.ncbi.assemblies
+        save : string, default None
+          If set, save processed batches to the path given
+        replace : boolean, default True
+          When save is set, whether to replace that file
+
+        Returns
+        -------
+        rotifer.genome.data.NeighborhoodDF
+        """
+        return NotImplementedError
+
+    def get_nucleotide_ids(self, accessions, ipgs=None):
+        import types
+        if isinstance(ipgs, types.NoneType):
+            ic = ncbi.IPGCursor(progress=self.progress, tries=self.tries, batch_size=self.batch_size, threads=self.threads)
+            ipgs = ic.fetch_all(accessions)
+        best = ipgs.sort_values(['id','order'], ascending=[True,True])
+        best = best.drop_duplicates(['id'], keep='first')
+        assemblies = best.assembly.dropna().unique().tolist()
+        nucleotides = best[best.assembly.isna()].nucleotide.dropna().tolist()
+        proteins = ipgs[ipgs.assembly.isin(assemblies) | ipgs.nucleotide.isin(nucleotides)]
+        representative = { x:x for x in proteins.representative.unique() }
+        proteins = proteins.set_index('pid').representative.to_dict()
+        proteins.update(representative)
+        return assemblies, nucleotides, proteins
 
 # FUNCTIONS
 
@@ -224,15 +285,12 @@ def neighbors(
     Parameters:
       query  : list of strings
           List of accessions
-
       column : string
           Name of the column to scan for matches to the accessions
           See rotifer.genome.data.NeighborhoodDF
-
       assembly_reports : Pandas dataframe
         If not given, assembly reports are downloaded.
         See rotifer.db.ncbi.assemblies
-
       ipgs : rotifer.db.ncbi.read.ipg dataframe
         This parameter may be used to avoid downloading IPGs
         from NCBI. Example:
@@ -243,26 +301,19 @@ def neighbors(
 
              Make sure it has the same colums as named
              by the ipg method in rotifer.db.ncbi.read
-
       eukaryotes : boolean, default False
         If set to True, neighborhood data for eukaryotic genomes
         will also be downloaded and processed
-
       exclude_type : list of strings
         Exclude rows by type (column 'type')
-
       save : string, default None
         If set, save processed batches to the path given
-
       replace : boolean, default True
         When save is set, whether to replace that file
-
       progress : boolean, default False
         Show progress bar
-
       tries : integer, default 3
         Number of attempts to download data
-
       sleep_between_tries : integer, default 2
         Number of seconds between download attempts
 

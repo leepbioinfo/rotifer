@@ -148,7 +148,7 @@ class sequence:
                 self.df = self._seqrecords_to_dataframe(input_data)
             elif isinstance(input_data[0],str):
                 import rotifer.db as rdb
-                seqrecords = rdb.fetch_proteins(input_data, local_database_path=local_database_path)
+                seqrecords = rdb.proteins(input_data, local_database_path=local_database_path)
                 self.df = self._seqrecords_to_dataframe(seqrecords)
 
         # Initialize for Pandas DataFrame

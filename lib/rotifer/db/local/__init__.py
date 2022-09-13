@@ -25,9 +25,21 @@ _config = {
     **_config
 }
 
-class esl_sfetch:
-    def __init__(self, query=None, database_path=_config["local_database_path"], batch_size=200, threads=5):
-        self.query = query
+class EaselFastaCursor:
+    """
+    Fetch biomolecular sequences using Easel's esl-sfetch.
+
+    Parameters
+    ----------
+    database_path: string
+      Path to a FASTA file.
+    batch_size: int
+      Number of sequence identifiers to process per thread
+    threads: int
+      Number of threads to run simultaneously
+
+    """
+    def __init__(self, database_path=_config["local_database_path"], batch_size=200, threads=5):
         self.path = database_path
         self.batch_size = batch_size
         self.threads = threads
@@ -61,7 +73,11 @@ class esl_sfetch:
             sequence = self._clean_description(sequence)
             return sequence
 
-    def fetch(self, query=None):
+    def fetch_each(self, query):
+        for x in self.fetch_all(query):
+            yield x
+
+    def fetch_all(self, query):
         """
         Fetch many sequences from the database.
 
@@ -69,25 +85,19 @@ class esl_sfetch:
         ----------
         query: (list of) strings
           One or more sequence idenntifiers
-        batch_size: int, default 200
-          Number of sequences to process in each esl-sfetch call
-        threads: int, default 20
-          Number of batches (esl-sfetch calls) to run in parallel
 
         Returns
         -------
         A list of Bio.SeqRecords
         """
+        query = set(query)
         import rotifer.devel.alpha.gian_func as gian_func
-        if query:
-            self.query = query
-            self.missing = set()
         seqrecords = []
-        for batch in gian_func.chunks(self.query, self.batch_size):
-            seqrecords.extend(self._fetch(batch))
+        for batch in gian_func.chunks(list(query), self.batch_size):
+            seqrecords.extend(self._fetch_many(batch))
         return seqrecords
-    
-    def _fetch(self, query):
+
+    def _fetch_many(self, query):
         """
         Fetch many sequences from the database.
 
@@ -104,18 +114,24 @@ class esl_sfetch:
         import subprocess
         from Bio import SeqIO
         from io import StringIO
+
+        result = []
+        query = set(query)
         with tempfile.NamedTemporaryFile(mode="wt") as tmp:
             tmp.write("\n".join([ str(x) for x in query ])+"\n")
             tmp.flush()
             s = ["esl-sfetch", "-f", self.path, tmp.name]
             s = subprocess.run(s, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             if s.stderr:
-                d = []
                 for acc in query:
                     t = self[acc]
                     if t:
-                        d.append(t)
-                s = d
+                        result.append(t)
             else:
-                s = [ self._clean_description(x) for x in SeqIO.parse(StringIO(s.stdout),"fasta") ]
-            return s
+                found = set()
+                for x in SeqIO.parse(StringIO(s.stdout),"fasta"):
+                    x = self._clean_description(x)
+                    found.add(x.id)
+                    result.append(x)
+                self.missing = self.missing.union(query - found)
+        return result
