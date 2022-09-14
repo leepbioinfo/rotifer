@@ -1555,6 +1555,142 @@ class sequence:
         num_gaps.columns = gap_df['first'].to_list()
         return (list(gaps.index),num_gaps)
 
+    def _to_df_styleTEX(self, consensus, annotations=False, remove_gaps=False):
+        """TODO: Docstring for function.
+
+        :consensus: The consensus threshold that should be used to color the aligment
+        :output_file: output file name
+        :annotation: List of annotations rows that should be keept in the  html file
+        The annotation label should be the same as in the id seq object df columm
+        :remove_gaps: Query sequence to use as model to remove the gaps, 
+        it will add numbers of aminoacid suppressed in the sequence that contain the insertions.
+        :returns: TODO
+
+        """
+        import pandas as pd
+        from rotifer.devel.beta.sequence import sequence
+        import numpy as np
+        aln = self.copy()
+        if remove_gaps:
+            gaps,gdf = aln.gaps_to_numbers(remove_gaps)
+            gdf.index = aln.df.query('type == "sequence"').id
+
+        aromatic = ['F','Y', 'W', 'H']
+        alifatic = ['I','V','L']
+        hydrophobic = alifatic + [ 'A', 'C', 'F', 'M', 'W', 'Y']
+        positive = ['H', 'K', 'R']
+        negative = [ 'D', 'E']
+        charged = positive + negative
+        polar = charged + ['p','Q', 'N', 'S', 'T','C']
+        alcohol = ['S','T']
+        tiny = ['G', 'A', 'S']
+        small = tiny + [ 'V', 'T', 'D', 'N', 'P', 'C']
+        big = ['K', 'F', 'I', 'L','M', 'Q', 'R', 'W', 'Y', 'E']
+        all_aa = ['G','A','V','I','L','M','F','Y','W','H','C','P','K','R','D','E','Q','N','S','T']
+
+        aa_groups_colors = {'a':[aromatic,  '#2C68F3'],
+                            'l':[alifatic, '#2CF3EA'],
+                            'h':[hydrophobic,  '#F3E42C90'],
+                            '+':[positive,  '#2C68F3'],
+                            '-':[negative,  '#F50EF195'],
+                            'c':[charged,  '#38F50E'],
+                            'p':[polar,  '#0EF5A150'],
+                            'o':[alcohol,  '#AE5BF8'],
+                            'u':[tiny,  '#EE9C0C'],
+                            's':[small,  '#DA147750'],
+                            'b':[big,  '#A28694'],
+                            '.':[all_aa,  'white'],
+                            'G':[all_aa,'white'],
+                            'A':[all_aa,'white'],
+                            'V':[all_aa,'white'],
+                            'I':[all_aa,'white'],
+                            'L':[all_aa,'white'],
+                            'M':[all_aa,'white'],
+                            'F':[all_aa,'white'],
+                            'Y':[all_aa,'white'],
+                            'W':[all_aa,'white'],
+                            'H':[all_aa,'white'],
+                            'C':[all_aa,'white'],
+                            'P':[all_aa,'white'],
+                            'K':[all_aa,'white'],
+                            'R':[all_aa,'white'],
+                            'D':[all_aa,'white'],
+                            'E':[all_aa,'white'],
+                            'Q':[all_aa,'white'],
+                            'N':[all_aa,'white'],
+                            'S':[all_aa,'white'],
+                            'T':[all_aa,'white'],
+                            ' ':[all_aa,'white'],
+                            '  ':[all_aa,'white'],
+                            '_':[all_aa,'white']}
+
+        # Geting the residues tabele:
+        aln_r = aln.residues
+        con = pd.Series(list(aln.consensus(consensus)))
+        aln_r = aln_r.set_index(aln.df.query('type == "sequence"').id)
+        con.index +=1
+        aln_r = pd.concat([aln_r, con.rename('consensus').to_frame().T], axis=0)
+        if annotations:
+            if isinstance(annotations, str):
+                ann = pd.Series(list(aln.df.query('id ==@annotations').sequence.iloc[0]))
+                ann.index +=1
+                aln_r = pd.concat([ann.rename(annotations).to_frame().T,aln_r])
+            else:
+                for x in annotations:
+                    ann = pd.Series(list(aln.df.query('id ==@x').sequence.iloc[0]))
+                    ann.index +=1
+                    aln_r = pd.concat([ann.rename(x).to_frame().T,aln_r])
+
+        if remove_gaps:
+            aln_r =  aln_r.drop(gaps,axis=1).join(gdf).sort_index(axis=1).fillna(0).astype(int, errors='ignore').astype(str).replace('0','  ')
+
+        # Funtion that works!!!
+        def highlight_aln(s):
+            import numpy as np
+            d = aa_groups_colors[s.fillna('  ').iloc[-1]]
+            return np.where(
+                s == '  ',
+                'color:white;background-color:white',
+                np.where(
+                    s == s.iloc[-1],
+                    'color:white;background-color:black',
+                    np.where(
+                        s.isin(d[0]),
+                        f'color:black;background-color:{d[1]}',
+                        'color:black;background-color:white')))
+
+        def highlight_consensus(s):
+            import numpy as np
+            d = aa_groups_colors[s.fillna('  ').iloc[-1]]
+            """TODO: Docstring for highlight_consensus.
+
+            :arg1: TODO
+            :returns: TODO
+
+            """
+            return np.where(
+                s.isin(all_aa),
+                'color:white;background-color:black',
+                f'color:black;background-color:{d[1]}',
+                )
+
+        #Making slice index where the functions should be applied:
+        # One function should be applien only in the consensus row
+        # Other function should be appplied only in seq rows
+        idx1 = pd.IndexSlice
+        corte = idx1[idx1['consensus'],idx1[:]]
+        #Getting the firs sequence (fs) row to map the slice:
+        idx2 = pd.IndexSlice
+        fs = aln.df.query('type == "sequence"').id.iloc[0]    
+        corte2 = idx2[idx2[fs:],idx2[:]]
+
+        df_style = aln_r.style.set_properties(**{
+            "text-align": "center"}
+        ).apply(highlight_aln, axis=0, subset=corte2).hide(axis='columns').apply(
+            highlight_consensus, subset=corte
+        )
+        #if whant to send to latex, replace set_stick... to:to_latex(environment='longtable', convert_css=True)
+        return df_style
     ## Class methods
 
     @classmethod
@@ -1656,3 +1792,8 @@ Parsing a FASTA alignment from an explicit string:
 >>> aln = sequence('>Seq1\nACFH--GHT\n>Seq2\nACFW--GHS\n')
 >>> aln.add_consensus().view()
 """
+
+
+
+
+
