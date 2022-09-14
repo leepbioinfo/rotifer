@@ -761,7 +761,8 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         return stream
 
     def _worker(self, chunk):
-        return [self.__getitem__(*chunk)]
+        df = self.__getitem__(*chunk)
+        return [ x[1] for x in df.groupby('block_id') ]
 
     def _splitter(self, ipgs, query):
         for x, y in ipgs.groupby('assembly'):
@@ -792,7 +793,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         if isinstance(ipgs,types.NoneType):
             from rotifer.db.ncbi import entrez
             if self.progress:
-                tqdm.write(f'Downloading IPGs for {len(proteins)} proteins...')
+                logger.info(f'Downloading IPGs for {len(proteins)} proteins...')
             ic = entrez.IPGCursor(progress=self.progress, tries=self.tries, batch_size=self.batch_size, threads=self.threads)
             ipgs = ic.fetch_all(list(proteins))
         ipgs = ipgs[ipgs.pid.isin(proteins) | ipgs.representative.isin(proteins)]
@@ -808,6 +809,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         self.missing = self.missing.union(proteins)
         with ProcessPoolExecutor(max_workers=self.threads) as executor:
             if self.progress:
+                logger.info(f'Downloading {len(todo)} genomes...')
                 p = tqdm(total=len(todo), initial=0)
             tasks = []
             for chunk in self._splitter(assemblies, proteins):
@@ -823,6 +825,8 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
                     if self.progress and len(done) > 0:
                         p.update(len(done))
                     todo = todo - done
+                    obj.block_id += self.min_block_id
+                    self.min_block_id = obj.block_id.max()
                     yield obj
 
     def fetch_all(self, proteins, ipgs=None):
