@@ -134,7 +134,7 @@ def filter_nonoverlapping_regions(df, reference=['sequence'], start='estart', en
         overlap += 1
         maxoverlap = maximum_overlap
         if maxoverlap < 1:
-            maxoverlap = np.floor(maxoverlap * np.where(s.__rl_x < s.__rl_y, s.__rl_x, s.__rl_y))
+            maxoverlap = np.floor(maxoverlap * np.where(s.region_length_x < s.region_length_y, s.region_length_x, s.region_length_y))
         s = s[overlap > maxoverlap]._oid.unique().tolist()
         clean.drop(s, inplace=True)
 
