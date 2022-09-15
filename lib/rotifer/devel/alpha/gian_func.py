@@ -275,7 +275,7 @@ def hhr_to_aln(seqobj, hhr, database=False):
         end='end',
         start='start',
         reference='query',
-        criteria=OrderedDict([('Probab', False)]
+        criteria=OrderedDict([('Probab', False), ('region_length', True)]
                              ))
     # ISSUE !!!!!! When the rep seq do not have the first domains
     # it breaks the code because there is no way to map the domain.

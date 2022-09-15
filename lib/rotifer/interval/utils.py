@@ -116,6 +116,7 @@ def filter_nonoverlapping_regions(df, reference=['sequence'], start='estart', en
     # Sort row priority: best rows must appear first
     crit = list(criteria.keys())
     clean = df.copy()
+    clean['__rl'] = clean[end] - clean[start] + 1 # Added by Gian to quickly fix the code
     if 'region_length' in clean.columns:
         remove_region_length = False
     else:
@@ -139,6 +140,7 @@ def filter_nonoverlapping_regions(df, reference=['sequence'], start='estart', en
         clean.drop(s, inplace=True)
 
     # Remove region_length and return
+    clean.drop(['__rl'], axis=1, inplace=True) # added by Gian to quickly fix the code
     if remove_region_length:
         clean.drop(['region_length'], axis=1, inplace=True)
     clean.sort_values(reference + [start,end], ascending=(len(reference)+2)*[True], inplace=True)
