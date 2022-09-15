@@ -805,6 +805,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         assemblies = ipgs[ipgs.assembly.isin(assemblies.assembly)]
 
         # Split jobs and execute
+        last_block_id = 0
         todo = set(assemblies.assembly.unique())
         self.missing = self.missing.union(proteins)
         with ProcessPoolExecutor(max_workers=self.threads) as executor:
@@ -825,8 +826,8 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
                     if self.progress and len(done) > 0:
                         p.update(len(done))
                     todo = todo - done
-                    obj.block_id += self.min_block_id
-                    self.min_block_id = obj.block_id.max()
+                    obj.block_id += last_block_id
+                    last_block_id = obj.block_id.max()
                     yield obj
 
     def fetch_all(self, proteins, ipgs=None):
