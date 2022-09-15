@@ -329,14 +329,13 @@ class cursor():
 
         # Retrieve genome path for newest version
         if len(path) == 0:
-            path = accession.replace("GCF_","").replace("GCA_","")
-            path = path.split(".")[0]
+            path = accession[0:accession.find(".")].replace("_","")
             path = "/".join([ path[i : i + 3] for i in range(0, len(path), 3) ])
-            path = f'/genomes/all/{accession[0:3]}/{path}'
+            path = f'/genomes/all/{path}'
             path = self.ftp_ls(path)
             if path.empty:
                 return ()
-            path = path.query(f'type == "dir" and name.str.contains("{accession}")')
+            path = path.query(f'name.str.contains("{accession}")')
             path = path.sort_values(['name'], ascending=False).iloc[0]
             path = path.target + "/" + path['name']
 
@@ -352,6 +351,82 @@ class cursor():
             path = (path.target.iloc[0], path['name'].iloc[0])
 
         return path
+
+    def genome_report(self, accession):
+        """
+        Fetch genome assembly reports.
+
+        Usage:
+          from rotifer.db.ncbi import ftp as ncbiftp
+          ftp = ncbiftp.cursor()
+          contigs, assembly = ftp.genome_report("GCA_900547725.1")
+
+        Parameters:
+          accession : string
+            Genome accession
+        
+        Returns:
+          A tuple containing a Pandas DataFrame and a Pandas Series
+          
+          The Pandas DataFrame lists the assembly's contigs
+
+          The Series contains the assembly properties and is 
+          similar to the table from rotifer.db.ncbi.assemblies()
+
+        """
+        # Column names
+        arcolumn = f"""                Assembly name : assembly_name
+                                       Organism name : organism_name
+                                             Isolate : isolate
+                                               Taxid : taxid
+                                           BioSample : biosample
+                                          BioProject : bioproject
+                                           Submitter : submitter
+                                                Date : submission_date
+                                       Assembly type : assembly_type
+                                        Release type : release_type
+                                      Assembly level : assembly_level
+                               Genome representation : representative
+                                         WGS project : wgs
+                                     Assembly method : assembly_method
+                                     Genome coverage : genome_coverage
+                               Sequencing technology : sequencing
+                                     RefSeq category : refseq_category
+                          GenBank assembly accession : genbank
+                           RefSeq assembly accession : refseq
+                                Excluded from RefSeq : excluded_from_refseq
+    RefSeq assembly and GenBank assemblies identical : identical""".split("\n")
+        arcolumn = [ x.strip().split(" : ") for x in arcolumn ]
+        arcolumn = { x[0]:x[1] for x in arcolumn }
+
+        # Opening data file
+        ar = [['column','value'], ['assembly', accession]]
+        sc = []
+        path = self.genome_path(accession)
+        report = self.ftp_ls(path[0])
+        report = report[report.name.str.contains("_assembly_report.txt")]
+        report = path[0] + "/" + report.name.iloc[0]
+        report = self.ftp_open(report)
+
+        inar = True
+        for row in report:
+            row = row.strip()
+            if row == "#" or row[0:2] == "##":
+                inar = False
+            elif row[0:15] == "# Sequence-Name":
+                sc.append(['assembly'] + row[2:].split("\t"))
+            elif inar and row[0:2] == "# ":
+                ar.append(row[2:].split(":"))
+            elif row[0] != '#':
+                sc.append([accession] + row.split("\t"))
+
+        ar = pd.DataFrame(ar[1:], columns=ar[0])
+        ar.value = ar.value.str.strip()
+        ar.column = ar.column.replace(arcolumn)
+        sc = pd.DataFrame(sc[1:], columns=sc[0])
+        ar = ar.set_index("column")
+
+        return sc, ar
 
 #class GenomeCursor(BaseCursor):
 class GenomeCursor(rotifer.db.core.SimpleParallelProcessCursor):
@@ -764,7 +839,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         df = self.__getitem__(*chunk)
         return [ x[1] for x in df.groupby('block_id') ]
 
-    def _splitter(self, ipgs, query):
+    def _splitter(self, ipgs):
         for x, y in ipgs.groupby('assembly'):
             proteins = set(y.pid).union(y.representative)
             yield (proteins, y.copy())
@@ -805,7 +880,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         assemblies = ipgs[ipgs.assembly.isin(assemblies.assembly)]
 
         # Split jobs and execute
-        last_block_id = 0
+        last_block_id = 1
         todo = set(assemblies.assembly.unique())
         self.missing = self.missing.union(proteins)
         with ProcessPoolExecutor(max_workers=self.threads) as executor:
@@ -813,7 +888,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
                 logger.info(f'Downloading {len(todo)} genomes...')
                 p = tqdm(total=len(todo), initial=0)
             tasks = []
-            for chunk in self._splitter(assemblies, proteins):
+            for chunk in self._splitter(assemblies):
                 tasks.append(executor.submit(self._worker, chunk))
             for x in as_completed(tasks):
                 for obj in x.result():
@@ -823,11 +898,12 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
                     if 'replaced' in obj:
                         ok = ok.union(obj.replaced)
                     self.missing = self.missing - ok
+                    if len(obj) > 0:
+                        obj.block_id = last_block_id
+                        last_block_id += 1
                     if self.progress and len(done) > 0:
                         p.update(len(done))
                     todo = todo - done
-                    obj.block_id += last_block_id
-                    last_block_id = obj.block_id.max()
                     yield obj
 
     def fetch_all(self, proteins, ipgs=None):
