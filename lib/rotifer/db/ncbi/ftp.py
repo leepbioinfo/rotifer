@@ -4,6 +4,7 @@ import types
 import socket
 import typing
 import logging
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from ftplib import FTP
@@ -70,7 +71,7 @@ class cursor():
                 self._error = 1
             attempt += 1
 
-    # Load NCBI assembly reports
+    # Download files
     def ftp_get(self, target, avoid_collision=False, outdir=None):
         '''
         Download a file from the NCBI's FTP site.
@@ -93,7 +94,6 @@ class cursor():
         '''
         from tempfile import NamedTemporaryFile
         from rotifer.db.ncbi import NcbiConfig
-        logger.debug(f'downloading {NcbiConfig["ftpserver"]}{target}')
 
         # Create output directory, if necessary
         if not outdir:
@@ -243,10 +243,10 @@ class cursor():
             Genome accession
           assembly_reports: pandas DataFrame
             (Optional) NCBI's ASSEMBLY_REPORTS tables
-            This dataframe can be loade using:
+            This dataframe can be loaded using:
 
               from rotifer.db.ncbi as ncbi
-              ar = ncbi.assembly_reports()
+              ar = ncbi.assemblies()
 
         Returns:
           Open data stream (file handle-like) object
@@ -311,7 +311,7 @@ class cursor():
             This dataframe can be loade using:
 
               from rotifer.db.ncbi as ncbi
-              ar = ncbi.assembly_reports()
+              ar = ncbi.assemblies()
         
         Returns:
           A tuple of two strings, empty when the genome is not found
@@ -403,7 +403,10 @@ class cursor():
         ar = [['column','value'], ['assembly', accession]]
         sc = []
         path = self.genome_path(accession)
-        report = self.ftp_ls(path[0])
+        if len(path):
+            report = self.ftp_ls(path[0])
+        else:
+            return None
         report = report[report.name.str.contains("_assembly_report.txt")]
         report = path[0] + "/" + report.name.iloc[0]
         report = self.ftp_open(report)
@@ -416,7 +419,7 @@ class cursor():
             elif row[0:15] == "# Sequence-Name":
                 sc.append(['assembly'] + row[2:].split("\t"))
             elif inar and row[0:2] == "# ":
-                ar.append(row[2:].split(":"))
+                ar.append(row[2:].split(":", maxsplit=1))
             elif row[0] != '#':
                 sc.append([accession] + row.split("\t"))
 
@@ -436,18 +439,12 @@ class GenomeCursor(rotifer.db.core.SimpleParallelProcessCursor):
     Usage
     -----
     Load a random sample of genomes, except eukaryotes
-    >>> import rotifer.db.ncbi as ncbi
-    >>> ar = ncbi.assemblies(taxonomy=True)
-    >>> ar = ar.query('superkingdom != "Eukaryota"')
-    >>> g = ar.assembly.sample(10)
     >>> from rotifer.db.ncbi import ftp
-    >>> gc = ftp.GenomeCursor(g, assembly_reports=ar)
+    >>> gc = ftp.GenomeCursor(g)
     >>> genomes = gc.fetch_all()
 
     Parameters
     ----------
-    assembly_reports: Pandas Dataframe
-      Table of genomes
     progress: boolean, deafult False
       Whether to print a progress bar
     tries: int, default 3
@@ -462,7 +459,6 @@ class GenomeCursor(rotifer.db.core.SimpleParallelProcessCursor):
     """
     def __init__(
             self,
-            assembly_reports=None,
             progress=False,
             tries=3,
             batch_size=None,
@@ -475,18 +471,22 @@ class GenomeCursor(rotifer.db.core.SimpleParallelProcessCursor):
             batch_size=batch_size,
             threads=threads
         )
-        self.assembly_reports = assembly_reports
         self.cache = cache
 
-    def _getids(self,obj):
-        return {obj.assembly}
+    def getids(self,obj):
+        if isinstance(obj,types.NoneType):
+            return set()
+        if isinstance(obj,list):
+            return set([ x.assembly for x in obj ])
+        else:
+            return {obj.assembly}
 
-    def _fetcher(self, accession, assembly_reports=None):
+    def fetcher(self, accession):
         import rotifer.db.ncbi.ftp as ncbiftp
         gfc = ncbiftp.cursor(tries=1, cache=self.cache)
-        return gfc.open_genome(accession, assembly_reports=self.assembly_reports)
+        return gfc.open_genome(accession)
 
-    def _parser(self, stream, accession):
+    def parser(self, stream, accession):
         from Bio import SeqIO
         stack = []
         for s in SeqIO.parse(stream,"genbank"):
@@ -494,51 +494,12 @@ class GenomeCursor(rotifer.db.core.SimpleParallelProcessCursor):
             stack.append(s)
         return stack
 
-    def __getitem__(self, accession):
-        """
-        Download, parse and load a genome.
-
-        Returns
-        -------
-        List of Bio.SeqRecord objects
-        """
-        objlist = []
-        for attempt in range(0,self.tries):
-            # Download and/or open data file
-            try:
-                stream = self._fetcher(accession, assembly_reports=self.assembly_reports)
-            except RuntimeError:
-                logger.error(f'Runtime error: '+str(sys.exc_info()[1]))
-                continue
-            except:
-                logger.debug(f"Failed to download genome {accession}: {sys.exc_info()}")
-                continue
-
-            # Use parser and process results
-            try:
-                objlist = self._parser(stream, accession)
-                break
-            except:
-                logger.debug(f"Failed to parse genome {accession}: {sys.exc_info()}")
-
-        if len(objlist) == 0:
-            logger.warn(f'Could not download genome {accession}')
-            self.missing.add(accession)
-
-        # Return data
-        return objlist
-
-    def _splitter(self, accessions):
-        from rotifer.devel.alpha.gian_func import chunks
-        size = self.batch_size
-        if size == None or size == 0:
-            size = max(int(len(accessions) / self.threads),1)
-        return chunks(list(accessions), size)
-
-    def _worker(self,accessions):
+    def worker(self,accessions):
         stack = []
         for accession in accessions:
             objlist = self[accession]
+            if isinstance(objlist,types.Nonetype):
+                continue
             if len(objlist) != 0:
                 stack.extend(objlist)
         return stack
@@ -549,19 +510,15 @@ class GenomeFeaturesCursor(GenomeCursor):
 
     Usage
     -----
-    Load a random sample of genomes, except eukaryotes
-    >>> import rotifer.db.ncbi as ncbi
-    >>> ar = ncbi.assemblies(taxonomy=True)
-    >>> ar = ar.query('superkingdom != "Eukaryota"')
-    >>> g = ar.assembly.sample(10)
+    Load a random sample of genomes
+
+    >>> g = ['GCA_018744545.1', 'GCA_901308185.1']
     >>> from rotifer.db.ncbi import ftp
-    >>> gfc = ftp.GenomeFeaturesCursor(g, assembly_reports=ar)
+    >>> gfc = ftp.GenomeFeaturesCursor(g)
     >>> df = gfc.fetch_all()
 
     Parameters
     ----------
-    assembly_reports: Pandas Dataframe
-      Table of genomes
     exclude_type: list of strings
       List of names for the features that must be ignored
     autopid: boolean
@@ -582,7 +539,6 @@ class GenomeFeaturesCursor(GenomeCursor):
     """
     def __init__(
             self,
-            assembly_reports=None,
             exclude_type=['source','gene','mRNA'],
             autopid=False,
             codontable='Bacterial',
@@ -593,7 +549,6 @@ class GenomeFeaturesCursor(GenomeCursor):
             cache=GlobalConfig['cache'],
         ):
         super().__init__(
-            assembly_reports=assembly_reports,
             progress=progress,
             tries=tries,
             batch_size=batch_size,
@@ -604,16 +559,15 @@ class GenomeFeaturesCursor(GenomeCursor):
         self.autopid = autopid
         self.codontable = codontable
 
-    def _getids(self,obj):
-        return set(obj.assembly)
+    def getids(self,obj):
+        if isinstance(obj,types.NoneType):
+            return set()
+        if isinstance(obj,list):
+            return set([ x.assembly for x in obj ])
+        else:
+            return set(obj.assembly)
 
-    def __getitem__(self, accession):
-        item = super().__getitem__(accession)
-        if len(item) == 0:
-            item = seqrecords_to_dataframe(item)
-        return item
-
-    def _parser(self, stream, accession):
+    def parser(self, stream, accession):
         from Bio import SeqIO
         stream = SeqIO.parse(stream,"genbank")
         stream = seqrecords_to_dataframe(
@@ -625,10 +579,10 @@ class GenomeFeaturesCursor(GenomeCursor):
         )
         return stream
 
-    def _worker(self, accessions):
+    def worker(self, accessions):
         stack = []
         for accession in accessions:
-            df = self.__getitem__(accessions)
+            df = self[accession]
             if len(df) != 0:
                 stack.append(df)
         return stack
@@ -691,11 +645,11 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
       - same : consider only features of the same type as the target
       - any  : ignore feature type and count all features when
                setting neighborhood boundaries
+    eukaryotes : boolean, default False
+      If set to True, neighborhood data for eukaryotic genomes
     min_block_id : int
       Starting number for block_ids, useful if calling this method
       multiple times
-    assembly_reports: Pandas Dataframe
-     Table of genomes
     exclude_type: list of strings
       List of names for the features that must be ignored
     autopid: boolean
@@ -723,7 +677,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
             strand = None,
             fttype = 'same',
             min_block_id = 1,
-            assembly_reports=None,
+            eukaryotes=False,
             exclude_type=['source','gene','mRNA'],
             autopid=False,
             codontable='Bacterial',
@@ -734,7 +688,6 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
             cache=GlobalConfig['cache'],
         ):
         super().__init__(
-            assembly_reports = assembly_reports,
             exclude_type = exclude_type,
             autopid = autopid,
             codontable = codontable,
@@ -751,6 +704,19 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         self.strand = strand
         self.fttype = fttype
         self.min_block_id = min_block_id
+        self.eukaryotes = eukaryotes
+        self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error"])
+
+    def _add_to_missing(self, accessions, assembly, error):
+        err = [False,False,assembly,error]
+        if "Eukaryotic" in error:
+            err[1] = True
+        if "IPG" in error:
+            err[0] = True
+        if not isinstance(accessions,typing.Iterable) or isinstance(accessions,str):
+            accessions = [accessions]
+        for x in accessions:
+            self.missing.loc[x] = err
 
     def __getitem__(self, protein, ipgs=None):
         """
@@ -772,8 +738,9 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         best = rdnu.best_ipgs(ipgs)
         best = best[best.assembly.notna()]
         ipgs = ipgs[ipgs.assembly.isin(best.assembly)]
-        if len(ipgs) == 0:
-            self.missing.union(protein)
+        missing = set(protein) - set(ipgs.pid) - set(ipgs.representative)
+        if missing:
+            self._add_to_missing(missing,np.NaN,"No IPGs")
             return objlist
 
         # Identify DNA data
@@ -782,29 +749,45 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         # Download and parse
         objlist = []
         for accession in assemblies.keys():
+            expected = set([ y for x in assemblies[accession].items() for y in x ])
+
             obj = None
             for attempt in range(0,self.tries):
                 # Download and open data file
+                error = None
+                stream = None
                 try:
-                    stream = self._fetcher(accession, assembly_reports=self.assembly_reports)
+                    stream = self.fetcher(accession)
                 except RuntimeError:
-                    logger.error(f'Runtime error: '+str(sys.exc_info()[1]))
+                    error = f'Runtime error: {sys.exc_info()[1]}'
+                    logger.debug(error)
                     continue
+                except ValueError:
+                    error = f'Value error: {sys.exc_info()[1]}'
+                    logger.debug(error)
+                    break
                 except:
-                    logger.debug(f"Failed to download genome {accession}: {sys.exc_info()}")
+                    error = f'Failed to download genome {accession}: {sys.exc_info()[1]}'
+                    logger.debug(error)
+                    continue
+
+                if isinstance(stream, types.NoneType):
+                    self._add_to_missing(expected, accession, error)
                     continue
 
                 # Use parser to process results
                 try:
-                    obj = self._parser(stream, accession, assemblies[accession])
+                    obj = self.parser(stream, accession, assemblies[accession])
                     break
                 except:
-                    logger.debug(f"Failed to parse genome {accession}: {sys.exc_info()}")
+                    error = f"Failed to parse genome {accession}: {str(sys.exc_info()[1])}"
+                    logger.debug(error)
 
             if isinstance(obj, types.NoneType):
-                logger.warn(f'Could not download genome {accession}')
+                self._add_to_missing(expected, accession, error)
             elif len(obj) == 0:
-                logger.warn(f'No anchors in genome {accession}')
+                error = f'No anchors in genome {accession}'
+                self._add_to_missing(expected, accession, error)
             else:
                 objlist.append(obj)
 
@@ -816,13 +799,28 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         objlist = pd.concat(objlist, ignore_index=True)
         found = set(objlist.pid).union(set(objlist.replaced))
         found = set(protein).intersection(found)
-        self.missing = self.missing.union(set(protein) - found)
+        missing = set(protein) - found
+        if missing:
+            self._add_to_missing(missing,",".join(assemblies.keys()),"Unknown error")
 
         # Return data
         return objlist
 
-    def _parser(self, stream, accession, proteins):
-        stream = super()._parser(stream, accession)
+    def fetcher(self, accession):
+        import rotifer.db.ncbi.ftp as ncbiftp
+        cursor = ncbiftp.cursor(tries=1, cache=self.cache)
+        ok = True
+        if not self.eukaryotes:
+            from rotifer.db.ncbi import entrez
+            contigs, report = cursor.genome_report(accession)
+            tc = entrez.TaxonomyCursor()
+            taxonomy = tc[report.loc['taxid'][0]]
+            if taxonomy.loc[0,"superkingdom"] == "Eukaryota":
+                raise ValueError(f"Eukaryotic genome {accession} ignored.")
+        return cursor.open_genome(accession)
+
+    def parser(self, stream, accession, proteins):
+        stream = super().parser(stream, accession)
         stream = stream.neighbors(
             stream[self.column].isin(proteins.keys()),
             before = self.before,
@@ -835,16 +833,28 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         stream['replaced'] = stream.pid.replace(proteins)
         return stream
 
-    def _worker(self, chunk):
-        df = self.__getitem__(*chunk)
-        return [ x[1] for x in df.groupby('block_id') ]
+    def worker(self, chunk):
+        result = []
+        for args in chunk:
+            df = self.__getitem__(*args)
+            if len(df) == 0:
+                continue
+            for x in df.groupby('block_id'):
+                result.append(x[1])
+        return {"result":result,"missing":self.missing}
 
-    def _splitter(self, ipgs):
+    def splitter(self, ipgs):
+        size = self.batch_size
+        if size == None or size == 0:
+            size = max(int(ipgs.assembly.nunique()/self.threads),1)
+        batch = []
         for x, y in ipgs.groupby('assembly'):
             proteins = set(y.pid).union(y.representative)
-            yield (proteins, y.copy())
+            batch.append((proteins, y.copy()))
+        batch = [ batch[x:x+size] for x in range(0,len(batch),size) ]
+        return batch
 
-    def fetch_each(self, proteins, ipgs=None):
+    def fetch_each(self, proteins, ipgs=None, save=None, replace=True):
         """
         Asynchronously fetch gene neighborhoods from NCBI.
 
@@ -869,44 +879,46 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
             from rotifer.db.ncbi import entrez
             if self.progress:
                 logger.info(f'Downloading IPGs for {len(proteins)} proteins...')
-            ic = entrez.IPGCursor(progress=self.progress, tries=self.tries, batch_size=self.batch_size, threads=self.threads)
+            size = self.batch_size
+            ic = entrez.IPGCursor(progress=self.progress, tries=self.tries, threads=self.threads)
             ipgs = ic.fetch_all(list(proteins))
         ipgs = ipgs[ipgs.pid.isin(proteins) | ipgs.representative.isin(proteins)]
         if len(ipgs) == 0:
-            self.missing = self.missing.union(proteins)
-            yield seqrecords_to_dataframe([])
+            self._add_to_missing(proteins,np.NaN,"No IPGs")
+            return [seqrecords_to_dataframe([])]
         assemblies = rdnu.best_ipgs(ipgs)
         assemblies = assemblies[assemblies.assembly.notna()]
         assemblies = ipgs[ipgs.assembly.isin(assemblies.assembly)]
 
         # Split jobs and execute
-        last_block_id = 1
+        #last_block_id = 1
         todo = set(assemblies.assembly.unique())
-        self.missing = self.missing.union(proteins)
         with ProcessPoolExecutor(max_workers=self.threads) as executor:
             if self.progress:
                 logger.info(f'Downloading {len(todo)} genomes...')
                 p = tqdm(total=len(todo), initial=0)
             tasks = []
-            for chunk in self._splitter(assemblies):
-                tasks.append(executor.submit(self._worker, chunk))
+            for chunk in self.splitter(assemblies):
+                tasks.append(executor.submit(self.worker, chunk))
             for x in as_completed(tasks):
-                for obj in x.result():
-                    found = self._getids(obj)
+                data = x.result()
+                for s in data['missing'].iterrows():
+                    self.missing.loc[s[0]] = s[1]
+                for obj in data['result']:
+                    found = self.getids(obj)
                     done = todo.intersection(found)
-                    ok = set(obj.pid)
-                    if 'replaced' in obj:
-                        ok = ok.union(obj.replaced)
-                    self.missing = self.missing - ok
                     if len(obj) > 0:
-                        obj.block_id = last_block_id
-                        last_block_id += 1
+                        obj.block_id = self.min_block_id
+                        self.min_block_id += 1
                     if self.progress and len(done) > 0:
                         p.update(len(done))
                     todo = todo - done
+                    found = found.intersection(self.missing.index)
+                    if found:
+                        self.missing.drop(found, axis=0, inplace=True)
                     yield obj
 
-    def fetch_all(self, proteins, ipgs=None):
+    def fetch_all(self, proteins, ipgs=None, save=None, replace=True):
         """
         Fetch genomes.
 
@@ -920,7 +932,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         rotifer.genome.data.NeighborhoodDF
         """
         stack = []
-        for df in self.fetch_each(proteins, ipgs=ipgs):
+        for df in self.fetch_each(proteins, ipgs=ipgs, save=save, replace=replace):
             stack.append(df)
         if stack:
             return pd.concat(stack, ignore_index=True)

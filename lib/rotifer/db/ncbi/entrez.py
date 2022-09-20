@@ -86,16 +86,16 @@ class SequenceCursor:
         self._format = 'genbank'
         self._retmode = 'text'
 
-    def _getids(self, obj):
+    def getids(self, obj):
         return {obj.id}
 
-    def _parser(self, stream, accession):
+    def parser(self, stream, accession):
         stack = []
         for s in SeqIO.parse(stream, self._format):
             stack.append(s)
         return stack
 
-    def _fetcher(self, accession):
+    def fetcher(self, accession):
         from Bio import Entrez
         Entrez.email = NcbiConfig["email"]
         Entrez.api_key = NcbiConfig["api_key"]
@@ -121,7 +121,7 @@ class SequenceCursor:
         for attempt in range(0,2):
             for acc in batch:
                 try:
-                    stream = self._fetcher(acc)
+                    stream = self.fetcher(acc)
                 except RuntimeError:
                     logger.error(f'Runtime error: '+str(sys.exc_info()[1]))
                     continue
@@ -129,12 +129,12 @@ class SequenceCursor:
                     logger.debug(f"Efetch failed for {accession}: {sys.exc_info()}")
                     continue
                 try:
-                    objlist = self._parser(stream, acc)
+                    objlist = self.parser(stream, acc)
                 except:
-                    logger.debug(f"Parser failed for Efetch of {accession}: {sys.exc_info()}")
+                    logger.debug(f"Parser failed for {accession}: {sys.exc_info()}")
                     continue
                 for obj in objlist:
-                    found = found.union(self._getids(obj))
+                    found = found.union(self.getids(obj))
                     stack.append(obj)
             if found == query:
                 break
@@ -151,7 +151,7 @@ class SequenceCursor:
 
         return stack
 
-    def _worker(self,accessions):
+    def worker(self,accessions):
         """
         Fetch several accessions.
 
@@ -209,10 +209,10 @@ class SequenceCursor:
                 p = tqdm(total=len(accessions), initial=0)
             tasks = []
             for chunk in chunks(list(accessions), size):
-                tasks.append(executor.submit(self._worker, chunk))
+                tasks.append(executor.submit(self.worker, chunk))
             for x in as_completed(tasks):
                 for obj in x.result():
-                    found = self._getids(obj)
+                    found = self.getids(obj)
                     self.missing = self.missing - found
                     done = todo - len(self.missing)
                     if self.progress and done:
@@ -249,10 +249,10 @@ class IPGCursor(SequenceCursor):
         self._columns = ['id','ipg_source','nucleotide','start','stop','strand','pid','description','ipg_organism','strain','assembly']
         self._added_columns = ['order','is_query','representative']
 
-    def _getids(self,obj):
+    def getids(self,obj):
         return set(obj.pid).union(obj.representative)
 
-    def _parser(self, stream, accession):
+    def parser(self, stream, accession):
         query = accession.split(",")
         ipg = pd.read_csv(stream, sep='\t', names=self._columns, header=0).drop_duplicates()
 
@@ -305,6 +305,40 @@ class IPGCursor(SequenceCursor):
             df = pd.DataFrame(columns = self._columns + self._added_columns)
         return df
 
+class TaxonomyCursor(SequenceCursor):
+    def __init__(self,progress=False, tries=3, batch_size=None, threads=10):
+        super().__init__(database="taxonomy", progress=progress, tries=tries, batch_size=batch_size, threads=threads)
+        self._rettype = "full"
+        self._retmode = 'xml'
+
+    def getids(self,obj):
+        other = obj.alternative_taxids.str.split(",").explode().dropna()
+        return set(obj.taxid).union(other)
+
+    def parser(self, stream, accession):
+        import Bio
+        from Bio import Entrez
+        taxdf = Entrez.parse(stream)
+        taxdf = pd.DataFrame(Entrez.parse(stream))
+        cols = [ taxdf[x].dropna().map(lambda x: isinstance(x,str)).all() for x in taxdf.columns.to_list() ]
+        cols.append(True)
+        if "AkaTaxIds" in taxdf.columns:
+            taxdf["alternative_taxids"] = taxdf["AkaTaxIds"].fillna("").map(lambda x: ",".join(x)).replace("",np.nan)
+        else:
+            taxdf["alternative_taxids"] = np.nan
+        taxdf = taxdf.loc[:,cols].applymap(lambda x: str(x))
+        taxdf['superkingdom'] = taxdf.Lineage.str.replace("cellular organisms; ","").str.split("; ", expand=True)[0]
+        taxdf.rename({'Lineage':'classification', 'TaxId':'taxid'}, axis=1, inplace=1)
+        return [taxdf]
+
+    def fetch_all(self, accessions):
+        df = list(self.fetch_each(accessions))
+        if len(df) > 0:
+            df = pd.concat(df, ignore_index=True)
+        else:
+            df = pd.DataFrame()
+        return df
+
 class NucleotideFeaturesCursor(SequenceCursor):
     def __init__(
             self,
@@ -323,10 +357,10 @@ class NucleotideFeaturesCursor(SequenceCursor):
         self.assembly = assembly
         self.codontable = codontable
 
-    def _getids(self,obj):
+    def getids(self,obj):
         return set(obj.nucleotide)
 
-    def _parser(self, stream, accession):
+    def parser(self, stream, accession):
         stream = SeqIO.parse(stream, self._format)
         stream = seqrecords_to_dataframe(stream, exclude_type=self.exclude_type, autopid=self.autopid, assembly=self.assembly, codontable=self.codontable)
         stream = [ x[1].copy() for x in stream.groupby('nucleotide') ]
@@ -374,10 +408,10 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
         self.save = save
         self.replace = replace
 
-    def _getids(self,obj):
+    def getids(self,obj):
         return set(obj.pid).union(obj.replaced)
 
-    def _parser(self, stream, accession):
+    def parser(self, stream, accession):
         stream = SeqIO.parse(stream, self._format)
         stream = seqrecords_to_dataframe(stream, exclude_type=self.exclude_type, autopid=self.autopid, assembly=self.assembly, codontable=self.codontable)
         stream = stream.neighbors()
