@@ -887,7 +887,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         ipgs = ipgs[ipgs.pid.isin(proteins) | ipgs.representative.isin(proteins)]
         missing = set(proteins) - set(ipgs.pid).union(ipgs.representative)
         if missing:
-            self._add_to_missing(missing,np.NaN,"No IPGs")A
+            self._add_to_missing(missing,np.NaN,"No IPGs")
         if len(ipgs) == 0:
             return [seqrecords_to_dataframe([])]
         assemblies = rdnu.best_ipgs(ipgs)
