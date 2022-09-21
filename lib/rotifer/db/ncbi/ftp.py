@@ -882,9 +882,13 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
             size = self.batch_size
             ic = entrez.IPGCursor(progress=self.progress, tries=self.tries, threads=self.threads)
             ipgs = ic.fetch_all(list(proteins))
+            if len(ic.missing):
+                self._add_to_missing(ic.missing.index.to_list(), np.nan, "No IPGs")
         ipgs = ipgs[ipgs.pid.isin(proteins) | ipgs.representative.isin(proteins)]
+        missing = set(proteins) - set(ipgs.pid).union(ipgs.representative)
+        if missing:
+            self._add_to_missing(missing,np.NaN,"No IPGs")A
         if len(ipgs) == 0:
-            self._add_to_missing(proteins,np.NaN,"No IPGs")
             return [seqrecords_to_dataframe([])]
         assemblies = rdnu.best_ipgs(ipgs)
         assemblies = assemblies[assemblies.assembly.notna()]

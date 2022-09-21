@@ -20,7 +20,9 @@ NcbiConfig : NCBI configuration
 # Import external modules
 import os
 import sys
+import types
 import socket
+import typing
 import logging
 import numpy as np
 import pandas as pd
@@ -63,22 +65,55 @@ logger = rotifer.logging.getLogger(__name__)
 
 # Classes
 
+_gnc_public_attributes = [
+    'after','assembly','autopid','batch_size','before','cache',
+    'codontable','column','database','eukaryotes','exclude_type',
+    'fetch_all','fetch_each','fttype','getids','min_block_distance',
+    'min_block_id','missing','progress','strand','threads','tries'
+]
+
 class GeneNeighborhoodCursor(BaseCursor):
     """
-    Fetch gene neighborhoods as dataframes.
+    Fetch genome annotation as dataframes.
 
     Usage
     -----
     Load a random sample of genomes, except eukaryotes
-    >>> import rotifer.db.ncbi as ncbi
-    >>> gfc = ncbi.GeneNeighborhoodCursor(g)
-    >>> df = gfc.fetch_all([""])
+    >>> from rotifer.db.ncbi import ftp
+    >>> gfc = ftp.GeneNeighborhoodCursor(progress=True)
+    >>> df = gfc.fetch_all(["EEE9598493.1"])
 
     Parameters
     ----------
     column : string
       Name of the column to scan for matches to the accessions
       See rotifer.genome.data.NeighborhoodDF
+    before : int
+      Keep at most this number of features, of the same type as the
+      target, before each target
+    after  : nt
+      Keep at most this number of features, of the same type as the
+      target, after each target
+    min_block_distance : int
+      Minimum distance between two consecutive blocks
+    strand : string
+      How to evaluate rows concerning the value of the strand column
+      Possible values for this option are:
+      - None : ignore strand
+      - same : same strand as the targets
+      -    + : positive strand features and targets only
+      -    - : negative strand features and targets only
+    fttype : string
+      How to process feature types of neighbors
+      Supported values:
+      - same : consider only features of the same type as the target
+      - any  : ignore feature type and count all features when
+               setting neighborhood boundaries
+    eukaryotes : boolean, default False
+      If set to True, neighborhood data for eukaryotic genomes
+    min_block_id : int
+      Starting number for block_ids, useful if calling this method
+      multiple times
     exclude_type: list of strings
       List of names for the features that must be ignored
     autopid: boolean
@@ -97,9 +132,19 @@ class GeneNeighborhoodCursor(BaseCursor):
       Where to place temporary files
 
     """
+    from rotifer.db.ncbi import ftp
+    from rotifer.db.ncbi import entrez
+
     def __init__(
             self,
-            column='pid',
+            column = 'pid',
+            before = 7,
+            after = 7,
+            min_block_distance = 0,
+            strand = None,
+            fttype = 'same',
+            min_block_id = 1,
+            eukaryotes=False,
             exclude_type=['source','gene','mRNA'],
             autopid=False,
             codontable='Bacterial',
@@ -109,55 +154,64 @@ class GeneNeighborhoodCursor(BaseCursor):
             threads=15,
             cache=GlobalConfig['cache'],
         ):
-        super().__init__(progress=progress, tries=tries, batch_size=batch_size, threads=threads)
+        self._cursors = [
+            ftp.GeneNeighborhoodCursor(),
+            entrez.GeneNeighborhoodCursor()
+        ]
         self.column = column
+        self.before = before
+        self.after = after
+        self.min_block_distance = min_block_distance
+        self.strand = strand
+        self.fttype = fttype
+        self.min_block_id = min_block_id
+        self.eukaryotes = eukaryotes
         self.exclude_type = exclude_type
         self.autopid = autopid
         self.codontable = codontable
+        self.progress = progress
+        self.tries = tries
+        self.batch_size = batch_size
+        self.threads = threads
         self.cache = cache
+        self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error"])
 
-    def __getitem__(self, accession, ipgs=None, assembly_reports=None):
-        """
-        Dictionary-like access to gene neighbors.
-        """
-        from rotifer.db.ncbi.cursor import NcbiCursor
-        from rotifer.genome.utils import seqrecords_to_dataframe
+    def __setattr__(self, name, value):
+        super().__setattr__(name, value)
+        if name in _gnc_public_attributes:
+            for cursor in self._cursors:
+                if hasattr(cursor,name):
+                    cursor.__setattr__(name,value)
 
-        # Prepare DNA accessions
-        assemblies, nucleotides, proteins = self.get_nucleotide_ids(accession, ipgs)
+    def _add_to_missing(self, accessions, assembly, error):
+        err = [False,False,assembly,error]
+        if "Eukaryotic" in error:
+            err[1] = True
+        if "IPG" in error:
+            err[0] = True
+        if not isinstance(accessions,typing.Iterable) or isinstance(accessions,str):
+            accessions = [accessions]
+        for x in accessions:
+            self.missing.loc[x] = err
 
-        # Download nucleotide annotation using FTP
-        if assemblies:
-            gfc = ftp.GenomeFeaturesCursor(
-                assembly_reports = self.assembly_reports,
-                exclude_type = self.exclude_type,
-                autopid = self.autopid,
-                codontable = self.codontable,
-                progress=False,
-                tries = self.tries,
-                batch_size = self.batch_size,
-                threads = self.threads,
-                cache = self.cache
-            )
-            df = gfc.fetch_all(accession)
-            df = df.neighbors(
-                df.pid.isin(proteins.keys()),
-                before = self.before,
-                after = self.after,
-                min_block_distance = self.min_block_distance,
-                strand = self.strand,
-                fttype = self.fttype,
-                min_block_id = self.min_block_id
-            )
-            ndf['replaced'] = ndf.pid.replace(proteins)
+    def __getitem__(self, protein, ipgs=None):
+       """
+       Dictionary-like access to gene neighbors.
+       """
+       result = None
+       for cursor in self._cursors:
+           result = cursor.__getitem__(protein, ipgs=ipgs)
+           if not isinstance(result,types.NoneType) and len(result) > 0:
+               break
+       return result
 
-    def fetch_each(self, accessions, eukaryotes=False, ipgs=None, assembly_reports=None, save=None, replace=False):
+    def fetch_each(self, proteins, ipgs=None, save=None, replace=False):
         """
         Fetch each gene neighborhood iteratively.
 
         Parameters
         ----------
-        accessions: list of strings
+        proteins: list of strings
           Database identifiers.
         ipgs : rotifer.db.ncbi.read.ipg dataframe
           This parameter may be used to avoid downloading IPGs
@@ -169,9 +223,6 @@ class GeneNeighborhoodCursor(BaseCursor):
 
           Make sure it has the same colums as named
           by the ipg method in rotifer.db.ncbi.read
-        assembly_reports : Pandas dataframe
-          If not given, assembly reports are downloaded.
-          See rotifer.db.ncbi.assemblies
         save : string, default None
           If set, save processed batches to the path given
         replace : boolean, default True
@@ -181,18 +232,50 @@ class GeneNeighborhoodCursor(BaseCursor):
         -------
         Generator of rotifer.genome.data.NeighborhoodDF
         """
-        return NotImplementedError
+        # Make sure no identifiers are used twice
+        if not isinstance(proteins,typing.Iterable) or isinstance(proteins,str):
+            proteins = [proteins]
+        proteins = set(proteins)
 
-    def fetch_all(self, accessions, eukaryotes=False, ipgs=None, assembly_reports=None, save=None, replace=False):
+        # Make sure we have IPGs
+        if isinstance(ipgs,types.NoneType):
+            from rotifer.db.ncbi import entrez
+            if self.progress:
+                logger.info(f'Downloading IPGs for {len(proteins)} proteins...')
+            size = self.batch_size
+            ic = entrez.IPGCursor(progress=self.progress, tries=self.tries, threads=self.threads)
+            ipgs = ic.fetch_all(list(proteins))
+            if len(ic.missing):
+                self._add_to_missing(ic.missing, np.nan, "No IPGs")
+        ipgs = ipgs[ipgs.pid.isin(proteins) | ipgs.representative.isin(proteins)]
+        missing = set(proteins) - set(ipgs.pid).union(ipgs.representative)
+        if missing:
+            self._add_to_missing(missing,np.NaN,"No IPGs")
+            proteins = proteins - missing
+        if len(ipgs) == 0:
+            return [seqrecords_to_dataframe([])]
+
+        # Call cursors
+        attempt = 1
+        last = 0
+        for cursor in self._cursors:
+            if last == len(proteins) or len(proteins) == 0 or attempt > self.tries:
+                break
+            attempt += 1
+            for result in cursor.fetch_each(proteins, ipgs=ipgs):
+                last = len(proteins)
+                proteins = cursor.missing.index.to_list()
+                self.min_block_id = cursor.min_block_id
+                yield result
+
+    def fetch_all(self, proteins, ipgs=None, save=None, replace=False):
         """
         Fetch all gene neighborhoods in a single dataframe.
 
         Parameters
         ----------
-        accessions: list of strings
+        proteins: list of strings
           Database identifiers.
-        eukaryotes : boolean, default False
-          Set to True to download neighborhood data for eukaryotes
         ipgs : rotifer.db.ncbi.read.ipg dataframe
           This parameter may be used to avoid downloading IPGs
           from NCBI. Example:
@@ -203,9 +286,6 @@ class GeneNeighborhoodCursor(BaseCursor):
 
           Make sure it has the same colums as named
           by the ipg method in rotifer.db.ncbi.read
-        assembly_reports : Pandas dataframe
-          If not given, assembly reports are downloaded.
-          See rotifer.db.ncbi.assemblies
         save : string, default None
           If set, save processed batches to the path given
         replace : boolean, default True
@@ -215,22 +295,13 @@ class GeneNeighborhoodCursor(BaseCursor):
         -------
         rotifer.genome.data.NeighborhoodDF
         """
-        return NotImplementedError
-
-    def get_nucleotide_ids(self, accessions, ipgs=None):
-        import types
-        if isinstance(ipgs, types.NoneType):
-            ic = ncbi.IPGCursor(progress=self.progress, tries=self.tries, batch_size=self.batch_size, threads=self.threads)
-            ipgs = ic.fetch_all(accessions)
-        best = ipgs.sort_values(['id','order'], ascending=[True,True])
-        best = best.drop_duplicates(['id'], keep='first')
-        assemblies = best.assembly.dropna().unique().tolist()
-        nucleotides = best[best.assembly.isna()].nucleotide.dropna().tolist()
-        proteins = ipgs[ipgs.assembly.isin(assemblies) | ipgs.nucleotide.isin(nucleotides)]
-        representative = { x:x for x in proteins.representative.unique() }
-        proteins = proteins.set_index('pid').representative.to_dict()
-        proteins.update(representative)
-        return assemblies, nucleotides, proteins
+        stack = []
+        for df in self.fetch_each(proteins, ipgs=ipgs, save=save, replace=replace):
+            stack.append(df)
+        if stack:
+            return pd.concat(stack, ignore_index=True)
+        else:
+            return seqrecords_to_dataframe([])
 
 # FUNCTIONS
 

@@ -1,6 +1,7 @@
 # Import external modules
 import os
 import sys
+import types
 import socket
 import typing
 import numpy as np
@@ -12,6 +13,7 @@ from Bio import SeqIO
 import rotifer
 from rotifer import GlobalConfig
 from rotifer.db.ncbi import NcbiConfig
+from rotifer.db.ncbi import utils as rdnu
 from rotifer.core.functions import findDataFiles
 from rotifer.core.functions import loadConfig
 from rotifer.genome.utils import seqrecords_to_dataframe
@@ -374,72 +376,330 @@ class NucleotideFeaturesCursor(SequenceCursor):
             df = seqrecords_to_dataframe([])
 
 class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
-    from rotifer.db.ncbi.entrez import IPGCursor
+    """
+    Fetch gene neighbors from nucleotide annotation.
 
+    Usage
+    -----
+    >>> from rotifer.db.ncbi import ftp
+    >>> gfc = ftp.GeneNeighborhoodCursor(progress=True)
+    >>> df = gfc.fetch_all(["EEE9598493.1"])
+
+    Parameters
+    ----------
+    column : string
+      Name of the column to scan for matches to the accessions
+      See rotifer.genome.data.NeighborhoodDF
+    before : int
+      Keep at most this number of features, of the same type as the
+      target, before each target
+    after  : nt
+      Keep at most this number of features, of the same type as the
+      target, after each target
+    min_block_distance : int
+      Minimum distance between two consecutive blocks
+    strand : string
+      How to evaluate rows concerning the value of the strand column
+      Possible values for this option are:
+      - None : ignore strand
+      - same : same strand as the targets
+      -    + : positive strand features and targets only
+      -    - : negative strand features and targets only
+    fttype : string
+      How to process feature types of neighbors
+      Supported values:
+      - same : consider only features of the same type as the target
+      - any  : ignore feature type and count all features when
+               setting neighborhood boundaries
+    eukaryotes : boolean, default False
+      If set to True, neighborhood data for eukaryotic nucleotide sequences
+    min_block_id : int
+      Starting number for block_ids, useful if calling this method
+      multiple times
+    exclude_type: list of strings
+      List of names for the features that must be ignored
+    autopid: boolean
+      Automatically set protein identifiers
+    codontable: string por int, default 'Bacterial'
+      Default codon table, if not set within the data
+    progress: boolean, deafult False
+      Whether to print a progress bar
+    tries: int, default 3
+      Number of attempts to download data
+    threads: integer, default 15
+      Number of processes to run parallel downloads
+    batch_size: int, default 1
+      Number of accessions per batch
+
+    """
     def __init__(
             self,
             column = 'pid',
-            before = 3,
-            after = 3,
+            before = 7,
+            after = 7,
             min_block_distance = 0,
             strand = None,
-            eukaryotes = False,
             fttype = 'same',
-            save = None,
-            replace = True,
-            exclude_type = ['source','gene','mRNA'],
-            autopid = False,
-            assembly = None,
-            codontable= 'Bacterial',
             min_block_id = 1,
-            progress = False,
-            tries = 3,
-            batch_size = None,
-            threads = 10
+            eukaryotes=False,
+            exclude_type=['source','gene','mRNA'],
+            autopid=False,
+            codontable='Bacterial',
+            progress=False,
+            tries=3,
+            batch_size=None,
+            threads=15,
         ):
-        super().__init__(exclude_type=exclude_type,autopid=autopid,assembly=assembly,codontable=codontable,progress=progress,tries=tries,batch_size=batch_size,threads=threads)
+        super().__init__(
+            exclude_type = exclude_type,
+            autopid = autopid,
+            codontable = codontable,
+            progress = progress,
+            tries = tries,
+            batch_size = batch_size,
+            threads = threads,
+        )
         self.column = column
         self.before = before
         self.after = after
         self.min_block_distance = min_block_distance
         self.strand = strand
+        self.fttype = fttype
+        self.min_block_id = min_block_id
         self.eukaryotes = eukaryotes
-        self.fttype = fftype,
-        self.save = save
-        self.replace = replace
+        self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error"])
 
-    def getids(self,obj):
-        return set(obj.pid).union(obj.replaced)
+    def _add_to_missing(self, accessions, assembly, error):
+        err = [False,False,assembly,error]
+        if "Eukaryotic" in error:
+            err[1] = True
+        if "IPG" in error:
+            err[0] = True
+        if not isinstance(accessions,typing.Iterable) or isinstance(accessions,str):
+            accessions = [accessions]
+        for x in accessions:
+            self.missing.loc[x] = err
 
-    def parser(self, stream, accession):
-        stream = SeqIO.parse(stream, self._format)
-        stream = seqrecords_to_dataframe(stream, exclude_type=self.exclude_type, autopid=self.autopid, assembly=self.assembly, codontable=self.codontable)
-        stream = stream.neighbors()
-        stream = [ x[1].copy() for x in stream.groupby('nucleotide') ]
-        return stream
+    def __getitem__(self, protein, ipgs=None):
+        """
+        Find gene neighborhoods in a nucleotide sequence.
 
-    def fetch_each(self, accessions, ipgs=None):
-        # Process IPGs
-        accessions = set(accessions)
-        ipgs = self.ipgs
+        Returns
+        -------
+        rotifer.genome.data.NeighborhoodDF
+        """
+        objlist = seqrecords_to_dataframe([])
+        if not isinstance(protein,typing.Iterable) or isinstance(protein,str):
+            protein = [protein]
+
         if isinstance(ipgs,types.NoneType):
-            logger.info(f'Downloading IPGs for {len(accessions)} accessions')
-            ic = IPGCursor(progress=progress, tries=tries, batch_size=batch_size, threads=threads)
-            ipgs = ic.fetch_all(accessions)
-        ipgs = ipgs[ipgs.pid.isin(accessions) | ipgs.representative.isin(accessions)].copy()
+            from rotifer.db.ncbi import entrez
+            ic = entrez.IPGCursor(progress=False, tries=self.tries, batch_size=self.batch_size, threads=self.threads)
+            ipgs = ic.fetch_all(protein)
+        ipgs = ipgs[ipgs.id.isin(ipgs[ipgs.pid.isin(protein) | ipgs.representative.isin(protein)].id)]
+        best = rdnu.best_ipgs(ipgs)
+        best = best[best.assembly.isna()]
+        ipgs = ipgs[ipgs.nucleotide.isin(best.nucleotide)]
+        missing = set(protein) - set(ipgs.pid) - set(ipgs.representative)
+        if missing:
+            self._add_to_missing(missing,np.NaN,"No IPGs")
+            return objlist
 
-        # Process each nucleotide sequence
-        acc = set(ipgs.pid).union(ipgs.representative)
-        for s in super().fetch_each(ipgs.nucleotide):
-            s = s.neighbors(s[self.column].isin(acc), before=self.before, after=self.after, min_block_distance=self.min_block_distance)
+        # Identify DNA data
+        assemblies, nucleotides = rdnu.ipgs_to_dicts(ipgs, best=False, full=False)
 
-    def fetch_all(self, accessions):
-        df = list(self.fetch_each(accessions))
-        if len(df) > 0:
-            df = pd.concat(df, ignore_index=True)
+        # Download and parse
+        objlist = []
+        for accession in nucleotides.keys():
+            expected = set([ y for x in nucleotides[accession].items() for y in x ])
+
+            obj = None
+            for attempt in range(0,self.tries):
+                # Download and open data file
+                error = None
+                stream = None
+                try:
+                    stream = self.fetcher(accession)
+                except RuntimeError:
+                    error = f'Runtime error: {sys.exc_info()[1]}'
+                    logger.debug(error)
+                    continue
+                except ValueError:
+                    error = f'Value error: {sys.exc_info()[1]}'
+                    logger.debug(error)
+                    break
+                except:
+                    error = f'Failed to download nucleotide {accession}: {sys.exc_info()[1]}'
+                    logger.debug(error)
+                    continue
+
+                if isinstance(stream, types.NoneType):
+                    self._add_to_missing(expected, accession, error)
+                    continue
+
+                # Use parser to process results
+                try:
+                    obj = self.parser(stream, accession, nucleotides[accession])
+                    break
+                except ValueError:
+                    error = f'Value error: {sys.exc_info()[1]}'
+                    logger.debug(error)
+                    break
+                except:
+                    error = f"Failed to parse nucleotide {accession}: {str(sys.exc_info()[1])}"
+                    logger.debug(error)
+
+            if isinstance(obj, types.NoneType):
+                self._add_to_missing(expected, accession, error)
+            elif len(obj) == 0:
+                error = f'No anchors in nucleotide sequence {accession}'
+                self._add_to_missing(expected, accession, error)
+            else:
+                objlist.extend(obj)
+
+        # No data?
+        if len(objlist) == 0:
+            return seqrecords_to_dataframe([])
+
+        # Concatenate and evaluate
+        objlist = pd.concat(objlist, ignore_index=True)
+        found = set(objlist.pid).union(set(objlist.replaced))
+        found = set(protein).intersection(found)
+        missing = set(protein) - found
+        if missing:
+            self._add_to_missing(missing,",".join(nucleotides.keys()),"Unknown error")
+
+        # Return data
+        return objlist
+
+    def parser(self, stream, accession, proteins):
+        stack = []
+        for df in super().parser(stream, accession):
+            taxonomy = df.classification.fillna("").iloc[0].split(";")
+            if (not self.eukaryotes) and "Eukaryota" in taxonomy:
+                raise ValueError(f"Eukaryotic nucleotide sequence {accession} ignored.")
+            df = df.neighbors(
+                df[self.column].isin(proteins.keys()),
+                before = self.before,
+                after = self.after,
+                min_block_distance = self.min_block_distance,
+                strand = self.strand,
+                fttype = self.fttype,
+                min_block_id = self.min_block_id
+            )
+            df['replaced'] = df.pid.replace(proteins)
+            stack.append(df)
+        return stack
+
+    def worker(self, chunk):
+        result = []
+        for args in chunk:
+            df = self.__getitem__(*args)
+            if len(df) == 0:
+                continue
+            for x in df.groupby('block_id'):
+                result.append(x[1])
+        return {"result":result,"missing":self.missing}
+
+    def splitter(self, ipgs):
+        size = self.batch_size
+        if size == None or size == 0:
+            size = max(int(ipgs.assembly.nunique()/self.threads),1)
+        batch = []
+        for x, y in ipgs.groupby('nucleotide'):
+            proteins = set(y.pid).union(y.representative)
+            batch.append((proteins, y.copy()))
+        batch = [ batch[x:x+size] for x in range(0,len(batch),size) ]
+        return batch
+
+    def fetch_each(self, proteins, ipgs=None, save=None, replace=True):
+        """
+        Asynchronously fetch gene neighborhoods from NCBI.
+
+        Parameters
+        ----------
+        proteins: list of strings
+          NCBI protein identifiers
+
+        Returns
+        -------
+        A generator for rotifer.genome.data.NeighborhoodDF objects
+        """
+        from concurrent.futures import ProcessPoolExecutor, as_completed
+
+        # Make sure no identifiers are used twice
+        if not isinstance(proteins,typing.Iterable) or isinstance(proteins,str):
+            proteins = [proteins]
+        proteins = set(proteins)
+
+        # Make sure we have IPGs
+        if isinstance(ipgs,types.NoneType):
+            from rotifer.db.ncbi import entrez
+            if self.progress:
+                logger.info(f'Downloading IPGs for {len(proteins)} proteins...')
+            size = self.batch_size
+            ic = entrez.IPGCursor(progress=self.progress, tries=self.tries, threads=self.threads)
+            ipgs = ic.fetch_all(list(proteins))
+            if len(ic.missing):
+                self._add_to_missing(ic.missing.index.to_list(), np.nan, "No IPGs")
+        ipgs = ipgs[ipgs.pid.isin(proteins) | ipgs.representative.isin(proteins)]
+        if len(ipgs) == 0:
+            self._add_to_missing(proteins,np.NaN,"No IPGs")
+            return [seqrecords_to_dataframe([])]
+        nucleotides = rdnu.best_ipgs(ipgs)
+        nucleotides = nucleotides[nucleotides.nucleotide.notna()]
+        nucleotides = ipgs[ipgs.nucleotide.isin(nucleotides.nucleotide)]
+        if len(nucleotides) == 0:
+            return [seqrecords_to_dataframe([])]
+
+        # Split jobs and execute
+        #last_block_id = 1
+        todo = set(nucleotides.nucleotide.unique())
+        with ProcessPoolExecutor(max_workers=self.threads) as executor:
+            if self.progress:
+                logger.info(f'Downloading {len(todo)} nucleotides...')
+                p = tqdm(total=len(todo), initial=0)
+            tasks = []
+            for chunk in self.splitter(nucleotides):
+                tasks.append(executor.submit(self.worker, chunk))
+            for x in as_completed(tasks):
+                data = x.result()
+                for s in data['missing'].iterrows():
+                    self.missing.loc[s[0]] = s[1]
+                for obj in data['result']:
+                    found = self.getids(obj)
+                    done = todo.intersection(found)
+                    if len(obj) > 0:
+                        obj.block_id = self.min_block_id
+                        self.min_block_id += 1
+                    if self.progress and len(done) > 0:
+                        p.update(len(done))
+                    todo = todo - done
+                    found = found.intersection(self.missing.index)
+                    if found:
+                        self.missing.drop(found, axis=0, inplace=True)
+                    yield obj
+
+    def fetch_all(self, proteins, ipgs=None, save=None, replace=True):
+        """
+        Fetch all neighbors from nucleotide sequences.
+
+        Parameters
+        ----------
+        proteins: list of strings
+          NCBI protein identifiers
+
+        Returns
+        -------
+        rotifer.genome.data.NeighborhoodDF
+        """
+        stack = []
+        for df in self.fetch_each(proteins, ipgs=ipgs, save=save, replace=replace):
+            stack.append(df)
+        if stack:
+            return pd.concat(stack, ignore_index=True)
         else:
-            df = seqrecords_to_dataframe([])
-        return df
+            return seqrecords_to_dataframe([])
 
 def elink(accessions, dbfrom="protein", dbto="taxonomy", linkname=None):
     """
