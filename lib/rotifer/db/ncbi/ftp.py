@@ -705,10 +705,10 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         self.fttype = fttype
         self.min_block_id = min_block_id
         self.eukaryotes = eukaryotes
-        self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error"])
+        self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error",'class'])
 
     def _add_to_missing(self, accessions, assembly, error):
-        err = [False,False,assembly,error]
+        err = [False,False,assembly,error,__name__]
         if "Eukaryotic" in error:
             err[1] = True
         if "IPG" in error:
@@ -744,7 +744,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
             return objlist
 
         # Identify DNA data
-        assemblies, nucleotides = rdnu.ipgs_to_dicts(ipgs, best=False, full=False)
+        assemblies, nucleotides = rdnu.ipgs_to_dicts(ipgs)
 
         # Download and parse
         objlist = []
@@ -797,11 +797,6 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
 
         # Concatenate and evaluate
         objlist = pd.concat(objlist, ignore_index=True)
-        found = set(objlist.pid).union(set(objlist.replaced))
-        found = set(protein).intersection(found)
-        missing = set(protein) - found
-        if missing:
-            self._add_to_missing(missing,",".join(assemblies.keys()),"Unknown error")
 
         # Return data
         return objlist
@@ -874,7 +869,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
             proteins = [proteins]
         proteins = set(proteins)
 
-        # Make sure we have IPGs
+        # Make sure we have usable IPGs
         if isinstance(ipgs,types.NoneType):
             from rotifer.db.ncbi import entrez
             if self.progress:
@@ -883,14 +878,37 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
             ic = entrez.IPGCursor(progress=self.progress, tries=self.tries, threads=self.threads)
             ipgs = ic.fetch_all(list(proteins))
             if len(ic.missing):
-                self._add_to_missing(ic.missing.index.to_list(), np.nan, "No IPGs")
+                self._add_to_missing(ic.missing.index.to_list(), np.nan, "No IPGs at NCBI")
         ipgs = ipgs[ipgs.pid.isin(proteins) | ipgs.representative.isin(proteins)]
+        ipgs = ipgs[ipgs.assembly.notna() | ipgs.nucleotide.notna()]
+
+        # Check for proteins without IPGs
         missing = set(proteins) - set(ipgs.pid).union(ipgs.representative)
         if missing:
-            self._add_to_missing(missing,np.NaN,"No IPGs")
+            self._add_to_missing(missing,np.NaN,"Not found in IPGs")
         if len(ipgs) == 0:
             return [seqrecords_to_dataframe([])]
+
+        # Select best IPGs
         assemblies = rdnu.best_ipgs(ipgs)
+
+        # Mark proteins without assembly
+        missing = assemblies[assemblies.assembly.isna()]
+        if len(missing):
+            for idx, row in missing.iterrows():
+                if row['pid'] in proteins:
+                    acc = row['pid']
+                elif row['representative'] in proteins:
+                    acc = row['representative']
+                else:
+                    continue
+                if pd.isna(row['nucleotide']):
+                    error = f"No nucleotide or assembly for protein {acc}"
+                else:
+                    error = f"Fetch protein {acc} from nucleotide {row['nucleotide']}"
+                self._add_to_missing(acc,row['assembly'],error)
+
+        # filter good IPGs for the best assemblies
         assemblies = assemblies[assemblies.assembly.notna()]
         assemblies = ipgs[ipgs.assembly.isin(assemblies.assembly)]
 
@@ -899,11 +917,14 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         todo = set(assemblies.assembly.unique())
         with ProcessPoolExecutor(max_workers=self.threads) as executor:
             if self.progress:
-                logger.info(f'Downloading {len(todo)} genomes...')
+                targets = set(assemblies.pid).union(assemblies.representative)
+                targets = len(targets.intersection(proteins))
+                logger.info(f'Downloading {len(todo)} genomes for {targets} proteins...')
                 p = tqdm(total=len(todo), initial=0)
             tasks = []
             for chunk in self.splitter(assemblies):
                 tasks.append(executor.submit(self.worker, chunk))
+            completed = set()
             for x in as_completed(tasks):
                 data = x.result()
                 for s in data['missing'].iterrows():
@@ -917,7 +938,8 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
                     if self.progress and len(done) > 0:
                         p.update(len(done))
                     todo = todo - done
-                    found = found.intersection(self.missing.index)
+                    completed.update(set(obj.pid.dropna()).union(obj.replaced.dropna()))
+                    found = completed.intersection(self.missing.index)
                     if found:
                         self.missing.drop(found, axis=0, inplace=True)
                     yield obj

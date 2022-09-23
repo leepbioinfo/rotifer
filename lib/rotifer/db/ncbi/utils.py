@@ -5,7 +5,7 @@ def best_ipgs(ipgs):
     best = best.drop_duplicates(['id'], keep='first')
     return best
 
-def ipgs_to_dicts(ipgs, best=True, full=False):
+def ipgs_to_dicts(ipgs):
     if len(ipgs) == 0:
         return dict(), dict()
 
@@ -26,8 +26,6 @@ def ipgs_to_dicts(ipgs, best=True, full=False):
         assemblies = dict()
 
     # By nucleotide
-    if full:
-        nucleotides = best
     if len(nucleotides) > 0:
         nucleotides = nucleotides.nucleotide.unique().tolist()
         nucleotides = ipgs[ipgs.nucleotide.isin(nucleotides)]
@@ -39,3 +37,5 @@ def ipgs_to_dicts(ipgs, best=True, full=False):
         nucleotides = dict()
 
     return assemblies, nucleotides
+
+

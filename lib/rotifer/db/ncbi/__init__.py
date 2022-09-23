@@ -79,9 +79,9 @@ class GeneNeighborhoodCursor(BaseCursor):
     Usage
     -----
     Load a random sample of genomes, except eukaryotes
-    >>> from rotifer.db.ncbi import ftp
-    >>> gfc = ftp.GeneNeighborhoodCursor(progress=True)
-    >>> df = gfc.fetch_all(["EEE9598493.1"])
+    >>> import rotifer.db.ncbi a ncbi
+    >>> gnc = ncbi.GeneNeighborhoodCursor(progress=True)
+    >>> df = gnc.fetch_all(["EEE9598493.1"])
 
     Parameters
     ----------
@@ -174,7 +174,7 @@ class GeneNeighborhoodCursor(BaseCursor):
         self.batch_size = batch_size
         self.threads = threads
         self.cache = cache
-        self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error"])
+        self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error",'class'])
 
     def __setattr__(self, name, value):
         super().__setattr__(name, value)
@@ -184,7 +184,7 @@ class GeneNeighborhoodCursor(BaseCursor):
                     cursor.__setattr__(name,value)
 
     def _add_to_missing(self, accessions, assembly, error):
-        err = [False,False,assembly,error]
+        err = [False,False,assembly,error,__name__]
         if "Eukaryotic" in error:
             err[1] = True
         if "IPG" in error:
@@ -232,10 +232,21 @@ class GeneNeighborhoodCursor(BaseCursor):
         -------
         Generator of rotifer.genome.data.NeighborhoodDF
         """
+        from rotifer.genome.utils import seqrecords_to_dataframe
+
         # Make sure no identifiers are used twice
         if not isinstance(proteins,typing.Iterable) or isinstance(proteins,str):
             proteins = [proteins]
         proteins = set(proteins)
+
+        # Process checkpoint
+        olddf = seqrecords_to_dataframe([])
+        if save and os.path.exists(save):
+            if replace: 
+                os.remove(save)
+            else:
+                olddf = pd.read_csv(save, sep="\t")
+                processed = olddf.assembly.to_frame().eval("k = True").set_index("assembly").k.to_dict()
 
         # Make sure we have IPGs
         if isinstance(ipgs,types.NoneType):
@@ -246,25 +257,27 @@ class GeneNeighborhoodCursor(BaseCursor):
             ic = entrez.IPGCursor(progress=self.progress, tries=self.tries, threads=self.threads)
             ipgs = ic.fetch_all(list(proteins))
             if len(ic.missing):
-                self._add_to_missing(ic.missing, np.nan, "No IPGs")
-        ipgs = ipgs[ipgs.pid.isin(proteins) | ipgs.representative.isin(proteins)]
+                self._add_to_missing(ic.missing, np.nan, "No IPGs found")
+        ipgs = ipgs[ipgs.id.isin(ipgs[ipgs.pid.isin(proteins) | ipgs.representative.isin(proteins)].id)]
         missing = set(proteins) - set(ipgs.pid).union(ipgs.representative)
         if missing:
-            self._add_to_missing(missing,np.NaN,"No IPGs")
+            self._add_to_missing(missing,np.NaN,"Not found in IPGs")
             proteins = proteins - missing
         if len(ipgs) == 0:
             return [seqrecords_to_dataframe([])]
 
         # Call cursors
-        attempt = 1
-        last = 0
-        for cursor in self._cursors:
-            if last == len(proteins) or len(proteins) == 0 or attempt > self.tries:
+        for idx in range(0,len(self._cursors)):
+            if len(proteins) == 0:
                 break
-            attempt += 1
+            cursor = self._cursors[idx]
+            if idx > 0:
+                if self.eukaryotes:
+                    proteins = set(cursor.missing.index)
+                else:
+                    proteins = cursor.missing.query('not eukaryote')
+                    proteins = set(proteins.index)
             for result in cursor.fetch_each(proteins, ipgs=ipgs):
-                last = len(proteins)
-                proteins = cursor.missing.index.to_list()
                 self.min_block_id = cursor.min_block_id
                 yield result
 
