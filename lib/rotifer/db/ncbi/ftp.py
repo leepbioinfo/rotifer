@@ -441,7 +441,7 @@ class GenomeCursor(rotifer.db.core.SimpleParallelProcessCursor):
     Load a random sample of genomes, except eukaryotes
     >>> from rotifer.db.ncbi import ftp
     >>> gc = ftp.GenomeCursor(g)
-    >>> genomes = gc.fetch_all()
+    >>> genomes = gc.fetchall()
 
     Parameters
     ----------
@@ -515,7 +515,7 @@ class GenomeFeaturesCursor(GenomeCursor):
     >>> g = ['GCA_018744545.1', 'GCA_901308185.1']
     >>> from rotifer.db.ncbi import ftp
     >>> gfc = ftp.GenomeFeaturesCursor(g)
-    >>> df = gfc.fetch_all()
+    >>> df = gfc.fetchall()
 
     Parameters
     ----------
@@ -587,7 +587,7 @@ class GenomeFeaturesCursor(GenomeCursor):
                 stack.append(df)
         return stack
 
-    def fetch_all(self, accessions):
+    def fetchall(self, accessions):
         """
         Fetch genomes.
 
@@ -601,7 +601,7 @@ class GenomeFeaturesCursor(GenomeCursor):
         rotifer.genome.data.NeighborhoodDF
         """
         stack = []
-        for df in self.fetch_each(accessions):
+        for df in self.fetchone(accessions):
             stack.append(df)
         if stack:
             return pd.concat(stack, ignore_index=True)
@@ -617,7 +617,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
     Load a random sample of genomes, except eukaryotes
     >>> from rotifer.db.ncbi import ftp
     >>> gfc = ftp.GeneNeighborhoodCursor(progress=True)
-    >>> df = gfc.fetch_all(["EEE9598493.1"])
+    >>> df = gfc.fetchall(["EEE9598493.1"])
 
     Parameters
     ----------
@@ -647,9 +647,6 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
                setting neighborhood boundaries
     eukaryotes : boolean, default False
       If set to True, neighborhood data for eukaryotic genomes
-    min_block_id : int
-      Starting number for block_ids, useful if calling this method
-      multiple times
     exclude_type: list of strings
       List of names for the features that must be ignored
     autopid: boolean
@@ -676,7 +673,6 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
             min_block_distance = 0,
             strand = None,
             fttype = 'same',
-            min_block_id = 1,
             eukaryotes=False,
             exclude_type=['source','gene','mRNA'],
             autopid=False,
@@ -703,7 +699,6 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         self.min_block_distance = min_block_distance
         self.strand = strand
         self.fttype = fttype
-        self.min_block_id = min_block_id
         self.eukaryotes = eukaryotes
         self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error",'class'])
 
@@ -733,7 +728,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         if isinstance(ipgs,types.NoneType):
             from rotifer.db.ncbi import entrez
             ic = entrez.IPGCursor(progress=False, tries=self.tries, batch_size=self.batch_size, threads=self.threads)
-            ipgs = ic.fetch_all(protein)
+            ipgs = ic.fetchall(protein)
         ipgs = ipgs[ipgs.id.isin(ipgs[ipgs.pid.isin(protein) | ipgs.representative.isin(protein)].id)]
         best = rdnu.best_ipgs(ipgs)
         best = best[best.assembly.notna()]
@@ -823,7 +818,6 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
             min_block_distance = self.min_block_distance,
             strand = self.strand,
             fttype = self.fttype,
-            min_block_id = self.min_block_id
         )
         stream['replaced'] = stream.pid.replace(proteins)
         return stream
@@ -849,7 +843,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         batch = [ batch[x:x+size] for x in range(0,len(batch),size) ]
         return batch
 
-    def fetch_each(self, proteins, ipgs=None, save=None, replace=True):
+    def fetchone(self, proteins, ipgs=None):
         """
         Asynchronously fetch gene neighborhoods from NCBI.
 
@@ -857,6 +851,16 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         ----------
         proteins: list of strings
           NCBI protein identifiers
+        ipgs : Pandas dataframe
+          This parameter may be used to avoid downloading IPGs
+          from NCBI. Example:
+
+          >>> from rotifer.db.ncbi import entrez
+          >>> from rotifer.db.ncbi import ftp
+          >>> ic = ncbi.IPGCursor(batch_size=1)
+          >>> gnc = ftp.GeneNeighborhoodCursor(progress=True)
+          >>> i = ic.fetchall(['WP_063732599.1'])
+          >>> n = gnc.fetchall(['WP_063732599.1'], ipgs=i)
 
         Returns
         -------
@@ -876,7 +880,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
                 logger.info(f'Downloading IPGs for {len(proteins)} proteins...')
             size = self.batch_size
             ic = entrez.IPGCursor(progress=self.progress, tries=self.tries, threads=self.threads)
-            ipgs = ic.fetch_all(list(proteins))
+            ipgs = ic.fetchall(list(proteins))
             if len(ic.missing):
                 self._add_to_missing(ic.missing.index.to_list(), np.nan, "No IPGs at NCBI")
         ipgs = ipgs[ipgs.pid.isin(proteins) | ipgs.representative.isin(proteins)]
@@ -913,7 +917,6 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         assemblies = ipgs[ipgs.assembly.isin(assemblies.assembly)]
 
         # Split jobs and execute
-        #last_block_id = 1
         todo = set(assemblies.assembly.unique())
         with ProcessPoolExecutor(max_workers=self.threads) as executor:
             if self.progress:
@@ -932,9 +935,6 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
                 for obj in data['result']:
                     found = self.getids(obj)
                     done = todo.intersection(found)
-                    if len(obj) > 0:
-                        obj.block_id = self.min_block_id
-                        self.min_block_id += 1
                     if self.progress and len(done) > 0:
                         p.update(len(done))
                     todo = todo - done
@@ -944,7 +944,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
                         self.missing.drop(found, axis=0, inplace=True)
                     yield obj
 
-    def fetch_all(self, proteins, ipgs=None, save=None, replace=True):
+    def fetchall(self, proteins, ipgs=None):
         """
         Fetch genomes.
 
@@ -958,7 +958,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         rotifer.genome.data.NeighborhoodDF
         """
         stack = []
-        for df in self.fetch_each(proteins, ipgs=ipgs, save=save, replace=replace):
+        for df in self.fetchone(proteins, ipgs=ipgs):
             stack.append(df)
         if stack:
             return pd.concat(stack, ignore_index=True)

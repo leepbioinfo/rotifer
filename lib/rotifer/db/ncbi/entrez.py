@@ -35,7 +35,7 @@ class SequenceCursor:
     Fetch a protein sequence
     >>> from rotifer.db.ncbi import entrez
     >>> eutils = entrez.SequenceCursor(database="protein")
-    >>> seqrec = eutils.fetch_all("YP_009724395.1")
+    >>> seqrec = eutils.fetchall("YP_009724395.1")
 
     Fetch several nucleotide entries
     >>> import sys
@@ -43,7 +43,7 @@ class SequenceCursor:
     >>> import rotifer.db.ncbi as ncbi
     >>> eutils = ncbi.SequenceCursor(database="nucleotide")
     >>> query = ['CP084314.1', 'NC_019757.1', 'AAHROG010000026.1']
-    >>> for seqrec in eutils.fetch_each(query):
+    >>> for seqrec in eutils.fetchone(query):
     >>>     print(SeqIO.write(seqrec, sys.stdout, "genbank")
 
     Parameters
@@ -174,7 +174,7 @@ class SequenceCursor:
                 stack.append(obj)
         return stack
 
-    def fetch_each(self,accessions):
+    def fetchone(self,accessions):
         """
         Asynchronously fetch sequences from NCBI.
 
@@ -222,7 +222,7 @@ class SequenceCursor:
                     todo = todo - done
                     yield obj
 
-    def fetch_all(self, accessions):
+    def fetchall(self, accessions):
         """
         Fetch all sequences from NCBI (blocking method).
         Note: input order is not preserved.
@@ -236,7 +236,7 @@ class SequenceCursor:
         -------
         List of Bio.SeqRecord objects
         """
-        return list(self.fetch_each(accessions))
+        return list(self.fetchone(accessions))
 
 class FastaCursor(SequenceCursor):
     def __init__(self, database="protein", progress=False, tries=3, batch_size=None, threads=10):
@@ -291,17 +291,17 @@ class IPGCursor(SequenceCursor):
         # Register all accessions found and return sliced DataFrame
         return [ x[1].copy() for x in ipg.groupby('id') ]
 
-    def fetch_each(self,accessions):
+    def fetchone(self,accessions):
         seen = set()
-        for ipg in super().fetch_each(accessions):
+        for ipg in super().fetchone(accessions):
             ipg = ipg[~ipg.id.isin(seen)]
             if len(ipg) == 0:
                 continue
             seen = seen.union(ipg.id)
             yield ipg
 
-    def fetch_all(self, accessions):
-        df = list(self.fetch_each(accessions))
+    def fetchall(self, accessions):
+        df = list(self.fetchone(accessions))
         if len(df) > 0:
             df = pd.concat(df, ignore_index=True)
         else:
@@ -334,8 +334,8 @@ class TaxonomyCursor(SequenceCursor):
         taxdf.rename({'Lineage':'classification', 'TaxId':'taxid'}, axis=1, inplace=1)
         return [taxdf]
 
-    def fetch_all(self, accessions):
-        df = list(self.fetch_each(accessions))
+    def fetchall(self, accessions):
+        df = list(self.fetchone(accessions))
         if len(df) > 0:
             df = pd.concat(df, ignore_index=True)
         else:
@@ -369,8 +369,8 @@ class NucleotideFeaturesCursor(SequenceCursor):
         stream = [ x[1].copy() for x in stream.groupby('nucleotide') ]
         return stream
 
-    def fetch_all(self, accessions):
-        df = list(self.fetch_each(accessions))
+    def fetchall(self, accessions):
+        df = list(self.fetchone(accessions))
         if len(df) > 0:
             df = pd.concat(df, ignore_index=True)
         else:
@@ -384,7 +384,7 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
     -----
     >>> from rotifer.db.ncbi import ftp
     >>> gfc = ftp.GeneNeighborhoodCursor(progress=True)
-    >>> df = gfc.fetch_all(["EEE9598493.1"])
+    >>> df = gfc.fetchall(["EEE9598493.1"])
 
     Parameters
     ----------
@@ -414,9 +414,6 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
                setting neighborhood boundaries
     eukaryotes : boolean, default False
       If set to True, neighborhood data for eukaryotic nucleotide sequences
-    min_block_id : int
-      Starting number for block_ids, useful if calling this method
-      multiple times
     exclude_type: list of strings
       List of names for the features that must be ignored
     autopid: boolean
@@ -441,7 +438,6 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
             min_block_distance = 0,
             strand = None,
             fttype = 'same',
-            min_block_id = 1,
             eukaryotes=False,
             exclude_type=['source','gene','mRNA'],
             autopid=False,
@@ -466,7 +462,6 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
         self.min_block_distance = min_block_distance
         self.strand = strand
         self.fttype = fttype
-        self.min_block_id = min_block_id
         self.eukaryotes = eukaryotes
         self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error","class"])
 
@@ -496,7 +491,7 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
         if isinstance(ipgs,types.NoneType):
             from rotifer.db.ncbi import entrez
             ic = entrez.IPGCursor(progress=False, tries=self.tries, batch_size=self.batch_size, threads=self.threads)
-            ipgs = ic.fetch_all(protein)
+            ipgs = ic.fetchall(protein)
         ipgs = ipgs[ipgs.id.isin(ipgs[ipgs.pid.isin(protein) | ipgs.representative.isin(protein)].id)]
         best = rdnu.best_ipgs(ipgs)
         best = best[best.nucleotide.notna()]
@@ -586,7 +581,6 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
                 min_block_distance = self.min_block_distance,
                 strand = self.strand,
                 fttype = self.fttype,
-                min_block_id = self.min_block_id
             )
             df['replaced'] = df.pid.replace(proteins)
             stack.append(df)
@@ -613,7 +607,7 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
         batch = [ batch[x:x+size] for x in range(0,len(batch),size) ]
         return batch
 
-    def fetch_each(self, proteins, ipgs=None, save=None, replace=True):
+    def fetchone(self, proteins, ipgs=None):
         """
         Asynchronously fetch gene neighborhoods from NCBI.
 
@@ -640,7 +634,7 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
                 logger.info(f'Downloading IPGs for {len(proteins)} proteins...')
             size = self.batch_size
             ic = entrez.IPGCursor(progress=self.progress, tries=self.tries, threads=self.threads)
-            ipgs = ic.fetch_all(list(proteins))
+            ipgs = ic.fetchall(list(proteins))
             if len(ic.missing):
                 self._add_to_missing(ic.missing.index.to_list(), np.nan, "No IPGs for nucleotides at NCBI")
         ipgs = ipgs[ipgs.pid.isin(proteins) | ipgs.representative.isin(proteins)]
@@ -654,7 +648,6 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
             return [seqrecords_to_dataframe([])]
 
         # Split jobs and execute
-        #last_block_id = 1
         todo = set(nucleotides.nucleotide.unique())
         with ProcessPoolExecutor(max_workers=self.threads) as executor:
             if self.progress:
@@ -673,9 +666,6 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
                 for obj in data['result']:
                     found = self.getids(obj)
                     done = todo.intersection(found)
-                    if len(obj) > 0:
-                        obj.block_id = self.min_block_id
-                        self.min_block_id += 1
                     if self.progress and len(done) > 0:
                         p.update(len(done))
                     todo = todo - done
@@ -685,7 +675,7 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
                         self.missing.drop(found, axis=0, inplace=True)
                     yield obj
 
-    def fetch_all(self, proteins, ipgs=None, save=None, replace=True):
+    def fetchall(self, proteins, ipgs=None):
         """
         Fetch all neighbors from nucleotide sequences.
 
@@ -699,7 +689,7 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
         rotifer.genome.data.NeighborhoodDF
         """
         stack = []
-        for df in self.fetch_each(proteins, ipgs=ipgs, save=save, replace=replace):
+        for df in self.fetchone(proteins, ipgs=ipgs):
             stack.append(df)
         if stack:
             return pd.concat(stack, ignore_index=True)

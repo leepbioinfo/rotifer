@@ -15,7 +15,7 @@ logger = rotifer.logging.getLogger(__name__)
 # Data
 _columns = ['nucleotide', 'start', 'end', 'strand', 'nlen', 'block_id', 'query', 'pid', 'type', 'plen', 'locus', 'seq_type', 'assembly', 'gene', 'origin', 'topology', 'product', 'taxid', 'organism', 'lineage', 'classification', 'feature_order', 'internal_id', 'is_fragment']
 
-def seqrecords_to_dataframe(seqrecs=None, exclude_type=[], autopid=False, assembly=None, codontable='Bacterial', block_id=-1):
+def seqrecords_to_dataframe(seqrecs=None, exclude_type=[], autopid=False, assembly=None, codontable='Bacterial'):
     '''
     Extract BioPython's SeqRecord features data to a Pandas dataframe
     Arguments:
@@ -29,7 +29,6 @@ def seqrecords_to_dataframe(seqrecs=None, exclude_type=[], autopid=False, assemb
           - 'copy', copy the locus_tag if there is no alternative splicing
 
       codontable   : Genetic code name for translating CDSs
-      block_id     : initial value of the default block_id
     '''
     import re
     import os
@@ -196,7 +195,7 @@ def seqrecords_to_dataframe(seqrecs=None, exclude_type=[], autopid=False, assemb
                     'end': l[1],
                     'strand': strand,
                     'nlen': nlen,
-                    'block_id': block_id,
+                    'block_id': seqrecord.id,
                     'query':0,
                     'pid': pid,
                     'type': feature_type,
@@ -220,8 +219,6 @@ def seqrecords_to_dataframe(seqrecs=None, exclude_type=[], autopid=False, assemb
             # Increment feature counters
             feature_order[feature_type] += 1
 
-        # Decrement block_id
-        block_id -= 1
         #END: for ft in seqrecord.features
     #END: for seqrecord in seqrecs
 

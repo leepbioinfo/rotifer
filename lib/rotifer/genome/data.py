@@ -65,7 +65,6 @@ class NeighborhoodDF(pd.DataFrame):
         df = df.astype(str)
 
         # Convert block id to numeric and other columns to string
-        df["block_id"] = pd.to_numeric(df["block_id"])
         to_str = ['plen', 'start', 'end', 'strand', 'query']
         for col in to_str:
             try:
@@ -454,7 +453,7 @@ class NeighborhoodDF(pd.DataFrame):
         dflim = dflim.merge(bidlim, left_on=['assembly'], right_on=['assembly'], how='left')
         return dflim
 
-    def vicinity(self, targets=['query == 1'], before=3, after=3, min_block_distance=0, fttype='same', min_block_id=0):
+    def vicinity(self, targets=['query == 1'], before=3, after=3, min_block_distance=0, fttype='same'):
         """
         Locate genomic regions that contain features selected by some criteria.
 
@@ -464,38 +463,34 @@ class NeighborhoodDF(pd.DataFrame):
         The user may choose a set of rows (targets) as anchors, whose neighbors will be
         evaluated by user-defined parameters, such as feature type, strand or distance.
 
-        Arguments:
-         - targets : (list of) boolean pd.Series or rules to select targets.
+        Parameters
+        ----------
+        targets: string, (list of) booleans or pd.Series
+          Rules used to identify target rows.
 
-            Rules will used identify target rows using Pandas's eval method.
+          Rules are based on Pandas's eval method or its results.
 
-            If all rules return True for a given row, the row is a target and
-            its neighbors will be identified.
+          If all rules return True for a given row, the row is a
+          target and its neighbors will be identified.
+        before: int
+          Keep at most this number of features *before* each target
+        after: int
+          Keep at most this number of features *after* each target
+        min_block_distance: int
+          Minimum distance between two blocks.
 
-         - before : keep at most this number of features, of the same type as the target,
-                    before each target
-         - after  : keep at most this number of features, of the same type as the target,
-                    after each target
-
-         - min_block_distance : minimum distance between two consecutive blocks
-                                Blocks separated by more features 
-
-         - fttype : how to process feature types of neighbors
-                    Supported values:
-                     - same : consider only features of the same type as the target
-                     - any  : ignore feature type and count all features when
-                              setting neighborhood boundaries
-
-         - min_block_id : starting number for block_ids, useful if calling this method
-                          eqeuntially through multiple rotifer.genome.data.NeighborhoodDF
-                          dataframes
-
-         - circular : whether to go around coordinate 1 in circular genomes (boolen)
+          Blocks that are separated by smaller number of features
+          will be merged into a single block,
+        fttype: str
+          How to count neighbors by feature type.
+          Supported values:
+          ```same```
+            Consider only features of the same type as the target
+          ```any```
+            Ignore feature type and count all neighboring features
         """
         import sys
         import numpy as np
-        if min_block_id > 0:
-            min_block_id -= 1
 
         # Build boolean pandas.Series to mark targets
         select = True
@@ -539,7 +534,7 @@ class NeighborhoodDF(pd.DataFrame):
             bid = bid | (blks.is_fragment & (blks.block_id != blks.block_id.shift(1)))
             bid = bid | (blks.type != blks.type.shift(1))
             bid = bid | ((blks.foup - blks.fodown.shift(1) - 1) > min_block_distance)
-            blks['block_id'] = bid.cumsum() + min_block_id
+            blks['block_id'] = bid.cumsum()
             blks = blks.groupby([*cols,'block_id']).agg({
                 'feature_order': lambda x: ", ".join(sorted(set([ str(y) for y in x]))),
                 'foup': min,
@@ -646,7 +641,7 @@ class NeighborhoodDF(pd.DataFrame):
         blks.drop_duplicates(inplace=True)
         return blks
 
-    def neighbors(self, targets=['query == 1'], before=3, after=3, min_block_distance=0, strand=None, fttype='same', min_block_id=1):
+    def neighbors(self, targets=['query == 1'], before=3, after=3, min_block_distance=0, strand=None, fttype='same'):
         """
         Find sets of rows, representing genomic regions, that are located near a set of targets.
 
@@ -685,9 +680,6 @@ class NeighborhoodDF(pd.DataFrame):
                      - any  : ignore feature type and count all features when
                               setting neighborhood boundaries
 
-         - min_block_id : starting number for block_ids, useful if calling this method
-                          eqeuntially through multiple rotifer.genome.data.NeighborhoodDF
-                          dataframes
         """
         import sys
         import numpy as np
@@ -712,7 +704,7 @@ class NeighborhoodDF(pd.DataFrame):
 
         # Initialize dataframe for each region (blocks)
         select = self.filter(['assembly','nucleotide','internal_id']).assign(query=select)
-        blks = self.vicinity(select['query'], before, after, min_block_distance, fttype, min_block_id)
+        blks = self.vicinity(select['query'], before, after, min_block_distance, fttype)
         if blks.empty:
             return seqrecords_to_dataframe([])
 
@@ -741,13 +733,19 @@ class NeighborhoodDF(pd.DataFrame):
             copy['block_id'] = (~tmp).cumsum()
 
             # Cleanup
-            valid = copy.groupby('block_id').agg({'query':'sum'}).query('query > 0').block_id
+            valid = set(copy.groupby('block_id').agg({'query':'sum'}).query('query > 0').index)
             copy = copy.query('block_id in @valid')
             copy['block_id'] = (~(copy.block_id == copy.shift(1).block_id)).cumsum()
 
         # Set within block row number
         copy.reset_index(inplace=True, drop=True)
         copy['internal_id'] = copy.index.to_series()
+
+        # Convert block_ids to universal identifiers: nucleotide:start-end
+        bid = copy.groupby('block_id').agg({'nucleotide':'first','start':'first','end':'last'})
+        bid = bid.nucleotide + ":" + bid.start.astype(str) + "-" + bid.end.astype(str)
+        bid = bid.to_dict()
+        copy.block_id = copy.block_id.map(bid)
 
         # Return
         return copy
