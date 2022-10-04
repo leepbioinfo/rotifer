@@ -212,8 +212,8 @@ class NeighborhoodDF(pd.DataFrame):
         g_df['relative_block_id'] = g_df.block_id/lbid *100
         g_df['relative_pid'] = g_df.pid/lpid * 100
         g_df.rename({'block_id':'block_id_count', 'pid':'pid_count'}, axis=1)
-        print(f'Total of block_id in selection:{lbid}')
-        print(f'Total of pid in selection :{lpid}')
+        logger.info(f'Total of block_id in selection:{lbid}')
+        logger.info(f'Total of pid in selection :{lpid}')
 
         return g_df
 
@@ -501,13 +501,13 @@ class NeighborhoodDF(pd.DataFrame):
                 try:
                     select &= self.eval(code)
                 except:
-                    print(f'Rule {code} failed', file=sys.stderr)
+                    logger.error(f'Rule {code} failed', file=sys.stderr)
             elif isinstance(code,pd.Series):
                 select &= code
 
         # Find targets and their neighborhood
         if (not isinstance(select,pd.Series)) or (select.sum() == 0):
-            print(f'No anchors to search for neighbors were found! Revise your list of targets!')
+            logger.error(f'No anchors to define neighborhoods! Targets: {targets}')
             return pd.DataFrame()
 
         # Make sure data is sorted and has compatible internal ids
@@ -558,7 +558,7 @@ class NeighborhoodDF(pd.DataFrame):
                 if tooclose.any():
                     bidmaxIndex = blks[blks.block_id.isin(circular[tooclose].bidmax)].index
                     bidminIndex = blks[blks.block_id.isin(circular[tooclose].bidmin)].index
-                    #print("First and last are too close:\n"+blks.iloc[bidminIndex.append(bidmaxIndex)].to_string()+"\n")
+                    #logger.debug("First and last are too close:\n"+blks.iloc[bidminIndex.append(bidmaxIndex)].to_string()+"\n")
                     blks.loc[bidminIndex,'foup']     = blks.loc[bidminIndex,'fomin'] # Set foup   = fomin
                     blks.loc[bidmaxIndex,'fodown']   = blks.loc[bidmaxIndex,'fomax'] # Set fodown = fomax
                     blks.loc[bidmaxIndex,'block_id'] = blks.loc[bidminIndex,'block_id'].to_list() # Set block_ids to be the same
@@ -570,7 +570,7 @@ class NeighborhoodDF(pd.DataFrame):
                 overrun = (circular.foup < circular.fomin) & (circular.fodown > circular.fomax)
                 if overrun.any():
                     overIndex = blks[blks.block_id.isin(circular[overrun].bidmin)].index
-                    #print("Overrun:\n"+blks.iloc[overIndex].to_string()+"\n")
+                    #logger.debug("Overrun:\n"+blks.iloc[overIndex].to_string()+"\n")
                     blks.loc[overIndex,'foup']   = blks.loc[overIndex,'fomin'] # Set foup   = fomin
                     blks.loc[overIndex,'fodown'] = blks.loc[overIndex,'fomax'] # Set fodown = fomax
                     blks.loc[overIndex,'origin'] = 2
@@ -582,7 +582,7 @@ class NeighborhoodDF(pd.DataFrame):
                     beforeOriginIndex = blks[blks.block_id.isin(circular[startsBefore].bidmin)].index
                     blks.loc[beforeOriginIndex,'origin'] = 1
                     beforeOrigin = blks.iloc[beforeOriginIndex].copy()
-                    #print("Starts before origin:\n"+beforeOrigin.to_string()+"\n")
+                    #logger.debug("Starts before origin:\n"+beforeOrigin.to_string()+"\n")
                     beforeOrigin.foup   = beforeOrigin.fomax + beforeOrigin.foup - beforeOrigin.fomin + 1
                     beforeOrigin.fodown = beforeOrigin.fomax
                     blks.loc[beforeOriginIndex,'foup'] = blks.loc[beforeOriginIndex,'fomin'] # Set foup = fomin
@@ -595,7 +595,7 @@ class NeighborhoodDF(pd.DataFrame):
                     afterOriginIndex = blks[blks.block_id.isin(circular[endsAfter].bidmax)].index
                     blks.loc[afterOriginIndex,'origin'] = 1
                     afterOrigin = blks.iloc[afterOriginIndex].copy()
-                    #print("Ends after origin:\n"+afterOrigin.to_string()+"\n")
+                    #logger.debug("Ends after origin:\n"+afterOrigin.to_string()+"\n")
                     afterOrigin.foup   = afterOrigin.fomin
                     afterOrigin.fodown = afterOrigin.fomin + afterOrigin.fodown - afterOrigin.fomax - 1
                     blks.loc[afterOriginIndex,'fodown'] = blks.loc[afterOriginIndex,'fomax'] # Set fodown = fomax
@@ -629,12 +629,12 @@ class NeighborhoodDF(pd.DataFrame):
 
         # If type is to be ignored, all analysis should focus on internal_ids
         elif (fttype == 'any'):
-            print(f'Unsuported fttype {fttype}', file=sys.stderr)
+            logger.error(f'Unsuported fttype {fttype}', file=sys.stderr)
             return pd.DataFrame()
 
         # Unkown fttype
         else:
-            print(f'Unknown fttype {fttype}', file=sys.stderr)
+            logger.error(f'Unknown fttype {fttype}', file=sys.stderr)
             return pd.DataFrame()
 
         # Return a summary of all regions
@@ -693,13 +693,13 @@ class NeighborhoodDF(pd.DataFrame):
                 try:
                     select &= self.eval(code)
                 except:
-                    print(f'Rule {code} failed', file=sys.stderr)
+                    logger.error(f'Rule {code} failed', file=sys.stderr)
             elif isinstance(code,pd.Series):
                 select &= code
 
         # Find targets and their neighborhood
         if (not isinstance(select,pd.Series)) or (select.sum() == 0):
-            print(f'No anchors to search for neighbors were found! Revise your list of targets!')
+            logger.error(f'No anchors to search for neighbors were found! Revise your list of targets!')
             return seqrecords_to_dataframe([])
 
         # Initialize dataframe for each region (blocks)
@@ -762,7 +762,7 @@ class NeighborhoodDF(pd.DataFrame):
         t2 = viz2.merge(viz2, on='t')
         t2.block_id_x, t2.block_id_y = np.where(t2.block_id_x > t2.block_id_y , [t2.block_id_x, t2.block_id_y], [t2.block_id_y, t2.block_id_x])
         t2 = t2.drop_duplicates(['block_id_x', 'block_id_y'])
-        print(f'tamanho t2 depois da ordenacao:  {len(t2)}')
+        logger.info(f'tamanho t2 depois da ordenacao:  {len(t2)}')
         t2 = t2[t2.block_id_x != t2.block_id_y]
         t2['uni'] = t2.apply(lambda x: x.vizi_x.union(x.vizi_y), axis=1)
         t2['inter'] = t2.apply(lambda x: x.vizi_x.intersection(x.vizi_y), axis=1)

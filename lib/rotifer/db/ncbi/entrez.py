@@ -294,10 +294,12 @@ class IPGCursor(SequenceCursor):
     def fetchone(self,accessions):
         seen = set()
         for ipg in super().fetchone(accessions):
-            ipg = ipg[~ipg.id.isin(seen)]
+            ids = self.getids(ipg).intersection(accessions)
+            if seen.issuperset(ids):
+                continue
             if len(ipg) == 0:
                 continue
-            seen = seen.union(ipg.id)
+            seen.update(self.getids(ipg))
             yield ipg
 
     def fetchall(self, accessions):
@@ -466,9 +468,14 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
         self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error","class"])
 
     def _pids(self, obj):
-        ids = obj.melt(id_vars=['nucleotide'], value_vars=['pid','replaced'], value_name='pid', var_name='type')
-        ids = set(ids.dropna().pid)
-        return ids
+        columns = ['pid']
+        if 'replaced' in obj.columns:
+            columns.append('replaced')
+        ids = obj.melt(id_vars=['nucleotide'], value_vars=columns, value_name='id', var_name='type')
+        ids.drop('type', axis=1, inplace=True)
+        ids.set_index('nucleotide', inplace=True)
+        ids.drop_duplicates(inplace=True)
+        return ids.id.tolist()
 
     def _add_to_missing(self, accessions, assembly, error):
         err = [False,False,assembly,error,__name__]
@@ -676,10 +683,8 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
                     if self.progress and len(done) > 0:
                         p.update(len(done))
                     todo = todo - done
-                    completed.update(set(obj.pid.dropna()).union(obj.replaced.dropna()))
-                    found = completed.intersection(self.missing.index)
-                    if found:
-                        self.missing.drop(found, axis=0, inplace=True)
+                    completed.update(self._pids(obj))
+                    self.missing.drop(completed, axis=0, inplace=True, errors='ignore')
                     yield obj
 
     def fetchall(self, proteins, ipgs=None):
