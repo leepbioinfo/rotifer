@@ -32,7 +32,7 @@ from tqdm import tqdm
 import rotifer
 from rotifer import GlobalConfig
 from rotifer.db.core import BaseCursor
-import rotifer.db.local as localdb
+from rotifer.db.sql import sqlite3 as rdss
 from rotifer.core.functions import findDataFiles
 from rotifer.core.functions import loadConfig
 from rotifer.genome.utils import seqrecords_to_dataframe
@@ -163,8 +163,8 @@ class GeneNeighborhoodCursor(BaseCursor):
 
     Internal state attributes
     -------------------------
-    Objects of this class modify two main read/write attributes
-    when fetch methods are called:
+    Objects of this class modify the folllowing read/write
+    attributes when fetch methods are called:
     * missing
       A Pandas DataFrame describing errors and messages for
       failed attempts to download gene neighborhoods.
@@ -203,7 +203,7 @@ class GeneNeighborhoodCursor(BaseCursor):
             entrez.GeneNeighborhoodCursor()
         ]
         if save:
-            cursor = localdb.GeneNeighborhoodCursor(save, replace=replace)
+            cursor = rdss.GeneNeighborhoodCursor(save, replace=replace)
             self._cursors.insert(0,cursor)
 
         # Setup simple attributes
@@ -244,15 +244,39 @@ class GeneNeighborhoodCursor(BaseCursor):
             self.missing.loc[x] = err
 
     def __getitem__(self, protein, ipgs=None):
-       """
-       Dictionary-like access to gene neighbors.
-       """
-       result = None
-       for cursor in self._cursors:
-           result = cursor.__getitem__(protein, ipgs=ipgs)
-           if not isinstance(result,types.NoneType) and len(result) > 0:
-               break
-       return result
+        """
+        Dictionary-like access to gene neighbors.
+
+        Usage
+        -----
+        >>> 
+        Parameters
+        ----------
+        proteins: list of strings
+          Database identifiers.
+        ipgs : Pandas dataframe
+          This parameter may be used to avoid downloading IPGs
+          from NCBI several times. Example:
+
+          >>> from rotifer.db.ncbi import entrez
+          >>> import rotifer.db.ncbi as ncbi
+          >>> ic = entrez.IPGCursor(batch_size=1)
+          >>> gnc = ncbi.GeneNeighborhoodCursor(progress=True)
+          >>> i = ic.fetchall(['WP_063732599.1'])
+          >>> n = gnc.__getitem__(['WP_063732599.1'], ipgs=i)
+
+        Returns
+        -------
+        Generator of rotifer.genome.data.NeighborhoodDF
+         """
+        result = seqrecords_to_dataframe([])
+        for cursor in self._cursors:
+            result = cursor.__getitem__(protein, ipgs=ipgs)
+            if not isinstance(result,types.NoneType) and len(result) > 0:
+                if self.save and (cursor != self._cursors[0]):
+                    self._cursors[0].insert(result)
+                break
+        return result
 
     def fetchone(self, proteins, ipgs=None):
         """
@@ -267,11 +291,12 @@ class GeneNeighborhoodCursor(BaseCursor):
           from NCBI several times. Example:
 
           >>> from rotifer.db.ncbi import entrez
-          >>> from rotifer.db.ncbi import ftp
-          >>> ic = ncbi.IPGCursor(batch_size=1)
-          >>> gnc = ftp.GeneNeighborhoodCursor(progress=True)
+          >>> import rotifer.db.ncbi as ncbi
+          >>> ic = entrez.IPGCursor(batch_size=1)
+          >>> gnc = ncbi.GeneNeighborhoodCursor(progress=True)
           >>> i = ic.fetchall(['WP_063732599.1'])
-          >>> n = gnc.fetchall(['WP_063732599.1'], ipgs=i)
+          >>> for x in gnc.fetchone(['WP_063732599.1'], ipgs=i):
+          >>>    do_something(x)
 
         Returns
         -------
@@ -333,9 +358,9 @@ class GeneNeighborhoodCursor(BaseCursor):
           from NCBI several times. Example:
 
           >>> from rotifer.db.ncbi import entrez
-          >>> from rotifer.db.ncbi import ftp
-          >>> ic = ncbi.IPGCursor(batch_size=1)
-          >>> gnc = ftp.GeneNeighborhoodCursor(progress=True)
+          >>> import rotifer.db.ncbi as ncbi
+          >>> ic = entrez.IPGCursor(batch_size=1)
+          >>> gnc = ncbi.GeneNeighborhoodCursor(progress=True)
           >>> i = ic.fetchall(['WP_063732599.1'])
           >>> n = gnc.fetchall(['WP_063732599.1'], ipgs=i)
 

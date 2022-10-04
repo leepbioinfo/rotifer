@@ -47,7 +47,7 @@ class BaseCursor:
         """
         return NotImplementedError
 
-    def fetch_each(self, accessions, *args, **kwargs):
+    def fetchone(self, accessions, *args, **kwargs):
         """
         Asynchronously fetch sequences data from a database.
         Note: input order is not preserved.
@@ -63,7 +63,7 @@ class BaseCursor:
         """
         return NotImplementedError
 
-    def fetch_all(self, accessions, *args, **kwargs):
+    def fetchall(self, accessions, *args, **kwargs):
         """
         Fetch all data.
         Note: input order is not preserved.
@@ -191,7 +191,7 @@ class SimpleParallelProcessCursor(BaseCursor):
         lists of length equal to ```batch_size``` and returns
         a generator.
 
-        This method is called by fetch_each() to define the datasets
+        This method is called by fetchone() to define the datasets
         processed by worker() in each parallel batch.
         """
         from rotifer.devel.alpha.gian_func import chunks
@@ -200,7 +200,7 @@ class SimpleParallelProcessCursor(BaseCursor):
             size = max(int(len(accessions) / self.threads),1)
         return chunks(list(accessions), size)
 
-    def fetch_each(self, accessions, *args, **kwargs):
+    def fetchone(self, accessions, *args, **kwargs):
         """
         Asynchronously fetch genomes in random order.
 
@@ -237,7 +237,7 @@ class SimpleParallelProcessCursor(BaseCursor):
                     todo = todo - done
                     yield obj
 
-    def fetch_all(self, accessions, *args, **kwargs):
+    def fetchall(self, accessions, *args, **kwargs):
         """
         Fetch all data.
         Note: input order is not preserved.
@@ -247,7 +247,7 @@ class SimpleParallelProcessCursor(BaseCursor):
         accessions: list of strings
          Database entry identifiers 
         """
-        return list(self.fetch_each(accessions, *args, **kwargs))
+        return list(self.fetchone(accessions, *args, **kwargs))
 
 if __name__ == '__main__':
     pass

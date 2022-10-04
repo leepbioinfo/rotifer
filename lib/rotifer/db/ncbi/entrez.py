@@ -465,6 +465,11 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
         self.eukaryotes = eukaryotes
         self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error","class"])
 
+    def _pids(self, obj):
+        ids = obj.melt(id_vars=['nucleotide'], value_vars=['pid','replaced'], value_name='pid', var_name='type')
+        ids = set(ids.dropna().pid)
+        return ids
+
     def _add_to_missing(self, accessions, assembly, error):
         err = [False,False,assembly,error,__name__]
         if "Eukaryotic" in error:
@@ -566,6 +571,8 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
         objlist = pd.concat(objlist, ignore_index=True)
 
         # Return data
+        if len(objlist) > 0:
+            self.missing.drop(self._pids(objlist), axis=0, inplace=True, errors='ignore')
         return objlist
 
     def parser(self, stream, accession, proteins):
