@@ -51,7 +51,7 @@ def proteins(query, methods=['esl_sfetch','entrez'], local_database_path=os.path
             cursor = localDB.EaselFastaCursor(database_path=local_database_path, batch_size=batch_size, threads=threads)
         elif method == 'entrez':
             cursor = entrez.FastaCursor(database=entrez_database, batch_size=batch_size, threads=threads, tries=tries)
-        for s in cursor.fetch_each(targets):
+        for s in cursor.fetchone(targets):
             result.append(s)
         targets = cursor.missing
     if targets:
