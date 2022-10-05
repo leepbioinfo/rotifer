@@ -235,10 +235,9 @@ class GeneNeighborhoodCursor(BaseCursor):
             ipgs = ipgs.melt(id_vars=['id','assembly'], value_vars=['pid','representative'], var_name="type", value_name='pid')
             ipgs.drop_duplicates(inplace=True)
             ipgs.rename({'id':'ipg','pid':'id'}, axis=1, inplace=True)
-            indb = ipgs[~ipgs.id.isin(found.id)].id
-            ipgs = ipgs[~ipgs.id.isin(indb)]
             notinipgs = missing - set(ipgs.id)
             if len(notinipgs) > 0:
+                logger.critical(f"Missing: {missing}")
                 self._add_to_missing(notinipgs,np.NaN,"No IPG")
                 missing = missing - notinipgs
             more = self._fetch_from_sql(ipgs.id.unique().tolist())

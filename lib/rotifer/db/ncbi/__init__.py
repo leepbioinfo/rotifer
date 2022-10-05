@@ -335,10 +335,11 @@ class GeneNeighborhoodCursor(BaseCursor):
             if len(proteins) == 0:
                 break
             if reset_input:
-                lost = 'not noipgs'
-                if self.eukaryotes:
-                    lost += ' and not eukaryote'
-                proteins = set(cursor.missing.query(f'{lost}').index)
+                lost = 'noipgs'
+                if not self.eukaryotes:
+                    lost += ' or eukaryote'
+                logger.critical(f'Query: not ({lost})')
+                proteins = set(cursor.missing.query(f'not ({lost})').index)
             reset_input = True
             for result in cursor.fetchone(proteins, ipgs=ipgs):
                 if self.save and (cursor != self._cursors[0]):
