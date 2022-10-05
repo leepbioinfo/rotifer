@@ -492,6 +492,7 @@ class GenomeCursor(rotifer.db.core.SimpleParallelProcessCursor):
         for s in SeqIO.parse(stream,"genbank"):
             s.assembly = accession
             stack.append(s)
+        stream.close()
         return stack
 
     def worker(self,accessions):
@@ -569,15 +570,16 @@ class GenomeFeaturesCursor(GenomeCursor):
 
     def parser(self, stream, accession):
         from Bio import SeqIO
-        stream = SeqIO.parse(stream,"genbank")
-        stream = seqrecords_to_dataframe(
-            stream,
+        data = SeqIO.parse(stream,"genbank")
+        data = seqrecords_to_dataframe(
+            data,
             exclude_type = self.exclude_type,
             autopid = self.autopid,
             assembly = accession,
             codontable = self.codontable,
         )
-        return stream
+        stream.close()
+        return data
 
     def worker(self, accessions):
         stack = []
@@ -822,17 +824,17 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         return cursor.open_genome(accession)
 
     def parser(self, stream, accession, proteins):
-        stream = super().parser(stream, accession)
-        stream = stream.neighbors(
-            stream[self.column].isin(proteins.keys()),
+        data = super().parser(stream, accession)
+        data = data.neighbors(
+            data[self.column].isin(proteins.keys()),
             before = self.before,
             after = self.after,
             min_block_distance = self.min_block_distance,
             strand = self.strand,
             fttype = self.fttype,
         )
-        stream['replaced'] = stream.pid.replace(proteins)
-        return stream
+        data['replaced'] = data.pid.replace(proteins)
+        return data
 
     def worker(self, chunk):
         result = []
