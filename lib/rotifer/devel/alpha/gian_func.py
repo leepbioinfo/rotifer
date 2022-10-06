@@ -321,3 +321,87 @@ def add_arch_to_df(df):
     return df
 
 
+def annotate_seqobj(seqobj,df,cnt='profiledb'):
+    '''
+    Add annotation to seqobject tax,clusters,compact_neighborhood 
+    '''
+    df = df.copy() 
+    seqobj = seqobj.copy()
+    accs = seqobj.df.id.to_list()
+    cn = df[df.block_id.isin(df.query('pid in @accs').block_id)].compact_neighborhood(cnt)
+    seqobj.df = seqobj.df.merge(df.query('pid in @accs')[['pid','block_id','profiledb', 'pfam', 'c80e3', 'c80i70']].rename({'pid':'id'},axis=1).set_index('block_id').join(cn), on='id', how='left')
+
+    return seqobj
+
+
+
+def psiblast(acc,db='nr.50', cpu=96):
+    '''
+    Psiblast it can accept sequence object. 
+    '''
+
+    import tempfile
+    import subprocess
+    from subprocess import Popen, PIPE, STDOUT
+    from rotifer.devel.beta.sequence import sequence as sequence
+    import os
+    import pandas as pd
+    cols =['hit','query','hitstart','hitend','evalue','querycoverage','querystart','queryend','iteration', 'bitscore' ,'length']
+    if db.startswith('nr'):
+        db = f'{os.environ["FADB"]}/nr/{db}.mmseqs.fa'
+    else:
+        db = f'{os.environ["FADB"]}/all.fa'
+
+    cwd = os.getcwd()
+
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        # temporary save fasta sequence file
+        if isinstance (acc, sequence):
+            acc.to_file(f'{tmpdirname}/seqfile') 
+            Popen(f'splishpsi -a {cpu} -in_msa {tmpdirname}/seqfile -d {db} > {tmpdirname}/out' , stdout=PIPE,shell=True).communicate()
+            Popen(f'blast2table {tmpdirname}/out > {tmpdirname}/out.tsv' , stdout=PIPE,shell=True).communicate()
+            t = pd.read_csv(f'{tmpdirname}/out.tsv', sep='\t', names=cols)
+            with open(f'{tmpdirname}/out') as f:
+                    blast_r = f.read()
+        
+    return (t, blast_r) 
+
+
+
+def search2aln(df, coverage=50, evalue=1e-3, arch=None):
+    import os
+    import tempfile
+    import subprocess
+    from subprocess import Popen, PIPE, STDOUT
+    from rotifer.devel.beta.sequence import sequence as sequence
+    import pandas as pd
+    if coverage > 1:
+        coverage = coverage/100
+    '''
+    From a search tabular file, filter by cov, and evalue to make a aln object
+    '''
+    df = df.query(f'evalue <= {evalue} and querycoverage > {coverage}')
+    seqobj = sequence(df.hit.drop_duplicates().to_list())
+    if arch == 'profiledb':
+        arch = ' '
+    if arch:
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            seqobj.to_file(f'{tmpdirname}/fasta')
+            Popen(f'cat {tmpdirname}/fasta|splishrps {arch}|rps2arch -pcut 0.001 -overlap 0.03 > {tmpdirname}/arch', stdout=PIPE,shell=True).communicate()
+            archdf = pd.read_csv(f'{tmpdirname}/arch',sep="\t", names=['id', 'arch', 'position'])
+
+            
+
+    seqobj.df = seqobj.df.merge(df[['hit','evalue','hitstart','hitend']].rename({'hit':'id'},axis=1), how='left')
+    seqobj.df.sequence = seqobj.df.apply(lambda x: x.sequence[x.hitstart:x.hitend], axis=1)
+    seqobj = seqobj.align()
+    seqobj.df = seqobj.df.merge(df[['hit','evalue','hitstart','hitend']].rename({'hit':'id'},axis=1), how='left')
+    seqobj = seqobj.sort(['evalue'])
+    if arch:
+        seqobj.df = seqobj.df.merge(archdf, how='left')
+
+    seqobj.df.id = seqobj.df.apply(lambda x: f'{x.id}/{x.hitstart}-{x.hitend}', axis=1)
+
+    return seqobj
+
+

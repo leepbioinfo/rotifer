@@ -1691,6 +1691,55 @@ class sequence:
         )
         #if whant to send to latex, replace set_stick... to:to_latex(environment='longtable', convert_css=True)
         return df_style
+
+
+    def manual_edit(self):
+        """
+        Search the alignment against a HMM databases using hhsearch.
+
+        Parameters
+        ----------
+        databases : list of strings, default ['pfam','pdb70']
+            List of HMM databases to include in the search
+        database_path : string, default is ROTIFER_DATA/hhsuite
+            Path to the directory where the HMM databases are stored
+        view : bool, default True
+
+        Returns
+        -------
+            A tuple of two elements:
+            - The HHsearch output as a string
+            - HHsearch output as a Pandas DataFrame
+              See rotifer.io.hhsuite
+
+        See also
+        --------
+            rotifer environment configuration
+
+        Examples
+        --------
+        Load alignment in multi-FASTA format and compare it to Pfam
+
+        >>> aln = sequence("myaln.aln")
+        >>> (hhout,hhdf) = aln.hhsearch(databases=['pfam'])
+        """
+        import tempfile
+        from subprocess import Popen, PIPE, STDOUT
+        aln = self.copy()
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            aln.df.to_csv(f'{tmpdirname}/seqdf.fa', sep="\t", index=None,encoding="utf-8" )
+            print ("Open VMI to edit your file.")
+            if os.system(f'vim {tmpdirname}/seqdf.fa') != 0:
+                        raise TryNext()
+            tmpdf = pd.read_csv(f'{tmpdirname}/seqdf.fa', sep="\t")
+            aln.df = tmpdf
+        
+        return aln
+
+
+
+
+
     ## Class methods
 
     @classmethod
