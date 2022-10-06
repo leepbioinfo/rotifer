@@ -282,3 +282,42 @@ def hhr_to_aln(seqobj, hhr, database=False):
     # This is an imporvisation that will overpass it, but with error in annotation!!
     hhr_nolr = hhr_nolr[hhr_nolr.end > hhr_nolr.start]
     return hhr_nolr
+
+
+
+def add_arch_to_df(df):
+    '''
+    Add architecture and clusters info to a neighborhood df
+    '''
+
+    import tempfile
+    import subprocess
+    from subprocess import Popen, PIPE, STDOUT
+    from rotifer.devel.beta.sequence import sequence as sequence
+    import os
+    import pandas as pd
+    df = df.copy() 
+    cwd = os.getcwd()
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        # temporary save fasta sequence file
+        sequence(
+                df.query(
+                    'type =="CDS"'
+                    ).pid.dropna().drop_duplicates().to_list()
+                ).to_file(f'{tmpdirname}/seqfile') 
+        
+
+        os.chdir(tmpdirname)
+        os.makedirs('tmpd')
+        Popen(f'/home/nicastrogg/bin/scanseqs.nih.sh tmp seqfile' , stdout=PIPE,shell=True).communicate()
+        info = pd.read_csv(f'tmp.c100i100.tsv', sep='\t', names=['c100i100', 'pid'])
+        info = info.merge(pd.read_csv(f'tmp.c80i70.tsv', sep='\t', names=['c80i70', 'c100i100']), how="left")
+        info = info.merge(pd.read_csv(f'tmp.c80e3.tsv', sep='\t', names=['c80e3', 'c80i70']), how="left")
+        info = info.merge(pd.read_csv(f'tmp.query.profiledb.rps.arch', sep='\t', names=['c100i100', 'profiledb'], usecols=[0,1], skiprows=[0]), how="left")
+        info = info.merge(pd.read_csv(f'tmp.query.pfam.rps.arch', sep='\t', names=['c100i100', 'pfam'], usecols=[0,1], skiprows=[0]), how="left")
+        df = df.merge(info, how='left')
+        os.chdir(cwd)
+        
+    return df
+
+
