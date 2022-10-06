@@ -49,8 +49,8 @@ class GeneNeighborhoodCursor(BaseCursor):
     Using the dictionary-like interface, fetch the gene
     neighborhood around the gene encoding a target protein:
 
-    >>> import rotifer.db.local as localdb
-    >>> gnc = localdb.GeneNeighborhoodCursor("neighbors.sqlite3")
+    >>> from rotifer.db.sql import sqlite3 as rdss
+    >>> gnc = rdss.GeneNeighborhoodCursor("neighbors.sqlite3")
     >>> df = gnc["EEE9598493.1"]
 
     Fetch all gene neighborhoods for a sample of proteins:
@@ -178,6 +178,7 @@ class GeneNeighborhoodCursor(BaseCursor):
         if os.path.exists(self.path) and self.replace:
             os.remove(self.path)
         self._dbconn = sqlite3.connect(self.path)
+        self._dbconn.execute('CREATE TEMPORARY TABLE IF NOT EXISTS queries (id)')
 
     def __setattr__(self,name,value):
         super().__setattr__(name,value)
@@ -207,12 +208,16 @@ class GeneNeighborhoodCursor(BaseCursor):
     def _fetch_from_sql(self, accessions):
         if not self._has_table("neighborhoods"):
             return seqrecords_to_dataframe([])
+        cursor = self._dbconn.cursor()
+        cursor.executemany("INSERT INTO queries VALUES (?)",[ (x,) for x in list(accessions) ])
+        self._dbconn.commit()
         sql = []
         for col in self.column:
-            sql.append(" or ".join([ f"n1.{col} = '{x}'" for x in accessions ]))
-        sql = " or ".join(sql)
-        sql = f'SELECT n2.* FROM neighborhoods as n1 inner join neighborhoods as n2 using (block_id) WHERE {sql}'
-        return NeighborhoodDF(pd.read_sql(sql, self._dbconn))
+            sql.append(f'SELECT n2.* FROM queries as q inner join neighborhoods as n on (q.id = n.{col}) inner join neighborhoods as n2 using (block_id)')
+        sql = " UNION ".join(sql)
+        df = NeighborhoodDF(pd.read_sql(sql, self._dbconn))
+        self._dbconn.execute(f'DELETE FROM queries')
+        return df
 
     def __getitem__(self, accession, ipgs=None):
         """
@@ -235,22 +240,26 @@ class GeneNeighborhoodCursor(BaseCursor):
             ipgs = ipgs.melt(id_vars=['id','assembly'], value_vars=['pid','representative'], var_name="type", value_name='pid')
             ipgs.drop_duplicates(inplace=True)
             ipgs.rename({'id':'ipg','pid':'id'}, axis=1, inplace=True)
-            notinipgs = missing - set(ipgs.id)
-            if len(notinipgs) > 0:
-                logger.critical(f"Missing: {missing}")
-                self._add_to_missing(notinipgs,np.NaN,"No IPG")
-                missing = missing - notinipgs
+            storedIPGs = ipgs[ipgs.ipg.isin(ipgs[ipgs.id.isin(found.id)].ipg)]
+            missing = missing - set(storedIPGs.id)
+            ipgs = ipgs[~ipgs.ipg.isin(storedIPGs.ipg)]
             more = self._fetch_from_sql(ipgs.id.unique().tolist())
             moreids = more.melt(id_vars=["assembly"], value_vars=self.column, var_name="type", value_name="id")
             stored = pd.concat([stored,more])
-            found = pd.concat([found,moreids])
+            found = pd.concat([found,moreids], ignore_index=True)
             missing = missing - set(found.id)
+            notinipgs = missing - set(ipgs.id)
+            if len(notinipgs) > 0:
+                self._add_to_missing(notinipgs,np.NaN,"No IPG")
+                missing = missing - notinipgs
+            drop = set()
             for lost in missing:
-                a = ipgs.loc[igs.id == lost,'id']
+                a = ipgs.loc[ipgs.id == lost,'assembly']
                 if len(a):
                     a = a.iloc[0]
                     self._add_to_missing(lost, a, "Not in local storage")
-                    missing.discard(a)
+                drop.add(lost)
+            missing = missing - drop
 
         # Verify all possible IDs
         if len(missing) > 0:

@@ -813,7 +813,6 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
     def fetcher(self, accession):
         import rotifer.db.ncbi.ftp as ncbiftp
         cursor = ncbiftp.cursor(tries=1, cache=self.cache)
-        ok = True
         if not self.eukaryotes:
             from rotifer.db.ncbi import entrez
             contigs, report = cursor.genome_report(accession)
