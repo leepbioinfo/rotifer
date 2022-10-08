@@ -1726,15 +1726,19 @@ class sequence:
         import tempfile
         from subprocess import Popen, PIPE, STDOUT
         aln = self.copy()
+        alndf = aln.df.fillna('X')
+        for x in list(alndf.dtypes.where(lambda x: x=='object').dropna().index):
+            alndf[x] = alndf[x].str.pad(alndf[x].str.len().max(), side="right")
         with tempfile.TemporaryDirectory() as tmpdirname:
-            aln.df.to_csv(f'{tmpdirname}/seqdf.fa', sep="\t", index=None,encoding="utf-8" )
+            alndf.to_csv(f'{tmpdirname}/seqdf.fa',index=False, sep="\t")
             print ("Open VMI to edit your file.")
             if os.system(f'vim {tmpdirname}/seqdf.fa') != 0:
                         raise TryNext()
             tmpdf = pd.read_csv(f'{tmpdirname}/seqdf.fa', sep="\t")
+            tmpdf = tmpdf[tmpdf['type'].str.contains("sequence")]
             aln.df = tmpdf
         
-        return aln
+        return aln 
 
 
 
