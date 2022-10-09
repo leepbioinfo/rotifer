@@ -1693,7 +1693,7 @@ class sequence:
         return df_style
 
 
-    def edit(self):
+    def edit(self, consensus=True, scale=True):
         """
         Search the alignment against a HMM databases using hhsearch.
 
@@ -1726,10 +1726,18 @@ class sequence:
         import tempfile
         from subprocess import Popen, PIPE, STDOUT
         aln = self.copy()
-        aln = aln.add_consensus(separator='=')
         result = self.copy()
+        if consensus:
+            aln = aln.add_consensus(separator='=')
+
+
         alndf = aln.df.fillna('X')
-        for x in list(alndf.dtypes.where(lambda x: x=='object').dropna().index):
+        cols = list(alndf.dtypes.where(lambda x: x=='object').dropna().index) 
+        if scale:
+            scale = aln._scale_bar(self.get_alignment_length(), interval=10)
+            alndf = pd.concat([ scale, alndf ]).fillna('X') 
+
+        for x in cols:
             alndf[x] = alndf[x].str.pad(alndf[x].str.len().max(), side="right")
         with tempfile.TemporaryDirectory() as tmpdirname:
             alndf.to_csv(f'{tmpdirname}/seqdf.fa',index=False, sep="\t")
