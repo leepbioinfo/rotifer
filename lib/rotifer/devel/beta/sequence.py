@@ -1859,8 +1859,3 @@ Parsing a FASTA alignment from an explicit string:
 >>> aln = sequence('>Seq1\nACFH--GHT\n>Seq2\nACFW--GHS\n')
 >>> aln.add_consensus().view()
 """
-
-
-
-
-
