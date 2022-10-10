@@ -1693,6 +1693,71 @@ class sequence:
         )
         #if whant to send to latex, replace set_stick... to:to_latex(environment='longtable', convert_css=True)
         return df_style
+
+
+    def edit(self, consensus=True, scale=True):
+        """
+        Search the alignment against a HMM databases using hhsearch.
+
+        Parameters
+        ----------
+        databases : list of strings, default ['pfam','pdb70']
+            List of HMM databases to include in the search
+        database_path : string, default is ROTIFER_DATA/hhsuite
+            Path to the directory where the HMM databases are stored
+        view : bool, default True
+
+        Returns
+        -------
+            A tuple of two elements:
+            - The HHsearch output as a string
+            - HHsearch output as a Pandas DataFrame
+              See rotifer.io.hhsuite
+
+        See also
+        --------
+            rotifer environment configuration
+
+        Examples
+        --------
+        Load alignment in multi-FASTA format and compare it to Pfam
+
+        >>> aln = sequence("myaln.aln")
+        >>> (hhout,hhdf) = aln.hhsearch(databases=['pfam'])
+        """
+        import tempfile
+        from subprocess import Popen, PIPE, STDOUT
+        aln = self.copy()
+        result = self.copy()
+        if consensus:
+            aln = aln.add_consensus(separator='=')
+
+
+        alndf = aln.df.fillna('X')
+        cols = list(alndf.dtypes.where(lambda x: x=='object').dropna().index) 
+        if scale:
+            scale = aln._scale_bar(self.get_alignment_length(), interval=10)
+            alndf = pd.concat([ scale, alndf ]).fillna('X') 
+
+        for x in cols:
+            alndf[x] = alndf[x].str.pad(alndf[x].str.len().max(), side="right")
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            alndf.to_csv(f'{tmpdirname}/seqdf.fa',index=False, sep="\t")
+            print ("Open VMI to edit your file.")
+            if os.system(f'vim {tmpdirname}/seqdf.fa') != 0:
+                        raise TryNext()
+            tmpdf = pd.read_csv(f'{tmpdirname}/seqdf.fa', sep="\t")
+            tmpdf = tmpdf[tmpdf['type'].str.contains("sequence")]
+            tmpdf = tmpdf.dropna(subset='sequence')
+            result = result.filter(keep=tmpdf.id.to_list())
+            result.df.sequence = result.df.id.map(tmpdf.set_index('id').sequence.dropna().to_dict())
+        
+        return result 
+
+
+
+
+
     ## Class methods
 
     @classmethod
