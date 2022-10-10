@@ -165,7 +165,7 @@ class parser:
                 elif 'kw' in arg2parse[k]:
                     if parsed_args.short_arg is None and parsed_args.long_arg is None:
                         self.parser.add_argument(dest = parsed_args.dest,
-                                                 nargs =parsed_args.nargs,
+                                                 nargs = parsed_args.nargs,
                                                  # const = parsed_args.const,
                                                  default = parsed_args.default,
                                                  type = parsed_args.arg_type,

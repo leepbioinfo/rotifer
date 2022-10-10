@@ -33,8 +33,8 @@ import rotifer
 from rotifer import GlobalConfig
 from rotifer.db.core import BaseCursor
 from rotifer.db.sql import sqlite3 as rdss
-from rotifer.core.functions import findDataFiles
 from rotifer.core.functions import loadConfig
+from rotifer.core.functions import findDataFiles
 from rotifer.genome.utils import seqrecords_to_dataframe
 
 # Load NCBI configuration

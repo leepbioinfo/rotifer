@@ -1097,7 +1097,7 @@ class sequence:
         result.name = self.name
         return result
 
-    def view(self, color=True, scale=True, consensus=True, separator="=", interval=10, columns=True):
+    def view(self, color=True, scale=True, consensus=True, separator="=", interval=10, columns=True, pager='less -SR'):
         """
         Display alignment and alignment annotations.
 
@@ -1118,6 +1118,8 @@ class sequence:
             List of annotation columns to show
             If set to False, only the default columns are shown
             If set to True, all columns in the internal DataFrame are shown
+        pager: string
+          Command line to be used for displaying the alignment.
 
         Returns
         -------
@@ -1139,14 +1141,14 @@ class sequence:
             df = df.add_consensus(separator=separator)
         if color:
             df = df.to_color(scale=scale, interval=interval)
-            page(df.to_string(header=False, index=False))
+            page(df.to_string(header=False, index=False) + "\n", pager_cmd=pager)
         else:
             df = df.df.copy()
             if scale:
                 scale = self._scale_bar(self.get_alignment_length(), interval=interval)
                 df = pd.concat([ scale, df ]) 
                 df.sequence = df.sequence.str.pad(df.sequence.str.len().max(), side="right")
-            page(df.to_string(index=False))
+            page(df.to_string(index=False) + "\n", pager_cmd=pager)
 
     def hhblits(self, databases=_config['databases'], database_path=_config['databases_path'], view=True):
         """
