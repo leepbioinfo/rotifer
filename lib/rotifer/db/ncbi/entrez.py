@@ -294,10 +294,10 @@ class IPGCursor(SequenceCursor):
     def fetchone(self,accessions):
         seen = set()
         for ipg in super().fetchone(accessions):
+            if len(ipg) == 0:
+                continue
             ids = self.getids(ipg).intersection(accessions)
             if seen.issuperset(ids):
-                continue
-            if len(ipg) == 0:
                 continue
             seen.update(self.getids(ipg))
             yield ipg
@@ -504,7 +504,8 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
             from rotifer.db.ncbi import entrez
             ic = entrez.IPGCursor(progress=False, tries=self.tries, batch_size=self.batch_size, threads=self.threads)
             ipgs = ic.fetchall(protein)
-        ipgs = ipgs[ipgs.id.isin(ipgs[ipgs.pid.isin(protein) | ipgs.representative.isin(protein)].id)]
+        ipgids = set(ipgs[ipgs.pid.isin(protein) | ipgs.representative.isin(protein)].id)
+        ipgs = ipgs[ipgs.id.isin(ipgids) & (ipgs.assembly.notna() | ipgs.nucleotide.notna())]
         best = rdnu.best_ipgs(ipgs)
         best = best[best.nucleotide.notna()]
         ipgs = ipgs[ipgs.nucleotide.isin(best.nucleotide)]
@@ -667,7 +668,7 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
             if self.progress:
                 targets = set(nucleotides.pid).union(nucleotides.representative)
                 targets = len(targets.intersection(proteins))
-                logger.info(f'Downloading {len(todo)} nucleotides for {targets} proteins...')
+                logger.warn(f'Downloading {len(todo)} nucleotides for {targets} proteins...')
                 p = tqdm(total=len(todo), initial=0)
             tasks = []
             for chunk in self.splitter(nucleotides):

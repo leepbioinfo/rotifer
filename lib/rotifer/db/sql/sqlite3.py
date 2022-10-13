@@ -1,4 +1,3 @@
-
 __doc__ = """
 Rotifer connections to SQL databases
 ====================================
@@ -12,16 +11,18 @@ import sqlite3
 import subprocess
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 from Bio import SeqIO
 from io import StringIO
 
 import rotifer
+import rotifer.db.core as rdc
+import rotifer.db.ncbi.utils as rdnu
+import rotifer.devel.beta.sequence as rdbs
 from rotifer import GlobalConfig
 from rotifer.core.functions import loadConfig
-from rotifer.db.core import BaseCursor
 from rotifer.genome.data import NeighborhoodDF
 from rotifer.genome.utils import seqrecords_to_dataframe
-import rotifer.devel.beta.sequence as rdbs
 logger = rotifer.logging.getLogger(__name__)
 
 # Defaults
@@ -33,7 +34,7 @@ _config = {
     **_config
 }
 
-class GeneNeighborhoodCursor(BaseCursor):
+class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
     """
     Fetch gene neighborhoods from SQLite3 database
     ==============================================
@@ -190,17 +191,6 @@ class GeneNeighborhoodCursor(BaseCursor):
             if "replaced" in self.column and "pid" not in self.column:
                 self.column.append("pid")
 
-    def _add_to_missing(self, accessions, assembly, error):
-        err = [False,False,assembly,error,__name__]
-        if "Eukaryotic" in error:
-            err[1] = True
-        if "IPG" in error:
-            err[0] = True
-        if not isinstance(accessions,typing.Iterable) or isinstance(accessions,str):
-            accessions = [accessions]
-        for x in accessions:
-            self.missing.loc[x] = err
-
     def _has_table(self, name):
         sql = self._dbconn.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{name}'").fetchall()
         return len(sql) > 0
@@ -228,44 +218,38 @@ class GeneNeighborhoodCursor(BaseCursor):
         accession = set(accession)
 
         # Load stored data
-        stored = self._fetch_from_sql(accession)
+        stored = self._fetch_from_sql(self.getids(accession, ipgs=ipgs))
         if len(stored) == 0:
-            self._add_to_missing(accession,np.NaN,"Not found in storage")
+            self.update_missing(accession,np.NaN,"Not found in storage")
             return seqrecords_to_dataframe([])
-        found = stored.melt(id_vars=["assembly"], value_vars=self.column, var_name="type", value_name="id")
-        missing = accession - set(found.id)
+        found = self.getids(stored, ipgs=ipgs)
+        self.missing.drop(found, inplace=True, axis=0, errors="ignore")
 
-        # Find
-        if len(missing) > 0 and 'pid' in self.column and (not isinstance(ipgs,types.NoneType)) and len(ipgs) > 0:
-            ipgs = ipgs.melt(id_vars=['id','assembly'], value_vars=['pid','representative'], var_name="type", value_name='pid')
-            ipgs.drop_duplicates(inplace=True)
-            ipgs.rename({'id':'ipg','pid':'id'}, axis=1, inplace=True)
-            storedIPGs = ipgs[ipgs.ipg.isin(ipgs[ipgs.id.isin(found.id)].ipg)]
-            missing = missing - set(storedIPGs.id)
-            ipgs = ipgs[~ipgs.ipg.isin(storedIPGs.ipg)]
-            more = self._fetch_from_sql(ipgs.id.unique().tolist())
-            moreids = more.melt(id_vars=["assembly"], value_vars=self.column, var_name="type", value_name="id")
-            stored = pd.concat([stored,more])
-            found = pd.concat([found,moreids], ignore_index=True)
-            missing = missing - set(found.id)
-            notinipgs = missing - set(ipgs.id)
-            if len(notinipgs) > 0:
-                self._add_to_missing(notinipgs,np.NaN,"No IPG")
-                missing = missing - notinipgs
-            drop = set()
-            for lost in missing:
-                a = ipgs.loc[ipgs.id == lost,'assembly']
-                if len(a):
-                    a = a.iloc[0]
-                    self._add_to_missing(lost, a, "Not in local storage")
-                drop.add(lost)
-            missing = missing - drop
-
-        # Verify all possible IDs
+        # Annotate missing entries
+        missing = accession - found
         if len(missing) > 0:
-            self._add_to_missing(missing,np.NaN,"Not found in storage")
-        if len(stored) == 0:
-            return seqrecords_to_dataframe([])
+            best = dict()
+            if not isinstance(ipgs,types.NoneType):
+                notinipgs = missing - self.getids(ipgs)
+                if len(notinipgs) > 0:
+                    self.update_missing(notinipgs,np.NaN,"No IPG and not in database")
+                    missing = missing - notinipgs
+                best = ipgs[ipgs.pid.isin(missing) | ipgs.representative.isin(missing)].id
+                best = ipgs[ipgs.id.isin(best)]
+                best = best[best.assembly.notna() | best.nucleotide.notna()]
+                notinipgs = missing - self.getids(best)
+                if len(notinipgs) > 0:
+                    self.update_missing(notinipgs,np.NaN,"IPG lists no nucleotide source")
+                    missing -= notinipgs
+                best['dna'] = best.id.map(rdnu.best_ipgs(best).set_index('id').assembly.to_dict())
+                best.assembly = np.where(best.assembly.notna(), best.assembly, best.nucleotide)
+                best = best.melt(id_vars=["dna"], value_vars=['pid','representative'], var_name='type', value_name='pid')
+                best = best.drop('type', axis=1).drop_duplicates().set_index('pid').dna.to_dict()
+            for lost in missing:
+                assembly = best[lost] if lost in best else np.NaN
+                self.update_missing(lost, assembly, 'Not found in source database')
+
+        # Return
         return stored
 
     def fetchone(self, proteins, ipgs=None):
@@ -291,8 +275,18 @@ class GeneNeighborhoodCursor(BaseCursor):
         -------
         Generator of rotifer.genome.data.NeighborhoodDF
         """
+        if not isinstance(proteins,typing.Iterable) or isinstance(proteins,str):
+            proteins = [proteins]
+        proteins = set(proteins)
+        if self.progress:
+            logger.warn(f'Searching {len(proteins)} protein(s) in SQLite3 database at {self.path}')
+            p = tqdm(total=len(proteins), initial=0)
         found = self.__getitem__(proteins, ipgs=ipgs)
         for bid, block in found.groupby('block_id'):
+            done = self.getids(block, ipgs)
+            done = proteins.intersection(done)
+            if self.progress and len(done) > 0:
+                p.update(len(done))
             yield block.copy()
 
     def fetchall(self, proteins, ipgs=None):
@@ -318,7 +312,15 @@ class GeneNeighborhoodCursor(BaseCursor):
         -------
         rotifer.genome.data.NeighborhoodDF
         """
-        return self.__getitem__(proteins, ipgs=ipgs)
+        from rotifer.genome.utils import seqrecords_to_dataframe
+        df = []
+        for block in self.fetchone(proteins, ipgs=ipgs):
+            df.append(block)
+        if len(df) > 0:
+            df = pd.concat(df)
+        else:
+            df = seqrecords_to_dataframe([])
+        return df
 
     def stored(self, block):
         """

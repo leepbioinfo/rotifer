@@ -2,6 +2,7 @@ import os
 import sys
 import types
 import typing
+import pandas as pd
 from tqdm import tqdm
 import rotifer
 logger = rotifer.logging.getLogger(__name__)
@@ -116,16 +117,20 @@ class SimpleParallelProcessCursor(BaseCursor):
             try:
                 stream = self.fetcher(accession, *args, **kwargs)
             except RuntimeError:
-                logger.debug(f'Runtime error: '+str(sys.exc_info()[1]))
+                logger.exception(f'Runtime error for accession {accession}: ')
                 continue
             except:
-                logger.debug(f"Fetcher failed for {accession}: {sys.exc_info()}")
+                logger.exception(f"Fetcher failed for {accession}:")
                 continue
+
+            if isinstance(stream,types.NoneType):
+                logger.error(f"Empty stream for {accession}.")
+            
             try:
                 obj = self.parser(stream, accession, *args, **kwargs)
                 break
             except:
-                logger.debug(f"Parser failed for {accession}: {sys.exc_info()}")
+                logger.exception(f"Parser failed for {accession}")
                 continue
 
         # Search for missing accessions
@@ -248,6 +253,91 @@ class SimpleParallelProcessCursor(BaseCursor):
          Database entry identifiers 
         """
         return list(self.fetchone(accessions, *args, **kwargs))
+
+class BaseGeneNeighborhoodCursor(BaseCursor):
+    def __init__(
+            self,
+            column = 'pid',
+            before = 7,
+            after = 7,
+            min_block_distance = 0,
+            strand = None,
+            fttype = 'same',
+            eukaryotes = False,
+            exclude_type = ['gene','mRNA','source'],
+            autopid = True,
+            codontable = 'Bacterial',
+            progress=False,
+            tries=3,
+            batch_size=None,
+            threads=10
+        ):
+        super().__init__(
+            progress = progress,
+            tries = tries,
+            batch_size = batch_size,
+            threads = threads,
+        )
+        self.column = column
+        self.before = before
+        self.after = after
+        self.min_block_distance = min_block_distance
+        self.strand = strand
+        self.fttype = fttype
+        self.eukaryotes = eukaryotes
+        self.exclude_type = exclude_type
+        self.autopid = autopid
+        self.codontable = codontable
+        self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error",'class'])
+
+    def update_missing(self, accessions, assembly, error):
+        err = [False,False,assembly,error,str(type(self)).split("'")[1]]
+        if "Eukaryotic" in error:
+            err[1] = True
+        if "IPG" in error:
+            err[0] = True
+        if not isinstance(accessions,typing.Iterable) or isinstance(accessions,str):
+            accessions = [accessions]
+        for x in accessions:
+            self.missing.loc[x] = err
+
+    def getids(self, obj, ipgs=None):
+        # extract ids from dataframe
+        if isinstance(obj,pd.DataFrame):
+            # Load columns
+            columns = self.column
+            if not isinstance(columns,typing.Iterable) or isinstance(columns,str):
+                columns = [columns]
+            else:
+                columns = list(columns)
+
+            # when searching for proteins, ensure all columns with protein IDs are used
+            pids = ['pid','replaced','representative']
+            if set(columns).intersection(pids):
+                columns += [ x for x in pids if x not in columns ]
+
+            # Load identifiers from object
+            ids = set()
+            for col in columns:
+                if col in obj.columns:
+                    ids.update(set(obj[col].dropna()))
+
+        # If obj is a list
+        elif not isinstance(obj,typing.Iterable) or isinstance(obj,str):
+            ids = {obj}
+        elif isinstance(obj,typing.Iterable):
+            ids = set(obj)
+        else:
+            logger.error(f'Unknown type {type(obj)}')
+
+        # Add synonyms from IPGs
+        if not isinstance(ipgs,types.NoneType):
+            ipgids = ipgs[ipgs.pid.isin(ids) | ipgs.representative.isin(ids)].id
+            ipgids = ipgs[ipgs.id.isin(ipgids)]
+            ids.update(ipgids.pid.dropna())
+            ids.update(ipgids.representative.dropna())
+
+        return ids
 
 if __name__ == '__main__':
     pass

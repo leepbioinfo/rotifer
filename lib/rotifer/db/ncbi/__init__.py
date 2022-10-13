@@ -27,11 +27,12 @@ import logging
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+from copy import deepcopy
 
 # Import submodules
 import rotifer
+import rotifer.db.core as rdc
 from rotifer import GlobalConfig
-from rotifer.db.core import BaseCursor
 from rotifer.db.sql import sqlite3 as rdss
 from rotifer.core.functions import loadConfig
 from rotifer.core.functions import findDataFiles
@@ -69,7 +70,7 @@ logger = rotifer.logging.getLogger(__name__)
 
 # Classes
 
-class GeneNeighborhoodCursor(BaseCursor):
+class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
     """
     Fetch gene neighborhoods as dataframes
     ======================================
@@ -193,10 +194,9 @@ class GeneNeighborhoodCursor(BaseCursor):
 
         # Setup special attributes
         self._public_attributes = [
-            'after','assembly','autopid','batch_size','before','cache',
-            'codontable','column','eukaryotes','exclude_type',
-            'fetchall','fetchone','fttype','getids','min_block_distance',
-            'missing','progress','strand','threads','tries'
+            'column','before','after','min_block_distance','strand','fttype','eukaryotes',
+            'exclude_type','autopid','codontable',
+            'progress','tries','batch_size','threads','cache',
         ]
         self._cursors = [
             ftp.GeneNeighborhoodCursor(),
@@ -232,24 +232,16 @@ class GeneNeighborhoodCursor(BaseCursor):
                 if hasattr(cursor,name):
                     cursor.__setattr__(name,value)
 
-    def _add_to_missing(self, accessions, assembly, error):
-        err = [False,False,assembly,error,__name__]
-        if "Eukaryotic" in error:
-            err[1] = True
-        if "IPG" in error:
-            err[0] = True
-        if not isinstance(accessions,typing.Iterable) or isinstance(accessions,str):
-            accessions = [accessions]
-        for x in accessions:
-            self.missing.loc[x] = err
-
     def __getitem__(self, protein, ipgs=None):
         """
         Dictionary-like access to gene neighbors.
 
         Usage
         -----
-        >>> 
+        >>> import rotifer.db.ncbi as ncbi
+        >>> gnc = ncbi.GeneNeighborhoodCursor(progress=True)
+        >>> n = gnc["WP_063732599.1"]
+
         Parameters
         ----------
         proteins: list of strings
@@ -278,13 +270,13 @@ class GeneNeighborhoodCursor(BaseCursor):
                 break
         return result
 
-    def fetchone(self, proteins, ipgs=None):
+    def fetchone(self, accessions, ipgs=None):
         """
         Fetch each gene neighborhood iteratively.
 
         Parameters
         ----------
-        proteins: list of strings
+        accessions: list of strings
           Database identifiers.
         ipgs : Pandas dataframe
           This parameter may be used to avoid downloading IPGs
@@ -304,45 +296,52 @@ class GeneNeighborhoodCursor(BaseCursor):
         """
         from rotifer.genome.utils import seqrecords_to_dataframe
 
-        # Make sure no identifiers are used twice
-        if not isinstance(proteins,typing.Iterable) or isinstance(proteins,str):
-            proteins = [proteins]
-        proteins = set(proteins)
+        # Copy identifiers and remove redundancy
+        targets = deepcopy(accessions)
+        if not isinstance(targets,typing.Iterable) or isinstance(targets,str):
+            targets = [targets]
+        targets = set(targets)
+        todo = deepcopy(targets)
 
         # Make sure we have IPGs
         if isinstance(ipgs,types.NoneType):
             from rotifer.db.ncbi import entrez
             if self.progress:
-                logger.info(f'Downloading IPGs for {len(proteins)} proteins...')
+                logger.warn(f'Downloading IPGs for {len(todo)} proteins...')
             size = self.batch_size
             ic = entrez.IPGCursor(progress=self.progress, tries=self.tries, threads=self.threads)
-            ipgs = ic.fetchall(list(proteins))
+            ipgs = ic.fetchall(list(todo))
             if len(ic.missing):
-                self._add_to_missing(ic.missing, np.nan, "No IPGs found")
+                self.update_missing(ic.missing, np.nan, "No IPGs")
+                todo -= ic.missing
 
         # Select IPGs corresponding to our queries
-        ipgs = ipgs[ipgs.id.isin(ipgs[ipgs.pid.isin(proteins) | ipgs.representative.isin(proteins)].id)]
-        missing = set(proteins) - set(ipgs.pid).union(ipgs.representative)
+        ipgs = ipgs[ipgs.id.isin(ipgs[ipgs.pid.isin(todo) | ipgs.representative.isin(todo)].id)]
+        missing = todo - set(ipgs.pid).union(ipgs.representative)
         if missing:
-            self._add_to_missing(missing,np.NaN,"Not found in IPGs")
-            proteins = proteins - missing
+            self.update_missing(missing,np.NaN,"Not found in IPGs")
+            todo = todo - missing
         if len(ipgs) == 0:
             return [seqrecords_to_dataframe([])]
 
         # Call cursors
-        reset_input = False
-        for cursor in self._cursors:
-            if len(proteins) == 0:
+        lost = 'noipgs == False'
+        if not self.eukaryotes:
+            lost += ' and eukaryote == False'
+        for i in range(0,len(self._cursors)):
+            cursor = self._cursors[i]
+            if len(todo) == 0:
                 break
-            if reset_input:
-                lost = 'noipgs'
-                if not self.eukaryotes:
-                    lost += ' or eukaryote'
-                proteins = set(cursor.missing.query(f'not ({lost})').index)
-            reset_input = True
-            for result in cursor.fetchone(proteins, ipgs=ipgs):
-                if self.save and (cursor != self._cursors[0]):
+            for result in cursor.fetchone(todo, ipgs=ipgs):
+                if self.save and i > 0:
                     self._cursors[0].insert(result)
+                found = self.getids(result, ipgs=ipgs)
+                for c in [self] + self._cursors[0:i+1]:
+                    c.missing.drop(found, axis=0, inplace=True, errors="ignore")
+                for s in cursor.missing.iterrows():
+                    if s[0] in accessions:
+                        self.missing.loc[s[0]] = s[1]
+                todo = set(self.missing.query(lost).index)
                 yield result
 
     def fetchall(self, proteins, ipgs=None):

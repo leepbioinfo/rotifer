@@ -8,6 +8,8 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from ftplib import FTP
+from copy import deepcopy
+
 import rotifer
 import rotifer.db.core
 from rotifer import GlobalConfig
@@ -18,7 +20,7 @@ logger = rotifer.logging.getLogger(__name__)
 
 # Classes
 
-class cursor():
+class connection():
     """
     This class represents a live connection to the NCBI FTP server.
     """
@@ -78,7 +80,7 @@ class cursor():
 
         Usage:
           from rotifer.db.ncbi import ftp as ncbiftp
-          ftp = ncbiftp.cursor(tries=3)
+          ftp = ncbiftp.connection(tries=3)
           localpath = ftp.ftp_get('genomes/README.txt')
 
         Parameters:
@@ -102,7 +104,7 @@ class cursor():
             try:
                 os.makedirs(outdir)
             except:
-                logger.error(f'failed to create download directory {outdir}')
+                logger.exception(f'failed to create download directory {outdir}')
                 self._error = 1
                 return None
 
@@ -147,7 +149,7 @@ class cursor():
 
         Usage:
           from rotifer.db.ncbi import ftp as ncbiftp
-          ftp = ncbiftp.cursor()
+          ftp = ncbiftp.connection()
           contents = ftp.ftp_ls('genomes')
 
         Parameters:
@@ -173,7 +175,7 @@ class cursor():
                     x[1]["name"] = x[0]
                     d.append(x[1])
             except:
-                logger.error(f'''Could not retrive list for directory {target} at the NCBI's FTP site.''')
+                logger.error(f'''Could not retrieve list for directory {target} at the NCBI's FTP site.''')
                 continue
         if not d:
             self._error = 1
@@ -191,7 +193,7 @@ class cursor():
         Usage:
           # Open a genome's GBF file
           from rotifer.db.ncbi import ftp as ncbiftp
-          ftp = ncbiftp.cursor()
+          ftp = ncbiftp.connection()
           path = "genomes/all/GCA/900/547/725/GCA_900547725.1_UMGS1014/"
           path += "GCA_900547725.1_UMGS1014_genomic.gbff.gz"
           fh = ftp.ftp_open(path, mode="rt")
@@ -218,218 +220,6 @@ class cursor():
             return None
         else:
             return _TemporaryFileWrapper(rcf.open_compressed(outfile, mode), outfile, delete)
-
-    def open_genome(self, accession, assembly_reports=None):
-        """
-        Open the GBFF file of a genome from the NCBI FTP site.
-
-        Usage:
-          # Just open
-          
-          from rotifer.db.ncbi import ftp as ncbiftp
-          ftp = ncbiftp.cursor()
-          fh = ftp.open_genome("GCA_900547725.1")
-
-          # Open and parse to a list of Bio.SeqRecord
-
-          from rotifer.db.ncbi import ftp as ncbiftp
-          from Bio import SeqIO
-          ftp = ncbiftp.cursor()
-          fh = ftp.open_genome("GCA_900547725.1")
-          s = [ x for x in SeqIO.parse(fh, "genbank") ]
-
-        Parameters:
-          accession : string
-            Genome accession
-          assembly_reports: pandas DataFrame
-            (Optional) NCBI's ASSEMBLY_REPORTS tables
-            This dataframe can be loaded using:
-
-              from rotifer.db.ncbi as ncbi
-              ar = ncbi.assemblies()
-
-        Returns:
-          Open data stream (file handle-like) object
-        """
-        import rotifer.core.functions as rcf
-
-        # find genome and download
-        path = self.genome_path(accession, assembly_reports=assembly_reports)
-        if len(path) == 0:
-           return None
-
-        # Download checksum
-        md5url = "/".join([path[0],"md5checksums.txt"])
-        self.connect()
-        for attempt in range(0,self.tries):
-            md5 = self.ftp_open(md5url, mode='rt', avoid_collision=True, delete=True)
-            if self._error:
-                logger.error(f'''Could not fetch checksum for {accession}.''')
-            else:
-                try:
-                    md5 = pd.read_csv(md5, sep=' +', names=['md5','filename'], engine="python")
-                    md5 = md5[md5.filename.fillna("_").str.contains('_genomic.gbff.gz')]
-                    md5 = md5.md5.iloc[0]
-                    if md5:
-                        break
-                except:
-                    logger.error(f'''Parsing of checksum for {accession} failed.''')
-        if not md5:
-            self._error = 1
-            return None
-
-        # Download genome
-        gz = None
-        self.connect()
-        for attempt in range(0,self.tries):
-            gz = self.ftp_open("/".join(path),  mode='rt', avoid_collision=True, delete=True)
-            if self._error:
-                logger.error(f'''Could not open GBFF for {accession}.''')
-            else:
-                md5gz = rcf.md5(gz.name)
-                if md5 == md5gz:
-                    break
-
-        # Return file object
-        return gz
-
-    def genome_path(self, accession, assembly_reports=None):
-        """
-        Fetch the path of a genome at the NCBI FTP site.
-
-        Usage:
-          from rotifer.db.ncbi import ftp as ncbiftp
-          ftp = ncbiftp.cursor()
-          path = ftp.genome_path("GCA_900547725.1")
-          print("/".join(path))
-
-        Parameters:
-          accession : string
-            Genome accession
-          assembly_reports: pandas DataFrame
-            (Optional) NCBI's ASSEMBLY_REPORTS tables
-            This dataframe can be loade using:
-
-              from rotifer.db.ncbi as ncbi
-              ar = ncbi.assemblies()
-        
-        Returns:
-          A tuple of two strings, empty when the genome is not found
-        """
-        from rotifer.db.ncbi import NcbiConfig
-        path = ()
-
-        # Extract genome path from assembly reports
-        if isinstance(assembly_reports, pd.DataFrame) and not assembly_reports.empty:
-            path = assembly_reports.query(f'assembly == "{accession}"')
-            if not path.empty:
-                path = path.ftp_path.iloc[0]
-                path = path.replace(f'ftp://{NcbiConfig["ftpserver"]}','')
-                path = (path,os.path.basename(path) + "_genomic.gbff.gz")
-
-        # Retrieve genome path for newest version
-        if len(path) == 0:
-            path = accession[0:accession.find(".")].replace("_","")
-            path = "/".join([ path[i : i + 3] for i in range(0, len(path), 3) ])
-            path = f'/genomes/all/{path}'
-            path = self.ftp_ls(path)
-            if path.empty:
-                return ()
-            path = path.query(f'name.str.contains("{accession}")')
-            path = path.sort_values(['name'], ascending=False).iloc[0]
-            path = path.target + "/" + path['name']
-
-            # Retrieve GBFF path
-            if not path:
-                return ()
-            path = self.ftp_ls(path)
-            if path.empty:
-                return ()
-            path = path[path['name'].str.contains(".gbff.gz")]
-            if path.empty:
-                return ()
-            path = (path.target.iloc[0], path['name'].iloc[0])
-
-        return path
-
-    def genome_report(self, accession):
-        """
-        Fetch genome assembly reports.
-
-        Usage:
-          from rotifer.db.ncbi import ftp as ncbiftp
-          ftp = ncbiftp.cursor()
-          contigs, assembly = ftp.genome_report("GCA_900547725.1")
-
-        Parameters:
-          accession : string
-            Genome accession
-        
-        Returns:
-          A tuple containing a Pandas DataFrame and a Pandas Series
-          
-          The Pandas DataFrame lists the assembly's contigs
-
-          The Series contains the assembly properties and is 
-          similar to the table from rotifer.db.ncbi.assemblies()
-
-        """
-        # Column names
-        arcolumn = f"""                Assembly name : assembly_name
-                                       Organism name : organism_name
-                                             Isolate : isolate
-                                               Taxid : taxid
-                                           BioSample : biosample
-                                          BioProject : bioproject
-                                           Submitter : submitter
-                                                Date : submission_date
-                                       Assembly type : assembly_type
-                                        Release type : release_type
-                                      Assembly level : assembly_level
-                               Genome representation : representative
-                                         WGS project : wgs
-                                     Assembly method : assembly_method
-                                     Genome coverage : genome_coverage
-                               Sequencing technology : sequencing
-                                     RefSeq category : refseq_category
-                          GenBank assembly accession : genbank
-                           RefSeq assembly accession : refseq
-                                Excluded from RefSeq : excluded_from_refseq
-    RefSeq assembly and GenBank assemblies identical : identical""".split("\n")
-        arcolumn = [ x.strip().split(" : ") for x in arcolumn ]
-        arcolumn = { x[0]:x[1] for x in arcolumn }
-
-        # Opening data file
-        ar = [['column','value'], ['assembly', accession]]
-        sc = []
-        path = self.genome_path(accession)
-        if len(path):
-            report = self.ftp_ls(path[0])
-        else:
-            return None
-        report = report[report.name.str.contains("_assembly_report.txt")]
-        report = path[0] + "/" + report.name.iloc[0]
-        report = self.ftp_open(report)
-
-        inar = True
-        for row in report:
-            row = row.strip()
-            if row == "#" or row[0:2] == "##":
-                inar = False
-            elif row[0:15] == "# Sequence-Name":
-                sc.append(['assembly'] + row[2:].split("\t"))
-            elif inar and row[0:2] == "# ":
-                ar.append(row[2:].split(":", maxsplit=1))
-            elif row[0] != '#':
-                sc.append([accession] + row.split("\t"))
-
-        ar = pd.DataFrame(ar[1:], columns=ar[0])
-        ar.value = ar.value.str.strip()
-        ar.column = ar.column.replace(arcolumn)
-        sc = pd.DataFrame(sc[1:], columns=sc[0])
-        ar = ar.set_index("column")
-
-        return sc, ar
 
 #class GenomeCursor(BaseCursor):
 class GenomeCursor(rotifer.db.core.SimpleParallelProcessCursor):
@@ -463,6 +253,7 @@ class GenomeCursor(rotifer.db.core.SimpleParallelProcessCursor):
             tries=3,
             batch_size=None,
             threads=15,
+            timeout=10,
             cache=GlobalConfig['cache'],
         ):
         super().__init__(
@@ -471,6 +262,7 @@ class GenomeCursor(rotifer.db.core.SimpleParallelProcessCursor):
             batch_size=batch_size,
             threads=threads
         )
+        self.timeout = timeout
         self.cache = cache
 
     def getids(self,obj):
@@ -482,9 +274,10 @@ class GenomeCursor(rotifer.db.core.SimpleParallelProcessCursor):
             return {obj.assembly}
 
     def fetcher(self, accession):
-        import rotifer.db.ncbi.ftp as ncbiftp
-        gfc = ncbiftp.cursor(tries=1, cache=self.cache)
-        return gfc.open_genome(accession)
+        tries = self.tries
+        stream = self.open_genome(accession)
+        self.tries = tries
+        return stream
 
     def parser(self, stream, accession):
         from Bio import SeqIO
@@ -504,6 +297,226 @@ class GenomeCursor(rotifer.db.core.SimpleParallelProcessCursor):
             if len(objlist) != 0:
                 stack.extend(objlist)
         return stack
+
+    def open_genome(self, accession, assembly_reports=None):
+        """
+        Open the GBFF file of a genome from the NCBI FTP site.
+
+        Usage:
+          # Just open
+          
+          from rotifer.db.ncbi import ftp
+          gc = ftp.GenomeCursor()
+          fh = gc.open_genome("GCA_900547725.1")
+
+          # Open and parse to a list of Bio.SeqRecord
+
+          from rotifer.db.ncbi import ftp
+          from Bio import SeqIO
+          gc = ftp.GenomeCursor()
+          fh = gc.open_genome("GCA_900547725.1")
+          s = [ x for x in SeqIO.parse(fh, "genbank") ]
+          fh.close()
+
+        Parameters:
+          accession : string
+            Genome accession
+          assembly_reports: pandas DataFrame
+            (Optional) NCBI's ASSEMBLY_REPORTS tables
+            This dataframe can be loaded using:
+
+              from rotifer.db.ncbi as ncbi
+              ar = ncbi.assemblies()
+
+        Returns:
+          Open data stream (file handle-like) object
+        """
+        import rotifer.core.functions as rcf
+        from rotifer.db.ncbi import ftp as ncbiftp
+        ftp = ncbiftp.connection(tries=self.tries, timeout=self.timeout, cache=self.cache)
+
+        # find genome and download
+        path = self.genome_path(accession, assembly_reports=assembly_reports)
+        if len(path) == 0:
+           return None
+
+        # Download checksum
+        md5url = "/".join([path[0],"md5checksums.txt"])
+        ftp.connect()
+        for attempt in range(0,self.tries):
+            md5 = ftp.ftp_open(md5url, mode='rt', avoid_collision=True, delete=True)
+            if ftp._error:
+                logger.error(f'''Could not fetch checksum for {accession}.''')
+            else:
+                try:
+                    md5 = pd.read_csv(md5, sep=' +', names=['md5','filename'], engine="python")
+                    md5 = md5[md5.filename.fillna("_").str.contains('_genomic.gbff.gz')]
+                    md5 = md5.md5.iloc[0]
+                    if md5:
+                        break
+                except:
+                    logger.error(f'''Parsing of checksum for {accession} failed.''')
+        if not md5:
+            ftp._error = 1
+            return None
+
+        # Download genome
+        gz = None
+        ftp.connect()
+        for attempt in range(0,self.tries):
+            gz = ftp.ftp_open("/".join(path),  mode='rt', avoid_collision=True, delete=True)
+            if ftp._error:
+                logger.error(f'''Could not open GBFF for {accession}.''')
+            else:
+                md5gz = rcf.md5(gz.name)
+                if md5 == md5gz:
+                    break
+
+        # Return file object
+        return gz
+
+    def genome_path(self, accession, assembly_reports=None):
+        """
+        Fetch the path of a genome at the NCBI FTP site.
+
+        Usage:
+          from rotifer.db.ncbi import ftp
+          gc = ftp.GenomeCursor()
+          path = gc.genome_path("GCA_900547725.1")
+          print("/".join(path))
+
+        Parameters:
+          accession : string
+            Genome accession
+          assembly_reports: pandas DataFrame
+            (Optional) NCBI's ASSEMBLY_REPORTS tables
+            This dataframe can be loade using:
+
+              from rotifer.db.ncbi as ncbi
+              ar = ncbi.assemblies()
+        
+        Returns:
+          A tuple of two strings, empty when the genome is not found
+        """
+        from rotifer.db.ncbi import NcbiConfig
+        from rotifer.db.ncbi import ftp as ncbiftp
+        ftp = ncbiftp.connection(tries=self.tries, timeout=self.timeout, cache=self.cache)
+        path = ()
+
+        # Extract genome path from assembly reports
+        if isinstance(assembly_reports, pd.DataFrame) and not assembly_reports.empty:
+            path = assembly_reports.query(f'assembly == "{accession}"')
+            if not path.empty:
+                path = path.ftp_path.iloc[0]
+                path = path.replace(f'ftp://{NcbiConfig["ftpserver"]}','')
+                path = (path,os.path.basename(path) + "_genomic.gbff.gz")
+
+        # Retrieve genome path for newest version
+        if len(path) == 0:
+            path = accession[0:accession.find(".")].replace("_","")
+            path = "/".join([ path[i : i + 3] for i in range(0, len(path), 3) ])
+            path = f'/genomes/all/{path}'
+            path = ftp.ftp_ls(path)
+            if path.empty:
+                return ()
+            path = path.query(f'name.str.contains("{accession}")')
+            path = path.sort_values(['name'], ascending=False).iloc[0]
+            path = path.target + "/" + path['name']
+
+            # Retrieve GBFF path
+            if not path:
+                return ()
+            path = ftp.ftp_ls(path)
+            if path.empty:
+                return ()
+            path = path[path['name'].str.contains(".gbff.gz")]
+            if path.empty:
+                return ()
+            path = (path.target.iloc[0], path['name'].iloc[0])
+
+        return path
+
+    def genome_report(self, accession):
+        """
+        Fetch genome assembly reports.
+
+        Usage:
+          from rotifer.db.ncbi import ftp
+          gc = ftp.GenomeCursor()
+          contigs, assembly = gc.genome_report("GCA_900547725.1")
+
+        Parameters:
+          accession : string
+            Genome accession
+        
+        Returns:
+          A tuple containing a Pandas DataFrame and a Pandas Series
+          
+          The Pandas DataFrame lists the assembly's contigs
+
+          The Series contains the assembly properties and is 
+          similar to the table from rotifer.db.ncbi.assemblies()
+
+        """
+        from rotifer.db.ncbi import ftp as ncbiftp
+        ftp = ncbiftp.connection(tries=self.tries, timeout=self.timeout, cache=self.cache)
+
+        # Column names
+        arcolumn = f"""                Assembly name : assembly_name
+                                       Organism name : organism_name
+                                             Isolate : isolate
+                                               Taxid : taxid
+                                           BioSample : biosample
+                                          BioProject : bioproject
+                                           Submitter : submitter
+                                                Date : submission_date
+                                       Assembly type : assembly_type
+                                        Release type : release_type
+                                      Assembly level : assembly_level
+                               Genome representation : representative
+                                         WGS project : wgs
+                                     Assembly method : assembly_method
+                                     Genome coverage : genome_coverage
+                               Sequencing technology : sequencing
+                                     RefSeq category : refseq_category
+                          GenBank assembly accession : genbank
+                           RefSeq assembly accession : refseq
+                                Excluded from RefSeq : excluded_from_refseq
+    RefSeq assembly and GenBank assemblies identical : identical""".split("\n")
+        arcolumn = [ x.strip().split(" : ") for x in arcolumn ]
+        arcolumn = { x[0]:x[1] for x in arcolumn }
+
+        # Opening data file
+        ar = [['column','value'], ['assembly', accession]]
+        sc = []
+        path = self.genome_path(accession)
+        if len(path):
+            report = ftp.ftp_ls(path[0])
+        else:
+            return ([],pd.DataFrame(columns=ar[0]))
+        report = report[report.name.str.contains("_assembly_report.txt")]
+        report = path[0] + "/" + report.name.iloc[0]
+        report = ftp.ftp_open(report)
+
+        inar = True
+        for row in report:
+            row = row.strip()
+            if row == "#" or row[0:2] == "##":
+                inar = False
+            elif row[0:15] == "# Sequence-Name":
+                sc.append(['assembly'] + row[2:].split("\t"))
+            elif inar and row[0:2] == "# ":
+                ar.append(row[2:].split(":", maxsplit=1))
+            elif row[0] != '#':
+                sc.append([accession] + row.split("\t"))
+
+        ar = pd.DataFrame(ar[1:], columns=ar[0])
+        ar.value = ar.value.str.strip()
+        ar.column = ar.column.replace(arcolumn)
+        sc = pd.DataFrame(sc[1:], columns=sc[0])
+        ar = ar.set_index("column")
+
+        return sc, ar
 
 class GenomeFeaturesCursor(GenomeCursor):
     """
@@ -766,16 +779,20 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
                 try:
                     stream = self.fetcher(accession)
                 except RuntimeError:
-                    error = f'Runtime error: {sys.exc_info()[1]}'
-                    logger.debug(error)
+                    error = f'{sys.exc_info()[1]}'
+                    if logger.getEffectiveLevel() <= logging.DEBUG:
+                        logger.exception(error)
                     continue
                 except ValueError:
-                    error = f'Value error: {sys.exc_info()[1]}'
-                    logger.debug(error)
+                    error = f'{sys.exc_info()[1]}'
+                    if logger.getEffectiveLevel() <= logging.DEBUG:
+                        logger.exception(error)
                     break
                 except:
-                    error = f'Failed to download genome {accession}: {sys.exc_info()[1]}'
-                    logger.debug(error)
+                    error = f'{sys.exc_info()[1]}'
+                    #error = f'Failed to download genome {accession}: {sys.exc_info()[1]}'
+                    if logger.getEffectiveLevel() <= logging.DEBUG:
+                        logger.exception(error)
                     continue
 
                 if isinstance(stream, types.NoneType):
@@ -787,8 +804,9 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
                     obj = self.parser(stream, accession, assemblies[accession])
                     break
                 except:
-                    error = f"Failed to parse genome {accession}: {str(sys.exc_info()[1])}"
-                    logger.debug(error)
+                    error = f"Failed to parse genome {accession}:"
+                    if logger.getEffectiveLevel() <= logging.DEBUG:
+                        logger.exception(error)
 
             if isinstance(obj, types.NoneType):
                 self._add_to_missing(expected, accession, error)
@@ -811,16 +829,18 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         return objlist
 
     def fetcher(self, accession):
-        import rotifer.db.ncbi.ftp as ncbiftp
-        cursor = ncbiftp.cursor(tries=1, cache=self.cache)
         if not self.eukaryotes:
             from rotifer.db.ncbi import entrez
-            contigs, report = cursor.genome_report(accession)
-            tc = entrez.TaxonomyCursor()
-            taxonomy = tc[report.loc['taxid'][0]]
-            if taxonomy.loc[0,"superkingdom"] == "Eukaryota":
-                raise ValueError(f"Eukaryotic genome {accession} ignored.")
-        return cursor.open_genome(accession)
+            contigs, report = self.genome_report(accession)
+            if len(report) > 0:
+                tc = entrez.TaxonomyCursor()
+                taxonomy = tc[report.loc['taxid'][0]]
+                if taxonomy.loc[0,"superkingdom"] == "Eukaryota":
+                    raise ValueError(f"Eukaryotic genome {accession} ignored.")
+        stream = self.open_genome(accession)
+        if isinstance(stream,types.NoneType):
+            raise ValueError(f'Unable to access files for genome {accession}.')
+        return stream
 
     def parser(self, stream, accession, proteins):
         data = super().parser(stream, accession)
@@ -843,6 +863,9 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
                 continue
             for x in df.groupby('block_id'):
                 result.append(x[1])
+        # Make sure some content, even if empty, is always returned
+        if len(result) == 0:
+            result = [ seqrecords_to_dataframe([]) ]
         return {"result":result,"missing":self.missing}
 
     def splitter(self, ipgs):
@@ -856,13 +879,13 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         batch = [ batch[x:x+size] for x in range(0,len(batch),size) ]
         return batch
 
-    def fetchone(self, proteins, ipgs=None):
+    def fetchone(self, accessions, ipgs=None):
         """
         Asynchronously fetch gene neighborhoods from NCBI.
 
         Parameters
         ----------
-        proteins: list of strings
+        accessions: list of strings
           NCBI protein identifiers
         ipgs : Pandas dataframe
           This parameter may be used to avoid downloading IPGs
@@ -882,27 +905,30 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         from concurrent.futures import ProcessPoolExecutor, as_completed
 
         # Make sure no identifiers are used twice
-        if not isinstance(proteins,typing.Iterable) or isinstance(proteins,str):
-            proteins = [proteins]
-        proteins = set(proteins)
+        targets = deepcopy(accessions)
+        if not isinstance(targets,typing.Iterable) or isinstance(targets,str):
+            targets = [targets]
+        targets = set(targets)
+        todo = deepcopy(targets)
 
         # Make sure we have usable IPGs
         if isinstance(ipgs,types.NoneType):
             from rotifer.db.ncbi import entrez
             if self.progress:
-                logger.info(f'Downloading IPGs for {len(proteins)} proteins...')
+                logger.warn(f'Downloading IPGs for {len(todo)} proteins...')
             size = self.batch_size
             ic = entrez.IPGCursor(progress=self.progress, tries=self.tries, threads=self.threads)
-            ipgs = ic.fetchall(list(proteins))
+            ipgs = ic.fetchall(todo)
             if len(ic.missing):
                 self._add_to_missing(ic.missing.index.to_list(), np.nan, "No IPGs at NCBI")
-        ipgs = ipgs[ipgs.pid.isin(proteins) | ipgs.representative.isin(proteins)]
-        ipgs = ipgs[ipgs.assembly.notna() | ipgs.nucleotide.notna()]
+        ipgids = set(ipgs[ipgs.pid.isin(todo) | ipgs.representative.isin(todo)].id)
+        ipgs = ipgs[ipgs.id.isin(ipgids) & (ipgs.assembly.notna() | ipgs.nucleotide.notna())]
 
         # Check for proteins without IPGs
-        missing = set(proteins) - set(ipgs.pid).union(ipgs.representative)
+        missing = set(todo) - set(ipgs.pid).union(ipgs.representative)
         if missing:
             self._add_to_missing(missing,np.NaN,"Not found in IPGs")
+            todo -= missing
         if len(ipgs) == 0:
             return [seqrecords_to_dataframe([])]
 
@@ -913,9 +939,9 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         missing = assemblies[assemblies.assembly.isna()]
         if len(missing):
             for idx, row in missing.iterrows():
-                if row['pid'] in proteins:
+                if row['pid'] in todo:
                     acc = row['pid']
-                elif row['representative'] in proteins:
+                elif row['representative'] in todo:
                     acc = row['representative']
                 else:
                     continue
@@ -930,13 +956,13 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         assemblies = ipgs[ipgs.assembly.isin(assemblies.assembly)]
 
         # Split jobs and execute
-        todo = set(assemblies.assembly.unique())
+        genomes = set(assemblies.assembly.unique())
         with ProcessPoolExecutor(max_workers=self.threads) as executor:
             if self.progress:
-                targets = set(assemblies.pid).union(assemblies.representative)
-                targets = len(targets.intersection(proteins))
-                logger.info(f'Downloading {len(todo)} genomes for {targets} proteins...')
-                p = tqdm(total=len(todo), initial=0)
+                pids = set(assemblies.pid).union(assemblies.representative)
+                pids = len(pids.intersection(targets))
+                logger.warn(f'Downloading {len(genomes)} genomes for {pids} proteins...')
+                p = tqdm(total=len(genomes), initial=0)
             tasks = []
             for chunk in self.splitter(assemblies):
                 tasks.append(executor.submit(self.worker, chunk))
@@ -944,24 +970,25 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
             for x in as_completed(tasks):
                 data = x.result()
                 for s in data['missing'].iterrows():
-                    self.missing.loc[s[0]] = s[1]
+                    if s[0] in targets:
+                        self.missing.loc[s[0]] = s[1]
                 for obj in data['result']:
                     found = self.getids(obj)
-                    done = todo.intersection(found)
+                    done = genomes.intersection(found)
                     if self.progress and len(done) > 0:
                         p.update(len(done))
-                    todo = todo - done
+                    genomes = genomes - done
                     completed.update(self._pids(obj))
                     self.missing.drop(completed, axis=0, inplace=True, errors='ignore')
                     yield obj
 
-    def fetchall(self, proteins, ipgs=None):
+    def fetchall(self, accessions, ipgs=None):
         """
         Fetch genomes.
 
         Parameters
         ----------
-        proteins: list of strings
+        accessions: list of strings
           NCBI protein identifiers
 
         Returns
@@ -969,7 +996,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         rotifer.genome.data.NeighborhoodDF
         """
         stack = []
-        for df in self.fetchone(proteins, ipgs=ipgs):
+        for df in self.fetchone(accessions, ipgs=ipgs):
             stack.append(df)
         if stack:
             return pd.concat(stack, ignore_index=True)
