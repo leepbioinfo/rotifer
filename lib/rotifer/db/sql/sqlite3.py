@@ -228,25 +228,25 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
         # Annotate missing entries
         missing = accession - found
         if len(missing) > 0:
-            best = dict()
+            mipgs = dict()
             if not isinstance(ipgs,types.NoneType):
                 notinipgs = missing - self.getids(ipgs)
                 if len(notinipgs) > 0:
                     self.update_missing(notinipgs,np.NaN,"No IPG and not in database")
                     missing = missing - notinipgs
-                best = ipgs[ipgs.pid.isin(missing) | ipgs.representative.isin(missing)].id
-                best = ipgs[ipgs.id.isin(best)]
-                best = best[best.assembly.notna() | best.nucleotide.notna()]
-                notinipgs = missing - self.getids(best)
+                mipgs = ipgs[ipgs.pid.isin(missing) | ipgs.representative.isin(missing)].id
+                mipgs = ipgs[ipgs.id.isin(mipgs)]
+                mipgs = mipgs[mipgs.assembly.notna() | mipgs.nucleotide.notna()]
+                notinipgs = missing - self.getids(mipgs)
                 if len(notinipgs) > 0:
                     self.update_missing(notinipgs,np.NaN,"IPG lists no nucleotide source")
                     missing -= notinipgs
-                best['dna'] = best.id.map(rdnu.best_ipgs(best).set_index('id').assembly.to_dict())
-                best.assembly = np.where(best.assembly.notna(), best.assembly, best.nucleotide)
-                best = best.melt(id_vars=["dna"], value_vars=['pid','representative'], var_name='type', value_name='pid')
-                best = best.drop('type', axis=1).drop_duplicates().set_index('pid').dna.to_dict()
+                mipgs['dna'] = mipgs.id.map(rdnu.mipgs_ipgs(mipgs).set_index('id').assembly.to_dict())
+                mipgs.assembly = np.where(mipgs.assembly.notna(), mipgs.assembly, mipgs.nucleotide)
+                mipgs = mipgs.melt(id_vars=["dna"], value_vars=['pid','representative'], var_name='type', value_name='pid')
+                mipgs = mipgs.drop('type', axis=1).drop_duplicates().set_index('pid').dna.to_dict()
             for lost in missing:
-                assembly = best[lost] if lost in best else np.NaN
+                assembly = mipgs[lost] if lost in mipgs else np.NaN
                 self.update_missing(lost, assembly, 'Not found in source database')
 
         # Return
