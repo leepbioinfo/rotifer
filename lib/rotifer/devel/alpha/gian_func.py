@@ -405,3 +405,29 @@ def search2aln(df, coverage=50, evalue=1e-3, arch=None):
     return seqobj
 
 
+def add_arch_to_seqobj(seqobj,db='profiledb', cpu=96):
+    '''
+    Psiblast it can accept sequence object. 
+    '''
+
+    import tempfile
+    import subprocess
+    from subprocess import Popen, PIPE, STDOUT
+    from rotifer.devel.beta.sequence import sequence as sequence
+    import os
+    import pandas as pd
+    cols =['pid','arch','evalue']
+    if db == 'profiledb':
+        db = ' '
+
+    cwd = os.getcwd()
+
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        # temporary save fasta sequence file
+        acc = sequence(seqobj.df.id.to_list())
+        acc.to_file(f'{tmpdirname}/seqfile') 
+        Popen(f'cat {tmpdirname}/seqfile| splishrps -a {cpu} {db} > {tmpdirname}/out' , stdout=PIPE,shell=True).communicate()
+        Popen(f'rps2arch{tmpdirname}/out > {tmpdirname}/out.tsv' , stdout=PIPE,shell=True).communicate()
+        t = pd.read_csv(f'{tmpdirname}/out.tsv', sep='\t', names=cols)
+       seqobj.df = seqobj.df.merge(t, how='left) 
+    return seqobj

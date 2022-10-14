@@ -1248,6 +1248,7 @@ add_SeqFeature	lib/rotifer/site_perl/Rotifer/DBIC/AnnotationDB/Component/Biodata
 add_SeqFeature	perl/lib/Rotifer/DBIC/AnnotationDB/Component/BiodataComponent.pm	/^sub add_SeqFeature {$/;"	s
 add_annotation	dev/bin/rnexplorer.py	/^def add_annotation(df, dc):$/;"	f
 add_arch_to_df	lib/rotifer/devel/alpha/gian_func.py	/^def add_arch_to_df(df):$/;"	f
+add_arch_to_seqobj	lib/rotifer/devel/alpha/gian_func.py	/^def add_arch_to_seqobj(seqobj,db='profiledb', cpu=96):$/;"	f
 add_arguments	lib/rotifer/core/dev/cli2.py	/^class add_arguments:$/;"	c
 add_cluster	lib/rotifer/devel/beta/sequence.py	/^    def add_cluster(self, coverage=0.8, identity=0.7, name=None, inplace=False):$/;"	m	class:sequence
 add_consensus	lib/rotifer/devel/beta/sequence.py	/^    def add_consensus(self, cutoffs=(50, 60, 70, 80, 90), separator=None):$/;"	m	class:sequence
