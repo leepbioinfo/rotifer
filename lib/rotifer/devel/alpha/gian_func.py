@@ -416,7 +416,7 @@ def add_arch_to_seqobj(seqobj,db='profiledb', cpu=96):
     from rotifer.devel.beta.sequence import sequence as sequence
     import os
     import pandas as pd
-    cols =['pid','arch','evalue']
+    cols =['id','arch','evalue']
     if db == 'profiledb':
         db = ' '
 
@@ -429,5 +429,5 @@ def add_arch_to_seqobj(seqobj,db='profiledb', cpu=96):
         Popen(f'cat {tmpdirname}/seqfile| splishrps -a {cpu} {db} > {tmpdirname}/out' , stdout=PIPE,shell=True).communicate()
         Popen(f'rps2arch {tmpdirname}/out > {tmpdirname}/out.tsv' , stdout=PIPE,shell=True).communicate()
         t = pd.read_csv(f'{tmpdirname}/out.tsv', sep='\t', names=cols)
-        seqobj.df = seqobj.df.merge(t, how='left') 
+        seqobj.df = seqobj.df.merge(t, how='left', on='id') 
     return seqobj
