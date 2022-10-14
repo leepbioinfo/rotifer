@@ -427,7 +427,7 @@ def add_arch_to_seqobj(seqobj,db='profiledb', cpu=96):
         acc = sequence(seqobj.df.id.to_list())
         acc.to_file(f'{tmpdirname}/seqfile') 
         Popen(f'cat {tmpdirname}/seqfile| splishrps -a {cpu} {db} > {tmpdirname}/out' , stdout=PIPE,shell=True).communicate()
-        Popen(f'rps2arch{tmpdirname}/out > {tmpdirname}/out.tsv' , stdout=PIPE,shell=True).communicate()
+        Popen(f'rps2arch {tmpdirname}/out > {tmpdirname}/out.tsv' , stdout=PIPE,shell=True).communicate()
         t = pd.read_csv(f'{tmpdirname}/out.tsv', sep='\t', names=cols)
         seqobj.df = seqobj.df.merge(t, how='left') 
     return seqobj
