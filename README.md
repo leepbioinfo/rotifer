@@ -32,11 +32,10 @@ Installing ROTIFER package with conda enviroments:
   
   5. Write the follow path to eh activate.d file:
   export PATH="path_to_git/rotifer/bin:$PATH"
-  
-  
+  ```
   
   ## Activating debbug function
-   ```python
+ ```python
 import rotifer
 rotifer.logger.setLevel(rotifer.logging.DEBUG)
   ```
