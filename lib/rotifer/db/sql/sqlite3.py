@@ -241,7 +241,7 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
                 if len(notinipgs) > 0:
                     self.update_missing(notinipgs,np.NaN,"IPG lists no nucleotide source")
                     missing -= notinipgs
-                mipgs['dna'] = mipgs.id.map(rdnu.mipgs_ipgs(mipgs).set_index('id').assembly.to_dict())
+                mipgs['dna'] = mipgs.id.map(rdnu.best_ipgs(mipgs).set_index('id').assembly.to_dict())
                 mipgs.assembly = np.where(mipgs.assembly.notna(), mipgs.assembly, mipgs.nucleotide)
                 mipgs = mipgs.melt(id_vars=["dna"], value_vars=['pid','representative'], var_name='type', value_name='pid')
                 mipgs = mipgs.drop('type', axis=1).drop_duplicates().set_index('pid').dna.to_dict()

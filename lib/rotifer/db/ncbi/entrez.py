@@ -254,6 +254,45 @@ class IPGCursor(SequenceCursor):
     def getids(self,obj):
         return set(obj.pid).union(obj.representative)
 
+    def _seqrecords_to_ipg(self, seqrecords):
+        ipg = dict()
+        representative = dict()
+        order = dict()
+        source = "genpept"
+        ipgFromGenPept = []
+        for x in seqrecords:
+            seq = str(x.seq)
+            if seq not in ipg:
+                order[seq] = 0
+                representative[seq] = x.id
+                if len(ipg) == 0:
+                    ipg[seq] = -1
+                else:
+                    ipg[seq] = min(ipg.values()) - 1
+            else:
+                order[seq] += 1
+            desc = x.description.split("[")
+            if len(desc) > 1:
+                org = desc[1].replace("]","")
+                desc = desc[0]
+            else:
+                org = np.NaN
+            strain = np.NaN
+            for f in x.features:
+                for k in f.qualifiers:
+                    if "strain" in f.qualifiers:
+                        strain = f.qualifiers['strain'][0]
+                    if not (f.type == "CDS" and k == "coded_by"):
+                        continue
+                    for v in f.qualifiers[k]:
+                        strand =  "-" if "complement" in v else "+"
+                        coord = v.replace('complement(',"").replace('join(',"").replace(")","").replace("..",":").replace(",",":").split(":")
+                        acc = ",".join(pd.Series([ y.strip() for y in coord if "." in y ]).unique())
+                        coord = [ int(y.replace(">","").replace("<","")) for y in coord if "." not in y ]
+                        ipgFromGenPept.append([ipg[seq],source,acc,min(coord),max(coord),strand,x.id, desc,org,strain,np.NaN,1,order[seq],representative[seq]])
+        ipgFromGenPept = pd.DataFrame(ipgFromGenPept, columns=self._columns + self._added_columns)
+        return ipgFromGenPept
+
     def parser(self, stream, accession):
         query = accession.split(",")
         ipg = pd.read_csv(stream, sep='\t', names=self._columns, header=0).drop_duplicates()
