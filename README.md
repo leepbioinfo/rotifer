@@ -34,5 +34,11 @@ Installing ROTIFER package with conda enviroments:
   export PATH="path_to_git/rotifer/bin:$PATH"
   
   
+  
+  ## Activating debbug function
+   ```python
+import rotifer
+rotifer.logger.setLevel(rotifer.logging.DEBUG)
+  ```
 
 
