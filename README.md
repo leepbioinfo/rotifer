@@ -57,7 +57,8 @@ from rotifer.db import ncbi
 assembly_reports = ncbi.assemblies(taxonomy=True)
 ```
 
-
+### Merging ipgs with assembly_reports to collect taxonomy of eaach pid:
+assembly_reports.query('assembly in @ipg.assembly.to_list()').merge(ipg, on='assembly').pid.nunique()
 
 
  ### Activating debbug function

@@ -55,15 +55,17 @@ class GenomeCursor(ncbiftp.GenomeCursor):
             threads=15,
             timeout=10,
             cache=GlobalConfig['cache'],
+            basepath = None
         ):
         super().__init__(
             progress=progress,
             tries=tries,
             batch_size=batch_size,
-            threads=threads
+            threads=threads,
         )
         self.timeout = timeout
         self.cache = cache
+        self.basepath = basepath
 
     def open_genome(self, accession, assembly_reports=None):
         """
@@ -102,11 +104,12 @@ class GenomeCursor(ncbiftp.GenomeCursor):
 
         # find genome and download
         path = self.genome_path(accession, assembly_reports=assembly_reports)
+        full_path = self.basepath + '/'.join(path).split('/',maxsplit=2)[-1]
         if len(path) == 0:
            return None
 
         # Download genome
-        gz = rcf.open_compressed("/".join(path),  mode='rt')
+        gz = rcf.open_compressed(full_path,  mode='rt')
 
         # Return file object
         return gz
@@ -194,8 +197,6 @@ class GenomeCursor(ncbiftp.GenomeCursor):
           similar to the table from rotifer.db.ncbi.assemblies()
 
         """
-        from rotifer.db.ncbi import ftp as ncbiftp
-        ftp = ncbiftp.connection(tries=self.tries, timeout=self.timeout, cache=self.cache)
 
         # Column names
         arcolumn = f"""                Assembly name : assembly_name
@@ -226,12 +227,13 @@ class GenomeCursor(ncbiftp.GenomeCursor):
         ar = [['column','value'], ['assembly', accession]]
         sc = []
         path = self.genome_path(accession)
-        if len(path):
-            report = ftp.ftp_ls(path[0])
+        full_path = self.basepath + path[0].split('/',maxsplit=2)[-1]
+        if len(full_path):
+            report = pd.DataFrame(os.listdir(full_path),columns = ['name'])
         else:
             return ([],pd.DataFrame(columns=ar[0]))
         report = report[report.name.str.contains("_assembly_report.txt")]
-        report = path[0] + "/" + report.name.iloc[0]
+        report = full_path + "/" + report.name.iloc[0]
         report = open(report)
 
         inar = True
@@ -433,6 +435,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
             batch_size=None,
             threads=15,
             cache=GlobalConfig['cache'],
+            basepath = None
         ):
         super().__init__(
             exclude_type = exclude_type,
@@ -452,6 +455,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
         self.fttype = fttype
         self.eukaryotes = eukaryotes
         self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error",'class'])
+        self.basepath = basepath
 
     def _pids(self, obj):
         columns = ['pid']
@@ -568,11 +572,11 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
         if not self.eukaryotes:
             from rotifer.db.ncbi import entrez
             contigs, report = self.genome_report(accession)
-            if len(report) > 0:
-                tc = entrez.TaxonomyCursor()
-                taxonomy = tc[report.loc['taxid'][0]]
-                if taxonomy.loc[0,"superkingdom"] == "Eukaryota":
-                    raise ValueError(f"Eukaryotic genome {accession} ignored.")
+            #if len(report) > 0:
+            #    tc = entrez.TaxonomyCursor()
+            #    taxonomy = tc[report.loc['taxid'][0]]
+            #    if taxonomy.loc[0,"superkingdom"] == "Eukaryota":
+            #        raise ValueError(f"Eukaryotic genome {accession} ignored.")
         stream = self.open_genome(accession)
         if isinstance(stream,types.NoneType):
             raise ValueError(f'Unable to access files for genome {accession}.')
@@ -655,8 +659,8 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
             size = self.batch_size
             ic = entrez.IPGCursor(progress=self.progress, tries=self.tries, threads=self.threads)
             ipgs = ic.fetchall(todo)
-            if len(ic.missing):
-                self._add_to_missing(ic.missing.index.to_list(), np.nan, "No IPGs at NCBI")
+            #if len(ic.missing):
+            #    self._add_to_missing(ic.missing.index.to_list(), np.nan, "No IPGs at NCBI")
         ipgids = set(ipgs[ipgs.pid.isin(todo) | ipgs.representative.isin(todo)].id)
         ipgs = ipgs[ipgs.id.isin(ipgids) & (ipgs.assembly.notna() | ipgs.nucleotide.notna())]
 
