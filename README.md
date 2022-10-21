@@ -49,8 +49,17 @@ for df in ic.fetchone([query_list]):
 ipg = pd.read_csv('ipg.tsv',sep="\t")
 ```
 Remember to check ic.missing to see if there are any missing ipg, you could further collect it with:
- 
 SequenceCursor + ic._seqrecords_to_ipg
+ 
+### Collect the assembly reports files:
+```python
+from rotifer.db import ncbi
+assembly_reports = ncbi.assemblies(taxonomy=True)
+```
+
+
+
+
  ### Activating debbug function
  ```python
 import rotifer
