@@ -173,7 +173,7 @@ class GenomeCursor(ncbiftp.GenomeCursor):
                 ls = ls[0] # Only one GBFF is expected
             else:
                 raise FileNotFoundError(f'No GBFF for {àccession} in {path}')
-            path = (path, ls[0])
+            path = (path, ls)
 
         return path
 
