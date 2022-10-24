@@ -49,7 +49,7 @@ NcbiConfig.update(loadConfig(__name__.replace("rotifer.",":")))
 # Load dependent NCBI subclasses
 from rotifer.db.ncbi import ftp
 from rotifer.db.ncbi import entrez
-from rotifer.db.ncbi import mirror
+from rotifer.db.ncbi import mirror as rdnm
 from rotifer.db.ncbi.cursor import NcbiCursor
 logger = rotifer.logging.getLogger(__name__)
 
@@ -204,7 +204,7 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
             entrez.GeneNeighborhoodCursor()
         ]
         if mirror:
-            cursor = mirror.GeneNeighborhoodCursor(basepath=mirror)
+            cursor = rdnm.GeneNeighborhoodCursor(basepath=mirror)
             self._cursors.insert(0,cursor)
         if save:
             cursor = rdss.GeneNeighborhoodCursor(save, replace=replace)
