@@ -49,6 +49,7 @@ NcbiConfig.update(loadConfig(__name__.replace("rotifer.",":")))
 # Load dependent NCBI subclasses
 from rotifer.db.ncbi import ftp
 from rotifer.db.ncbi import entrez
+from rotifer.db.ncbi import mirror
 from rotifer.db.ncbi.cursor import NcbiCursor
 logger = rotifer.logging.getLogger(__name__)
 
@@ -143,7 +144,7 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
     replace : boolean, default True
       When save is set, whether to replace that file
     mirror : path
-      Path to a directory containing a mirror of NCBI's FTP genomes site.
+      Path to a mirror of the NCBI's FTP genomes directory.
     exclude_type: list of strings
       List of names for the features that must be ignored
     autopid: boolean
@@ -202,6 +203,9 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
             ftp.GeneNeighborhoodCursor(),
             entrez.GeneNeighborhoodCursor()
         ]
+        if mirror:
+            cursor = mirror.GeneNeighborhoodCursor(basepath=mirror)
+            self._cursors.insert(0,cursor)
         if save:
             cursor = rdss.GeneNeighborhoodCursor(save, replace=replace)
             self._cursors.insert(0,cursor)
