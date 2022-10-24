@@ -18,6 +18,8 @@ from rotifer.db.ncbi import utils as rdnu
 import rotifer.db.ncbi.ftp as ncbiftp
 from rotifer.genome.utils import seqrecords_to_dataframe
 logger = rotifer.logging.getLogger(__name__)
+DefaultBasePath = os.environ["ROTIFER_DATA"] if 'ROTIFER_DATA' in os.environ else "/databases"
+DefaultBasePath = os.path.join(DefaultBasePath,"genomes")
 
 # Classes
 
@@ -35,6 +37,10 @@ class GenomeCursor(ncbiftp.GenomeCursor):
 
     Parameters
     ----------
+    basepath: string
+      Path to a mirror of the genomes section of the 
+      NCBI FTP site. Contents are expected to be the
+      same or a subset of the genomes directory.
     progress: boolean, deafult False
       Whether to print a progress bar
     tries: int, default 3
@@ -43,8 +49,6 @@ class GenomeCursor(ncbiftp.GenomeCursor):
       Number of processes to run parallel downloads
     batch_size: int, default 1
       Number of accessions per batch
-    cache: path-like string
-      Where to place temporary files
 
     """
     def __init__(
@@ -54,8 +58,7 @@ class GenomeCursor(ncbiftp.GenomeCursor):
             batch_size=None,
             threads=15,
             timeout=10,
-            cache=GlobalConfig['cache'],
-            basepath = None
+            basepath = DefaultBasePath,
         ):
         super().__init__(
             progress=progress,
@@ -64,7 +67,6 @@ class GenomeCursor(ncbiftp.GenomeCursor):
             threads=threads,
         )
         self.timeout = timeout
-        self.cache = cache
         self.basepath = basepath
 
     def open_genome(self, accession, assembly_reports=None):
@@ -138,8 +140,6 @@ class GenomeCursor(ncbiftp.GenomeCursor):
           A tuple of two strings, empty when the genome is not found
         """
         from rotifer.db.ncbi import NcbiConfig
-        from rotifer.db.ncbi import ftp as ncbiftp
-        ftp = ncbiftp.connection(tries=self.tries, timeout=self.timeout, cache=self.cache)
         path = ()
 
         # Extract genome path from assembly reports
@@ -276,6 +276,10 @@ class GenomeFeaturesCursor(GenomeCursor):
 
     Parameters
     ----------
+    basepath: string
+      Path to a mirror of the genomes section of the 
+      NCBI FTP site. Contents are expected to be the
+      same or a subset of the genomes directory.
     exclude_type: list of strings
       List of names for the features that must be ignored
     autopid: boolean
@@ -290,12 +294,11 @@ class GenomeFeaturesCursor(GenomeCursor):
       Number of processes to run parallel downloads
     batch_size: int, default 1
       Number of accessions per batch
-    cache: path-like string
-      Where to place temporary files
 
     """
     def __init__(
             self,
+            basepath = DefaultBasePath,
             exclude_type=['source','gene','mRNA'],
             autopid=False,
             codontable='Bacterial',
@@ -303,14 +306,13 @@ class GenomeFeaturesCursor(GenomeCursor):
             tries=3,
             batch_size=None,
             threads=15,
-            cache=GlobalConfig['cache'],
         ):
         super().__init__(
+            basepath=basepath,
             progress=progress,
             tries=tries,
             batch_size=batch_size,
             threads=threads,
-            cache=cache,
         )
         self.exclude_type = exclude_type
         self.autopid = autopid
@@ -405,6 +407,10 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
                setting neighborhood boundaries
     eukaryotes : boolean, default False
       If set to True, neighborhood data for eukaryotic genomes
+    basepath: string
+      Path to a mirror of the genomes section of the 
+      NCBI FTP site. Contents are expected to be the
+      same or a subset of the genomes directory.
     exclude_type: list of strings
       List of names for the features that must be ignored
     autopid: boolean
@@ -419,8 +425,6 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
       Number of processes to run parallel downloads
     batch_size: int, default 1
       Number of accessions per batch
-    cache: path-like string
-      Where to place temporary files
 
     """
     def __init__(
@@ -432,6 +436,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
             strand = None,
             fttype = 'same',
             eukaryotes=False,
+            basepath = DefaultBasePath,
             exclude_type=['source','gene','mRNA'],
             autopid=False,
             codontable='Bacterial',
@@ -439,10 +444,9 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
             tries=3,
             batch_size=None,
             threads=15,
-            cache=GlobalConfig['cache'],
-            basepath = None
         ):
         super().__init__(
+            basepath = basepath,
             exclude_type = exclude_type,
             autopid = autopid,
             codontable = codontable,
@@ -450,7 +454,6 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
             tries = tries,
             batch_size = batch_size,
             threads = threads,
-            cache = cache,
         )
         self.column = column
         self.before = before
@@ -460,7 +463,6 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
         self.fttype = fttype
         self.eukaryotes = eukaryotes
         self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error",'class'])
-        self.basepath = basepath
 
     def _pids(self, obj):
         columns = ['pid']
