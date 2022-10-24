@@ -33,8 +33,35 @@ Installing ROTIFER package with conda enviroments:
   5. Write the follow path to eh activate.d file:
   export PATH="path_to_git/rotifer/bin:$PATH"
   ```
-  
-  ## Activating debbug function
+ 
+ ## Examples of use
+
+ ### colecting igps of huge number os pids:
+```python
+from rotifer.db.ncbi import entrez
+ic = entrez.IPGCursor(progress=True, batch_size=200)
+for df in ic.fetchone([query_list]):
+    if os.path.exists("ipg.tsv"):
+        df.to_csv("ipg.tsv", sep="\t", index=False, mode="a", header=False)
+    else:
+        df.to_csv("ipg.tsv", sep="\t", index=False) 
+           
+ipg = pd.read_csv('ipg.tsv',sep="\t")
+```
+Remember to check ic.missing to see if there are any missing ipg, you could further collect it with:
+SequenceCursor + ic._seqrecords_to_ipg
+ 
+### Collect the assembly reports files:
+```python
+from rotifer.db import ncbi
+assembly_reports = ncbi.assemblies(taxonomy=True)
+```
+
+### Merging ipgs with assembly_reports to collect taxonomy of eaach pid:
+assembly_reports.query('assembly in @ipg.assembly.to_list()').merge(ipg, on='assembly').pid.nunique()
+
+
+ ### Activating debbug function
  ```python
 import rotifer
 rotifer.logger.setLevel(rotifer.logging.DEBUG)
