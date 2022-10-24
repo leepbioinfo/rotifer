@@ -572,11 +572,11 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
         if not self.eukaryotes:
             from rotifer.db.ncbi import entrez
             contigs, report = self.genome_report(accession)
-            #if len(report) > 0:
-            #    tc = entrez.TaxonomyCursor()
-            #    taxonomy = tc[report.loc['taxid'][0]]
-            #    if taxonomy.loc[0,"superkingdom"] == "Eukaryota":
-            #        raise ValueError(f"Eukaryotic genome {accession} ignored.")
+            if len(report) > 0:
+                tc = entrez.TaxonomyCursor()
+                taxonomy = tc[report.loc['taxid'][0]]
+                if taxonomy.loc[0,"superkingdom"] == "Eukaryota":
+                    raise ValueError(f"Eukaryotic genome {accession} ignored.")
         stream = self.open_genome(accession)
         if isinstance(stream,types.NoneType):
             raise ValueError(f'Unable to access files for genome {accession}.')
