@@ -110,7 +110,7 @@ class GenomeCursor(ncbiftp.GenomeCursor):
            return None
 
         # Download genome
-        path = os.path.join(path)
+        path = os.path.join(*path)
         gz = rcf.open_compressed(path,  mode='rt')
 
         # Return file object
