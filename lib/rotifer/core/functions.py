@@ -550,6 +550,8 @@ def yaml_search(string, path):
     # Return
     if query == last:
         return data
+    else:
+        return {}
 
 def loadClasses(load, user_path=os.path.join(GlobalConfig['user'],'lib'), system_path=os.path.join(GlobalConfig['base'],'lib','rotifer')):
     '''

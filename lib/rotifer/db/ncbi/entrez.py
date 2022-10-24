@@ -246,7 +246,7 @@ class FastaCursor(SequenceCursor):
 
 class IPGCursor(SequenceCursor):
     def __init__(self,progress=False, tries=3, batch_size=None, threads=10):
-        super().__init__(database="protein", progress=progress, tries=tries, batch_size=batch_size, threads=threads)
+        super().__init__(database="ipg", progress=progress, tries=tries, batch_size=batch_size, threads=threads)
         self._rettype = "ipg"
         self._columns = ['id','ipg_source','nucleotide','start','stop','strand','pid','description','ipg_organism','strain','assembly']
         self._added_columns = ['order','is_query','representative']
