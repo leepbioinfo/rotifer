@@ -142,6 +142,8 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
       If set, save processed batches to the path given
     replace : boolean, default True
       When save is set, whether to replace that file
+    mirror : path
+      Path to a directory containing a mirror of NCBI's FTP genomes site.
     exclude_type: list of strings
       List of names for the features that must be ignored
     autopid: boolean
@@ -179,6 +181,7 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
             eukaryotes=False,
             save=None,
             replace=False,
+            mirror=None,
             exclude_type=['source','gene','mRNA'],
             autopid=False,
             codontable='Bacterial',

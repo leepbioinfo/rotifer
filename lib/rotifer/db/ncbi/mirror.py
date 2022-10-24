@@ -104,12 +104,12 @@ class GenomeCursor(ncbiftp.GenomeCursor):
 
         # find genome and download
         path = self.genome_path(accession, assembly_reports=assembly_reports)
-        full_path = self.basepath + '/'.join(path).split('/',maxsplit=2)[-1]
         if len(path) == 0:
            return None
 
         # Download genome
-        gz = rcf.open_compressed(full_path,  mode='rt')
+        path = os.path.join(path)
+        gz = rcf.open_compressed(path,  mode='rt')
 
         # Return file object
         return gz
@@ -153,25 +153,27 @@ class GenomeCursor(ncbiftp.GenomeCursor):
         # Retrieve genome path for newest version
         if len(path) == 0:
             path = accession[0:accession.find(".")].replace("_","")
-            path = "/".join([ path[i : i + 3] for i in range(0, len(path), 3) ])
-            path = f'/genomes/all/{path}'
-            path = ftp.ftp_ls(path)
-            if path.empty:
-                return ()
-            path = path.query(f'name.str.contains("{accession}")')
-            path = path.sort_values(['name'], ascending=False).iloc[0]
-            path = path.target + "/" + path['name']
+            path = [ path[i : i + 3] for i in range(0, len(path), 3) ]
+            path = os.path.join(self.basepath,'all',*path)
+            try:
+                ls = os.listdir(path)
+            except:
+                raise FileNotFoundError(f'Directory {path} not found')
+            ls = [ x for x in sorted(ls) if accession in x ]
+            if len(ls):
+                ls = ls[-1] # Expected to be the latest version of the target genome
+            else:
+                raise FileNotFoundError(f'No subdirectory for genome {accession} in diretocy {path}')
+            path = os.path.join(path,ls)
 
             # Retrieve GBFF path
-            if not path:
-                return ()
-            path = ftp.ftp_ls(path)
-            if path.empty:
-                return ()
-            path = path[path['name'].str.contains(".gbff.gz")]
-            if path.empty:
-                return ()
-            path = (path.target.iloc[0], path['name'].iloc[0])
+            ls = os.listdir(path)
+            ls = [ x for x in sorted(ls) if '.gbff.gz' in x ]
+            if len(ls):
+                ls = ls[0] # Only one GBFF is expected
+            else:
+                raise FileNotFoundError(f'No GBFF for {àccession} in {path}')
+            path = (path, ls[0])
 
         return path
 
@@ -222,20 +224,23 @@ class GenomeCursor(ncbiftp.GenomeCursor):
     RefSeq assembly and GenBank assemblies identical : identical""".split("\n")
         arcolumn = [ x.strip().split(" : ") for x in arcolumn ]
         arcolumn = { x[0]:x[1] for x in arcolumn }
-
-        # Opening data file
         ar = [['column','value'], ['assembly', accession]]
         sc = []
+
+        # Find report 
         path = self.genome_path(accession)
-        full_path = self.basepath + path[0].split('/',maxsplit=2)[-1]
-        if len(full_path):
-            report = pd.DataFrame(os.listdir(full_path),columns = ['name'])
+        if len(path):
+            report = os.listdir(path[0])
         else:
             return ([],pd.DataFrame(columns=ar[0]))
-        report = report[report.name.str.contains("_assembly_report.txt")]
-        report = full_path + "/" + report.name.iloc[0]
-        report = open(report)
+        report = [ x for x in report if "_assembly_report.txt" in x ]
+        if len(report):
+            report = os.path.join(path[0],report[0])
+        else:
+            return ([],pd.DataFrame(columns=ar[0]))
 
+        # Parse report
+        report = open(report)
         inar = True
         for row in report:
             row = row.strip()
