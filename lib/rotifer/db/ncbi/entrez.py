@@ -168,7 +168,7 @@ class SequenceCursor:
         A list of Bio.SeqRecord objects
         """
         stack = []
-        for obj in self.__getitem__(",".join(accession)):
+        for obj in self.__getitem__(",".join(accessions)):
             stack.append(obj)
         return stack
 
