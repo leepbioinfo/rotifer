@@ -167,9 +167,9 @@ class SequenceCursor:
         -------
         A list of Bio.SeqRecord objects
         """
-        stack = []
-        for obj in self.__getitem__(",".join(accessions)):
-            stack.append(obj)
+        stack = self.__getitem__(",".join(accessions))
+        if not isinstance(stack,list):
+            stack = [stack]
         return stack
 
     def fetchone(self,accessions):
