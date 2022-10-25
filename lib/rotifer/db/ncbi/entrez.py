@@ -67,6 +67,7 @@ class SequenceCursor:
             database="nucleotide",
             progress=False,
             tries=3,
+            sleep_between_tries=1,
             batch_size=None,
             threads=10
             ):
@@ -74,6 +75,7 @@ class SequenceCursor:
         self.database = database
         self.progress = progress
         self.tries = tries
+        self.sleep_between_tries=sleep_between_tries,
         self.batch_size = batch_size
         self.threads = threads
         if self.threads > 3:
@@ -101,7 +103,7 @@ class SequenceCursor:
         from Bio import Entrez
         Entrez.email = NcbiConfig["email"]
         Entrez.api_key = NcbiConfig["api_key"]
-        return Entrez.efetch(db=self.database, rettype=self._rettype, retmode=self._retmode, id=accession, max_tries=self.tries, sleep_between_tries=1)
+        return Entrez.efetch(db=self.database, rettype=self._rettype, retmode=self._retmode, id=accession, max_tries=self.tries, sleep_between_tries=self.sleep_between_tries)
 
     def __getitem__(self, accession):
         """
@@ -166,12 +168,8 @@ class SequenceCursor:
         A list of Bio.SeqRecord objects
         """
         stack = []
-        for chunk in [ accessions[x:x+200] for x in range(0,len(accessions),200) ]:
-            it = self.__getitem__(",".join(chunk))
-            if not isinstance(it, list):
-                it = [it]
-            for obj in it:
-                stack.append(obj)
+        for obj in self.__getitem__(",".join(accession)):
+            stack.append(obj)
         return stack
 
     def fetchone(self,accessions):
