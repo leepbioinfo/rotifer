@@ -175,9 +175,6 @@ class SequenceCursor:
             for obj in it:
                 stack.append(obj)
 
-        stack = self.__getitem__(",".join(accessions))
-        if not isinstance(stack,list):
-            stack = [stack.append(obj)
         return stack
 
     def fetchone(self,accessions):
