@@ -167,9 +167,13 @@ class SequenceCursor:
         -------
         A list of Bio.SeqRecord objects
         """
-        stack = self.__getitem__(",".join(accessions))
-        if not isinstance(stack,list):
-            stack = [stack]
+        for chunk in [ accessions[x:x+200] for x in range(0,len(accessions),200) ]:
+            it = self.__getitem__(",".join(chunk))
+            if not isinstance(it, list):
+                it = [it]
+            for obj in it:
+                stack.append(obj)
+
         return stack
 
     def fetchone(self,accessions):
