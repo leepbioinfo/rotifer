@@ -169,7 +169,7 @@ class SequenceCursor:
         """
         stack = self.__getitem__(",".join(accessions))
         if not isinstance(stack,list):
-            stack = [stack]
+            stack = [stack.append(obj)
         return stack
 
     def fetchone(self,accessions):
@@ -237,14 +237,14 @@ class SequenceCursor:
         return list(self.fetchone(accessions))
 
 class FastaCursor(SequenceCursor):
-    def __init__(self, database="protein", progress=False, tries=3, batch_size=None, threads=10):
-        super().__init__(database=database, progress=progress, tries=tries, batch_size=batch_size, threads=threads)
+    def __init__(self, database="protein", progress=False, tries=3, sleep_between_tries=1, batch_size=None, threads=10):
+        super().__init__(database=database, progress=progress, tries=tries, sleep_between_tries=sleep_between_tries, batch_size=batch_size, threads=threads)
         self._rettype = "fasta"
         self._format = 'fasta'
 
 class IPGCursor(SequenceCursor):
-    def __init__(self,progress=False, tries=3, batch_size=None, threads=10):
-        super().__init__(database="ipg", progress=progress, tries=tries, batch_size=batch_size, threads=threads)
+    def __init__(self,progress=False, tries=3, sleep_between_tries=1, batch_size=None, threads=10):
+        super().__init__(database="ipg", progress=progress, tries=tries, sleep_between_tries=sleep_between_tries, batch_size=batch_size, threads=threads)
         self._rettype = "ipg"
         self._columns = ['id','ipg_source','nucleotide','start','stop','strand','pid','description','ipg_organism','strain','assembly']
         self._added_columns = ['order','is_query','representative']
@@ -348,8 +348,8 @@ class IPGCursor(SequenceCursor):
         return df
 
 class TaxonomyCursor(SequenceCursor):
-    def __init__(self,progress=False, tries=3, batch_size=None, threads=10):
-        super().__init__(database="taxonomy", progress=progress, tries=tries, batch_size=batch_size, threads=threads)
+    def __init__(self,progress=False, tries=3, sleep_between_tries=1, batch_size=None, threads=10):
+        super().__init__(database="taxonomy", progress=progress, tries=tries, sleep_between_tries=sleep_between_tries, batch_size=batch_size, threads=threads)
         self._rettype = "full"
         self._retmode = 'xml'
 
@@ -390,10 +390,11 @@ class NucleotideFeaturesCursor(SequenceCursor):
             codontable= 'Bacterial',
             progress = False,
             tries = 3,
+            sleep_between_tries=1,
             batch_size = None,
             threads = 10
         ):
-        super().__init__(database='nucleotide', progress=progress, tries=tries, batch_size=batch_size, threads=threads)
+        super().__init__(database='nucleotide', progress=progress, tries=tries, sleep_between_tries=sleep_between_tries, batch_size=batch_size, threads=threads)
         self.exclude_type = exclude_type
         self.autopid = autopid
         self.assembly = assembly
@@ -483,6 +484,7 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
             codontable='Bacterial',
             progress=False,
             tries=3,
+            sleep_between_tries=1,
             batch_size=None,
             threads=15,
         ):
@@ -492,6 +494,7 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
             codontable = codontable,
             progress = progress,
             tries = tries,
+            sleep_between_tries=sleep_between_tries,
             batch_size = batch_size,
             threads = threads,
         )
