@@ -420,6 +420,7 @@ class NucleotideFeaturesCursor(SequenceCursor):
             df = pd.concat(df, ignore_index=True)
         else:
             df = seqrecords_to_dataframe([])
+        return df
 
 class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
     """

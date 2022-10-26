@@ -147,8 +147,8 @@ class GenomeCursor(ncbiftp.GenomeCursor):
             path = assembly_reports.query(f'assembly == "{accession}"')
             if not path.empty:
                 path = path.ftp_path.iloc[0]
-                path = path.replace(f'ftp://{NcbiConfig["ftpserver"]}','')
-                path = (path,os.path.basename(path) + "_genomic.gbff.gz")
+                path = path.replace(f'ftp://{NcbiConfig["ftpserver"]}/genomes/','')
+                path = (os.path.join(self.basepath,path),os.path.basename(path) + "_genomic.gbff.gz")
 
         # Retrieve genome path for newest version
         if len(path) == 0:
@@ -172,7 +172,7 @@ class GenomeCursor(ncbiftp.GenomeCursor):
             if len(ls):
                 ls = ls[0] # Only one GBFF is expected
             else:
-                raise FileNotFoundError(f'No GBFF for {àccession} in {path}')
+                raise FileNotFoundError(f'No GBFF for {accession} in {path}')
             path = (path, ls)
 
         return path
