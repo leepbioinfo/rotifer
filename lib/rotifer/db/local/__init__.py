@@ -24,13 +24,9 @@ import rotifer.devel.beta.sequence as rdbs
 logger = rotifer.logging.getLogger(__name__)
 
 # Defaults
-_config = loadConfig(__name__.replace('rotifer.',':'))
-if not _config:
-    _config = {}
-_config = {
+_config = loadConfig(__name__.replace('rotifer.',':'), defaults = {
     'local_database_path': os.path.join(GlobalConfig['data'],"fadb","nr","nr"),
-    **_config
-}
+})
 
 class EaselFastaCursor:
     """

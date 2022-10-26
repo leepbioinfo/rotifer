@@ -39,12 +39,11 @@ from rotifer.core.functions import findDataFiles
 from rotifer.genome.utils import seqrecords_to_dataframe
 
 # Load NCBI configuration
-NcbiConfig = {
+NcbiConfig = loadConfig(__name__.replace("rotifer.",":"), defaults = {
     'email': os.environ['USER'] + '@' + socket.gethostname(),
     'ftpserver': 'ftp.ncbi.nlm.nih.gov',
     'api_key': os.environ['NCBI_API_KEY'] if 'NCBI_API_KEY' in os.environ else None,
-}
-NcbiConfig.update(loadConfig(__name__.replace("rotifer.",":")))
+})
 
 # Load dependent NCBI subclasses
 from rotifer.db.ncbi import ftp

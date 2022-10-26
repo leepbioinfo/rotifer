@@ -432,7 +432,7 @@ def findDataFiles(load, path=None):
     # Return
     return files
 
-def loadConfig(filepath, user_path=GlobalConfig['userConfig'], system_path=GlobalConfig['baseConfig']):
+def loadConfig(filepath, user_path=GlobalConfig['userConfig'], system_path=GlobalConfig['baseConfig'], defaults={}):
     '''
     This routine loads configuration parameters from YAML file(s).
 
@@ -469,34 +469,36 @@ def loadConfig(filepath, user_path=GlobalConfig['userConfig'], system_path=Globa
     except ImportError:
         from yaml import Loader
 
+    config = defaults
     if filepath[0] != ":":
         if os.path.exists(filepath):
             try:
-                return yaml_load(open(filepath), Loader=Loader)
+                loaded = yaml_load(open(filepath), Loader=Loader)
+                config.update(loaded)
+                return config
             except:
-                print(f'Error while parsing file {load}: {sys.exc_info[1]}', file=sys.stderr)
-                return {}
+                logger.error(f'Error while parsing file {load}: {sys.exc_info[1]}')
+                return defaults
         else:
-            print(f'File {filepath} not found.', file=sys.stderr)
-            return {}
+            logger.error(f'File {filepath} not found.')
+            return defaults
 
     # Loading configuration from 
     expand_load = filepath.replace(':','')
 
+    # System path
+    if os.path.exists(system_path):
+        try:
+            config.update(yaml_search(expand_load, system_path))
+        except:
+            logger.error(f'Error while parsing file {os.path.join(system_path,expand_load)}: {sys.exc_info}', file=sys.stderr)
+
     # User path
-    config = {}
     if os.path.exists(user_path):
         try:
-            config = yaml_search(expand_load, user_path)
+            config.update(yaml_search(expand_load, user_path))
         except:
-            print(f'Error while parsing file {os.path.join(user_path,expand_load)}: {sys.exc_info}', file=sys.stderr)
-
-    # System path
-    if not config and os.path.exists(system_path):
-        try:
-            config = yaml_search(expand_load, system_path)
-        except:
-            print(f'Error while parsing file {os.path.join(system_path,expand_load)}: {sys.exc_info}', file=sys.stderr)
+            logger.error(f'Error while parsing file {os.path.join(user_path,expand_load)}: {sys.exc_info}', file=sys.stderr)
 
     # Return
     return config
