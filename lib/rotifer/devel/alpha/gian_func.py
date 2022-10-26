@@ -170,7 +170,7 @@ def cluster_Co_occurrence(
 
     andf = df.groupby(count).agg(
             pfam=('pfam', count_series),
-            aravind=('aravind', count_series)
+            aravind=('profiledb', count_series)
             ).reset_index()
     xxxx = xxxx.merge(
             andf.rename({
