@@ -468,8 +468,9 @@ def loadConfig(filepath, user_path=GlobalConfig['userConfig'], system_path=Globa
         from yaml import CLoader as Loader
     except ImportError:
         from yaml import Loader
+    from copy import deepcopy
 
-    config = defaults
+    config = deepcopy(defaults)
     if filepath[0] != ":":
         if os.path.exists(filepath):
             try:
@@ -478,10 +479,10 @@ def loadConfig(filepath, user_path=GlobalConfig['userConfig'], system_path=Globa
                 return config
             except:
                 logger.error(f'Error while parsing file {load}: {sys.exc_info[1]}')
-                return defaults
+                return config
         else:
             logger.error(f'File {filepath} not found.')
-            return defaults
+            return config
 
     # Loading configuration from 
     expand_load = filepath.replace(':','')
