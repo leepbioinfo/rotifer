@@ -680,3 +680,16 @@ def add_arch_to_seqobj(seqobj,db='profiledb', cpu=96):
         t = pd.read_csv(f'{tmpdirname}/out.tsv', sep='\t', names=cols)
         seqobj.df = seqobj.df.merge(t, how='left', on='id') 
     return seqobj
+
+
+def padding_df(df):
+    cdf = df.copy()
+    c = df.columns
+    pad_col_name=[]
+    for x in c:
+        cdf[x] = cdf[x].fillna('').astype(str)
+        w = cdf[x].str.len().max()
+        cdf[x] = cdf[x].str.pad(width =w)
+        pad_col_name.append(x.rjust(w))
+    cdf.columns = pad_col_name    
+    return cdf
