@@ -649,7 +649,7 @@ def search2aln(df, coverage=50, evalue=1e-3, arch=None):
     if arch:
         seqobj.df = seqobj.df.merge(archdf, how='left')
 
-    seqobj.df.id = seqobj.df.apply(lambda x: f'{x.id}/{x.hitstart}-{x.hitend}', axis=1)
+    #seqobj.df.id = seqobj.df.apply(lambda x: f'{x.id}/{x.hitstart}-{x.hitend}', axis=1)
 
     return seqobj
 
