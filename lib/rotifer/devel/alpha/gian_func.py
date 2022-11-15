@@ -682,6 +682,27 @@ def add_arch_to_seqobj(seqobj,db='profiledb', cpu=96):
     return seqobj
 
 
+def full_annotate(seqobj,
+                  progress=True,
+                  batch_size=8,
+                  mirror="/am/ftp-genomes",
+                  threads=8,
+                  after=5,
+                  before=5,
+                  eukaryotes=False):
+    from rotifer.db import ncbi 
+    from rotifer.devel.alpha import gian_func as gf
+    gnc = ncbi.GeneNeighborhoodCursor(
+            rogress=progress,
+            batch_size=batch_size,
+            mirror=mirror,
+            threads=threads,
+            after=after,
+            before=before,
+            eukaryotes=eukaryotes)
+    seqobj.ndf = gf.add_arch_to_df(gnc.fetchall(df.id.to_list()))
+    retunr seqobj
+
 def padding_df(df):
     cdf = df.copy()
     c = df.columns
