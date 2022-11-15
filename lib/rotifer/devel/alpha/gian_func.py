@@ -693,7 +693,7 @@ def full_annotate(seqobj,
     from rotifer.db import ncbi 
     from rotifer.devel.alpha import gian_func as gf
     gnc = ncbi.GeneNeighborhoodCursor(
-            rogress=progress,
+            progress=progress,
             batch_size=batch_size,
             mirror=mirror,
             threads=threads,
