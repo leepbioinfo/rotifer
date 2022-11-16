@@ -1693,6 +1693,7 @@ class sequence:
                 highlight_consensus, subset=corte
             )
         else:
+            aln_r.columns = aln_r.columns.astype(str)
             df_style = aln_r.style.set_properties(**{
                 "text-align": "center"}
             ).apply(highlight_aln, axis=0, subset=corte2).hide_index(axis='columns').apply(
