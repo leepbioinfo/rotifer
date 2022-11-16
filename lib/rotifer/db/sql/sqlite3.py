@@ -3,6 +3,7 @@ Rotifer connections to SQL databases
 ====================================
 """
 
+# Dependencies
 import re
 import os
 import types
@@ -15,6 +16,7 @@ from tqdm import tqdm
 from Bio import SeqIO
 from io import StringIO
 
+# Rotifer
 import rotifer
 import rotifer.db.core as rdc
 import rotifer.db.ncbi.utils as rdnu
@@ -24,15 +26,9 @@ from rotifer.core.functions import loadConfig
 from rotifer.genome.data import NeighborhoodDF
 from rotifer.genome.utils import seqrecords_to_dataframe
 logger = rotifer.logging.getLogger(__name__)
-
-# Defaults
-_config = loadConfig(__name__.replace('rotifer.',':'))
-if not _config:
-    _config = {}
-_config = {
+config = loadConfig(__name__.replace('rotifer.',':'), defaults = {
     'local_database_path': os.path.join(GlobalConfig['data'],"fadb","nr","nr"),
-    **_config
-}
+})
 
 class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
     """

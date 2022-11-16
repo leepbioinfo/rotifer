@@ -13,7 +13,7 @@ Rotifer's NCBI database tools
 Class attributes
 ----------------
 
-NcbiConfig : NCBI configuration
+config : NCBI configuration
   Automatically loaded from ~/.rotifer/etc/db/ncbi.yml
 """
 
@@ -24,48 +24,114 @@ import types
 import socket
 import typing
 import logging
+import importlib
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from copy import deepcopy
 
-# Import submodules
+# Import core rotifer modules
 import rotifer
-import rotifer.db.core as rdc
 from rotifer import GlobalConfig
-from rotifer.db.sql import sqlite3 as rdss
-from rotifer.core.functions import loadConfig
-from rotifer.core.functions import findDataFiles
-from rotifer.genome.utils import seqrecords_to_dataframe
+logger = rotifer.logging.getLogger(__name__)
 
 # Load NCBI configuration
-NcbiConfig = loadConfig(__name__.replace("rotifer.",":"), defaults = {
-    'email': os.environ['USER'] + '@' + socket.gethostname(),
-    'ftpserver': 'ftp.ncbi.nlm.nih.gov',
-    'api_key': os.environ['NCBI_API_KEY'] if 'NCBI_API_KEY' in os.environ else None,
-})
+from rotifer.core.functions import loadConfig
+config = loadConfig(
+    __name__.replace("rotifer.",":"),
+    defaults = {
+        'email': os.environ['USER'] + '@' + socket.gethostname(),
+        'ftpserver': 'ftp.ncbi.nlm.nih.gov',
+        'api_key': os.environ['NCBI_API_KEY'] if 'NCBI_API_KEY' in os.environ else None,
+        'cursor_methods': {
+            'entrez': 'rotifer.db.ncbi.entrez',
+            'ete3': 'rotifer.db.local.ete3',
+            'ftp': 'rotifer.db.ncbi.ftp',
+            'mirror': 'rotifer.db.ncbi.mirror',
+            'sqlite3': 'rotifer.db.sql.sqlite3',
+        }
+    }
+)
+NcbiConfig = config # for compatibility but deprecated: to be removed!
 
-# Load dependent NCBI subclasses
+# Cursor modules
+import rotifer.db.core as rdc
 from rotifer.db.ncbi import ftp
 from rotifer.db.ncbi import entrez
 from rotifer.db.ncbi import mirror as rdnm
 from rotifer.db.ncbi.cursor import NcbiCursor
-logger = rotifer.logging.getLogger(__name__)
+from rotifer.db.sql import sqlite3 as rdss
 
-# Controlling what can be exported with *
-#
-# This also ensure all documentation from imported
-# submodules can be read here
-#
-# Note: to avoid exposing a function when * is used
-# its name should start with a _
-#__all__ = [
-#        'assemblies',
-#        'neighbors',
-#        'elink',
-#        ]
+# Other rotifer components
+from rotifer.core.functions import findDataFiles
+from rotifer.genome.utils import seqrecords_to_dataframe
 
 # Classes
+
+class TaxonomyCursor(rdc.BaseSerialDelegatorCursor):
+    def __init__(self, methods=['ete3','entrez'], progress=False, tries=3, sleep_between_tries=1, batch_size=None, threads=10, *args, **kwargs):
+        self._shared_attributes = ['progress','tries','sleep_between_tries','batch_size','threads']
+        self.sleep_between_tries = 1
+        super().__init__(methods=methods, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
+        self.taxcols = ['taxid','organism','superkingdom','lineage','classification','alternative_taxids']
+
+    def getids(self, obj, *args, **kwargs):
+        if not (isinstance(obj,list) or isinstance(obj,tuple)):
+            obj = [ obj ]
+        ids = set()
+        for item in obj:
+            ids.update(set(item.taxid.astype(str)))
+            if 'alternative_taxids' in item:
+                aids = item.alternative_taxids.dropna().astype(str)
+                aids = aids.str.split(",").explode().dropna()
+                ids.update(aids)
+        return ids
+
+    def __getitem__(self, accessions, *args, **kwargs):
+        """
+        Dictionary-like access to data.
+
+        Usage
+        -----
+        >>> import rotifer.db.ncbi as ncbi
+        >>> tc = ncbi.TaxonomyCursor(progress=True)
+        >>> t = tc[2599]
+
+        Parameters
+        ----------
+        accessions: list of strings
+          Database identifiers.
+
+        Returns
+        -------
+        Pandas dataframe
+        """
+        result = super().__getitem__(accessions, *args, **kwargs)
+        if len(result) == 0:
+            return pd.DataFrame(columns=self.taxcols)
+        elif isinstance(result,list):
+            return pd.concat(result, ignore_index=True)
+        else:
+            return result
+
+    def fetchall(self, accessions, *args, **kwargs):
+        """
+        Fetch data for all accessions.
+
+        Parameters
+        ----------
+        accessions: list of database identifiers
+          Database identifiers.
+
+        Returns
+        -------
+        Pandas dataframe
+        """
+        df = super().fetchall(accessions, *args, **kwargs)
+        if len(df) == 0:
+            return pd.DataFrame(columns=self.taxcols)
+        else:
+            return pd.concat(df, ignore_index=True)
 
 class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
     """
@@ -193,7 +259,7 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
         ):
 
         # Setup special attributes
-        self._public_attributes = [
+        self._shared_attributes = [
             'column','before','after','min_block_distance','strand','fttype','eukaryotes',
             'exclude_type','autopid','codontable',
             'progress','tries','batch_size','threads','cache',
@@ -230,7 +296,7 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
 
     def __setattr__(self, name, value):
         super().__setattr__(name, value)
-        if hasattr(self,'_public_attributes') and name in self._public_attributes:
+        if hasattr(self,'_shared_attributes') and name in self._shared_attributes:
             for cursor in self._cursors:
                 if hasattr(cursor,name):
                     cursor.__setattr__(name,value)
@@ -342,7 +408,7 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
                 for c in [self] + self._cursors[0:i+1]:
                     c.missing.drop(found, axis=0, inplace=True, errors="ignore")
                 for s in cursor.missing.iterrows():
-                    if s[0] in accessions:
+                    if s[0] in targets:
                         self.missing.loc[s[0]] = s[1]
                 todo = set(self.missing.query(lost).index)
                 yield result
@@ -622,7 +688,7 @@ def neighbors(
         yield pd.DataFrame()
 
 # Load NCBI assembly reports
-def assemblies(baseurl=f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASSEMBLY_REPORTS', taxonomy=None):
+def assemblies(baseurl=f'ftp://{config["ftpserver"]}/genomes/ASSEMBLY_REPORTS', taxonomy=True, progress=True):
     '''
     Load a table documenting all NCBI genome assemblies.
 
@@ -630,33 +696,45 @@ def assemblies(baseurl=f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASSEMBLY_REPORT
     from the genomes/ASSEMBLY_REPORTS directory at NCBI's
     FTP site.
 
-    Usage:
-      # download from NCBI's FTP site
-      import rotifer.db.ncbi as ncbi
-      a = ncbi.assembly_reports()
+    Usage
+    -----
+    Download from NCBI's FTP site
 
-      # Load local files at /db/ncbi
-      b = ncbi.assembly_reports(baseurl="/db/ncbi")
+    >>> import rotifer.db.ncbi as ncbi
+    >>> a = ncbi.assembly_reports()
+
+    Load local files at /db/ncbi
+
+    >>> b = ncbi.assembly_reports(baseurl="/db/ncbi")
       
-      # If working at NIH servers use
-      a = ncbi.assembly_reports(baseurl="/am/ftp-genomes/ASSEMBLY_REPORTS")
+    If working at NIH servers use
 
-    Returns:
-      Pandas DataFrame
+    >>> a = ncbi.assembly_reports(baseurl="/am/ftp-genomes/ASSEMBLY_REPORTS")
 
-    Parameters:
-      baseurl    : URL or directory with assembly_summary_*.txt files
-      taxonomy   : ete3's NCBITaxa object
-                   If set to true, a new NCBITaxa object is created
+    Parameters
+    ----------
+    baseurl: string
+      URL or directory with assembly_summary_*.txt files
+    taxonomy: boolean, default True
+      If set to true, taxonomy data is added to the table
 
-    Extra columns added by this method:
-      source : NCBI's source database
-      loaded_from : data source (same as baseurl)
+    Returns
+    -------
+    Pandas DataFrame
+
+    Notes
+    -----
+    Some columns are added to the original table:
+    source : NCBI's source database
+    loaded_from : data source (same as baseurl)
     '''
 
     # Method dependencies
     import pandas as pd
     from glob import glob
+    origLevel = logger.getEffectiveLevel()
+    if progress:
+        rotifer.logger.setLevel(rotifer.logging.INFO)
     logger.info(f'main: loading assembly reports...')
 
     # Load assembly reports
@@ -676,6 +754,7 @@ def assemblies(baseurl=f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASSEMBLY_REPORT
         df.append(_)
         logger.info(f'{url}, {len(_)} rows, {len(df)} loaded')
     df = pd.concat(df, ignore_index=True)
+    df.taxid = df.taxid.astype(str)
     logger.info(f'loaded {len(df)} assembly summaries.')
 
     # Make sure the ftp_path columns refers to the ftp site as we expect
@@ -683,17 +762,20 @@ def assemblies(baseurl=f'ftp://{NcbiConfig["ftpserver"]}/genomes/ASSEMBLY_REPORT
         df.ftp_path = df.ftp_path.str.replace('https','ftp')
 
     # Add taxonomy
-    if isinstance(taxonomy,pd.DataFrame) or taxonomy:
-        if not isinstance(taxonomy,pd.DataFrame):
-            from rotifer.db.ncbi.cursor import NcbiCursor
-            cursor = NcbiCursor(df.taxid.unique().tolist())
-            taxonomy = cursor.read('taxonomy', ete3=taxonomy, verbose=True)
-        if isinstance(taxonomy,pd.DataFrame):
-            df = df.merge(taxonomy, left_on='taxid', right_on='taxid', how='left')
+    if taxonomy:
+        cursor = TaxonomyCursor(progress=progress)
+        taxonomy = cursor.fetchall(df.taxid.unique().tolist())
+        taxonomy['_same'] = (taxonomy.taxid == taxonomy.alternative_taxids).astype(int)
+        taxonomy.sort_values(['taxid','_same'], ascending=True, inplace=True)
+        taxonomy.drop('_same', axis=1, inplace=True)
+        taxonomy.drop_duplicates('taxid', keep='first', inplace=True)
+        df = df.merge(taxonomy, left_on='taxid', right_on='taxid', how='left')
         logger.info(f'{len(df)} df left-merged with taxonomy dataframe.')
 
     # Reset ncbi object, update missing list and return
     logger.info(f'main: {len(df)} assembly reports loaded!')
+    if progress:
+        rotifer.logger.setLevel(origLevel)
     return df
 
 def best_ipgs(ipgs, assembly_reports=None, eukaryotes=False, criteria=findDataFiles(':db.ncbi.criteria.tsv')[0]):

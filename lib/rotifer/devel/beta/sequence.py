@@ -398,18 +398,19 @@ class sequence:
             List of criteria for sorting.
 
             The following criteria are always supported:
-            - id      : sort by sequence identifiers
-            - length  : sequence length
-            - list    : order follows a list of sequence IDs
+            - id : sort by sequence identifiers
+            - length : sequence length
+            - list : order follows a list of sequence IDs
                 See parameter ``id_list``.
-            - name    : sort by sequence identifiers
-            - tree    : sort by phylogeny
+            - name : sort by sequence identifiers
+            - tree : sort by phylogeny
                 See parameter ``tree_file``.
                 Leaf names must match sequence identifiers.
+            - residues: alignment columns
 
             Additionally, user-supplied sequence annotations may
             also be used to sort alignment rows. See the section
-            ``Alignment annotations``.
+            ```Alignment annotations```.
 
         ascending : bool or list of bools, default True
             If True, sort in ascending order, otherwise descending.
@@ -419,10 +420,6 @@ class sequence:
 
         id_list : list of strings or file name
             A list of sequence identifiers to use in sorting.
-            If a file name is given as a string, the list will be
-            automatically loaded from that file.
-
-        residues : list of alignment column indices
             If a file name is given as a string, the list will be
             automatically loaded from that file.
 

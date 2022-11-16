@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from Bio import SeqIO
+from copy import deepcopy
 
 # Import submodules
 import rotifer
@@ -93,6 +94,17 @@ class SequenceCursor:
     def getids(self, obj):
         return {obj.id}
 
+    def parse_ids(self, accession, as_strings=True):
+        targets = deepcopy(accession)
+        if isinstance(targets,str):
+            targets = targets.split(",")
+        elif not isinstance(targets,typing.Iterable):
+            targets = [ targets ]
+        if as_strings:
+            targets = [ str(x) for x in targets ]
+        targets = set(targets) 
+        return targets
+
     def parser(self, stream, accession):
         stack = []
         for s in SeqIO.parse(stream, self._format):
@@ -103,7 +115,14 @@ class SequenceCursor:
         from Bio import Entrez
         Entrez.email = NcbiConfig["email"]
         Entrez.api_key = NcbiConfig["api_key"]
-        return Entrez.efetch(db=self.database, rettype=self._rettype, retmode=self._retmode, id=accession, max_tries=self.tries, sleep_between_tries=self.sleep_between_tries)
+        return Entrez.efetch(
+                db=self.database,
+                rettype=self._rettype,
+                retmode=self._retmode,
+                id=accession,
+                max_tries=self.tries,
+                sleep_between_tries=self.sleep_between_tries,
+        )
 
     def __getitem__(self, accession):
         """
@@ -117,40 +136,47 @@ class SequenceCursor:
         Returns
         -------
         List of Bio.SeqRecord objects
+
         """
-        query = set(accession.split(","))
-        batch = [accession]
+        # Fetch data from database
+        targets = self.parse_ids(accession)
+        batch = [",".join(targets)]
         stack = []
         found = set()
         for attempt in range(0,2):
             for acc in batch:
+                # Download
                 try:
                     stream = self.fetcher(acc)
                 except RuntimeError:
                     logger.error(f'Runtime error: '+str(sys.exc_info()[1]))
                     continue
                 except:
-                    logger.debug(f"Efetch failed for {accession}: {sys.exc_info()}")
+                    logger.error(f"Efetch failed for {acc}: {sys.exc_info()}")
                     continue
+
+                # Parse
                 try:
                     objlist = self.parser(stream, acc)
                 except:
-                    logger.debug(f"Parser failed for {accession}: {sys.exc_info()}")
+                    logger.error(f"Parser failed for {acc}: {sys.exc_info()}")
                     continue
+
+                # Inspect
                 for obj in objlist:
                     found = found.union(self.getids(obj))
                     stack.append(obj)
-            if found == query:
-                break
-            else:
-                batch = query - found
 
-        missed = query - found
+            batch = targets - found
+            if len(batch) == 0:
+                break
+
+        missed = targets - found
         if len(missed) > 0:
             logger.debug(f'''Unable to fetch data from {self.database} database for accessions {missed}''')
-            self.missing = self.missing.union(missed)
+            self.missing.update(missed)
 
-        if len(stack) == 1 and len(query) == 1:
+        if (isinstance(accession,str) and "," not in accession) or isinstance(accession,int):
             stack = stack[0]
 
         return stack
@@ -167,14 +193,14 @@ class SequenceCursor:
         -------
         A list of Bio.SeqRecord objects
         """
+        targets = list(self.parse_ids(accessions))
         stack = []
-        for chunk in [ accessions[x:x+200] for x in range(0,len(accessions),200) ]:
-            it = self.__getitem__(",".join(chunk))
+        for chunk in [ targets[x:x+200] for x in range(0,len(targets),200) ]:
+            it = self.__getitem__(chunk)
             if not isinstance(it, list):
                 it = [it]
             for obj in it:
                 stack.append(obj)
-
         return stack
 
     def fetchone(self,accessions):
@@ -199,22 +225,21 @@ class SequenceCursor:
         from rotifer.devel.alpha.gian_func import chunks
 
         # Process arguments
-        if not isinstance(accessions,typing.Iterable) or isinstance(accessions,str):
-            accessions = [accessions]
-        accessions = set(accessions)
+        targets = self.parse_ids(accessions)
+        query = list(targets)
         size = self.batch_size
         if size == None or size == 0:
-            size = max(int(len(accessions) / self.threads),1)
+            size = max(int(len(targets) / self.threads),1)
 
         # Split jobs and execute
-        self.missing = self.missing.union(accessions)
+        self.missing = self.missing.union(targets)
         with ProcessPoolExecutor(max_workers=self.threads) as executor:
             if self.progress:
-                p = tqdm(total=len(accessions), initial=0)
+                p = tqdm(total=len(targets), initial=0)
             tasks = []
-            for chunk in chunks(list(accessions), size):
+            for chunk in chunks(query, size):
                 tasks.append(executor.submit(self.worker, chunk))
-            todo = accessions
+            todo = deepcopy(targets)
             for x in as_completed(tasks):
                 for obj in x.result():
                     found = self.getids(obj)
@@ -354,28 +379,31 @@ class IPGCursor(SequenceCursor):
 
 class TaxonomyCursor(SequenceCursor):
     def __init__(self,progress=False, tries=3, sleep_between_tries=1, batch_size=None, threads=10):
-        super().__init__(database="taxonomy", progress=progress, tries=tries, sleep_between_tries=sleep_between_tries, batch_size=batch_size, threads=threads)
+        super().__init__(database="taxonomy",progress=progress,tries=tries,sleep_between_tries=sleep_between_tries,batch_size=batch_size,threads=threads)
         self._rettype = "full"
         self._retmode = 'xml'
+        self.taxcols = ['taxid','organism','superkingdom','lineage','classification','alternative_taxids']
 
     def getids(self,obj):
-        other = obj.alternative_taxids.str.split(",").explode().dropna()
-        return set(obj.taxid).union(other)
+        ids = set(obj.taxid)
+        ids.update(obj.alternative_taxids.str.split(",").explode().dropna())
+        return ids
 
     def parser(self, stream, accession):
-        import Bio
         from Bio import Entrez
-        taxdf = Entrez.parse(stream)
-        taxdf = pd.DataFrame(Entrez.parse(stream))
-        cols = [ taxdf[x].dropna().map(lambda x: isinstance(x,str)).all() for x in taxdf.columns.to_list() ]
-        cols.append(True)
+        from rotifer.taxonomy.utils import lineage
+        taxdf = [ x for x in Entrez.parse(stream) ]
+        taxdf = pd.DataFrame(taxdf)
         if "AkaTaxIds" in taxdf.columns:
-            taxdf["alternative_taxids"] = taxdf["AkaTaxIds"].fillna("").map(lambda x: ",".join(x)).replace("",np.nan)
+            taxdf["alternative_taxids"] = taxdf["AkaTaxIds"].fillna("").map(lambda x: ",".join(x))
+            taxdf.alternative_taxids = np.where(taxdf.alternative_taxids == "", taxdf.TaxId, taxdf.alternative_taxids)
         else:
-            taxdf["alternative_taxids"] = np.nan
-        taxdf = taxdf.loc[:,cols].applymap(lambda x: str(x))
+            taxdf["alternative_taxids"] = taxdf.TaxId
         taxdf['superkingdom'] = taxdf.Lineage.str.replace("cellular organisms; ","").str.split("; ", expand=True)[0]
-        taxdf.rename({'Lineage':'classification', 'TaxId':'taxid'}, axis=1, inplace=1)
+        taxdf.rename({'Lineage':'classification', 'TaxId':'taxid', 'ScientificName':'organism'}, axis=1, inplace=1)
+        taxdf['lineage'] = lineage(taxdf.classification)
+        taxdf = taxdf.loc[:,self.taxcols].applymap(lambda x: str(x))
+        stream.close()
         return [taxdf]
 
     def fetchall(self, accessions):
@@ -399,7 +427,14 @@ class NucleotideFeaturesCursor(SequenceCursor):
             batch_size = None,
             threads = 10
         ):
-        super().__init__(database='nucleotide', progress=progress, tries=tries, sleep_between_tries=sleep_between_tries, batch_size=batch_size, threads=threads)
+        super().__init__(
+                database='nucleotide',
+                progress=progress,
+                tries=tries,
+                sleep_between_tries=sleep_between_tries,
+                batch_size=batch_size,
+                threads=threads
+        )
         self.exclude_type = exclude_type
         self.autopid = autopid
         self.assembly = assembly

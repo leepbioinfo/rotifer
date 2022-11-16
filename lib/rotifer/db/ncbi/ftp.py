@@ -830,11 +830,11 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
 
     def fetcher(self, accession):
         if not self.eukaryotes:
-            from rotifer.db.ncbi import entrez
+            import rotifer.db.ncbi as ncbi
             contigs, report = self.genome_report(accession)
             if len(report) > 0:
-                tc = entrez.TaxonomyCursor()
-                taxonomy = tc[report.loc['taxid'][0]]
+                tc = ncbi.TaxonomyCursor(sleep_between_tries=15, tries=5)
+                taxonomy = tc[report.loc['taxid'][0]] # Fetching from database
                 if taxonomy.loc[0,"superkingdom"] == "Eukaryota":
                     raise ValueError(f"Eukaryotic genome {accession} ignored.")
         stream = self.open_genome(accession)
@@ -905,10 +905,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         from concurrent.futures import ProcessPoolExecutor, as_completed
 
         # Make sure no identifiers are used twice
-        targets = deepcopy(accessions)
-        if not isinstance(targets,typing.Iterable) or isinstance(targets,str):
-            targets = [targets]
-        targets = set(targets)
+        targets = self.parse_ids(accessions)
         todo = deepcopy(targets)
 
         # Make sure we have usable IPGs
