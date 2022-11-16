@@ -1504,7 +1504,7 @@ class sequence:
                 'font-size': '12px',
                 'font-family':'"Lucida Console", Monaco,monospace',
                 "text-align": "center"}
-            ).apply(highlight_aln, axis=0, subset=corte2).hide_index(axis='columns').apply(
+            ).apply(highlight_aln, axis=0, subset=corte2).hide_columns().apply(
                 highlight_consensus, subset=corte
             ).set_table_styles(
                 [headers]
@@ -1710,7 +1710,7 @@ class sequence:
         else:
             df_style = aln_r.style.set_properties(**{
                 "text-align": "center"}
-            ).apply(highlight_aln, axis=0, subset=corte2).hide_index(axis='columns').apply(
+            ).apply(highlight_aln, axis=0, subset=corte2).hide_columns().apply(
                 highlight_consensus, subset=corte
             )
         #if whant to send to latex, replace set_stick... to:to_latex(environment='longtable', convert_css=True)
