@@ -1361,6 +1361,8 @@ class sequence:
         :returns: TODO
 
         """
+
+        import sys
         import pandas as pd
         from rotifer.devel.beta.sequence import sequence
         import numpy as np
@@ -1454,7 +1456,6 @@ class sequence:
                         'color:black;background-color:white')))
 
         def highlight_consensus(s):
-            import sys
             import numpy as np
             d = aa_groups_colors[s.fillna('  ').iloc[-1]]
             """TODO: Docstring for highlight_consensus.
