@@ -1358,6 +1358,8 @@ class sequence:
         :returns: TODO
 
         """
+
+        import sys
         import pandas as pd
         from rotifer.devel.beta.sequence import sequence
         import numpy as np
@@ -1483,15 +1485,27 @@ class sequence:
             color:black;
             background-color:white'''
         }
-        df_style = aln_r.style.set_properties(**{
-            'font-size': '12px',
-            'font-family':'"Lucida Console", Monaco,monospace',
-            "text-align": "center"}
-        ).apply(highlight_aln, axis=0, subset=corte2).hide(axis='columns').apply(
-            highlight_consensus, subset=corte
-        ).set_table_styles(
-            [headers]
-        )
+
+        if sys.version_info.minor > 8:
+            df_style = aln_r.style.set_properties(**{
+                'font-size': '12px',
+                'font-family':'"Lucida Console", Monaco,monospace',
+                "text-align": "center"}
+            ).apply(highlight_aln, axis=0, subset=corte2).hide(axis='columns').apply(
+                highlight_consensus, subset=corte
+            ).set_table_styles(
+                [headers]
+            )
+        else:
+            df_style = aln_r.style.set_properties(**{
+                'font-size': '12px',
+                'font-family':'"Lucida Console", Monaco,monospace',
+                "text-align": "center"}
+            ).apply(highlight_aln, axis=0, subset=corte2).hide_columns().apply(
+                highlight_consensus, subset=corte
+            ).set_table_styles(
+                [headers]
+            )
         #if whant to send to latex, replace set_stick... to:to_latex(environment='longtable', convert_css=True)
         return df_style
 
@@ -1566,6 +1580,7 @@ class sequence:
         :returns: TODO
 
         """
+        import sys
         import pandas as pd
         from rotifer.devel.beta.sequence import sequence
         import numpy as np
@@ -1683,11 +1698,18 @@ class sequence:
         fs = aln.df.query('type == "sequence"').id.iloc[0]    
         corte2 = idx2[idx2[fs:],idx2[:]]
 
-        df_style = aln_r.style.set_properties(**{
-            "text-align": "center"}
-        ).apply(highlight_aln, axis=0, subset=corte2).hide(axis='columns').apply(
-            highlight_consensus, subset=corte
-        )
+        if sys.version_info.minor > 8:
+            df_style = aln_r.style.set_properties(**{
+                "text-align": "center"}
+            ).apply(highlight_aln, axis=0, subset=corte2).hide(axis='columns').apply(
+                highlight_consensus, subset=corte
+            )
+        else:
+            df_style = aln_r.style.set_properties(**{
+                "text-align": "center"}
+            ).apply(highlight_aln, axis=0, subset=corte2).hide_columns().apply(
+                highlight_consensus, subset=corte
+            )
         #if whant to send to latex, replace set_stick... to:to_latex(environment='longtable', convert_css=True)
         return df_style
 

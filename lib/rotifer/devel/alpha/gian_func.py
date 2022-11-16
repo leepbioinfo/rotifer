@@ -649,7 +649,7 @@ def search2aln(df, coverage=50, evalue=1e-3, arch=None):
     if arch:
         seqobj.df = seqobj.df.merge(archdf, how='left')
 
-    seqobj.df.id = seqobj.df.apply(lambda x: f'{x.id}/{x.hitstart}-{x.hitend}', axis=1)
+    #seqobj.df.id = seqobj.df.apply(lambda x: f'{x.id}/{x.hitstart}-{x.hitend}', axis=1)
 
     return seqobj
 
@@ -680,3 +680,37 @@ def add_arch_to_seqobj(seqobj,db='profiledb', cpu=96):
         t = pd.read_csv(f'{tmpdirname}/out.tsv', sep='\t', names=cols)
         seqobj.df = seqobj.df.merge(t, how='left', on='id') 
     return seqobj
+
+
+def full_annotate(seqobj,
+                  progress=True,
+                  batch_size=8,
+                  mirror="/am/ftp-genomes",
+                  threads=8,
+                  after=5,
+                  before=5,
+                  eukaryotes=False):
+    from rotifer.db import ncbi 
+    from rotifer.devel.alpha import gian_func as gf
+    gnc = ncbi.GeneNeighborhoodCursor(
+            progress=progress,
+            batch_size=batch_size,
+            mirror=mirror,
+            threads=threads,
+            after=after,
+            before=before,
+            eukaryotes=eukaryotes)
+    seqobj.ndf = gf.add_arch_to_df(gnc.fetchall(seqobj.df.id.to_list()))
+    return seqobj
+
+def padding_df(df):
+    cdf = df.copy()
+    c = df.columns
+    pad_col_name=[]
+    for x in c:
+        cdf[x] = cdf[x].fillna('').astype(str)
+        w = cdf[x].str.len().max()
+        cdf[x] = cdf[x].str.pad(width =w)
+        pad_col_name.append(x.rjust(w))
+    cdf.columns = pad_col_name    
+    return cdf

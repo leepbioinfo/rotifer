@@ -5,6 +5,7 @@
 !_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
 !_TAG_PROGRAM_VERSION	5.8	//
 ANN	bin/runprofiles	/^            ANN: foreach my $key ($profile->get_all_annotation_keys) {$/;"	l
+API_URL	lib/rotifer/devel/alpha/uniprot.py	/^API_URL = "https:\/\/rest.uniprot.org"$/;"	v
 ARGCOUNT	lib/rotifer/site_perl/AppConfig/AutoDoc.pm	/^            ARGCOUNT: {$/;"	l
 ARGCOUNT	perl/lib/AppConfig/AutoDoc.pm	/^            ARGCOUNT: {$/;"	l
 AppConfig::AutoDoc	lib/rotifer/site_perl/AppConfig/AutoDoc.pm	/^package AppConfig::AutoDoc;$/;"	p
@@ -20,8 +21,7 @@ BUILD	perl/lib/Rotifer/Tools/Rrsw/unpack.pm	/^sub BUILD {$/;"	s
 Base	lib/rotifer/alchemy/db_classes.py	/^Base = declarative_base()$/;"	v
 BaseCursor	lib/rotifer/db/core.py	/^class BaseCursor:$/;"	c
 BaseCursor	lib/rotifer/db/local/__init__.py	/^from rotifer.db.core import BaseCursor$/;"	i
-BaseCursor	lib/rotifer/db/ncbi/__init__.py	/^from rotifer.db.core import BaseCursor$/;"	i
-BaseCursor	lib/rotifer/db/sql/sqlite3.py	/^from rotifer.db.core import BaseCursor$/;"	i
+BaseGeneNeighborhoodCursor	lib/rotifer/db/core.py	/^class BaseGeneNeighborhoodCursor(BaseCursor):$/;"	c
 BeautifulSoup	dev/bin/paperblast.py	/^from bs4 import BeautifulSoup$/;"	i
 Bio	lib/rotifer/db/ncbi/entrez.py	/^        import Bio$/;"	i
 Bio	lib/rotifer/db/ncbi/parse.py	/^import Bio.SeqIO$/;"	i
@@ -64,8 +64,11 @@ Date	lib/rotifer/alchemy/db_classes.py	/^from sqlalchemy import Column, String, 
 Dbxref	doc/rotifer/Rotifer-DBIC-AnnotationDB-0.86.html	/^        <a name="Dbxref">Dbxref<\/a>$/;"	a
 DbxrefDataset	doc/rotifer/Rotifer-DBIC-AnnotationDB-0.86.html	/^        <a name="DbxrefDataset">DbxrefDataset<\/a>$/;"	a
 DbxrefQualifierValue	doc/rotifer/Rotifer-DBIC-AnnotationDB-0.86.html	/^        <a name="DbxrefQualifierValue">DbxrefQualifierValue<\/a>$/;"	a
+DefaultBasePath	lib/rotifer/db/ncbi/mirror.py	/^DefaultBasePath = os.environ["ROTIFER_DATA"] if 'ROTIFER_DATA' in os.environ else "\/databases"$/;"	v
+DefaultBasePath	lib/rotifer/db/ncbi/mirror.py	/^DefaultBasePath = os.path.join(DefaultBasePath,"genomes")$/;"	v
 DictCursor	lib/rotifer/db/neighbors.py	/^from psycopg2.extras import DictCursor$/;"	i
 EaselFastaCursor	lib/rotifer/db/local/__init__.py	/^class EaselFastaCursor:$/;"	c
+ElementTree	lib/rotifer/devel/alpha/uniprot.py	/^from xml.etree import ElementTree$/;"	i
 Entrez	dev/bin/gbk2clickhouse.py	/^from Bio import Entrez$/;"	i
 Entrez	lib/rotifer/db/ncbi/__init__.py	/^    from Bio import SeqIO, Entrez$/;"	i
 Entrez	lib/rotifer/db/ncbi/entrez.py	/^        from Bio import Entrez$/;"	i
@@ -88,6 +91,8 @@ FEAT	perl/lib/Rotifer/Parser/genbank2table.pm	/^	  FEAT: foreach my $generic ($s
 FTP	lib/rotifer/core/io/ftp.py	/^from ftplib import FTP$/;"	i
 FTP	lib/rotifer/db/ncbi/fetch.py	/^from ftplib import FTP$/;"	i
 FTP	lib/rotifer/db/ncbi/ftp.py	/^from ftplib import FTP$/;"	i
+FTP	lib/rotifer/db/ncbi/mirror.py	/^from ftplib import FTP$/;"	i
+FastaCursor	lib/rotifer/db/local/easel.py	/^class FastaCursor(rotifer.db.core.SimpleParallelProcessCursor):$/;"	c
 FastaCursor	lib/rotifer/db/ncbi/entrez.py	/^class FastaCursor(SequenceCursor):$/;"	c
 File::Monitored	lib/rotifer/site_perl/File/Monitored.pm	/^package File::Monitored;$/;"	p
 File::Monitored	perl/lib/File/Monitored.pm	/^package File::Monitored;$/;"	p
@@ -98,12 +103,15 @@ FontProperties	lib/rotifer/seq/alignment.py	/^        from matplotlib.font_manag
 GFF	lib/rotifer/genome/io.py	/^    from BCBio import GFF$/;"	i
 GenbankAssemblyFromFilename	lib/rotifer/genome/__init__.py	/^from rotifer.genome.io import GenbankAssemblyFromFilename$/;"	i
 GenbankAssemblyFromFilename	lib/rotifer/genome/io.py	/^def GenbankAssemblyFromFilename(iostream, s):$/;"	f
-GeneNeighborhoodCursor	lib/rotifer/db/ncbi/__init__.py	/^class GeneNeighborhoodCursor(BaseCursor):$/;"	c
+GeneNeighborhoodCursor	lib/rotifer/db/ncbi/__init__.py	/^class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):$/;"	c
 GeneNeighborhoodCursor	lib/rotifer/db/ncbi/entrez.py	/^class GeneNeighborhoodCursor(NucleotideFeaturesCursor):$/;"	c
 GeneNeighborhoodCursor	lib/rotifer/db/ncbi/ftp.py	/^class GeneNeighborhoodCursor(GenomeFeaturesCursor):$/;"	c
-GeneNeighborhoodCursor	lib/rotifer/db/sql/sqlite3.py	/^class GeneNeighborhoodCursor(BaseCursor):$/;"	c
+GeneNeighborhoodCursor	lib/rotifer/db/ncbi/mirror.py	/^class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor):$/;"	c
+GeneNeighborhoodCursor	lib/rotifer/db/sql/sqlite3.py	/^class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):$/;"	c
 GenomeCursor	lib/rotifer/db/ncbi/ftp.py	/^class GenomeCursor(rotifer.db.core.SimpleParallelProcessCursor):$/;"	c
+GenomeCursor	lib/rotifer/db/ncbi/mirror.py	/^class GenomeCursor(ncbiftp.GenomeCursor):$/;"	c
 GenomeFeaturesCursor	lib/rotifer/db/ncbi/ftp.py	/^class GenomeFeaturesCursor(GenomeCursor):$/;"	c
+GenomeFeaturesCursor	lib/rotifer/db/ncbi/mirror.py	/^class GenomeFeaturesCursor(GenomeCursor):$/;"	c
 GetConfig	lib/rotifer/site_perl/Application/Config.pm	/^sub GetConfig {$/;"	s
 GetConfig	perl/lib/Application/Config.pm	/^sub GetConfig {$/;"	s
 GetTableToolsConfig	lib/rotifer/site_perl/Application/Config.pm	/^sub GetTableToolsConfig {$/;"	s
@@ -111,16 +119,19 @@ GetTableToolsConfig	perl/lib/Application/Config.pm	/^sub GetTableToolsConfig {$/
 GlobalConfig	lib/rotifer/__init__.py	/^GlobalConfig = _setup_base_config(logger)$/;"	v
 GlobalConfig	lib/rotifer/core/functions.py	/^from rotifer import GlobalConfig$/;"	i
 GlobalConfig	lib/rotifer/db/local/__init__.py	/^from rotifer import GlobalConfig$/;"	i
+GlobalConfig	lib/rotifer/db/local/easel.py	/^from rotifer import GlobalConfig$/;"	i
 GlobalConfig	lib/rotifer/db/ncbi/__init__.py	/^from rotifer import GlobalConfig$/;"	i
 GlobalConfig	lib/rotifer/db/ncbi/entrez.py	/^from rotifer import GlobalConfig$/;"	i
 GlobalConfig	lib/rotifer/db/ncbi/fetch.py	/^from rotifer import GlobalConfig$/;"	i
 GlobalConfig	lib/rotifer/db/ncbi/ftp.py	/^from rotifer import GlobalConfig$/;"	i
+GlobalConfig	lib/rotifer/db/ncbi/mirror.py	/^from rotifer import GlobalConfig$/;"	i
 GlobalConfig	lib/rotifer/db/ncbi/parse.py	/^from rotifer import GlobalConfig$/;"	i
 GlobalConfig	lib/rotifer/db/sql/sqlite3.py	/^from rotifer import GlobalConfig$/;"	i
 GlobalConfig	lib/rotifer/devel/alpha/rodolfo.py	/^from rotifer import GlobalConfig$/;"	i
 GlobalConfig	lib/rotifer/devel/beta/sequence.py	/^from rotifer import GlobalConfig$/;"	i
 GracefulKiller	test/clickhouse/test.py	/^class GracefulKiller:$/;"	c
 HSP	bin/domain2architecture	/^  HSP: foreach my $hsp (@data) {$/;"	l
+HTTPAdapter	lib/rotifer/devel/alpha/uniprot.py	/^from requests.adapters import HTTPAdapter, Retry$/;"	i
 IO	lib/rotifer/seq/alignment.py	/^class IO:$/;"	c
 IOBase	lib/rotifer/devel/beta/sequence.py	/^        from io import IOBase$/;"	i
 IPGCursor	lib/rotifer/db/ncbi/entrez.py	/^class IPGCursor(SequenceCursor):$/;"	c
@@ -145,12 +156,14 @@ NCBITaxa	lib/rotifer/db/ncbi/read.py	/^    from ete3.ncbi_taxonomy.ncbiquery imp
 NE_dn	dev/network/network_enhance.py	/^def NE_dn(w, t):$/;"	f
 NamedTemporaryFile	lib/rotifer/db/ncbi/fetch.py	/^from tempfile import NamedTemporaryFile, _TemporaryFileWrapper$/;"	i
 NamedTemporaryFile	lib/rotifer/db/ncbi/ftp.py	/^        from tempfile import NamedTemporaryFile$/;"	i
-NcbiConfig	lib/rotifer/db/ncbi/__init__.py	/^NcbiConfig = loadConfig(__name__.replace("rotifer.",":"))$/;"	v
+NcbiConfig	lib/rotifer/db/ncbi/__init__.py	/^NcbiConfig = loadConfig(__name__.replace("rotifer.",":"), defaults = {$/;"	v
 NcbiConfig	lib/rotifer/db/ncbi/cursor.py	/^from rotifer.db.ncbi import NcbiConfig$/;"	i
 NcbiConfig	lib/rotifer/db/ncbi/entrez.py	/^from rotifer.db.ncbi import NcbiConfig$/;"	i
 NcbiConfig	lib/rotifer/db/ncbi/fetch.py	/^from rotifer.db.ncbi import NcbiConfig$/;"	i
 NcbiConfig	lib/rotifer/db/ncbi/ftp.py	/^        from rotifer.db.ncbi import NcbiConfig$/;"	i
 NcbiConfig	lib/rotifer/db/ncbi/ftp.py	/^from rotifer.db.ncbi import NcbiConfig$/;"	i
+NcbiConfig	lib/rotifer/db/ncbi/mirror.py	/^        from rotifer.db.ncbi import NcbiConfig$/;"	i
+NcbiConfig	lib/rotifer/db/ncbi/mirror.py	/^from rotifer.db.ncbi import NcbiConfig$/;"	i
 NcbiConfig	lib/rotifer/db/ncbi/parse.py	/^from rotifer.db.ncbi import NcbiConfig$/;"	i
 NcbiConfig	lib/rotifer/db/ncbi/read.py	/^from rotifer.db.ncbi import NcbiConfig$/;"	i
 NcbiConfig	lib/rotifer/devel/alpha/gian_func.py	/^    from rotifer.db.ncbi import NcbiConfig$/;"	i
@@ -188,8 +201,8 @@ PARSER	bin/blocks2table	/^  PARSER: {$/;"	l
 PDB	lib/rotifer/devel/beta/sequence.py	/^        import Bio.PDB.PDBList as PDBList$/;"	i
 PDBList	lib/rotifer/devel/beta/sequence.py	/^        import Bio.PDB.PDBList as PDBList$/;"	i
 PDBParser	lib/rotifer/devel/beta/sequence.py	/^        from Bio.PDB import PDBParser$/;"	i
+PIPE	lib/rotifer/devel/alpha/gian_func.py	/^    from subprocess import Popen, PIPE$/;"	i
 PIPE	lib/rotifer/devel/alpha/gian_func.py	/^    from subprocess import Popen, PIPE, STDOUT$/;"	i
-PIPE	lib/rotifer/devel/alpha/gian_func.py	/^    from subprocess import Popen,PIPE$/;"	i
 PIPE	lib/rotifer/devel/alpha/gian_func.teste.py	/^    from subprocess import Popen,PIPE$/;"	i
 PIPE	lib/rotifer/devel/alpha/rodolfo.py	/^    from subprocess import Popen, PIPE, STDOUT$/;"	i
 PIPE	lib/rotifer/devel/beta/sequence.py	/^        from subprocess import Popen, PIPE, STDOUT$/;"	i
@@ -197,14 +210,15 @@ PIPE	lib/rotifer/devel/beta/sequence.py	/^        from subprocess import Popen, 
 PIPE	lib/rotifer/seq/alignment.py	/^from subprocess import Popen, PIPE, STDOUT$/;"	i
 PIPE	lib/rotifer/seq/seq.py	/^from subprocess import Popen, PIPE, STDOUT$/;"	i
 PIPE	lib/rotifer/tools/search.py	/^from subprocess import Popen, PIPE, STDOUT$/;"	i
+POLLING_INTERVAL	lib/rotifer/devel/alpha/uniprot.py	/^POLLING_INTERVAL = 3$/;"	v
 PROFILE	bin/runprofiles	/^    PROFILE: foreach my $profileID (keys %$profiles) {$/;"	l
 Pipe	dev/bin/trimal2msa.py	/^from multiprocessing import Process, Pipe$/;"	i
 Pool	dev/bin/rsearch.py	/^from multiprocessing import Pool, Process, Manager$/;"	i
 Pool	dev/bin/uniprot2gi.0d04.py	/^from multiprocessing import Pool, Process$/;"	i
 Pool	dev/bin/uniprot2gi.py	/^from multiprocessing import Pool, Process$/;"	i
 Pool	lib/rotifer/cluster/cluster.py	/^from multiprocessing import Pool, Process$/;"	i
+Popen	lib/rotifer/devel/alpha/gian_func.py	/^    from subprocess import Popen, PIPE$/;"	i
 Popen	lib/rotifer/devel/alpha/gian_func.py	/^    from subprocess import Popen, PIPE, STDOUT$/;"	i
-Popen	lib/rotifer/devel/alpha/gian_func.py	/^    from subprocess import Popen,PIPE$/;"	i
 Popen	lib/rotifer/devel/alpha/gian_func.teste.py	/^    from subprocess import Popen,PIPE$/;"	i
 Popen	lib/rotifer/devel/alpha/rodolfo.py	/^    from subprocess import Popen, PIPE, STDOUT$/;"	i
 Popen	lib/rotifer/devel/beta/sequence.py	/^        from subprocess import Popen, PIPE, STDOUT$/;"	i
@@ -226,6 +240,7 @@ Process	test/clickhouse/test.py	/^from multiprocessing import Process$/;"	i
 ProcessPoolExecutor	lib/rotifer/db/core.py	/^        from concurrent.futures import ProcessPoolExecutor, as_completed$/;"	i
 ProcessPoolExecutor	lib/rotifer/db/ncbi/entrez.py	/^        from concurrent.futures import ProcessPoolExecutor, as_completed$/;"	i
 ProcessPoolExecutor	lib/rotifer/db/ncbi/ftp.py	/^        from concurrent.futures import ProcessPoolExecutor, as_completed$/;"	i
+ProcessPoolExecutor	lib/rotifer/db/ncbi/mirror.py	/^        from concurrent.futures import ProcessPoolExecutor, as_completed$/;"	i
 Pyasciigraph	lib/rotifer/devel/beta/sequence.py	/^        from ascii_graph import Pyasciigraph$/;"	i
 RESET	lib/rotifer/site_perl/AppConfig/AutoDoc.pm	/^        RESET: {$/;"	l
 RESET	perl/lib/AppConfig/AutoDoc.pm	/^        RESET: {$/;"	l
@@ -238,6 +253,7 @@ ROW	bin/tfilter	/^  ROW: while (<TABLE>) {$/;"	l
 ROW	bin/tungroup	/^  ROW: while (<TABLE>) {$/;"	l
 ROW	bin/txt2tsv	/^ROW: while (<>) {$/;"	l
 RULE	bin/table2blocks	/^  RULE: {$/;"	l
+Retry	lib/rotifer/devel/alpha/uniprot.py	/^from requests.adapters import HTTPAdapter, Retry$/;"	i
 Rotifer	lib/rotifer/site_perl/Rotifer.pm	/^package Rotifer;$/;"	p
 Rotifer	perl/lib/Rotifer.pm	/^package Rotifer;$/;"	p
 Rotifer::Config::Environment	lib/rotifer/site_perl/Rotifer/Config/Environment.pm	/^package Rotifer::Config::Environment;$/;"	p
@@ -447,9 +463,11 @@ Seq	lib/rotifer/devel/beta/sequence.py	/^        from Bio.Seq import Seq$/;"	i
 SeqIO	dev/bin/gbk2clickhouse.py	/^from Bio import SeqIO$/;"	i
 SeqIO	lib/rotifer/db/local/__init__.py	/^        from Bio import SeqIO$/;"	i
 SeqIO	lib/rotifer/db/local/__init__.py	/^from Bio import SeqIO$/;"	i
+SeqIO	lib/rotifer/db/local/easel.py	/^from Bio import SeqIO$/;"	i
 SeqIO	lib/rotifer/db/ncbi/__init__.py	/^    from Bio import SeqIO, Entrez$/;"	i
 SeqIO	lib/rotifer/db/ncbi/entrez.py	/^from Bio import SeqIO$/;"	i
 SeqIO	lib/rotifer/db/ncbi/ftp.py	/^        from Bio import SeqIO$/;"	i
+SeqIO	lib/rotifer/db/ncbi/mirror.py	/^        from Bio import SeqIO$/;"	i
 SeqIO	lib/rotifer/db/ncbi/parse.py	/^import Bio.SeqIO$/;"	i
 SeqIO	lib/rotifer/db/sql/sqlite3.py	/^from Bio import SeqIO$/;"	i
 SeqIO	lib/rotifer/devel/beta/sequence.py	/^from Bio import SeqIO$/;"	i
@@ -467,6 +485,7 @@ String	lib/rotifer/alchemy/db_classes.py	/^from sqlalchemy import Column, String
 StringIO	dev/neighborhood/neighborhood.py	/^from io import StringIO$/;"	i
 StringIO	lib/rotifer/db/local/__init__.py	/^        from io import StringIO$/;"	i
 StringIO	lib/rotifer/db/local/__init__.py	/^from io import StringIO$/;"	i
+StringIO	lib/rotifer/db/local/easel.py	/^from io import StringIO$/;"	i
 StringIO	lib/rotifer/db/sql/sqlite3.py	/^from io import StringIO$/;"	i
 StringIO	lib/rotifer/devel/alpha/gian_func.py	/^    from io import StringIO$/;"	i
 StringIO	lib/rotifer/devel/alpha/gian_func.teste.py	/^    from io import StringIO$/;"	i
@@ -574,6 +593,7 @@ __getitem__	lib/rotifer/db/ncbi/__init__.py	/^    def __getitem__(self, protein,
 __getitem__	lib/rotifer/db/ncbi/entrez.py	/^    def __getitem__(self, accession):$/;"	m	class:SequenceCursor	file:
 __getitem__	lib/rotifer/db/ncbi/entrez.py	/^    def __getitem__(self, protein, ipgs=None):$/;"	m	class:GeneNeighborhoodCursor	file:
 __getitem__	lib/rotifer/db/ncbi/ftp.py	/^    def __getitem__(self, protein, ipgs=None):$/;"	m	class:GeneNeighborhoodCursor	file:
+__getitem__	lib/rotifer/db/ncbi/mirror.py	/^    def __getitem__(self, protein, ipgs=None):$/;"	m	class:GeneNeighborhoodCursor	file:
 __getitem__	lib/rotifer/db/sql/sqlite3.py	/^    def __getitem__(self, accession, ipgs=None):$/;"	m	class:GeneNeighborhoodCursor	file:
 __getitem__	lib/rotifer/devel/alpha/mapper.py	/^    def __getitem__(self,path):$/;"	m	class:configuration	file:
 __getitem__	lib/rotifer/devel/beta/sequence.py	/^    def __getitem__(self, key):$/;"	m	class:sequence	file:
@@ -601,19 +621,25 @@ __init__	lib/rotifer/core/loadpath.py	/^    def __init__(self):$/;"	m	class:path
 __init__	lib/rotifer/db/cli.py	/^    def __init__(self):$/;"	m	class:rneighbors
 __init__	lib/rotifer/db/cli.py	/^    def __init__(self):$/;"	m	class:sql
 __init__	lib/rotifer/db/core.py	/^    def __init__($/;"	m	class:BaseCursor
+__init__	lib/rotifer/db/core.py	/^    def __init__($/;"	m	class:BaseGeneNeighborhoodCursor
+__init__	lib/rotifer/db/core.py	/^    def __init__($/;"	m	class:SimpleParallelProcessCursor
 __init__	lib/rotifer/db/local/__init__.py	/^    def __init__(self, database_path=_config["local_database_path"], batch_size=200, threads=5):$/;"	m	class:EaselFastaCursor
+__init__	lib/rotifer/db/local/easel.py	/^    def __init__($/;"	m	class:FastaCursor
 __init__	lib/rotifer/db/ncbi/__init__.py	/^    def __init__($/;"	m	class:GeneNeighborhoodCursor
 __init__	lib/rotifer/db/ncbi/cursor.py	/^    def __init__(self, query=None, email=NcbiConfig['email'], api_key=NcbiConfig['api_key']):$/;"	m	class:NcbiCursor
 __init__	lib/rotifer/db/ncbi/entrez.py	/^    def __init__($/;"	m	class:GeneNeighborhoodCursor
 __init__	lib/rotifer/db/ncbi/entrez.py	/^    def __init__($/;"	m	class:NucleotideFeaturesCursor
 __init__	lib/rotifer/db/ncbi/entrez.py	/^    def __init__($/;"	m	class:SequenceCursor
-__init__	lib/rotifer/db/ncbi/entrez.py	/^    def __init__(self, database="protein", progress=False, tries=3, batch_size=None, threads=10):$/;"	m	class:FastaCursor
-__init__	lib/rotifer/db/ncbi/entrez.py	/^    def __init__(self,progress=False, tries=3, batch_size=None, threads=10):$/;"	m	class:IPGCursor
-__init__	lib/rotifer/db/ncbi/entrez.py	/^    def __init__(self,progress=False, tries=3, batch_size=None, threads=10):$/;"	m	class:TaxonomyCursor
+__init__	lib/rotifer/db/ncbi/entrez.py	/^    def __init__(self, database="protein", progress=False, tries=3, sleep_between_tries=1, batch_size=None, threads=10):$/;"	m	class:FastaCursor
+__init__	lib/rotifer/db/ncbi/entrez.py	/^    def __init__(self,progress=False, tries=3, sleep_between_tries=1, batch_size=None, threads=10):$/;"	m	class:IPGCursor
+__init__	lib/rotifer/db/ncbi/entrez.py	/^    def __init__(self,progress=False, tries=3, sleep_between_tries=1, batch_size=None, threads=10):$/;"	m	class:TaxonomyCursor
 __init__	lib/rotifer/db/ncbi/ftp.py	/^    def __init__($/;"	m	class:GeneNeighborhoodCursor
 __init__	lib/rotifer/db/ncbi/ftp.py	/^    def __init__($/;"	m	class:GenomeCursor
 __init__	lib/rotifer/db/ncbi/ftp.py	/^    def __init__($/;"	m	class:GenomeFeaturesCursor
-__init__	lib/rotifer/db/ncbi/ftp.py	/^    def __init__(self, url=NcbiConfig['ftpserver'], tries=3, timeout=50, cache=GlobalConfig['cache']):$/;"	m	class:cursor
+__init__	lib/rotifer/db/ncbi/ftp.py	/^    def __init__(self, url=NcbiConfig['ftpserver'], tries=3, timeout=50, cache=GlobalConfig['cache']):$/;"	m	class:connection
+__init__	lib/rotifer/db/ncbi/mirror.py	/^    def __init__($/;"	m	class:GeneNeighborhoodCursor
+__init__	lib/rotifer/db/ncbi/mirror.py	/^    def __init__($/;"	m	class:GenomeCursor
+__init__	lib/rotifer/db/ncbi/mirror.py	/^    def __init__($/;"	m	class:GenomeFeaturesCursor
 __init__	lib/rotifer/db/neighbors.py	/^    def __init__(self, above = 3, below = 3,$/;"	m	class:rneighbors
 __init__	lib/rotifer/db/sql/sqlite3.py	/^    def __init__($/;"	m	class:GeneNeighborhoodCursor
 __init__	lib/rotifer/devel/alpha/mapper.py	/^    def __init__(self, **kwargs):$/;"	m	class:configuration
@@ -708,10 +734,9 @@ _add_relationship	lib/rotifer/site_perl/Bio/OntologyIO/obo.pm	/^sub _add_relatio
 _add_relationship	perl/lib/Bio/OntologyIO/obo.pm	/^sub _add_relationship {$/;"	s
 _add_term	lib/rotifer/site_perl/Bio/OntologyIO/obo.pm	/^sub _add_term {$/;"	s
 _add_term	perl/lib/Bio/OntologyIO/obo.pm	/^sub _add_term {$/;"	s
-_add_to_missing	lib/rotifer/db/ncbi/__init__.py	/^    def _add_to_missing(self, accessions, assembly, error):$/;"	m	class:GeneNeighborhoodCursor
 _add_to_missing	lib/rotifer/db/ncbi/entrez.py	/^    def _add_to_missing(self, accessions, assembly, error):$/;"	m	class:GeneNeighborhoodCursor
 _add_to_missing	lib/rotifer/db/ncbi/ftp.py	/^    def _add_to_missing(self, accessions, assembly, error):$/;"	m	class:GeneNeighborhoodCursor
-_add_to_missing	lib/rotifer/db/sql/sqlite3.py	/^    def _add_to_missing(self, accessions, assembly, error):$/;"	m	class:GeneNeighborhoodCursor
+_add_to_missing	lib/rotifer/db/ncbi/mirror.py	/^    def _add_to_missing(self, accessions, assembly, error):$/;"	m	class:GeneNeighborhoodCursor
 _assembly	share/rotifer/sql/gene_neighborhood.clickhouse.sql	/^CREATE TEMPORARY TABLE _assembly ($/;"	t
 _assembly.aacc	share/rotifer/sql/gene_neighborhood.clickhouse.sql	/^  aacc          String,        -- Core (numeric part) of the assembly ID or same as nuc_asm$/;"	F
 _assembly.acat	share/rotifer/sql/gene_neighborhood.clickhouse.sql	/^  acat          Int64,         -- Assembly division category$/;"	F
@@ -752,6 +777,7 @@ _check_colon	lib/rotifer/site_perl/Bio/OntologyIO/obo.pm	/^sub _check_colon {$/;
 _check_colon	perl/lib/Bio/OntologyIO/obo.pm	/^sub _check_colon {$/;"	s
 _checker	lib/rotifer/core/functions.py	/^    def _checker(self, output):$/;"	m	class:rdoc
 _clean_description	lib/rotifer/db/local/__init__.py	/^    def _clean_description(self, seqrec):$/;"	m	class:EaselFastaCursor
+_clean_description	lib/rotifer/db/local/easel.py	/^    def _clean_description(self, seqrec):$/;"	m	class:FastaCursor
 _collen	lib/rotifer/core/log.py	/^def _collen(now, hostname, name, levels = ['INFO', 'WARNING', 'DEBUG']):$/;"	f
 _collen	lib/rotifer/genome/data.py	/^    def _collen(self, df):$/;"	m	class:NeighborhoodDF
 _colors_dict_and_cmap	lib/rotifer/seq/alignment.py	/^def _colors_dict_and_cmap():$/;"	f
@@ -761,9 +787,8 @@ _compare	bin/tgroup	/^sub _compare {$/;"	s
 _compare_keys	bin/table2blocks	/^sub _compare_keys {$/;"	s
 _compile	lib/rotifer/site_perl/Rotifer/Tools/Rrsw/unpack.pm	/^sub _compile {$/;"	s
 _compile	perl/lib/Rotifer/Tools/Rrsw/unpack.pm	/^sub _compile {$/;"	s
-_config	lib/rotifer/db/local/__init__.py	/^    _config = {}$/;"	v
-_config	lib/rotifer/db/local/__init__.py	/^_config = loadConfig(__name__.replace('rotifer.',':'))$/;"	v
-_config	lib/rotifer/db/local/__init__.py	/^_config = {$/;"	v
+_config	lib/rotifer/db/local/__init__.py	/^_config = loadConfig(__name__.replace('rotifer.',':'), defaults = {$/;"	v
+_config	lib/rotifer/db/local/easel.py	/^_config = loadConfig(__name__.replace('rotifer.',':'), defaults = {$/;"	v
 _config	lib/rotifer/db/sql/sqlite3.py	/^    _config = {}$/;"	v
 _config	lib/rotifer/db/sql/sqlite3.py	/^_config = loadConfig(__name__.replace('rotifer.',':'))$/;"	v
 _config	lib/rotifer/db/sql/sqlite3.py	/^_config = {$/;"	v
@@ -1002,6 +1027,7 @@ _part_of_relationship	lib/rotifer/site_perl/Bio/OntologyIO/obo.pm	/^sub _part_of
 _part_of_relationship	perl/lib/Bio/OntologyIO/obo.pm	/^sub _part_of_relationship {$/;"	s
 _pids	lib/rotifer/db/ncbi/entrez.py	/^    def _pids(self, obj):$/;"	m	class:GeneNeighborhoodCursor
 _pids	lib/rotifer/db/ncbi/ftp.py	/^    def _pids(self, obj):$/;"	m	class:GeneNeighborhoodCursor
+_pids	lib/rotifer/db/ncbi/mirror.py	/^    def _pids(self, obj):$/;"	m	class:GeneNeighborhoodCursor
 _pod	lib/rotifer/site_perl/AppConfig/AutoDoc.pm	/^sub _pod {$/;"	s
 _pod	perl/lib/AppConfig/AutoDoc.pm	/^sub _pod {$/;"	s
 _positively_regulates_relationship	lib/rotifer/site_perl/Bio/OntologyIO/obo.pm	/^sub _positively_regulates_relationship {$/;"	s
@@ -1047,6 +1073,7 @@ _seqio_options_trigger	perl/lib/Rotifer/DBIC/AnnotationDB/Writer/fasta.pm	/^sub 
 _seqio_options_trigger	perl/lib/Rotifer/Parser/genbank2hashes.pm	/^sub _seqio_options_trigger {$/;"	s
 _seqio_options_trigger	perl/lib/Rotifer/Parser/genbank2table.pm	/^sub _seqio_options_trigger {$/;"	s
 _seqrecords_to_dataframe	lib/rotifer/devel/beta/sequence.py	/^    def _seqrecords_to_dataframe(self, data):$/;"	m	class:sequence
+_seqrecords_to_ipg	lib/rotifer/db/ncbi/entrez.py	/^    def _seqrecords_to_ipg(self, seqrecords):$/;"	m	class:IPGCursor
 _sequence_ontology_trigger	lib/rotifer/site_perl/Rotifer/DBIC/AnnotationDB/Role/BioseqPropsRole.pm	/^sub _sequence_ontology_trigger {$/;"	s
 _sequence_ontology_trigger	perl/lib/Rotifer/DBIC/AnnotationDB/Role/BioseqPropsRole.pm	/^sub _sequence_ontology_trigger {$/;"	s
 _sequence_type_trigger	lib/rotifer/site_perl/Rotifer/DBIC/AnnotationDB/Role/BioseqPropsRole.pm	/^sub _sequence_type_trigger {$/;"	s
@@ -1292,9 +1319,9 @@ alphabet	perl/lib/Rotifer/DBIC/AnnotationDB/Component/BiodataComponent.pm	/^sub 
 alphabet	perl/lib/Rotifer/DBIC/AnnotationDB/Component/BiosequenceComponent.pm	/^sub alphabet {$/;"	s
 ann2dict	dev/bin/rnexplorer.py	/^def ann2dict(ls_of_str, df):$/;"	f
 annotate_community	lib/rotifer/devel/alpha/rodolfo.py	/^def annotate_community(df, column='community', reference='query', ):$/;"	f
-annotate_seqobj	lib/rotifer/devel/alpha/gian_func.py	/^def annotate_seqobj(seqobj,df,cnt='profiledb'):$/;"	f
+annotate_seqobj	lib/rotifer/devel/alpha/gian_func.py	/^def annotate_seqobj(seqobj,$/;"	f
 annotation	dev/bin/rnexplorer.py	/^    annotation = args.annotation$/;"	v
-annotation	lib/rotifer/devel/alpha/gian_func.py	/^def annotation(seqobj, coordinates, delimiter=True ):$/;"	f
+annotation	lib/rotifer/devel/alpha/gian_func.py	/^def annotation(seqobj, coordinates, delimiter=True):$/;"	f
 annotation	lib/rotifer/devel/alpha/gian_func.teste.py	/^def annotation(seqobj, start, end, annotation):$/;"	f
 annotation	lib/rotifer/site_perl/Rotifer/DBIC/AnnotationDB/Component/Annotatable.pm	/^sub annotation {$/;"	s
 annotation	perl/lib/Rotifer/DBIC/AnnotationDB/Component/Annotatable.pm	/^sub annotation {$/;"	s
@@ -1375,6 +1402,7 @@ array_of_arrays_to_tsv	perl/lib/Rotifer/Utils.pm	/^sub array_of_arrays_to_tsv {$
 as_completed	lib/rotifer/db/core.py	/^        from concurrent.futures import ProcessPoolExecutor, as_completed$/;"	i
 as_completed	lib/rotifer/db/ncbi/entrez.py	/^        from concurrent.futures import ProcessPoolExecutor, as_completed$/;"	i
 as_completed	lib/rotifer/db/ncbi/ftp.py	/^        from concurrent.futures import ProcessPoolExecutor, as_completed$/;"	i
+as_completed	lib/rotifer/db/ncbi/mirror.py	/^        from concurrent.futures import ProcessPoolExecutor, as_completed$/;"	i
 asm	dev/bin/rneighbors2.py	/^                         asm = args.assembly,$/;"	v
 asm2ftp	dev/bin/gbk2clickhouse.py	/^def asm2ftp(gbks, db, verbose = True):$/;"	f
 assemble_architecture	bin/domain2architecture	/^sub assemble_architecture {$/;"	s
@@ -1428,6 +1456,7 @@ below	dev/bin/rneighbors2.py	/^                         below = (args.below),$/;
 best_ipgs	lib/rotifer/db/ncbi/__init__.py	/^def best_ipgs(ipgs, assembly_reports=None, eukaryotes=False, criteria=findDataFiles(':db.ncbi.criteria.tsv')[0]):$/;"	f
 best_ipgs	lib/rotifer/db/ncbi/utils.py	/^def best_ipgs(ipgs):$/;"	f
 beta	lib/rotifer/db/local/__init__.py	/^import rotifer.devel.beta.sequence as rdbs$/;"	i
+beta	lib/rotifer/db/local/easel.py	/^import rotifer.devel.beta.sequence as rdbs$/;"	i
 beta	lib/rotifer/db/sql/sqlite3.py	/^import rotifer.devel.beta.sequence as rdbs$/;"	i
 better	dev/bin/rneighbors2.py	/^import argparse # Not our command line parser of choice but better than none$/;"	i
 better	lib/rotifer/db/neighbors.py	/^import argparse # Not our command line parser of choice but better than none$/;"	i
@@ -1465,10 +1494,12 @@ check_fasta	dev/bin/rsearch_old.py	/^def check_fasta(input_file,base, output = '
 check_hmmscan	dev/bin/rsearch.py	/^    def check_hmmscan(self):$/;"	m	class:rsearch
 check_hmmscan	dev/bin/rsearch2.py	/^def check_hmmscan(hmmscan):$/;"	f
 check_hmmscan	dev/bin/rsearch_old.py	/^def check_hmmscan(hmmscan):$/;"	f
+check_id_mapping_results_ready	lib/rotifer/devel/alpha/uniprot.py	/^def check_id_mapping_results_ready(job_id):$/;"	f
 check_output	lib/rotifer/devel/beta/sequence.py	/^        from subprocess import Popen, PIPE, STDOUT, check_output$/;"	i
 check_pfetch	dev/bin/rsearch.py	/^    def check_pfetch(self, acc_file, fasta_file):$/;"	m	class:rsearch
 check_pfetch	dev/bin/rsearch2.py	/^def check_pfetch(acc_file, fasta_file):$/;"	f
 check_pfetch	dev/bin/rsearch_old.py	/^def check_pfetch(acc_file, fasta_file):$/;"	f
+check_response	lib/rotifer/devel/alpha/uniprot.py	/^def check_response(response):$/;"	f
 check_rneighbors	dev/bin/rsearch.py	/^    def check_rneighbors(acc_file, rneighbors_file):$/;"	m	class:rsearch
 check_rneighbors	dev/bin/rsearch2.py	/^def check_rneighbors(acc_file, rneighbors_file):$/;"	f
 check_rneighbors	dev/bin/rsearch_old.py	/^def check_rneighbors(acc_file, rneighbors_file):$/;"	f
@@ -1483,7 +1514,7 @@ choice	lib/rotifer/db/neighbors.py	/^import argparse # Not our command line pars
 chunks	lib/rotifer/db/core.py	/^        from rotifer.devel.alpha.gian_func import chunks$/;"	i
 chunks	lib/rotifer/db/ncbi/entrez.py	/^        from rotifer.devel.alpha.gian_func import chunks$/;"	i
 chunks	lib/rotifer/devel/alpha/gian_func.py	/^    from rotifer.devel.alpha.gian_func import chunks$/;"	i
-chunks	lib/rotifer/devel/alpha/gian_func.py	/^def chunks(l, n):$/;"	f
+chunks	lib/rotifer/devel/alpha/gian_func.py	/^def chunks(list_to_chunk, chunk_size):$/;"	f
 chunks	lib/rotifer/devel/alpha/gian_func.teste.py	/^    from rotifer.devel.alpha.gian_func import chunks$/;"	i
 chunks	lib/rotifer/devel/alpha/gian_func.teste.py	/^def chunks(l, n):$/;"	f
 classes	test/dyn/cl/__init__.py	/^from . import classes$/;"	i
@@ -1510,9 +1541,9 @@ close	lib/rotifer/io/fileinput.py	/^    def close(self):$/;"	m	class:FileInput
 close	lib/rotifer/site_perl/Bio/OntologyIO/obo.pm	/^sub close {$/;"	s
 close	perl/lib/Bio/OntologyIO/obo.pm	/^sub close {$/;"	s
 cluster	lib/rotifer/cluster/cluster.py	/^import scipy.spatial as sp, scipy.cluster.hierarchy as hc$/;"	i
-cluster2aln	lib/rotifer/devel/alpha/gian_func.py	/^def cluster2aln(group_cluster,df,esl_index_file, grouper='c80e3', redundancy_cluster='c80i70',align_method='famsa', query=False, cpu=12):$/;"	f
+cluster2aln	lib/rotifer/devel/alpha/gian_func.py	/^def cluster2aln($/;"	f
 cluster2aln	lib/rotifer/devel/alpha/gian_func.teste.py	/^def cluster2aln(group_cluster,df,esl_index_file, grouper='c80e3', redundancy_cluster='c80i70', fast=True, query=False):$/;"	f
-cluster_Co_occurrence	lib/rotifer/devel/alpha/gian_func.py	/^def cluster_Co_occurrence(df, count='c80e3', freq_cutoff = 0.3, only_query=True, annotation=False):$/;"	f
+cluster_Co_occurrence	lib/rotifer/devel/alpha/gian_func.py	/^def cluster_Co_occurrence($/;"	f
 cluster_Co_occurrence	lib/rotifer/devel/alpha/gian_func.teste.py	/^def cluster_Co_occurrence(df, count='c80e3', freq_cutoff = 0.3, only_query=True, annotation=False):$/;"	f
 cluster_neighbor	lib/rotifer/cluster/cluster.py	/^class cluster_neighbor:$/;"	c
 clustering	lib/rotifer/cluster/cluster.py	/^    def clustering(self):$/;"	m	class:cluster_neighbor
@@ -1540,6 +1571,7 @@ cols	dev/bin/prepare_data_to_ccmpred.py	/^    cols = n.to_frame().Seq.apply(pd.S
 column2header	bin/table2blocks	/^sub column2header {$/;"	s
 column_name_to_number	bin/rcomplement	/^sub column_name_to_number {$/;"	s
 com	dev/bin/locus2fasta.py	/^                com = p.communicate()[0]$/;"	v
+combine_batches	lib/rotifer/devel/alpha/uniprot.py	/^def combine_batches(all_results, batch_results, file_format):$/;"	f
 combine_cols_for_gi2operon	dev/neighborhood/neighborhood.py	/^    def combine_cols_for_gi2operon(self, row, cols, col_len):$/;"	m	class:writer
 combs	dev/bin/trimal2msa.py	/^    combs = [(x,y) for x in df_t.columns for y in df_msa.columns if x != 'Header' or x != 'ID' or y != 'Header' or y != 'ID']$/;"	v
 command	dev/bin/rneighbors2.py	/^import argparse # Not our command line parser of choice but better than none$/;"	i
@@ -1570,8 +1602,9 @@ conn	dev/bin/gbk2clickhouse.py	/^conn = click.conn$/;"	v
 conn	test/clickhouse/upload.py	/^conn = click.conn$/;"	v
 connect	dev/bin/acc2acc.py	/^def connect(table_name):$/;"	f
 connect	lib/rotifer/alchemy/__init__.py	/^from . import connect$/;"	i
-connect	lib/rotifer/db/ncbi/ftp.py	/^    def connect(self):$/;"	m	class:cursor
+connect	lib/rotifer/db/ncbi/ftp.py	/^    def connect(self):$/;"	m	class:connection
 connect	lib/rotifer/db/neighbors.py	/^    def connect(self):$/;"	m	class:rneighbors
+connection	lib/rotifer/db/ncbi/ftp.py	/^class connection():$/;"	c
 consensus	lib/rotifer/devel/beta/sequence.py	/^    def consensus(self, cutoff=50, frequencies=None):$/;"	m	class:sequence
 consensus	lib/rotifer/seq/alignment.py	/^    def consensus(self, thresholds,$/;"	m	class:MSA
 conservation	lib/rotifer/seq/conservation/bit_score.py	/^        from rotifer.seq.core.core import conservation$/;"	i
@@ -1631,6 +1664,8 @@ core	doc/examples/basic_rotifer_script_template.py	/^import rotifer.core.cli as 
 core	lib/rotifer/db/cli.py	/^import rotifer.core.cli as corecli$/;"	i
 core	lib/rotifer/db/ncbi/ftp.py	/^        import rotifer.core.functions as rcf$/;"	i
 core	lib/rotifer/db/ncbi/ftp.py	/^import rotifer.db.core$/;"	i
+core	lib/rotifer/db/ncbi/mirror.py	/^        import rotifer.core.functions as rcf$/;"	i
+core	lib/rotifer/db/ncbi/mirror.py	/^import rotifer.db.core$/;"	i
 core	lib/rotifer/seq/alignment.py	/^import rotifer.core.functions as rcf$/;"	i
 core	lib/rotifer/seq/cli.py	/^import rotifer.core.cli as corecli$/;"	i
 core	lib/rotifer/seq/core/__init__.py	/^from . import core$/;"	i
@@ -1674,7 +1709,7 @@ coretime	dev/bin/rsearch2.py	/^import rotifer.core.time as coretime$/;"	i
 coretime	dev/bin/rsearch_old.py	/^import rotifer.core.time as coretime$/;"	i
 corr	dev/bin/pymol_rmsd_comparer.py	/^def corr(ls, structure_dict, methods = ['align', 'super', 'cealign']):$/;"	f
 count_matches	dev/bin/conseq.py	/^def count_matches(x, ls):$/;"	f
-count_series	lib/rotifer/devel/alpha/gian_func.py	/^def count_series(series, normalize=False, cut_off=False, count='domain'):$/;"	f
+count_series	lib/rotifer/devel/alpha/gian_func.py	/^def count_series($/;"	f
 count_series	lib/rotifer/devel/alpha/gian_func.teste.py	/^def count_series(series, normalize=False, cut_off=False, count='domain'):$/;"	f
 crc64	bin/alntool	/^sub crc64 {$/;"	s
 create	lib/rotifer/site_perl/Rotifer/Parser.pm	/^sub create {$/;"	s
@@ -1686,7 +1721,6 @@ create_engine	lib/rotifer/alchemy/connect.py	/^from sqlalchemy import create_eng
 create_local	dev/bin/rconfig.0d2.py	/^def create_local():$/;"	f
 create_local	dev/bin/rconfig.0d3.py	/^def create_local():$/;"	f
 create_logo	lib/rotifer/seq/weblogo.py	/^def create_logo(hmm, outpath = ''):$/;"	f
-cursor	lib/rotifer/db/ncbi/ftp.py	/^class cursor():$/;"	c
 custom_row_filter	dev/bin/rnexplorer.py	/^def custom_row_filter(df, ipt_parameter, verbose = False,$/;"	f
 d	dev/bin/locus2fasta.py	/^                d = com.decode('utf-8')$/;"	v
 d	lib/rotifer/core/cli.py	/^           d = colored(description, description_attrs['color'], attrs = description_attrs['attrs']),$/;"	v
@@ -1713,17 +1747,25 @@ db	dev/bin/rsearch2.py	/^import rotifer.db.neighbors as neighbors$/;"	i
 db	dev/bin/rsearch_old.py	/^import rotifer.db.cli as sqlcli$/;"	i
 db	dev/bin/rsearch_old.py	/^import rotifer.db.neighbors as neighbors$/;"	i
 db	lib/rotifer/db/__init__.py	/^    import rotifer.db.local as localDB$/;"	i
+db	lib/rotifer/db/ncbi/__init__.py	/^import rotifer.db.core as rdc$/;"	i
 db	lib/rotifer/db/ncbi/cursor.py	/^import rotifer.db.ncbi.fetch as fetcher$/;"	i
 db	lib/rotifer/db/ncbi/cursor.py	/^import rotifer.db.ncbi.parse as parser$/;"	i
 db	lib/rotifer/db/ncbi/cursor.py	/^import rotifer.db.ncbi.read as reader$/;"	i
-db	lib/rotifer/db/ncbi/ftp.py	/^        import rotifer.db.ncbi.ftp as ncbiftp$/;"	i
 db	lib/rotifer/db/ncbi/ftp.py	/^import rotifer.db.core$/;"	i
-db	lib/rotifer/devel/alpha/gian_func.py	/^    import rotifer.db.ncbi $/;"	i
+db	lib/rotifer/db/ncbi/mirror.py	/^import rotifer.db.core$/;"	i
+db	lib/rotifer/db/ncbi/mirror.py	/^import rotifer.db.ncbi.ftp as ncbiftp$/;"	i
+db	lib/rotifer/db/sql/sqlite3.py	/^import rotifer.db.core as rdc$/;"	i
+db	lib/rotifer/db/sql/sqlite3.py	/^import rotifer.db.ncbi.utils as rdnu$/;"	i
 db	lib/rotifer/devel/alpha/gian_func.teste.py	/^    import rotifer.db.ncbi $/;"	i
 dc	dev/bin/trimal2msa.py	/^        dc = defaultdict(list)$/;"	v
 debug	dev/bin/rneighbors2.py	/^                         debug = args.debug,$/;"	v
 declarative_base	lib/rotifer/alchemy/connect.py	/^from sqlalchemy.ext.declarative import declarative_base$/;"	i
 declarative_base	lib/rotifer/alchemy/db_classes.py	/^from sqlalchemy.ext.declarative import declarative_base$/;"	i
+decode_results	lib/rotifer/devel/alpha/uniprot.py	/^def decode_results(response, file_format, compressed):$/;"	f
+deepcopy	lib/rotifer/core/functions.py	/^    from copy import deepcopy$/;"	i
+deepcopy	lib/rotifer/db/ncbi/__init__.py	/^from copy import deepcopy$/;"	i
+deepcopy	lib/rotifer/db/ncbi/ftp.py	/^from copy import deepcopy$/;"	i
+deepcopy	lib/rotifer/db/ncbi/mirror.py	/^from copy import deepcopy$/;"	i
 deepcopy	lib/rotifer/devel/beta/sequence.py	/^        from copy import deepcopy$/;"	i
 default	dev/bin/rnexplorer.py	/^                        default = [],$/;"	v
 default_block_header	bin/table2blocks	/^sub default_block_header {$/;"	s
@@ -1751,6 +1793,7 @@ dest	dev/bin/rnexplorer.py	/^                        dest = 'verbose',$/;"	v
 dest	lib/rotifer/devel/alpha/rodolfo.py	/^            dest = orig.replace(".ordered","")$/;"	v
 devel	lib/rotifer/db/local/__init__.py	/^        import rotifer.devel.alpha.gian_func as gian_func$/;"	i
 devel	lib/rotifer/db/local/__init__.py	/^import rotifer.devel.beta.sequence as rdbs$/;"	i
+devel	lib/rotifer/db/local/easel.py	/^import rotifer.devel.beta.sequence as rdbs$/;"	i
 devel	lib/rotifer/db/sql/sqlite3.py	/^import rotifer.devel.beta.sequence as rdbs$/;"	i
 df	dev/bin/conseq.py	/^    df = fasta2df(open(args.fasta).read().splitlines())$/;"	v
 df	dev/bin/phmmscan.py	/^        df = fasta2df(args.fasta)$/;"	v
@@ -1825,6 +1868,7 @@ entrez	lib/rotifer/db/ncbi/__init__.py	/^            from rotifer.db.ncbi import
 entrez	lib/rotifer/db/ncbi/__init__.py	/^from rotifer.db.ncbi import entrez$/;"	i
 entrez	lib/rotifer/db/ncbi/entrez.py	/^            from rotifer.db.ncbi import entrez$/;"	i
 entrez	lib/rotifer/db/ncbi/ftp.py	/^            from rotifer.db.ncbi import entrez$/;"	i
+entrez	lib/rotifer/db/ncbi/mirror.py	/^            from rotifer.db.ncbi import entrez$/;"	i
 epost	lib/rotifer/site_perl/Rotifer/DB/NCBI/EDirect.pm	/^sub epost {$/;"	s
 epost	lib/rotifer/site_perl/Rotifer/DB/NCBI/EUtils.pm	/^sub epost {$/;"	s
 epost	perl/lib/Rotifer/DB/NCBI/EDirect.pm	/^sub epost {$/;"	s
@@ -1930,21 +1974,26 @@ fetchall	lib/rotifer/db/ncbi/entrez.py	/^    def fetchall(self, accessions):$/;"
 fetchall	lib/rotifer/db/ncbi/entrez.py	/^    def fetchall(self, accessions):$/;"	m	class:TaxonomyCursor
 fetchall	lib/rotifer/db/ncbi/entrez.py	/^    def fetchall(self, proteins, ipgs=None):$/;"	m	class:GeneNeighborhoodCursor
 fetchall	lib/rotifer/db/ncbi/ftp.py	/^    def fetchall(self, accessions):$/;"	m	class:GenomeFeaturesCursor
-fetchall	lib/rotifer/db/ncbi/ftp.py	/^    def fetchall(self, proteins, ipgs=None):$/;"	m	class:GeneNeighborhoodCursor
+fetchall	lib/rotifer/db/ncbi/ftp.py	/^    def fetchall(self, accessions, ipgs=None):$/;"	m	class:GeneNeighborhoodCursor
+fetchall	lib/rotifer/db/ncbi/mirror.py	/^    def fetchall(self, accessions):$/;"	m	class:GenomeFeaturesCursor
+fetchall	lib/rotifer/db/ncbi/mirror.py	/^    def fetchall(self, accessions, ipgs=None):$/;"	m	class:GeneNeighborhoodCursor
 fetchall	lib/rotifer/db/sql/sqlite3.py	/^    def fetchall(self, proteins, ipgs=None):$/;"	m	class:GeneNeighborhoodCursor
 fetcher	lib/rotifer/db/core.py	/^    def fetcher(self, accession, *args, **kwargs):$/;"	m	class:SimpleParallelProcessCursor
+fetcher	lib/rotifer/db/local/easel.py	/^    def fetcher(self, accession):$/;"	m	class:FastaCursor
 fetcher	lib/rotifer/db/ncbi/cursor.py	/^import rotifer.db.ncbi.fetch as fetcher$/;"	i
 fetcher	lib/rotifer/db/ncbi/entrez.py	/^    def fetcher(self, accession):$/;"	m	class:SequenceCursor
 fetcher	lib/rotifer/db/ncbi/ftp.py	/^    def fetcher(self, accession):$/;"	m	class:GeneNeighborhoodCursor
 fetcher	lib/rotifer/db/ncbi/ftp.py	/^    def fetcher(self, accession):$/;"	m	class:GenomeCursor
+fetcher	lib/rotifer/db/ncbi/mirror.py	/^    def fetcher(self, accession):$/;"	m	class:GeneNeighborhoodCursor
 fetchone	lib/rotifer/db/core.py	/^    def fetchone(self, accessions, *args, **kwargs):$/;"	m	class:BaseCursor
 fetchone	lib/rotifer/db/core.py	/^    def fetchone(self, accessions, *args, **kwargs):$/;"	m	class:SimpleParallelProcessCursor
 fetchone	lib/rotifer/db/local/__init__.py	/^    def fetchone(self, query):$/;"	m	class:EaselFastaCursor
-fetchone	lib/rotifer/db/ncbi/__init__.py	/^    def fetchone(self, proteins, ipgs=None):$/;"	m	class:GeneNeighborhoodCursor
+fetchone	lib/rotifer/db/ncbi/__init__.py	/^    def fetchone(self, accessions, ipgs=None):$/;"	m	class:GeneNeighborhoodCursor
 fetchone	lib/rotifer/db/ncbi/entrez.py	/^    def fetchone(self, proteins, ipgs=None):$/;"	m	class:GeneNeighborhoodCursor
 fetchone	lib/rotifer/db/ncbi/entrez.py	/^    def fetchone(self,accessions):$/;"	m	class:IPGCursor
 fetchone	lib/rotifer/db/ncbi/entrez.py	/^    def fetchone(self,accessions):$/;"	m	class:SequenceCursor
-fetchone	lib/rotifer/db/ncbi/ftp.py	/^    def fetchone(self, proteins, ipgs=None):$/;"	m	class:GeneNeighborhoodCursor
+fetchone	lib/rotifer/db/ncbi/ftp.py	/^    def fetchone(self, accessions, ipgs=None):$/;"	m	class:GeneNeighborhoodCursor
+fetchone	lib/rotifer/db/ncbi/mirror.py	/^    def fetchone(self, accessions, ipgs=None):$/;"	m	class:GeneNeighborhoodCursor
 fetchone	lib/rotifer/db/sql/sqlite3.py	/^    def fetchone(self, proteins, ipgs=None):$/;"	m	class:GeneNeighborhoodCursor
 fileinput	lib/rotifer/db/ncbi/fetch.py	/^from rotifer.io import fileinput$/;"	i
 fileinput	lib/rotifer/io/fileinput.py	/^import fileinput$/;"	i
@@ -2020,9 +2069,9 @@ ftable.strand	share/rotifer/sql/rotiferdb.sql	/^    strand character(1) NOT NULL
 ftable.symbol	share/rotifer/sql/rotiferdb.sql	/^    symbol character varying(64) ,$/;"	F
 ftp	lib/rotifer/db/ncbi/__init__.py	/^from rotifer.db.ncbi import ftp$/;"	i
 ftp	lib/rotifer/db/ncbi/fetch.py	/^def ftp(ncbi, outdir=GlobalConfig['cache'], mode='r', concat=False, tempfile=False, delete=False, *args, **kwargs):$/;"	f
-ftp_get	lib/rotifer/db/ncbi/ftp.py	/^    def ftp_get(self, target, avoid_collision=False, outdir=None):$/;"	m	class:cursor
-ftp_ls	lib/rotifer/db/ncbi/ftp.py	/^    def ftp_ls(self, targets):$/;"	m	class:cursor
-ftp_open	lib/rotifer/db/ncbi/ftp.py	/^    def ftp_open(self, target,  mode='rt', avoid_collision=True, delete=True):$/;"	m	class:cursor
+ftp_get	lib/rotifer/db/ncbi/ftp.py	/^    def ftp_get(self, target, avoid_collision=False, outdir=None):$/;"	m	class:connection
+ftp_ls	lib/rotifer/db/ncbi/ftp.py	/^    def ftp_ls(self, targets):$/;"	m	class:connection
+ftp_open	lib/rotifer/db/ncbi/ftp.py	/^    def ftp_open(self, target,  mode='rt', avoid_collision=True, delete=True):$/;"	m	class:connection
 full	bin/tjoin	/^ full  : returns all combined rows from both files, including those that do not match $/;"	l
 full_neighborhood	lib/rotifer/genome/data.py	/^    def full_neighborhood(self, column='cluster', value='value', stats=False, new_query=True):$/;"	m	class:NeighborhoodDF
 fun	dev/bin/rdocmodel.py	/^def fun(f):$/;"	f
@@ -2040,8 +2089,10 @@ genbank2acc	bin/blast2table	/^sub genbank2acc {$/;"	s
 genbank2gi	bin/blast2table	/^ genbank2gi  : if name matches regexp 'gi|\\\\d+|\\\\w+|+[^\\\\|]+', $/;"	l
 genbank2gi	bin/blast2table	/^sub genbank2gi {$/;"	s
 genbank2table	bin/seq2taxonomy	/^sub genbank2table {$/;"	s
-genome_path	lib/rotifer/db/ncbi/ftp.py	/^    def genome_path(self, accession, assembly_reports=None):$/;"	m	class:cursor
-genome_report	lib/rotifer/db/ncbi/ftp.py	/^    def genome_report(self, accession):$/;"	m	class:cursor
+genome_path	lib/rotifer/db/ncbi/ftp.py	/^    def genome_path(self, accession, assembly_reports=None):$/;"	m	class:GenomeCursor
+genome_path	lib/rotifer/db/ncbi/mirror.py	/^    def genome_path(self, accession, assembly_reports=None):$/;"	m	class:GenomeCursor
+genome_report	lib/rotifer/db/ncbi/ftp.py	/^    def genome_report(self, accession):$/;"	m	class:GenomeCursor
+genome_report	lib/rotifer/db/ncbi/mirror.py	/^    def genome_report(self, accession):$/;"	m	class:GenomeCursor
 genomes	lib/rotifer/db/ncbi/fetch.py	/^def genomes(ncbi, outdir=GlobalConfig['cache'], assembly_reports=None, mode=False, concat=False, tempfile=False, delete=False, *args, **kwargs):$/;"	f
 genomes	lib/rotifer/db/ncbi/parse.py	/^def genomes(ncbi, parser=Bio.SeqIO.parse, parser_args=['genbank'],$/;"	f
 get_SeqFeatures	lib/rotifer/site_perl/Rotifer/DBIC/AnnotationDB/Component/BiodataComponent.pm	/^sub get_SeqFeatures {$/;"	s
@@ -2053,6 +2104,7 @@ get_all_SeqFeatures	lib/rotifer/site_perl/Rotifer/DBIC/AnnotationDB/Component/Bi
 get_all_SeqFeatures	perl/lib/Rotifer/DBIC/AnnotationDB/Component/BiodataComponent.pm	/^sub get_all_SeqFeatures {$/;"	s
 get_all_parameters	lib/rotifer/site_perl/Bio/Tools/Run/Alignment/Gblocks.pm	/^sub get_all_parameters {$/;"	s
 get_all_parameters	perl/lib/Bio/Tools/Run/Alignment/Gblocks.pm	/^sub get_all_parameters {$/;"	s
+get_batch	lib/rotifer/devel/alpha/uniprot.py	/^def get_batch(batch_response, file_format, compressed):$/;"	f
 get_blastdb_size	bin/runprofiles	/^sub get_blastdb_size {$/;"	s
 get_classes	test/dyn/dyn.py	/^def get_classes(load,$/;"	f
 get_command_line	bin/runprofiles	/^sub get_command_line {$/;"	s
@@ -2067,7 +2119,11 @@ get_defaults	lib/rotifer/site_perl/AppConfig/AutoDoc.pm	/^sub get_defaults {$/;"
 get_defaults	perl/lib/AppConfig/AutoDoc.pm	/^sub get_defaults {$/;"	s
 get_executable_by_extension	lib/rotifer/site_perl/Rotifer/Tools/Rrsw/unpack.pm	/^sub get_executable_by_extension {$/;"	s
 get_executable_by_extension	perl/lib/Rotifer/Tools/Rrsw/unpack.pm	/^sub get_executable_by_extension {$/;"	s
+get_id_mapping_results_link	lib/rotifer/devel/alpha/uniprot.py	/^def get_id_mapping_results_link(job_id):$/;"	f
+get_id_mapping_results_search	lib/rotifer/devel/alpha/uniprot.py	/^def get_id_mapping_results_search(url):$/;"	f
+get_id_mapping_results_stream	lib/rotifer/devel/alpha/uniprot.py	/^def get_id_mapping_results_stream(url):$/;"	f
 get_library_command_line	bin/runprofiles	/^sub get_library_command_line {$/;"	s
+get_next_link	lib/rotifer/devel/alpha/uniprot.py	/^def get_next_link(headers):$/;"	f
 get_node_annotation_values	bin/treeutil	/^sub get_node_annotation_values {$/;"	s
 get_nofseqs_from_fasta	bin/runprofiles	/^sub get_nofseqs_from_fasta {$/;"	s
 get_options	lib/rotifer/site_perl/AppConfig/AutoDoc.pm	/^sub get_options {$/;"	s
@@ -2088,16 +2144,19 @@ get_terms	lib/rotifer/site_perl/Rotifer/SequenceModel.pm	/^sub get_terms {$/;"	s
 get_terms	perl/lib/Rotifer/SequenceModel.pm	/^sub get_terms {$/;"	s
 get_type	lib/rotifer/site_perl/AppConfig/AutoDoc.pm	/^sub get_type {$/;"	s
 get_type	perl/lib/AppConfig/AutoDoc.pm	/^sub get_type {$/;"	s
+get_xml_namespace	lib/rotifer/devel/alpha/uniprot.py	/^def get_xml_namespace(element):$/;"	f
 getargs	lib/rotifer/site_perl/AppConfig/AutoDoc.pm	/^sub getargs {$/;"	s
 getargs	perl/lib/AppConfig/AutoDoc.pm	/^sub getargs {$/;"	s
 getids	lib/rotifer/db/core.py	/^    def getids(self, obj):$/;"	m	class:SimpleParallelProcessCursor
+getids	lib/rotifer/db/core.py	/^    def getids(self, obj, ipgs=None):$/;"	m	class:BaseGeneNeighborhoodCursor
+getids	lib/rotifer/db/local/easel.py	/^    def getids(self, obj):$/;"	m	class:FastaCursor
 getids	lib/rotifer/db/ncbi/entrez.py	/^    def getids(self, obj):$/;"	m	class:SequenceCursor
 getids	lib/rotifer/db/ncbi/entrez.py	/^    def getids(self,obj):$/;"	m	class:IPGCursor
 getids	lib/rotifer/db/ncbi/entrez.py	/^    def getids(self,obj):$/;"	m	class:NucleotideFeaturesCursor
 getids	lib/rotifer/db/ncbi/entrez.py	/^    def getids(self,obj):$/;"	m	class:TaxonomyCursor
 getids	lib/rotifer/db/ncbi/ftp.py	/^    def getids(self,obj):$/;"	m	class:GenomeCursor
 getids	lib/rotifer/db/ncbi/ftp.py	/^    def getids(self,obj):$/;"	m	class:GenomeFeaturesCursor
-gf	lib/rotifer/devel/alpha/gian_func.py	/^    from rotifer.devel.alpha import gian_func as gf$/;"	i
+getids	lib/rotifer/db/ncbi/mirror.py	/^    def getids(self,obj):$/;"	m	class:GenomeFeaturesCursor
 gff	lib/rotifer/genome/io.py	/^def gff(path, seqid=None, organism=None, strain=None, description=None, topology='linear', keywords=[], ete3=None):$/;"	f
 gi2context_process_fasta_help	lib/rotifer/rbashpipe/gi2context/process_fasta	/^function gi2context_process_fasta_help() {$/;"	f
 gi2context_process_fasta_help	lib/rotifer/rbashpipe/gi2context/splitseq	/^function gi2context_process_fasta_help() {$/;"	f
@@ -2148,7 +2207,7 @@ highlight_consensus	lib/rotifer/devel/beta/sequence.py	/^        def highlight_c
 hmmscanRun	dev/bin/rsearch.py	/^    def hmmscanRun(self, query, tables, prefix, db):$/;"	m	class:rsearch
 hmmscanRun	dev/bin/rsearch2.py	/^def hmmscanRun(query, db, output='rsearch', prefix = 'pfam'):$/;"	f
 hmmscanRun	dev/bin/rsearch_old.py	/^def hmmscanRun(query, db, output='rsearch', prefix = 'pfam'):$/;"	f
-hmmsearch_full2pandas	lib/rotifer/devel/alpha/gian_func.py	/^def hmmsearch_full2pandas (file, error_lines=True, keep_threshold=False ):$/;"	f
+hmmsearch_full2pandas	lib/rotifer/devel/alpha/gian_func.py	/^def hmmsearch_full2pandas($/;"	f
 hmmsearch_full2pandas	lib/rotifer/devel/alpha/gian_func.teste.py	/^def hmmsearch_full2pandas (file, error_lines=True, keep_threshold=False ):$/;"	f
 hook_compressed_text	lib/rotifer/db/ncbi/fetch.py	/^def hook_compressed_text(filename, mode='r', encoding='utf8'):$/;"	f
 hook_compressed_text	lib/rotifer/io/fileinput.py	/^def hook_compressed_text(filename, mode='r', encoding='utf8'):$/;"	f
@@ -2226,12 +2285,14 @@ itertools	lib/rotifer/cluster/cluster.py	/^import itertools$/;"	i
 itertools	lib/rotifer/genome/data.py	/^import itertools$/;"	i
 jaccard	lib/rotifer/genome/data.py	/^    def jaccard(self, min_c80e3=3):$/;"	m	class:NeighborhoodDF
 jensen_shannon_divergence	lib/rotifer/seq/conservation/jensen_shannon_divergence.py	/^class jensen_shannon_divergence:$/;"	c
+job_id	lib/rotifer/devel/alpha/uniprot.py	/^job_id = submit_id_mapping($/;"	v
 jobs	dev/bin/gbk2clickhouse.py	/^jobs = []$/;"	v
 jobs	dev/bin/pymol_rmsd_comparer.py	/^    jobs = []$/;"	v
 jobs	dev/bin/trimal2msa.py	/^    jobs = []$/;"	v
 jobs	dev/bin/uniprot2gi.0d04.py	/^    jobs = []$/;"	v
 jobs	dev/bin/uniprot2gi.py	/^    jobs = []$/;"	v
 jobs	test/clickhouse/test.py	/^    jobs = []$/;"	v
+json	lib/rotifer/devel/alpha/uniprot.py	/^import json$/;"	i
 kill_now	test/clickhouse/test.py	/^    kill_now = False$/;"	v	class:GracefulKiller
 left	bin/tjoin	/^ left  : returns all rows for the first file, including those that do not match $/;"	l
 length	dev/bin/trimal2msa.py	/^    length = len(combs) \/\/t if len(combs) \/\/t >0 else 1$/;"	v
@@ -2251,6 +2312,7 @@ line	dev/bin/rneighbors2.py	/^import argparse # Not our command line parser of c
 line	lib/rotifer/db/neighbors.py	/^import argparse # Not our command line parser of choice but better than none$/;"	i
 lineage	lib/rotifer/db/ncbi/read.py	/^    from rotifer.taxonomy.utils import lineage$/;"	i
 lineage	lib/rotifer/taxonomy/utils.py	/^def lineage(data=None, preferred_taxa=None, column="classification", insep="; ", outsep=">", case=str.lower):$/;"	f
+link	lib/rotifer/devel/alpha/uniprot.py	/^    link = get_id_mapping_results_link(job_id)$/;"	v
 list_pos	dev/bin/conseq.py	/^    list_pos = []$/;"	v
 list_pos	dev/bin/prepare_data_to_ccmpred.py	/^    list_pos = [x for x,y in enumerate(df[df['ID'] == ref].Seq.values[0]) if y != '-']$/;"	v
 load	lib/rotifer/site_perl/Rotifer/DBIC/AnnotationDB/Parser/arch.pm	/^sub load {$/;"	s
@@ -2274,8 +2336,9 @@ load	perl/lib/Rotifer/DBIC/Role/BaseSchemaRole.pm	/^sub load {$/;"	s
 loadClasses	lib/rotifer/core/functions.py	/^def loadClasses(load, user_path=os.path.join(GlobalConfig['user'],'lib'), system_path=os.path.join(GlobalConfig['base'],'lib','rotifer')):$/;"	f
 loadClasses	lib/rotifer/genome/database.py	/^from rotifer.core.functions import loadClasses$/;"	i
 loadClasses	lib/rotifer/seq/alignment.py	/^from rotifer.core.functions import loadClasses$/;"	i
-loadConfig	lib/rotifer/core/functions.py	/^def loadConfig(filepath, user_path=GlobalConfig['userConfig'], system_path=GlobalConfig['baseConfig']):$/;"	f
+loadConfig	lib/rotifer/core/functions.py	/^def loadConfig(filepath, user_path=GlobalConfig['userConfig'], system_path=GlobalConfig['baseConfig'], defaults={}):$/;"	f
 loadConfig	lib/rotifer/db/local/__init__.py	/^from rotifer.core.functions import loadConfig$/;"	i
+loadConfig	lib/rotifer/db/local/easel.py	/^from rotifer.core.functions import loadConfig$/;"	i
 loadConfig	lib/rotifer/db/ncbi/__init__.py	/^from rotifer.core.functions import loadConfig$/;"	i
 loadConfig	lib/rotifer/db/ncbi/entrez.py	/^from rotifer.core.functions import loadConfig$/;"	i
 loadConfig	lib/rotifer/db/sql/sqlite3.py	/^from rotifer.core.functions import loadConfig$/;"	i
@@ -2312,11 +2375,13 @@ logger	lib/rotifer/core/log.py	/^def logger(func):$/;"	f
 logger	lib/rotifer/db/__init__.py	/^logger = rotifer.logging.getLogger(__name__)$/;"	v
 logger	lib/rotifer/db/core.py	/^logger = rotifer.logging.getLogger(__name__)$/;"	v
 logger	lib/rotifer/db/local/__init__.py	/^logger = rotifer.logging.getLogger(__name__)$/;"	v
+logger	lib/rotifer/db/local/easel.py	/^logger = rotifer.logging.getLogger(__name__)$/;"	v
 logger	lib/rotifer/db/ncbi/__init__.py	/^logger = rotifer.logging.getLogger(__name__)$/;"	v
 logger	lib/rotifer/db/ncbi/cursor.py	/^logger = rotifer.logging.getLogger(__name__)$/;"	v
 logger	lib/rotifer/db/ncbi/entrez.py	/^logger = rotifer.logging.getLogger(__name__)$/;"	v
 logger	lib/rotifer/db/ncbi/fetch.py	/^logger = rotifer.logging.getLogger(__name__)$/;"	v
 logger	lib/rotifer/db/ncbi/ftp.py	/^logger = rotifer.logging.getLogger(__name__)$/;"	v
+logger	lib/rotifer/db/ncbi/mirror.py	/^logger = rotifer.logging.getLogger(__name__)$/;"	v
 logger	lib/rotifer/db/ncbi/read.py	/^logger = rotifer.logging.getLogger(__name__)$/;"	v
 logger	lib/rotifer/db/neighbors.py	/^logger = rotifer.logging.getLogger(__name__)$/;"	v
 logger	lib/rotifer/db/sql/sqlite3.py	/^logger = rotifer.logging.getLogger(__name__)$/;"	v
@@ -2329,6 +2394,7 @@ logging	lib/rotifer/__init__.py	/^import logging as logging$/;"	i
 logging	lib/rotifer/core/log.py	/^import logging$/;"	i
 logging	lib/rotifer/db/ncbi/__init__.py	/^import logging$/;"	i
 logging	lib/rotifer/db/ncbi/ftp.py	/^import logging$/;"	i
+logging	lib/rotifer/db/ncbi/mirror.py	/^import logging$/;"	i
 logging	lib/rotifer/db/ncbi/parse.py	/^import logging$/;"	i
 long_arg	dev/bin/rnexplorer.py	/^                long_arg = '--outputargs',$/;"	v
 long_arg	dev/bin/rnexplorer.py	/^               long_arg = '--verbose',$/;"	v
@@ -2372,6 +2438,7 @@ mdv	dev/bin/rdocmodel.py	/^import mdv$/;"	i
 merge_fragments	bin/alntool	/^sub merge_fragments {$/;"	s
 merge_fragments_by_coverage	bin/alntool	/^sub merge_fragments_by_coverage {$/;"	s
 merge_fragments_by_list	bin/alntool	/^sub merge_fragments_by_list {$/;"	s
+merge_xml_results	lib/rotifer/devel/alpha/uniprot.py	/^def merge_xml_results(xml_results):$/;"	f
 metadata	dev/bin/phmmscan.py	/^        metadata = MetaData(bind=engine)$/;"	v
 metadata	lib/rotifer/alchemy/db_classes.py	/^metadata = MetaData(Base)$/;"	v
 missing	lib/rotifer/db/ncbi/cursor.py	/^    def missing(self, target=None, replace=True):$/;"	m	class:NcbiCursor
@@ -2400,12 +2467,13 @@ name2taxa	bin/treeutil	/^sub name2taxa {$/;"	s
 ncbi	lib/rotifer/db/ncbi/cursor.py	/^import rotifer.db.ncbi.fetch as fetcher$/;"	i
 ncbi	lib/rotifer/db/ncbi/cursor.py	/^import rotifer.db.ncbi.parse as parser$/;"	i
 ncbi	lib/rotifer/db/ncbi/cursor.py	/^import rotifer.db.ncbi.read as reader$/;"	i
-ncbi	lib/rotifer/db/ncbi/ftp.py	/^        import rotifer.db.ncbi.ftp as ncbiftp$/;"	i
-ncbi	lib/rotifer/devel/alpha/gian_func.py	/^    import rotifer.db.ncbi $/;"	i
+ncbi	lib/rotifer/db/ncbi/mirror.py	/^import rotifer.db.ncbi.ftp as ncbiftp$/;"	i
+ncbi	lib/rotifer/db/sql/sqlite3.py	/^import rotifer.db.ncbi.utils as rdnu$/;"	i
 ncbi	lib/rotifer/devel/alpha/gian_func.teste.py	/^    import rotifer.db.ncbi $/;"	i
 ncbi	lib/rotifer/genome/io.py	/^        from rotifer.db.ncbi import ncbi$/;"	i
 ncbiftp	lib/rotifer/db/ncbi/__init__.py	/^    from rotifer.db.ncbi import ftp as ncbiftp$/;"	i
-ncbiftp	lib/rotifer/db/ncbi/ftp.py	/^        import rotifer.db.ncbi.ftp as ncbiftp$/;"	i
+ncbiftp	lib/rotifer/db/ncbi/ftp.py	/^        from rotifer.db.ncbi import ftp as ncbiftp$/;"	i
+ncbiftp	lib/rotifer/db/ncbi/mirror.py	/^import rotifer.db.ncbi.ftp as ncbiftp$/;"	i
 neighborhood	dev/bin/gbk2clickhouse.py	/^from rotifer.neighborhood import neighborhood$/;"	i
 neighborhood	dev/bin/rlineage.py	/^import rotifer.neighborhood.neighborhood as nh$/;"	i
 neighborhood	dev/bin/rnexplorer.py	/^import rotifer.neighborhood.neighborhood as nh$/;"	i
@@ -2451,9 +2519,11 @@ np	dev/neighborhood/neighborhood.py	/^import numpy as np$/;"	i
 np	dev/network/network_enhance.py	/^import numpy as np$/;"	i
 np	lib/rotifer/cluster/cluster.py	/^import numpy as np$/;"	i
 np	lib/rotifer/db/local/__init__.py	/^import numpy as np$/;"	i
+np	lib/rotifer/db/local/easel.py	/^import numpy as np$/;"	i
 np	lib/rotifer/db/ncbi/__init__.py	/^import numpy as np$/;"	i
 np	lib/rotifer/db/ncbi/entrez.py	/^import numpy as np$/;"	i
 np	lib/rotifer/db/ncbi/ftp.py	/^import numpy as np$/;"	i
+np	lib/rotifer/db/ncbi/mirror.py	/^import numpy as np$/;"	i
 np	lib/rotifer/db/ncbi/read.py	/^    import numpy as np$/;"	i
 np	lib/rotifer/db/sql/sqlite3.py	/^import numpy as np$/;"	i
 np	lib/rotifer/devel/alpha/rodolfo.py	/^    import numpy as np$/;"	i
@@ -2491,7 +2561,8 @@ ontology_name	perl/lib/Bio/OntologyIO/obo.pm	/^sub ontology_name {$/;"	s
 open	lib/rotifer/core/io/ftp.py	/^def open(url = 'ftp.ncbi.nlm.nih.gov', user='', password = 'nicastro@iq.usp.br', unpack=False):$/;"	f
 open	lib/rotifer/genome/database.py	/^    def open(self, source, config = {}):$/;"	m	class:database
 open_compressed	lib/rotifer/core/functions.py	/^def open_compressed(filename, mode='r', encoding='utf8'):$/;"	f
-open_genome	lib/rotifer/db/ncbi/ftp.py	/^    def open_genome(self, accession, assembly_reports=None):$/;"	m	class:cursor
+open_genome	lib/rotifer/db/ncbi/ftp.py	/^    def open_genome(self, accession, assembly_reports=None):$/;"	m	class:GenomeCursor
+open_genome	lib/rotifer/db/ncbi/mirror.py	/^    def open_genome(self, accession, assembly_reports=None):$/;"	m	class:GenomeCursor
 openload	dev/table/cli.py	/^    def openload(self, parser, largs):$/;"	m	class:action
 openload	lib/rotifer/core/cli.py	/^    def openload(self, parser, largs):$/;"	m	class:action
 openload	lib/rotifer/core/dev/cli.py	/^    def openload(self, parser, largs):$/;"	m	class:action
@@ -2547,10 +2618,12 @@ os	lib/rotifer/db/__init__.py	/^import os$/;"	i
 os	lib/rotifer/db/cli.py	/^import os$/;"	i
 os	lib/rotifer/db/core.py	/^import os$/;"	i
 os	lib/rotifer/db/local/__init__.py	/^import os$/;"	i
+os	lib/rotifer/db/local/easel.py	/^import os$/;"	i
 os	lib/rotifer/db/ncbi/__init__.py	/^import os$/;"	i
 os	lib/rotifer/db/ncbi/entrez.py	/^import os$/;"	i
 os	lib/rotifer/db/ncbi/fetch.py	/^import os$/;"	i
 os	lib/rotifer/db/ncbi/ftp.py	/^import os$/;"	i
+os	lib/rotifer/db/ncbi/mirror.py	/^import os$/;"	i
 os	lib/rotifer/db/ncbi/parse.py	/^import os$/;"	i
 os	lib/rotifer/db/ncbi/read.py	/^import os$/;"	i
 os	lib/rotifer/db/neighbors.py	/^import os$/;"	i
@@ -2607,6 +2680,7 @@ pad	bin/blocks2table	/^sub pad {$/;"	s
 pad	bin/table2blocks	/^sub pad {$/;"	s
 pad	bin/tgroup	/^sub pad {$/;"	s
 pad	bin/tjoin	/^sub pad {$/;"	s
+padding_df	lib/rotifer/devel/alpha/gian_func.py	/^def padding_df(df):$/;"	f
 padtable	dev/bin/rnexplorer.py	/^    padtable = args.padtable$/;"	v
 page	lib/rotifer/devel/beta/sequence.py	/^                from IPython.core.page import page $/;"	i
 page	lib/rotifer/devel/beta/sequence.py	/^                from IPython.core.page import page$/;"	i
@@ -2730,6 +2804,7 @@ parse_input_files	bin/tgroup	/^sub parse_input_files {$/;"	s
 parse_input_table	bin/ft2seq	/^sub parse_input_table {$/;"	s
 parse_operons	lib/rotifer/site_perl/Rotifer/DBIC/AnnotationDB/Parser/operon.pm	/^sub parse_operons {$/;"	s
 parse_operons	perl/lib/Rotifer/DBIC/AnnotationDB/Parser/operon.pm	/^sub parse_operons {$/;"	s
+parse_qs	lib/rotifer/devel/alpha/uniprot.py	/^from urllib.parse import urlparse, parse_qs, urlencode$/;"	i
 parse_simple_header	bin/blocks2table	/^sub parse_simple_header {$/;"	s
 parse_table	bin/ft2seq	/^sub parse_table {$/;"	s
 parse_table	bin/rcomplement	/^sub parse_table {$/;"	s
@@ -2741,6 +2816,7 @@ parser	lib/rotifer/core/cli.py	/^class parser:$/;"	c
 parser	lib/rotifer/core/dev/cli.py	/^class parser:$/;"	c
 parser	lib/rotifer/core/dev/cli2.py	/^def parser(description =None): $/;"	f
 parser	lib/rotifer/db/core.py	/^    def parser(self, stream, accession, *args, **kwargs):$/;"	m	class:SimpleParallelProcessCursor
+parser	lib/rotifer/db/local/easel.py	/^    def parser(self, stream, accession):$/;"	m	class:FastaCursor
 parser	lib/rotifer/db/ncbi/cursor.py	/^import rotifer.db.ncbi.parse as parser$/;"	i
 parser	lib/rotifer/db/ncbi/entrez.py	/^    def parser(self, stream, accession):$/;"	m	class:IPGCursor
 parser	lib/rotifer/db/ncbi/entrez.py	/^    def parser(self, stream, accession):$/;"	m	class:NucleotideFeaturesCursor
@@ -2750,6 +2826,8 @@ parser	lib/rotifer/db/ncbi/entrez.py	/^    def parser(self, stream, accession, p
 parser	lib/rotifer/db/ncbi/ftp.py	/^    def parser(self, stream, accession):$/;"	m	class:GenomeCursor
 parser	lib/rotifer/db/ncbi/ftp.py	/^    def parser(self, stream, accession):$/;"	m	class:GenomeFeaturesCursor
 parser	lib/rotifer/db/ncbi/ftp.py	/^    def parser(self, stream, accession, proteins):$/;"	m	class:GeneNeighborhoodCursor
+parser	lib/rotifer/db/ncbi/mirror.py	/^    def parser(self, stream, accession):$/;"	m	class:GenomeFeaturesCursor
+parser	lib/rotifer/db/ncbi/mirror.py	/^    def parser(self, stream, accession, proteins):$/;"	m	class:GeneNeighborhoodCursor
 parser	lib/rotifer/db/neighbors.py	/^import argparse # Not our command line parser of choice but better than none$/;"	i
 parser	lib/rotifer/tools/search.py	/^    def parser(self, *args, **kwargs):$/;"	m	class:search
 parser_cli	lib/rotifer/seq/multimmseqs.py	/^def parser_cli():$/;"	f
@@ -2773,13 +2851,16 @@ pd	dev/bin/uniprot2gi.py	/^import pandas as pd$/;"	i
 pd	dev/neighborhood/neighborhood.py	/^import pandas as pd$/;"	i
 pd	dev/table/table.py	/^import pandas as pd$/;"	i
 pd	lib/rotifer/cluster/cluster.py	/^import pandas as pd$/;"	i
+pd	lib/rotifer/db/core.py	/^import pandas as pd$/;"	i
 pd	lib/rotifer/db/local/__init__.py	/^import pandas as pd$/;"	i
+pd	lib/rotifer/db/local/easel.py	/^import pandas as pd$/;"	i
 pd	lib/rotifer/db/ncbi/__init__.py	/^    import pandas as pd$/;"	i
 pd	lib/rotifer/db/ncbi/__init__.py	/^import pandas as pd$/;"	i
 pd	lib/rotifer/db/ncbi/cursor.py	/^import pandas as pd$/;"	i
 pd	lib/rotifer/db/ncbi/entrez.py	/^import pandas as pd$/;"	i
 pd	lib/rotifer/db/ncbi/ftp.py	/^        import pandas as pd$/;"	i
 pd	lib/rotifer/db/ncbi/ftp.py	/^import pandas as pd$/;"	i
+pd	lib/rotifer/db/ncbi/mirror.py	/^import pandas as pd$/;"	i
 pd	lib/rotifer/db/ncbi/parse.py	/^import pandas as pd$/;"	i
 pd	lib/rotifer/db/ncbi/read.py	/^    import pandas as pd$/;"	i
 pd	lib/rotifer/db/ncbi/read.py	/^import pandas as pd$/;"	i
@@ -2849,6 +2930,7 @@ print_everything	lib/rotifer/pandas/functions.py	/^def print_everything(max_rows
 print_flat	bin/tree2distance	/^sub print_flat {$/;"	s
 print_full_matrix	bin/tree2distance	/^sub print_full_matrix {$/;"	s
 print_node_table	bin/treeutil	/^sub print_node_table {$/;"	s
+print_progress_batches	lib/rotifer/devel/alpha/uniprot.py	/^def print_progress_batches(batch_index, size, total):$/;"	f
 print_upper_matrix	bin/tree2distance	/^sub print_upper_matrix {$/;"	s
 process	lib/rotifer/runprofiles/gzip.pm	/^sub process {$/;"	s
 process	lib/rotifer/runprofiles/srch2table.pm	/^sub process {$/;"	s
@@ -2881,7 +2963,7 @@ protein	lib/rotifer/seq/seq.py	/^class protein:$/;"	c
 protein2dna	lib/rotifer/site_perl/Rotifer/DB/NCBI.pm	/^sub protein2dna {$/;"	s
 protein2dna	perl/lib/Rotifer/DB/NCBI.pm	/^sub protein2dna {$/;"	s
 proteins	lib/rotifer/db/__init__.py	/^def proteins(query, methods=['esl_sfetch','entrez'], local_database_path=os.path.join(rotifer.GlobalConfig["data"],"fadb","nr","nr"), entrez_database="protein", batch_size=200, threads=5, tries=3):$/;"	f
-psiblast	lib/rotifer/devel/alpha/gian_func.py	/^def psiblast(acc,db='nr.50', cpu=96):$/;"	f
+psiblast	lib/rotifer/devel/alpha/gian_func.py	/^def psiblast(acc,$/;"	f
 psycopg2	lib/rotifer/db/neighbors.py	/^import psycopg2$/;"	i
 put_data	dev/bin/uniprotdb2clickhouse.py	/^def put_data(files):$/;"	f
 pymol	dev/bin/pymol_rmsd_comparer.py	/^import pymol$/;"	i
@@ -2906,6 +2988,7 @@ rcf	dev/bin/uniprotdb2clickhouse.py	/^import rotifer.core.functions as rcf$/;"	i
 rcf	lib/rotifer/core/cli.py	/^from . import functions as rcf$/;"	i
 rcf	lib/rotifer/core/dev/cli.py	/^from .. import functions as rcf$/;"	i
 rcf	lib/rotifer/db/ncbi/ftp.py	/^        import rotifer.core.functions as rcf$/;"	i
+rcf	lib/rotifer/db/ncbi/mirror.py	/^        import rotifer.core.functions as rcf$/;"	i
 rcf	lib/rotifer/seq/alignment.py	/^import rotifer.core.functions as rcf$/;"	i
 rcf	lib/rotifer/seq/seq.py	/^import rotifer.core.functions as rcf$/;"	i
 rcf	lib/rotifer/tools/search.py	/^import rotifer.core.functions as rcf$/;"	i
@@ -2915,17 +2998,25 @@ rcluster_query	dev/bin/rsearch.py	/^    def rcluster_query(self):$/;"	m	class:rs
 rd	dev/bin/rpdb.py	/^        rd = ResidueDepth(model)$/;"	v
 rdb	lib/rotifer/devel/beta/sequence.py	/^                import rotifer.db as rdb$/;"	i
 rdbs	lib/rotifer/db/local/__init__.py	/^import rotifer.devel.beta.sequence as rdbs$/;"	i
+rdbs	lib/rotifer/db/local/easel.py	/^import rotifer.devel.beta.sequence as rdbs$/;"	i
 rdbs	lib/rotifer/db/sql/sqlite3.py	/^import rotifer.devel.beta.sequence as rdbs$/;"	i
+rdc	lib/rotifer/db/ncbi/__init__.py	/^import rotifer.db.core as rdc$/;"	i
+rdc	lib/rotifer/db/sql/sqlite3.py	/^import rotifer.db.core as rdc$/;"	i
+rdnm	lib/rotifer/db/ncbi/__init__.py	/^from rotifer.db.ncbi import mirror as rdnm$/;"	i
 rdnu	lib/rotifer/db/ncbi/entrez.py	/^from rotifer.db.ncbi import utils as rdnu$/;"	i
 rdnu	lib/rotifer/db/ncbi/ftp.py	/^from rotifer.db.ncbi import utils as rdnu$/;"	i
+rdnu	lib/rotifer/db/ncbi/mirror.py	/^from rotifer.db.ncbi import utils as rdnu$/;"	i
+rdnu	lib/rotifer/db/sql/sqlite3.py	/^import rotifer.db.ncbi.utils as rdnu$/;"	i
 rdoc	lib/rotifer/core/functions.py	/^class rdoc:$/;"	c
 rdss	lib/rotifer/db/ncbi/__init__.py	/^from rotifer.db.sql import sqlite3 as rdss$/;"	i
 re	dev/bin/phmmscan.py	/^import re$/;"	i
 re	dev/bin/rnexplorer.py	/^import re$/;"	i
 re	lib/rotifer/db/local/__init__.py	/^import re$/;"	i
+re	lib/rotifer/db/local/easel.py	/^import re$/;"	i
 re	lib/rotifer/db/sql/sqlite3.py	/^import re$/;"	i
 re	lib/rotifer/devel/alpha/gian_func.py	/^    import re$/;"	i
 re	lib/rotifer/devel/alpha/gian_func.teste.py	/^    import re$/;"	i
+re	lib/rotifer/devel/alpha/uniprot.py	/^import re$/;"	i
 re	lib/rotifer/devel/beta/sequence.py	/^        import re$/;"	i
 re	lib/rotifer/devel/beta/sequence.py	/^import re$/;"	i
 re	lib/rotifer/genome/io.py	/^import re$/;"	i
@@ -2969,11 +3060,14 @@ rename_nodes	lib/rotifer/site_perl/Bio/Tree/TreeUtils.pm	/^sub rename_nodes {$/;
 rename_nodes	perl/lib/Bio/Tree/TreeUtils.pm	/^sub rename_nodes {$/;"	s
 request	dev/bin/uniprot2gi.0d04.py	/^import urllib.request$/;"	i
 request	dev/bin/uniprot2gi.py	/^import urllib.request$/;"	i
+requests	lib/rotifer/devel/alpha/uniprot.py	/^import requests$/;"	i
 res	dev/bin/phmmscan.py	/^            res = engine.execute(f'Select * from Pfam_32_0 where sequence in ({accs_formated})').fetchall()$/;"	v
 reset	lib/rotifer/db/ncbi/cursor.py	/^    def reset(self):$/;"	m	class:NcbiCursor
 residue_frequencies	lib/rotifer/devel/beta/sequence.py	/^    def residue_frequencies(self):$/;"	m	class:sequence
 residues	lib/rotifer/devel/beta/sequence.py	/^    def residues(self):$/;"	m	class:sequence
 result_list	dev/bin/trimal2msa.py	/^    result_list = [x.recv() for x in pipe_list]$/;"	v
+results	lib/rotifer/devel/alpha/uniprot.py	/^    results = get_id_mapping_results_search(link)$/;"	v
+retries	lib/rotifer/devel/alpha/uniprot.py	/^retries = Retry(total=5, backoff_factor=0.25, status_forcelist=[500, 502, 503, 504])$/;"	v
 retrieve_all_organisms	lib/rotifer/site_perl/Rotifer/DBIC/AnnotationDB/ResultSet/Biodata.pm	/^sub retrieve_all_organisms {$/;"	s
 retrieve_all_organisms	perl/lib/Rotifer/DBIC/AnnotationDB/ResultSet/Biodata.pm	/^sub retrieve_all_organisms {$/;"	s
 retrieve_organism	lib/rotifer/site_perl/Rotifer/DBIC/AnnotationDB/Component/BiodataComponent.pm	/^sub retrieve_organism {$/;"	s
@@ -3045,7 +3139,10 @@ rotifer	lib/rotifer/db/core.py	/^import rotifer$/;"	i
 rotifer	lib/rotifer/db/local/__init__.py	/^        import rotifer.devel.alpha.gian_func as gian_func$/;"	i
 rotifer	lib/rotifer/db/local/__init__.py	/^import rotifer$/;"	i
 rotifer	lib/rotifer/db/local/__init__.py	/^import rotifer.devel.beta.sequence as rdbs$/;"	i
+rotifer	lib/rotifer/db/local/easel.py	/^import rotifer$/;"	i
+rotifer	lib/rotifer/db/local/easel.py	/^import rotifer.devel.beta.sequence as rdbs$/;"	i
 rotifer	lib/rotifer/db/ncbi/__init__.py	/^import rotifer$/;"	i
+rotifer	lib/rotifer/db/ncbi/__init__.py	/^import rotifer.db.core as rdc$/;"	i
 rotifer	lib/rotifer/db/ncbi/cursor.py	/^import rotifer$/;"	i
 rotifer	lib/rotifer/db/ncbi/cursor.py	/^import rotifer.db.ncbi.fetch as fetcher$/;"	i
 rotifer	lib/rotifer/db/ncbi/cursor.py	/^import rotifer.db.ncbi.parse as parser$/;"	i
@@ -3053,14 +3150,18 @@ rotifer	lib/rotifer/db/ncbi/cursor.py	/^import rotifer.db.ncbi.read as reader$/;
 rotifer	lib/rotifer/db/ncbi/entrez.py	/^import rotifer$/;"	i
 rotifer	lib/rotifer/db/ncbi/fetch.py	/^import rotifer$/;"	i
 rotifer	lib/rotifer/db/ncbi/ftp.py	/^        import rotifer.core.functions as rcf$/;"	i
-rotifer	lib/rotifer/db/ncbi/ftp.py	/^        import rotifer.db.ncbi.ftp as ncbiftp$/;"	i
 rotifer	lib/rotifer/db/ncbi/ftp.py	/^import rotifer$/;"	i
 rotifer	lib/rotifer/db/ncbi/ftp.py	/^import rotifer.db.core$/;"	i
+rotifer	lib/rotifer/db/ncbi/mirror.py	/^        import rotifer.core.functions as rcf$/;"	i
+rotifer	lib/rotifer/db/ncbi/mirror.py	/^import rotifer$/;"	i
+rotifer	lib/rotifer/db/ncbi/mirror.py	/^import rotifer.db.core$/;"	i
+rotifer	lib/rotifer/db/ncbi/mirror.py	/^import rotifer.db.ncbi.ftp as ncbiftp$/;"	i
 rotifer	lib/rotifer/db/ncbi/read.py	/^import rotifer$/;"	i
 rotifer	lib/rotifer/db/neighbors.py	/^import rotifer$/;"	i
 rotifer	lib/rotifer/db/sql/sqlite3.py	/^import rotifer$/;"	i
+rotifer	lib/rotifer/db/sql/sqlite3.py	/^import rotifer.db.core as rdc$/;"	i
+rotifer	lib/rotifer/db/sql/sqlite3.py	/^import rotifer.db.ncbi.utils as rdnu$/;"	i
 rotifer	lib/rotifer/db/sql/sqlite3.py	/^import rotifer.devel.beta.sequence as rdbs$/;"	i
-rotifer	lib/rotifer/devel/alpha/gian_func.py	/^    import rotifer.db.ncbi $/;"	i
 rotifer	lib/rotifer/devel/alpha/gian_func.py	/^    import rotifer.interval.utils as ru$/;"	i
 rotifer	lib/rotifer/devel/alpha/gian_func.teste.py	/^    import rotifer.db.ncbi $/;"	i
 rotifer	lib/rotifer/devel/alpha/rodolfo.py	/^import rotifer$/;"	i
@@ -3163,6 +3264,8 @@ seqrecords_to_dataframe	lib/rotifer/db/ncbi/__init__.py	/^    from rotifer.genom
 seqrecords_to_dataframe	lib/rotifer/db/ncbi/__init__.py	/^from rotifer.genome.utils import seqrecords_to_dataframe$/;"	i
 seqrecords_to_dataframe	lib/rotifer/db/ncbi/entrez.py	/^from rotifer.genome.utils import seqrecords_to_dataframe$/;"	i
 seqrecords_to_dataframe	lib/rotifer/db/ncbi/ftp.py	/^from rotifer.genome.utils import seqrecords_to_dataframe$/;"	i
+seqrecords_to_dataframe	lib/rotifer/db/ncbi/mirror.py	/^from rotifer.genome.utils import seqrecords_to_dataframe$/;"	i
+seqrecords_to_dataframe	lib/rotifer/db/sql/sqlite3.py	/^        from rotifer.genome.utils import seqrecords_to_dataframe$/;"	i
 seqrecords_to_dataframe	lib/rotifer/db/sql/sqlite3.py	/^from rotifer.genome.utils import seqrecords_to_dataframe$/;"	i
 seqrecords_to_dataframe	lib/rotifer/devel/alpha/mapper.py	/^def seqrecords_to_dataframe(seqrecords, mapping=SeqRecordToDataFrameMap()):$/;"	f
 seqrecords_to_dataframe	lib/rotifer/genome/__init__.py	/^    from rotifer.genome.utils import seqrecords_to_dataframe$/;"	i
@@ -3177,6 +3280,7 @@ sequence	lib/rotifer/devel/beta/sequence.py	/^        from rotifer.devel.beta.se
 sequence	lib/rotifer/devel/beta/sequence.py	/^class sequence:$/;"	c
 series_to_compact_frequency	lib/rotifer/genome/data.py	/^    def series_to_compact_frequency(self, concat_string=": ", normalize=False):$/;"	m	class:NeighborhoodDF
 session	dev/bin/phmmscan.py	/^        session = make_session(engine)$/;"	v
+session	lib/rotifer/devel/alpha/uniprot.py	/^session = requests.Session()$/;"	v
 sessionmaker	dev/bin/gbk2clickhouse.py	/^from sqlalchemy.orm import sessionmaker$/;"	i
 sessionmaker	dev/bin/uniprotdb2clickhouse.py	/^from sqlalchemy.orm import sessionmaker$/;"	i
 sessionmaker	lib/rotifer/alchemy/connect.py	/^from sqlalchemy.orm import sessionmaker$/;"	i
@@ -3210,6 +3314,7 @@ socket	lib/rotifer/core/log.py	/^import socket$/;"	i
 socket	lib/rotifer/db/ncbi/__init__.py	/^import socket$/;"	i
 socket	lib/rotifer/db/ncbi/entrez.py	/^import socket$/;"	i
 socket	lib/rotifer/db/ncbi/ftp.py	/^import socket$/;"	i
+socket	lib/rotifer/db/ncbi/mirror.py	/^import socket$/;"	i
 sort	lib/rotifer/devel/beta/sequence.py	/^    def sort(self, by=['length'], ascending=True, inplace=False, id_list=None, tree_file=None, tree_format='newick'):$/;"	m	class:sequence
 sort_blocks_by	dev/bin/rnexplorer.py	/^def sort_blocks_by(df, condition):$/;"	f
 sort_matrix_rows	bin/blocks2table	/^sub sort_matrix_rows {$/;"	s
@@ -3223,6 +3328,7 @@ splited_files	dev/bin/uniprotdb2clickhouse.py	/^    splited_files = [all_files[x
 splitter	lib/rotifer/db/core.py	/^    def splitter(self, accessions, *args, **kwargs):$/;"	m	class:SimpleParallelProcessCursor
 splitter	lib/rotifer/db/ncbi/entrez.py	/^    def splitter(self, ipgs):$/;"	m	class:GeneNeighborhoodCursor
 splitter	lib/rotifer/db/ncbi/ftp.py	/^    def splitter(self, ipgs):$/;"	m	class:GeneNeighborhoodCursor
+splitter	lib/rotifer/db/ncbi/mirror.py	/^    def splitter(self, ipgs):$/;"	m	class:GeneNeighborhoodCursor
 sql	lib/rotifer/db/cli.py	/^class sql:$/;"	c
 sqlcli	dev/bin/rneighbors2.py	/^import rotifer.db.cli as sqlcli$/;"	i
 sqlcli	dev/bin/rsearch.py	/^import rotifer.db.cli as sqlcli$/;"	i
@@ -3258,6 +3364,7 @@ submit	lib/rotifer/genome/database.py	/^    def submit(self, accs = '',$/;"	m	cl
 submit	lib/rotifer/genome/db/clickhouse.py	/^    def submit(self, accs,$/;"	m	class:clickhouse
 submit	lib/rotifer/site_perl/Rotifer/DB/NCBI/Taxonomy.pm	/^sub submit {$/;"	s
 submit	perl/lib/Rotifer/DB/NCBI/Taxonomy.pm	/^sub submit {$/;"	s
+submit_id_mapping	lib/rotifer/devel/alpha/uniprot.py	/^def submit_id_mapping(from_db, to_db, ids):$/;"	f
 submitted_parameters	lib/rotifer/genome/database.py	/^    def submitted_parameters(self, outformat = 'table'):$/;"	m	class:database
 subprocess	dev/bin/gbk2clickhouse.py	/^import subprocess$/;"	i
 subprocess	dev/bin/locus2fasta.py	/^import subprocess$/;"	i
@@ -3272,6 +3379,7 @@ subprocess	dev/bin/uniprot2gi.py	/^import subprocess$/;"	i
 subprocess	doc/docs/t.py	/^import subprocess$/;"	i
 subprocess	lib/rotifer/db/local/__init__.py	/^        import subprocess$/;"	i
 subprocess	lib/rotifer/db/local/__init__.py	/^import subprocess$/;"	i
+subprocess	lib/rotifer/db/local/easel.py	/^import subprocess$/;"	i
 subprocess	lib/rotifer/db/sql/sqlite3.py	/^import subprocess$/;"	i
 subprocess	lib/rotifer/devel/alpha/gian_func.py	/^    import subprocess$/;"	i
 subprocess	lib/rotifer/devel/beta/sequence.py	/^        import subprocess$/;"	i
@@ -3330,6 +3438,7 @@ sys	lib/rotifer/db/ncbi/__init__.py	/^import sys$/;"	i
 sys	lib/rotifer/db/ncbi/cursor.py	/^import sys$/;"	i
 sys	lib/rotifer/db/ncbi/entrez.py	/^import sys$/;"	i
 sys	lib/rotifer/db/ncbi/ftp.py	/^import sys$/;"	i
+sys	lib/rotifer/db/ncbi/mirror.py	/^import sys$/;"	i
 sys	lib/rotifer/db/ncbi/parse.py	/^import sys$/;"	i
 sys	lib/rotifer/db/ncbi/read.py	/^import sys$/;"	i
 sys	lib/rotifer/db/neighbors.py	/^import sys$/;"	i
@@ -3418,6 +3527,7 @@ time	lib/rotifer/core/time.py	/^from time import time$/;"	i
 time	lib/rotifer/db/ncbi/ftp.py	/^        import time$/;"	i
 time	lib/rotifer/devel/alpha/gian_func.py	/^    import time$/;"	i
 time	lib/rotifer/devel/alpha/gian_func.teste.py	/^    import time$/;"	i
+time	lib/rotifer/devel/alpha/uniprot.py	/^import time$/;"	i
 time	lib/rotifer/seq/weblogo.py	/^import time$/;"	i
 time	test/clickhouse/test.py	/^import time$/;"	i
 tmkdir	lib/rotifer/site_perl/File/Monitored.pm	/^sub tmkdir {$/;"	s
@@ -3445,6 +3555,8 @@ tqdm	lib/rotifer/db/core.py	/^from tqdm import tqdm$/;"	i
 tqdm	lib/rotifer/db/ncbi/__init__.py	/^from tqdm import tqdm$/;"	i
 tqdm	lib/rotifer/db/ncbi/entrez.py	/^from tqdm import tqdm$/;"	i
 tqdm	lib/rotifer/db/ncbi/ftp.py	/^from tqdm import tqdm$/;"	i
+tqdm	lib/rotifer/db/ncbi/mirror.py	/^from tqdm import tqdm$/;"	i
+tqdm	lib/rotifer/db/sql/sqlite3.py	/^from tqdm import tqdm$/;"	i
 transfer_gaps	bin/dali2seqrows	/^sub transfer_gaps {$/;"	s
 transforms	lib/rotifer/seq/alignment.py	/^        from matplotlib import transforms$/;"	i
 traverse_ontology_graph	bin/ontology2hierarchy	/^sub traverse_ontology_graph {$/;"	s
@@ -3466,18 +3578,22 @@ types	dev/bin/gbk2clickhouse.py	/^from clickhouse_sqlalchemy import Table, make_
 types	dev/bin/uniprotdb2clickhouse.py	/^from clickhouse_sqlalchemy import Table, make_session, get_declarative_base, types, engines$/;"	i
 types	lib/rotifer/db/core.py	/^import types$/;"	i
 types	lib/rotifer/db/local/__init__.py	/^import types$/;"	i
+types	lib/rotifer/db/local/easel.py	/^import types$/;"	i
 types	lib/rotifer/db/ncbi/__init__.py	/^import types$/;"	i
 types	lib/rotifer/db/ncbi/entrez.py	/^import types$/;"	i
 types	lib/rotifer/db/ncbi/ftp.py	/^import types$/;"	i
+types	lib/rotifer/db/ncbi/mirror.py	/^import types$/;"	i
 types	lib/rotifer/db/ncbi/utils.py	/^import types$/;"	i
 types	lib/rotifer/db/sql/sqlite3.py	/^import types$/;"	i
 types	lib/rotifer/genome/io.py	/^import types$/;"	i
 types	lib/rotifer/genome/utils.py	/^import types$/;"	i
 typing	lib/rotifer/db/core.py	/^import typing$/;"	i
 typing	lib/rotifer/db/local/__init__.py	/^import typing$/;"	i
+typing	lib/rotifer/db/local/easel.py	/^import typing$/;"	i
 typing	lib/rotifer/db/ncbi/__init__.py	/^import typing$/;"	i
 typing	lib/rotifer/db/ncbi/entrez.py	/^import typing$/;"	i
 typing	lib/rotifer/db/ncbi/ftp.py	/^import typing$/;"	i
+typing	lib/rotifer/db/ncbi/mirror.py	/^import typing$/;"	i
 typing	lib/rotifer/db/sql/sqlite3.py	/^import typing$/;"	i
 unittest	dev/test/log_test.py	/^import unittest$/;"	i
 unpack_each	lib/rotifer/site_perl/Rotifer/Tools/Rrsw/unpack.pm	/^sub unpack_each {$/;"	s
@@ -3487,11 +3603,15 @@ update	lib/rotifer/site_perl/Rotifer/DB/NCBI/Taxonomy.pm	/^sub update {$/;"	s
 update	lib/rotifer/site_perl/Rotifer/DBIC/AnnotationDB/Component/BiosequenceComponent.pm	/^sub update {$/;"	s
 update	perl/lib/Rotifer/DB/NCBI/Taxonomy.pm	/^sub update {$/;"	s
 update	perl/lib/Rotifer/DBIC/AnnotationDB/Component/BiosequenceComponent.pm	/^sub update {$/;"	s
+update_missing	lib/rotifer/db/core.py	/^    def update_missing(self, accessions, assembly, error):$/;"	m	class:BaseGeneNeighborhoodCursor
+update_missing	lib/rotifer/db/core.py	/^    def update_missing(self, accessions, error):$/;"	m	class:SimpleParallelProcessCursor
 update_term_index	bin/runprofiles	/^sub update_term_index {$/;"	s
 uri	dev/bin/phmmscan.py	/^        uri = 'clickhouse:\/\/default:@localhost\/rotifer'$/;"	v
+urlencode	lib/rotifer/devel/alpha/uniprot.py	/^from urllib.parse import urlparse, parse_qs, urlencode$/;"	i
 urllib	dev/bin/uniprot2gi.0d04.py	/^import urllib.request$/;"	i
 urllib	dev/bin/uniprot2gi.py	/^import urllib.request$/;"	i
 urllib	lib/rotifer/devel/beta/sequence.py	/^                    import urllib$/;"	i
+urlparse	lib/rotifer/devel/alpha/uniprot.py	/^from urllib.parse import urlparse, parse_qs, urlencode$/;"	i
 user	dev/bin/rneighbors2.py	/^                         user = args.user,$/;"	v
 userdir	lib/rotifer/site_perl/Rotifer.pm	/^sub userdir {$/;"	s
 userdir	perl/lib/Rotifer.pm	/^sub userdir {$/;"	s
@@ -3509,7 +3629,7 @@ version	dev/bin/uniprot2gi.py	/^def version():$/;"	f
 version	lib/rotifer/core/cli.py	/^def version(program = '',$/;"	f
 version	lib/rotifer/core/dev/cli.py	/^def version(program = '',$/;"	f
 vicinity	lib/rotifer/genome/data.py	/^    def vicinity(self, targets=['query == 1'], before=3, after=3, min_block_distance=0, fttype='same'):$/;"	m	class:NeighborhoodDF
-view	lib/rotifer/devel/beta/sequence.py	/^    def view(self, color=True, scale=True, consensus=True, separator="=", interval=10, columns=True):$/;"	m	class:sequence
+view	lib/rotifer/devel/beta/sequence.py	/^    def view(self, color=True, scale=True, consensus=True, separator="=", interval=10, columns=True, pager='less -SR'):$/;"	m	class:sequence
 vmsg	lib/rotifer/core/functions.py	/^def vmsg(message = ''):$/;"	f
 warnings	dev/bin/gbk2clickhouse.py	/^import warnings$/;"	i
 warnings	dev/bin/paperblast.py	/^import warnings$/;"	i
@@ -3527,6 +3647,8 @@ worker	lib/rotifer/db/ncbi/entrez.py	/^    def worker(self,accessions):$/;"	m	cl
 worker	lib/rotifer/db/ncbi/ftp.py	/^    def worker(self, accessions):$/;"	m	class:GenomeFeaturesCursor
 worker	lib/rotifer/db/ncbi/ftp.py	/^    def worker(self, chunk):$/;"	m	class:GeneNeighborhoodCursor
 worker	lib/rotifer/db/ncbi/ftp.py	/^    def worker(self,accessions):$/;"	m	class:GenomeCursor
+worker	lib/rotifer/db/ncbi/mirror.py	/^    def worker(self, accessions):$/;"	m	class:GenomeFeaturesCursor
+worker	lib/rotifer/db/ncbi/mirror.py	/^    def worker(self, chunk):$/;"	m	class:GeneNeighborhoodCursor
 wrapper	lib/rotifer/core/log.py	/^    def wrapper( *args, **kwargs):$/;"	f	function:logger
 wrapper	lib/rotifer/core/time.py	/^    def wrapper(*args, **kwargs):$/;"	f	function:rtime
 wraps	lib/rotifer/core/log.py	/^from functools import wraps$/;"	i
@@ -3558,4 +3680,5 @@ yaml	lib/rotifer/core/log.py	/^import yaml$/;"	i
 yaml	test/dyn/dyn.py	/^import yaml$/;"	i
 yaml_load	lib/rotifer/core/functions.py	/^    from yaml import load as yaml_load$/;"	i
 yaml_search	lib/rotifer/core/functions.py	/^def yaml_search(string, path):$/;"	f
+zlib	lib/rotifer/devel/alpha/uniprot.py	/^import zlib$/;"	i
 zscore	lib/rotifer/seq/core/core.py	/^        from scipy.stats import zscore$/;"	i
