@@ -2073,7 +2073,6 @@ ftp_get	lib/rotifer/db/ncbi/ftp.py	/^    def ftp_get(self, target, avoid_collisi
 ftp_ls	lib/rotifer/db/ncbi/ftp.py	/^    def ftp_ls(self, targets):$/;"	m	class:connection
 ftp_open	lib/rotifer/db/ncbi/ftp.py	/^    def ftp_open(self, target,  mode='rt', avoid_collision=True, delete=True):$/;"	m	class:connection
 full	bin/tjoin	/^ full  : returns all combined rows from both files, including those that do not match $/;"	l
-full_annotate	lib/rotifer/devel/alpha/gian_func.py	/^def full_annotate(seqobj,$/;"	f
 full_neighborhood	lib/rotifer/genome/data.py	/^    def full_neighborhood(self, column='cluster', value='value', stats=False, new_query=True):$/;"	m	class:NeighborhoodDF
 fun	dev/bin/rdocmodel.py	/^def fun(f):$/;"	f
 fun	dev/bin/rsearch.py	/^def fun():$/;"	f
@@ -2158,7 +2157,6 @@ getids	lib/rotifer/db/ncbi/entrez.py	/^    def getids(self,obj):$/;"	m	class:Tax
 getids	lib/rotifer/db/ncbi/ftp.py	/^    def getids(self,obj):$/;"	m	class:GenomeCursor
 getids	lib/rotifer/db/ncbi/ftp.py	/^    def getids(self,obj):$/;"	m	class:GenomeFeaturesCursor
 getids	lib/rotifer/db/ncbi/mirror.py	/^    def getids(self,obj):$/;"	m	class:GenomeFeaturesCursor
-gf	lib/rotifer/devel/alpha/gian_func.py	/^    from rotifer.devel.alpha import gian_func as gf$/;"	i
 gff	lib/rotifer/genome/io.py	/^def gff(path, seqid=None, organism=None, strain=None, description=None, topology='linear', keywords=[], ete3=None):$/;"	f
 gi2context_process_fasta_help	lib/rotifer/rbashpipe/gi2context/process_fasta	/^function gi2context_process_fasta_help() {$/;"	f
 gi2context_process_fasta_help	lib/rotifer/rbashpipe/gi2context/splitseq	/^function gi2context_process_fasta_help() {$/;"	f
@@ -2471,7 +2469,6 @@ ncbi	lib/rotifer/db/ncbi/cursor.py	/^import rotifer.db.ncbi.parse as parser$/;"	
 ncbi	lib/rotifer/db/ncbi/cursor.py	/^import rotifer.db.ncbi.read as reader$/;"	i
 ncbi	lib/rotifer/db/ncbi/mirror.py	/^import rotifer.db.ncbi.ftp as ncbiftp$/;"	i
 ncbi	lib/rotifer/db/sql/sqlite3.py	/^import rotifer.db.ncbi.utils as rdnu$/;"	i
-ncbi	lib/rotifer/devel/alpha/gian_func.py	/^    from rotifer.db import ncbi $/;"	i
 ncbi	lib/rotifer/devel/alpha/gian_func.teste.py	/^    import rotifer.db.ncbi $/;"	i
 ncbi	lib/rotifer/genome/io.py	/^        from rotifer.db.ncbi import ncbi$/;"	i
 ncbiftp	lib/rotifer/db/ncbi/__init__.py	/^    from rotifer.db.ncbi import ftp as ncbiftp$/;"	i
