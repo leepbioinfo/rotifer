@@ -1454,6 +1454,7 @@ class sequence:
                         'color:black;background-color:white')))
 
         def highlight_consensus(s):
+            import sys
             import numpy as np
             d = aa_groups_colors[s.fillna('  ').iloc[-1]]
             """TODO: Docstring for highlight_consensus.
@@ -1675,7 +1676,6 @@ class sequence:
                         'color:black;background-color:white')))
 
         def highlight_consensus(s):
-            import sys
             import numpy as np
             d = aa_groups_colors[s.fillna('  ').iloc[-1]]
             """TODO: Docstring for highlight_consensus.
