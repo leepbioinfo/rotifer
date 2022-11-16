@@ -256,6 +256,7 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
             batch_size=None,
             threads=15,
             cache=GlobalConfig['cache'],
+            *args, **kwargs
         ):
 
         # Setup special attributes
@@ -264,16 +265,16 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
             'exclude_type','autopid','codontable',
             'progress','tries','batch_size','threads','cache',
         ]
-        self._cursors = [
+        self.cursors = [
             ftp.GeneNeighborhoodCursor(),
             entrez.GeneNeighborhoodCursor()
         ]
         if mirror:
             cursor = rdnm.GeneNeighborhoodCursor(basepath=mirror)
-            self._cursors.insert(0,cursor)
+            self.cursors.insert(0,cursor)
         if save:
             cursor = rdss.GeneNeighborhoodCursor(save, replace=replace)
-            self._cursors.insert(0,cursor)
+            self.cursors.insert(0,cursor)
 
         # Setup simple attributes
         self.column = column
@@ -297,7 +298,7 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
     def __setattr__(self, name, value):
         super().__setattr__(name, value)
         if hasattr(self,'_shared_attributes') and name in self._shared_attributes:
-            for cursor in self._cursors:
+            for cursor in self.cursors:
                 if hasattr(cursor,name):
                     cursor.__setattr__(name,value)
 
@@ -331,11 +332,11 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
         Generator of rotifer.genome.data.NeighborhoodDF
          """
         result = seqrecords_to_dataframe([])
-        for cursor in self._cursors:
+        for cursor in self.cursors:
             result = cursor.__getitem__(protein, ipgs=ipgs)
             if not isinstance(result,types.NoneType) and len(result) > 0:
-                if self.save and (cursor != self._cursors[0]):
-                    self._cursors[0].insert(result)
+                if self.save and (cursor != self.cursors[0]):
+                    self.cursors[0].insert(result)
                 break
         return result
 
@@ -397,15 +398,15 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
         lost = 'noipgs == False'
         if not self.eukaryotes:
             lost += ' and eukaryote == False'
-        for i in range(0,len(self._cursors)):
-            cursor = self._cursors[i]
+        for i in range(0,len(self.cursors)):
+            cursor = self.cursors[i]
             if len(todo) == 0:
                 break
             for result in cursor.fetchone(todo, ipgs=ipgs):
                 if self.save and i > 0:
-                    self._cursors[0].insert(result)
+                    self.cursors[0].insert(result)
                 found = self.getids(result, ipgs=ipgs)
-                for c in [self] + self._cursors[0:i+1]:
+                for c in [self] + self.cursors[0:i+1]:
                     c.missing.drop(found, axis=0, inplace=True, errors="ignore")
                 for s in cursor.missing.iterrows():
                     if s[0] in targets:

@@ -722,7 +722,7 @@ class NeighborhoodDF(pd.DataFrame):
         copy = copy.merge(blks, left_on=['assembly','nucleotide','internal_id'], right_on=['assembly','nucleotide','internal_id'], how='inner')
         copy.sort_values(['assembly','nucleotide','block_id','rid','internal_id'], ascending=[True,True,True,True,True], inplace=True)
         copy['query'] = np.where((~copy['query'].isna()) & copy['query'],1,0).astype(int)
-        copy = copy[cols]
+        copy = copy[cols].copy()
 
         # Evaluate other criteria for defining blocks
         if strand == 'same':
@@ -734,7 +734,7 @@ class NeighborhoodDF(pd.DataFrame):
 
             # Cleanup
             valid = set(copy.groupby('block_id').agg({'query':'sum'}).query('query > 0').index)
-            copy = copy.query('block_id in @valid')
+            copy = copy.query('block_id in @valid').copy()
             copy['block_id'] = (~(copy.block_id == copy.shift(1).block_id)).cumsum()
 
         # Set within block row number
