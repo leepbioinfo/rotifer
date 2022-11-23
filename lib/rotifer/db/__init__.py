@@ -1,10 +1,17 @@
 import os
 import rotifer
+from rotifer import GlobalConfig
+from rotifer.core.functions import loadConfig
 logger = rotifer.logging.getLogger(__name__)
+
+# Configuration
+config = loadConfig(__name__.replace('rotifer.',':'), defaults = {
+    'local_database_path': os.path.join(GlobalConfig['data'],"fadb","nr","nr"),
+})
 
 # FUNCTIONS
 
-def proteins(query, methods=['esl_sfetch','entrez'], local_database_path=os.path.join(rotifer.GlobalConfig["data"],"fadb","nr","nr"), entrez_database="protein", batch_size=200, threads=5, tries=3):
+def proteins(query, methods=['esl_sfetch','entrez'], local_database_path=config["local_database_path"], entrez_database="protein", batch_size=200, threads=None, tries=3, progress=True):
     """
     Fetch proteins sequences from local or remote databases.
     
@@ -36,25 +43,30 @@ def proteins(query, methods=['esl_sfetch','entrez'], local_database_path=os.path
       Number of simultaneous threads to run while fetching data
     tries: integer
       Maximum number of attempts to download from remote databases
+    progress: boolean, default True
+      Whether to print progress messages
 
     Returns
     -------
       One or a list of Bio.SeqRecord objects
     """
-    import rotifer.db.local as localDB
+    from rotifer.db.local import easel
     from rotifer.db.ncbi import entrez
 
     result = []
     targets = set(query)
     for method in methods:
         if method == 'esl_sfetch':
-            cursor = localDB.EaselFastaCursor(database_path=local_database_path, batch_size=batch_size, threads=threads)
+            cursor = easel.FastaCursor(database_path=local_database_path, batch_size=batch_size, threads=threads, progress=progress)
         elif method == 'entrez':
-            cursor = entrez.FastaCursor(database=entrez_database, batch_size=batch_size, threads=threads, tries=tries)
-        for s in cursor.fetchone(targets):
-            result.append(s)
+            cursor = entrez.FastaCursor(database=entrez_database, batch_size=batch_size, threads=threads, tries=tries, progress=progress)
+        seqs = cursor.fetchall(targets)
+        if isinstance(seqs,list):
+            result.extend(seqs)
+        else:
+            result.append(seqs)
         targets = cursor.missing
     if targets:
-        logger.warn(f'A total of {len(targets)} sequences could not be found: targets')
+        logger.warn(f'A total of {len(targets)} sequences could not be found: {targets}')
 
     return result

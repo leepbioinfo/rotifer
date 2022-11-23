@@ -11,14 +11,15 @@ import re
 logger = rotifer.logging.getLogger(__name__)
 
 # Defaults
-_config = {
-    'fetch': 'pfetch',
-    'pdb_dir': os.path.join(os.environ['ROTIFER_DATA'] if 'ROTIFER_DATA' in os.environ else '/databases',"pdb"),
-    'databases': ['pdb70','pfam'],
-    'databases_path': os.path.join(os.environ['ROTIFER_DATA'] if 'ROTIFER_DATA' in os.environ else '/databases',"hhsuite"),
-    'local_database_path': os.path.join(GlobalConfig['data'],"fadb","nr","nr"),
-    **loadConfig(__name__.replace('rotifer.',':'))
-}
+config = loadConfig(
+    __name__.replace('rotifer.',':'),
+    defaults = {
+        'fetch': 'pfetch',
+        'pdb_dir': os.path.join(os.environ['ROTIFER_DATA'] if 'ROTIFER_DATA' in os.environ else '/databases',"pdb"),
+        'databases': ['pdb70','pfam'],
+        'databases_path': os.path.join(os.environ['ROTIFER_DATA'] if 'ROTIFER_DATA' in os.environ else '/databases',"hhsuite"),
+        'local_database_path': os.path.join(GlobalConfig['data'],"fadb","nr","nr"),
+    })
 
 class sequence:
     """
@@ -111,7 +112,7 @@ class sequence:
     >>> aln = sequence(">Seq1\nACFH--GHT\n>Seq2\nACFW--GHS\n")
     >>> aln.add_consensus().view()
     """
-    def __init__(self, input_data=None, input_format='fasta', name=None, local_database_path=_config['local_database_path']):
+    def __init__(self, input_data=None, input_format='fasta', name=None, local_database_path=config['local_database_path']):
         from io import IOBase
         self._reserved_columns = ['id','sequence','length','type']
         self.input_format = input_format
@@ -664,7 +665,7 @@ class sequence:
 
         return result
 
-    def add_pdb(self, pdb_id, chain_id='A', pdb_file=None, pdb_dir=_config['pdb_dir']):
+    def add_pdb(self, pdb_id, chain_id='A', pdb_file=None, pdb_dir=config['pdb_dir']):
         """
         Add structure annotation from PDB.
 
@@ -754,7 +755,7 @@ class sequence:
         result.df =  pd.concat([pd.DataFrame([[pdbn,pdbss,len(pdbss),"residue_annotation"]], columns=self._reserved_columns),self.df])
         return result
 
-    def add_seq(self, seq_to_add, cpu=12, fast=False, fetch=_config["fetch"]):
+    def add_seq(self, seq_to_add, cpu=12, fast=False, fetch=config["fetch"]):
         import tempfile
         import subprocess
         from rotifer.db.ncbi import NcbiConfig
@@ -1147,7 +1148,7 @@ class sequence:
                 df.sequence = df.sequence.str.pad(df.sequence.str.len().max(), side="right")
             page(df.to_string(index=False) + "\n", pager_cmd=pager)
 
-    def hhblits(self, databases=_config['databases'], database_path=_config['databases_path'], view=True):
+    def hhblits(self, databases=config['databases'], database_path=config['databases_path'], view=True):
         """
         Search the alignment against a HMM databases using hhsearch.
 
@@ -1194,7 +1195,7 @@ class sequence:
                 page(hhr_result)
             return (hhr_result, hhtable)
 
-    def hhsearch(self, databases=_config['databases'], database_path=_config['databases_path'], view=True):
+    def hhsearch(self, databases=config['databases'], database_path=config['databases_path'], view=True):
         """
         Search the alignment against a HMM databases using hhsearch.
 

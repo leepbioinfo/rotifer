@@ -20,7 +20,7 @@ import rotifer.devel.beta.sequence as rdbs
 logger = rotifer.logging.getLogger(__name__)
 
 # Defaults
-_config = loadConfig(__name__.replace('rotifer.',':'), defaults = {
+config = loadConfig(__name__.replace('rotifer.',':'), defaults = {
     'local_database_path': os.path.join(GlobalConfig['data'],"fadb","nr","nr"),
 })
 
@@ -42,7 +42,7 @@ class FastaCursor(rotifer.db.core.SimpleParallelProcessCursor):
     """
     def __init__(
             self,
-            database_path=_config["local_database_path"],
+            database_path=config["local_database_path"],
             batch_size=200,
             threads=int(np.floor(os.cpu_count()/2)),
             progress=False,

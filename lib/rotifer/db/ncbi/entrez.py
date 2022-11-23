@@ -78,7 +78,7 @@ class SequenceCursor:
         self.tries = tries
         self.sleep_between_tries=sleep_between_tries,
         self.batch_size = batch_size
-        self.threads = threads
+        self.threads = threads or 10
         if self.threads > 3:
             if NcbiConfig['api_key']:
                 if self.threads > 10:
