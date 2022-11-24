@@ -64,6 +64,10 @@ set runtimepath=$VIMMOVE
 ",$VIMRUNTIME
 
 
+hi LineNrAbove guifg=red ctermfg=red
+hi LineNrBelow guifg=green ctermfg=green
+hi LineNr guifg=blue ctermfg=blue
+
 " Vim move keeys
 let g:move_key_modifier = 'C'
 let g:move_key_modifier_visualmode = 'S'
