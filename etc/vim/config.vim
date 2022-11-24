@@ -59,7 +59,7 @@ highlight	aaX	cterm=NONE	guibg=NONE	guifg=NONE 	ctermbg=NONE	ctermfg=NONE
 highlight	aaZ	cterm=NONE	guibg=NONE	guifg=NONE 	ctermbg=NONE	ctermfg=NONE
 highlight	header	cterm=NONE	guibg=NONE	guifg=NONE 	ctermbg=NONE	ctermfg=NONE
 
-set runtimepath=./vim-move
+set runtimepath=$VIMMOVE
 ",$VIMRUNTIME
 
 

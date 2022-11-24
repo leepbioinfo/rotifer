@@ -1748,6 +1748,8 @@ class sequence:
         import tempfile
         from subprocess import Popen, PIPE, STDOUT
         from rotifer import GlobalConfig as gc
+        import os
+        os.environ["VIMMOVE"] = f'{gc["base"]}/etc/vim/vim-move'
         aln = self.copy()
         result = self.copy()
         if consensus:
