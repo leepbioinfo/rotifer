@@ -3,6 +3,7 @@ syntax on
 
 syntax reset
 set nowrap
+set number relativenumber
 "endif
 
 syntax match aaA "[aA]" 
