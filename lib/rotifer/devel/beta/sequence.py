@@ -1767,7 +1767,7 @@ class sequence:
         with tempfile.TemporaryDirectory() as tmpdirname:
             alndf.to_csv(f'{tmpdirname}/seqdf.fa',index=False, sep="\t")
             print ("Open VMI to edit your file.")
-            if os.system(f'nvim -u {gc["base"]}/etc/vim/config.vim {tmpdirname}/seqdf.fa') != 0:
+            if os.system(f'nvim -u {gc["base"]}/etc/vim/init.vim {tmpdirname}/seqdf.fa') != 0:
                         raise TryNext()
             tmpdf = pd.read_csv(f'{tmpdirname}/seqdf.fa', sep="\t")
             tmpdf = tmpdf[tmpdf['type'].str.contains("sequence")]
