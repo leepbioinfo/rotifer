@@ -156,8 +156,7 @@ class SimpleParallelProcessCursor(BaseCursor):
         err = [error,str(type(self)).split("'")[1]]
         if not isinstance(accessions,typing.Iterable) or isinstance(accessions,str):
             accessions = [accessions]
-        for x in accessions:
-            self.missing.loc[x] = err
+        self.missing.update(accessions)
 
     def __getitem__(self, accession, *args, **kwargs):
         """

@@ -48,14 +48,24 @@ class FastaCursor(rotifer.db.core.SimpleParallelProcessCursor):
             progress=False,
         ):
         super().__init__(batch_size=batch_size, threads=threads, progress=progress)
-        self.path = database_path
         self.executable = "esl-sfetch"
-        if not os.path.exists(self.path):
-            logger.error(f'{database_path}: no such file!')
-            return None
-        if not os.path.exists(self.path + ".ssi"):
-            logger.warn(f'Building {self.executable} index for {database_path}...')
-            subprocess.run([self.executable,"--index",self.path])
+        if isinstance(database_path,str) or not isinstance(database_path,typing.Iterable):
+            database_path = [ database_path ]
+        self.path = []
+        for p in database_path:
+            if not os.path.exists(p):
+                logger.error(f'{p}: no such file!')
+                continue
+            if not os.path.exists(p + ".ssi"):
+                logger.warn(f'Building {self.executable} index for {p}...')
+                try:
+                    subprocess.run([self.executable,"--index",p])
+                except:
+                    logger.error("Unable to create index for file {p} ({self.executable})")
+                    continue
+            self.path.append(p)
+        if len(self.path) == 0:
+            logger.critical("No index or database for executable {self.executable} in {self.path}")
 
     def _clean_description(self, seqrec):
         seqrec.description = re.sub("\x01.+", "", seqrec.description.replace(seqrec.id, "").lstrip())
@@ -74,7 +84,15 @@ class FastaCursor(rotifer.db.core.SimpleParallelProcessCursor):
         else:
             return {obj.id}
 
-    def fetcher(self, accession):
+    def __getitem__(self, accession):
+        result = []
+        for db in self.path:
+            result = super().__getitem__(accession, db)
+            if not isinstance(result,types.NoneType) and len(result) > 0:
+                break
+        return result
+
+    def fetcher(self, accession, db, *args, **kwargs):
         """
         Fetch one sequence from the database.
 
@@ -82,9 +100,9 @@ class FastaCursor(rotifer.db.core.SimpleParallelProcessCursor):
         -------
         A Bio.SeqRecord object
         """
-        stream = subprocess.run(["esl-sfetch",self.path,accession], capture_output=True)
+        stream = subprocess.run(["esl-sfetch",db,accession], capture_output=True)
         if stream.stderr:
-            error = f'Esl-sfetch failed: no accession {accession} in database {self.path}'
+            error = f'Esl-sfetch failed: no accession {accession} in database {db}'
             self.update_missing(accession, error)
             raise RuntimeError(error)
         else:
@@ -92,7 +110,7 @@ class FastaCursor(rotifer.db.core.SimpleParallelProcessCursor):
             stream = StringIO(stream)
             return stream
 
-    def parser(self, stream, accession):
+    def parser(self, stream, accession, *args, **kwargs):
         sequence = SeqIO.read(stream,"fasta")
         sequence = self._clean_description(sequence)
         stream.close()
