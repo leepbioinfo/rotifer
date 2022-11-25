@@ -1,11 +1,19 @@
 filetype plugin indent on
 syntax on
 
+au VimEnter * 20 vsplit
+set sidescroll=1
 syntax reset
 set nowrap
 set number relativenumber
-"endif
 
+"unmaping some maps to avoid acidents
+map <S-J> <Nop>
+map <S-K> <Nop>
+map <S-j> <Nop>
+map <S-k> <Nop>
+
+"Coloring aln
 syntax match aaA "[aA]" 
 syntax match aaR "[rR]" 
 syntax match aaN "[nN]" 
