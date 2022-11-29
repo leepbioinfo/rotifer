@@ -66,7 +66,7 @@ from rotifer.db.sql import sqlite3 as rdss
 
 # Classes
 
-class GenomeCursor(rdc.BaseSequentialDelegatorCursor, rdc.BaseGenomeCursor):
+class GenomeCursor(rdc.BaseSequentialDelegatorCursor):
     def __init__(self,
             methods=['mirror','ftp'],
             progress=False,
