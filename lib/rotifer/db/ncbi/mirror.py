@@ -7,7 +7,6 @@ import logging
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from ftplib import FTP
 from copy import deepcopy
 
 import rotifer
@@ -18,21 +17,25 @@ from rotifer.db.ncbi import utils as rdnu
 import rotifer.db.ncbi.ftp as ncbiftp
 from rotifer.genome.utils import seqrecords_to_dataframe
 logger = rotifer.logging.getLogger(__name__)
-DefaultBasePath = os.environ["ROTIFER_DATA"] if 'ROTIFER_DATA' in os.environ else "/databases"
-DefaultBasePath = os.path.join(DefaultBasePath,"genomes")
 
+# Configuration
+from rotifer.core.functions import loadConfig
+config = loadConfig(__name__.replace("rotifer.",":"), defaults = {
+    "path": os.path.join(os.environ["ROTIFER_DATA"] if 'ROTIFER_DATA' in os.environ else "/databases","genomes")
+})
 # Classes
 
 #class GenomeCursor(BaseCursor):
 class GenomeCursor(ncbiftp.GenomeCursor):
     """
-    Fetch genome sequences from the NCBI FTP site.
+    Fetch genome sequences from a local mirror of the 
+    NCBI genomes repository.
 
     Usage
     -----
     Load a random sample of genomes, except eukaryotes
-    >>> from rotifer.db.ncbi import ftp
-    >>> gc = ftp.GenomeCursor(g)
+    >>> from rotifer.db.ncbi import mirror
+    >>> gc = mirror.GenomeCursor(g)
     >>> genomes = gc.fetchall()
 
     Parameters
@@ -57,34 +60,27 @@ class GenomeCursor(ncbiftp.GenomeCursor):
             tries=1,
             batch_size=None,
             threads=15,
-            timeout=10,
-            basepath = DefaultBasePath,
-        ):
-        super().__init__(
-            progress=progress,
-            tries=tries,
-            batch_size=batch_size,
-            threads=threads,
-        )
-        self.timeout = timeout
+            basepath = config["path"],
+            *args, **kwargs):
+        super().__init__(progress=progress, tries=tries, batch_size=batch_size, threads=threads)
         self.basepath = basepath
 
     def open_genome(self, accession, assembly_reports=None):
         """
-        Open the GBFF file of a genome from the NCBI FTP site.
+        Open the GBFF file of a genome from a NCBI local mirror.
 
         Usage:
           # Just open
           
-          from rotifer.db.ncbi import ftp
-          gc = ftp.GenomeCursor()
+          from rotifer.db.ncbi import mirror
+          gc = mirror.GenomeCursor()
           fh = gc.open_genome("GCA_900547725.1")
 
           # Open and parse to a list of Bio.SeqRecord
 
-          from rotifer.db.ncbi import ftp
+          from rotifer.db.ncbi import mirror
           from Bio import SeqIO
-          gc = ftp.GenomeCursor()
+          gc = mirror.GenomeCursor()
           fh = gc.open_genome("GCA_900547725.1")
           s = [ x for x in SeqIO.parse(fh, "genbank") ]
           fh.close()
@@ -118,11 +114,11 @@ class GenomeCursor(ncbiftp.GenomeCursor):
 
     def genome_path(self, accession, assembly_reports=None):
         """
-        Fetch the path of a genome at the NCBI FTP site.
+        Fetch the path of a genome in the local NCBI mirror.
 
         Usage:
-          from rotifer.db.ncbi import ftp
-          gc = ftp.GenomeCursor()
+          from rotifer.db.ncbi import mirror
+          gc = mirror.GenomeCursor()
           path = gc.genome_path("GCA_900547725.1")
           print("/".join(path))
 
@@ -182,8 +178,8 @@ class GenomeCursor(ncbiftp.GenomeCursor):
         Fetch genome assembly reports.
 
         Usage:
-          from rotifer.db.ncbi import ftp
-          gc = ftp.GenomeCursor()
+          from rotifer.db.ncbi import mirror
+          gc = mirror.GenomeCursor()
           contigs, assembly = gc.genome_report("GCA_900547725.1")
 
         Parameters:
@@ -270,8 +266,8 @@ class GenomeFeaturesCursor(GenomeCursor):
     Load a random sample of genomes
 
     >>> g = ['GCA_018744545.1', 'GCA_901308185.1']
-    >>> from rotifer.db.ncbi import ftp
-    >>> gfc = ftp.GenomeFeaturesCursor(g)
+    >>> from rotifer.db.ncbi import mirror
+    >>> gfc = mirror.GenomeFeaturesCursor(g)
     >>> df = gfc.fetchall()
 
     Parameters
@@ -298,7 +294,7 @@ class GenomeFeaturesCursor(GenomeCursor):
     """
     def __init__(
             self,
-            basepath = DefaultBasePath,
+            basepath = config["path"],
             exclude_type=['source','gene','mRNA'],
             autopid=False,
             codontable='Bacterial',
@@ -375,8 +371,8 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
     Usage
     -----
     Load a random sample of genomes, except eukaryotes
-    >>> from rotifer.db.ncbi import ftp
-    >>> gfc = ftp.GeneNeighborhoodCursor(progress=True)
+    >>> from rotifer.db.ncbi import mirror
+    >>> gfc = mirror.GeneNeighborhoodCursor(progress=True)
     >>> df = gfc.fetchall(["EEE9598493.1"])
 
     Parameters
@@ -436,7 +432,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
             strand = None,
             fttype = 'same',
             eukaryotes=False,
-            basepath = DefaultBasePath,
+            basepath = config["path"],
             exclude_type=['source','gene','mRNA'],
             autopid=False,
             codontable='Bacterial',
@@ -639,9 +635,9 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
           from NCBI. Example:
 
           >>> from rotifer.db.ncbi import entrez
-          >>> from rotifer.db.ncbi import ftp
+          >>> from rotifer.db.ncbi import mirror
           >>> ic = ncbi.IPGCursor(batch_size=1)
-          >>> gnc = ftp.GeneNeighborhoodCursor(progress=True)
+          >>> gnc = mirror.GeneNeighborhoodCursor(progress=True)
           >>> i = ic.fetchall(['WP_063732599.1'])
           >>> n = gnc.fetchall(['WP_063732599.1'], ipgs=i)
 

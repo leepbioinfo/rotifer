@@ -157,7 +157,7 @@ class sequence:
             other = [ x for x in input_data.columns if x not in self._reserved_columns ]
             self.df = input_data[['id','sequence']]
             self.df['type'] = 'sequence'
-            self.df[other] = input_data[other]
+            self.df[other] = input_data[other].copy()
 
         # Initialize for Pandas Series
         elif isinstance(input_data, pd.Series):
@@ -215,6 +215,12 @@ class sequence:
         # Statistics holder
         if not hasattr(self,'numerical'):
             self.numerical = pd.DataFrame(columns=['type']+list(range(1,self.get_alignment_length()+1)))
+
+        # Cursors
+        import rotifer.db.ncbi as ncbi
+        self.cursors = {
+            'neighborhood': ncbi.GeneNeighborhoodCursor(progress=True, batch_size=4),
+        }
 
     def __len__(self):
         return len(self.df.query('type == "sequence"'))
@@ -1776,10 +1782,6 @@ class sequence:
             result.df.sequence = result.df.id.map(tmpdf.set_index('id').sequence.dropna().to_dict())
         
         return result 
-
-
-
-
 
     ## Class methods
 

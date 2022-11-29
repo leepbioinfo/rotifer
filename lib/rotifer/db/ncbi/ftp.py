@@ -255,6 +255,7 @@ class GenomeCursor(rotifer.db.core.SimpleParallelProcessCursor):
             threads=15,
             timeout=10,
             cache=GlobalConfig['cache'],
+            *args, **kwargs
         ):
         super().__init__(
             progress=progress,
@@ -561,6 +562,7 @@ class GenomeFeaturesCursor(GenomeCursor):
             batch_size=None,
             threads=15,
             cache=GlobalConfig['cache'],
+            *args, **kwargs
         ):
         super().__init__(
             progress=progress,
@@ -697,6 +699,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
             batch_size=None,
             threads=15,
             cache=GlobalConfig['cache'],
+            *args, **kwargs
         ):
         super().__init__(
             exclude_type = exclude_type,

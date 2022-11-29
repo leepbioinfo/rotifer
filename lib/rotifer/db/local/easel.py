@@ -46,8 +46,9 @@ class FastaCursor(rotifer.db.core.SimpleParallelProcessCursor):
             batch_size=200,
             threads=int(np.floor(os.cpu_count()/2)),
             progress=False,
+            tries=1,
         ):
-        super().__init__(batch_size=batch_size, threads=threads, progress=progress)
+        super().__init__(batch_size=batch_size, threads=threads, progress=progress, tries=tries)
         self.executable = "esl-sfetch"
         if isinstance(database_path,str) or not isinstance(database_path,typing.Iterable):
             database_path = [ database_path ]

@@ -9,6 +9,16 @@ from copy import deepcopy
 import rotifer
 logger = rotifer.logging.getLogger(__name__)
 
+def get_seqrecord_id(self,obj):
+    import types
+    import typing
+    if isinstance(obj,types.NoneType):
+        return set()
+    if isinstance(obj,list):
+        return set([ x.assembly for x in obj ])
+    else:
+        return {obj.assembly}
+
 class BaseCursor:
     """
     Generic database cursor abstract interface.
@@ -387,7 +397,7 @@ class BaseDelegatorCursor(BaseCursor):
                 if hasattr(cursor,name):
                     cursor.__setattr__(name,value)
 
-class BaseSerialDelegatorCursor(BaseDelegatorCursor):
+class BaseSequentialDelegatorCursor(BaseDelegatorCursor):
     def __init__(self, methods=[], progress=False, tries=3, batch_size=None, threads=10, *args, **kwargs):
         super().__init__(methods=methods, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
 

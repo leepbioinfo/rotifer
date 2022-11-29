@@ -40,6 +40,7 @@ from rotifer.core.functions import loadConfig
 config = loadConfig(
     __name__.replace("rotifer.",":"),
     defaults = {
+        "mirror": os.path.join(os.environ["ROTIFER_DATA"] if 'ROTIFER_DATA' in os.environ else "/databases","genomes"),
         'email': os.environ['USER'] + '@' + socket.gethostname(),
         'ftpserver': 'ftp.ncbi.nlm.nih.gov',
         'api_key': os.environ['NCBI_API_KEY'] if 'NCBI_API_KEY' in os.environ else None,
@@ -59,19 +60,35 @@ import rotifer.db.core as rdc
 from rotifer.db.ncbi import ftp
 from rotifer.db.ncbi import entrez
 from rotifer.db.ncbi import mirror as rdnm
-from rotifer.db.ncbi.cursor import NcbiCursor
 from rotifer.db.sql import sqlite3 as rdss
 
 # Other rotifer components
-from rotifer.core.functions import findDataFiles
-from rotifer.genome.utils import seqrecords_to_dataframe
 
 # Classes
 
-class TaxonomyCursor(rdc.BaseSerialDelegatorCursor):
+class GenomeCursor(rdc.BaseSequentialDelegatorCursor, rdc.BaseGenomeCursor):
+    def __init__(self,
+            methods=['mirror','ftp'],
+            progress=False,
+            tries=3,
+            sleep_between_tries=1,
+            batch_size=None,
+            threads=10,
+            timeout=10,
+            basepath = config["mirror"],
+            cache=GlobalConfig['cache'],
+            *args, **kwargs):
+        self._shared_attributes = ['progress','tries','sleep_between_tries','batch_size','threads','cache','basepath']
+        self.sleep_between_tries = sleep_between_tries
+        self.timeout = timeout
+        self.basepath = basepath
+        self.cache = cache
+        super().__init__(methods=methods, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
+
+class TaxonomyCursor(rdc.BaseSequentialDelegatorCursor):
     def __init__(self, methods=['ete3','entrez'], progress=False, tries=3, sleep_between_tries=1, batch_size=None, threads=10, *args, **kwargs):
         self._shared_attributes = ['progress','tries','sleep_between_tries','batch_size','threads']
-        self.sleep_between_tries = 1
+        self.sleep_between_tries = sleep_between_tries
         super().__init__(methods=methods, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
         self.taxcols = ['taxid','organism','superkingdom','lineage','classification','alternative_taxids']
 
@@ -331,6 +348,7 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
         -------
         Generator of rotifer.genome.data.NeighborhoodDF
          """
+        from rotifer.genome.utils import seqrecords_to_dataframe
         result = seqrecords_to_dataframe([])
         for cursor in self.cursors:
             result = cursor.__getitem__(protein, ipgs=ipgs)
@@ -437,6 +455,7 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
         -------
         rotifer.genome.data.NeighborhoodDF
         """
+        from rotifer.genome.utils import seqrecords_to_dataframe
         stack = []
         for df in self.fetchone(proteins, ipgs=ipgs):
             stack.append(df)
@@ -446,247 +465,6 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
             return seqrecords_to_dataframe([])
 
 # FUNCTIONS
-
-# Gather gene neighborhoods by gene or gene product identifier
-def neighbors(
-        query=[],
-        column='pid',
-        assembly_reports=None,
-        ipgs=None,
-        eukaryotes=False,
-        exclude_type=['source','gene'],
-        save=None,
-        replace=True,
-        progress=False,
-        tries=3,
-        sleep_between_tries=2,
-        *args, **kwargs
-        ):
-    """
-    Fetch gene neighborhoods directly from NCBI.
-
-    Usage:
-      # Simplest example:
-      #   - single accession
-
-      import pandas as pd
-      import rotifer.db.ncbi as ncbi
-      n = pd.concat(ncbi.neighbors(['WP_011017450.1']))
-
-      # Slightly faster and more complicated:
-      #   - two targets
-      #   - pre-loaded assembly reports and IPGs
-      #   - more neighbors (15)
-
-      import pandas as pd
-      import rotifer.db.ncbi as ncbi
-      ar = ncbi.assemblies(taxonomy=True)
-      i = ncbi.NcbiCursor(["WP_010887045.1", "WP_011017450.1"]).read("ipg")
-      n = pd.concat(
-          ncbi.neighbors(
-              ["WP_011017450.1","WP_010887045.1"],
-              assembly_reports=ar,
-              ipgs=i,
-              before=15,
-              after=15
-          )
-      )
-
-    Returns:
-      A generator of rotifer.genome.data.NeighborhoodDf dataframes
-
-    Parameters:
-      query  : list of strings
-          List of accessions
-      column : string
-          Name of the column to scan for matches to the accessions
-          See rotifer.genome.data.NeighborhoodDF
-      assembly_reports : Pandas dataframe
-        If not given, assembly reports are downloaded.
-        See rotifer.db.ncbi.assemblies
-      ipgs : rotifer.db.ncbi.read.ipg dataframe
-        This parameter may be used to avoid downloading IPGs
-        from NCBI. Example:
-
-             import rotifer.db.ncbi as ncbi
-             i = ncbi.NcbiCursor(['WP_063732599.1']).read("ipg")
-             n = ncbi.neighbors(['WP_063732599.1'], ipgs=i)
-
-             Make sure it has the same colums as named
-             by the ipg method in rotifer.db.ncbi.read
-      eukaryotes : boolean, default False
-        If set to True, neighborhood data for eukaryotic genomes
-        will also be downloaded and processed
-      exclude_type : list of strings
-        Exclude rows by type (column 'type')
-      save : string, default None
-        If set, save processed batches to the path given
-      replace : boolean, default True
-        When save is set, whether to replace that file
-      progress : boolean, default False
-        Show progress bar
-      tries : integer, default 3
-        Number of attempts to download data
-      sleep_between_tries : integer, default 2
-        Number of seconds between download attempts
-
-      Additional arguments are passed to the neighbors method
-      of the rotifer.genome.data.NeighborhoodDF class
-    """
-    from Bio import SeqIO, Entrez
-    from rotifer.db.ncbi.cursor import NcbiCursor
-    from rotifer.genome.utils import seqrecords_to_dataframe
-    from rotifer.db.ncbi import ftp as ncbiftp
-    ftp = ncbiftp.cursor(tries=tries)
-
-    # Make sure input is a list
-    if not isinstance(query,list):
-        if isinstance(query, pd.Series):
-            query = query.tolist()
-        else:
-            query = [ query ]
-
-    # Remove output file
-    processed = {} # List of assembies/nucleotides already processed
-    olddf = pd.DataFrame()
-    if save and os.path.exists(save):
-        if replace: 
-            os.remove(save)
-        else:
-            olddf = pd.read_csv(save, sep="\t")
-            processed = olddf.assembly.to_frame().eval("k = True").set_index("assembly").k.to_dict()
-
-    # Fetch assembly reports
-    if not isinstance(assembly_reports,pd.DataFrame) or assembly_reports.empty:
-        assembly_reports = assemblies(taxonomy=True)
-        if not isinstance(assembly_reports,pd.DataFrame) or assembly_reports.empty:
-            logger.error(f'Failed to download assembly reports after {attempt} attempts.')
-            yield pd.DataFrame()
-
-    # Fetch IPGs and discard those unrelated to the query
-    if not isinstance(ipgs,pd.DataFrame):
-        ipgs = NcbiCursor(query).read('ipg', verbose=True)
-        if ipgs.empty:
-            logger.error(f'Failed to download IPGs for {len(query)} queries: {query}')
-            yield pd.DataFrame() # At his point, I can't handle missing IPGs for real NCBI protein accessions: fix using elink or efetch
-
-    # Make sure we only process the IPGs of our queries
-    selected = ipgs[ipgs.pid.isin(query) | ipgs.representative.isin(query)].id.unique()
-    if not selected.any():
-        logger.error(f'No query was found in {len(ipgs.id.unique())} IPGs. Queries: {query}')
-        yield pd.DataFrame() # At his point, I can't handle missing IPGs for real NCBI protein accessions: fix using elink or efetch
-    selected = ipgs[ipgs.id.isin(selected)]
-
-    # Select best genomes per target
-    replaced = pd.Series(selected.representative.values, index=selected.pid).to_dict()
-    in_ipg = set(selected.pid).union(set(selected.representative))
-    found = set(query).intersection(in_ipg)
-    missing = set(query) - found
-    selected = best_ipgs(selected, assembly_reports=assembly_reports, eukaryotes=eukaryotes)
-    logger.info(f'{len(found)} queries were found in {len(selected.id.unique())} IPGs, {len(missing)} queries missing.')
-
-    # Prepare progress bar
-    if progress:
-        genomes = pd.concat([selected.assembly.dropna(),selected.query('assembly.isna()').nucleotide.dropna()])
-        genomes = set(genomes).union(set(processed.keys()))
-        p = tqdm(total=len(genomes), initial=len(processed))
-
-    # Download assemblies from NCBI's FTP site and process each of them
-    failed = True
-    pos = list(range(0,len(selected)))
-    for s in pos:
-        # Fetching next batch
-        row = selected.iloc[s]
-        logger.debug(f'Processing {row.loc[["pid", "representative", "assembly", "nucleotide"]].tolist()}')
-        acc = row.assembly
-        acctype = "assembly"
-        if pd.isna(acc):
-            acc = row.nucleotide
-            acctype = "nucleotide"
-        if pd.isna(acc):
-            logger.warn(f'No nucleotide accession for {row[column]}. Ignoring...')
-            if progress:
-                p.update(1)
-            continue
-        if acc in processed:
-            continue
-
-        # Open nucleotide data stream
-        if acctype == "nucleotide":
-            ndf = Entrez.efetch(db="nucleotide", rettype="gbwithparts", retmode="text", id=acc, max_tries=tries, sleep_between_tries=sleep_between_tries)
-        else:
-            ndf = ftp.open_genome(acc, assembly_reports=assembly_reports)
-        if ndf == None:
-            tried = pos.count(s)
-            logger.error(f'Failed to download accession {acc}, {tries - tried} attempts left.')
-            if tried < tries:
-                pos.append(s)
-            elif progress:
-                p.update(1)
-            continue
-
-        # Parsing
-        try:
-            ndf = SeqIO.parse(ndf,"genbank")
-            ndf = seqrecords_to_dataframe(ndf, exclude_type=exclude_type)
-        except:
-            tried = pos.count(s)
-            logger.error(f'Failed to parse accession {acc}, {tries - tried} attempts left. Error: {sys.exc_info()[0]}')
-            if tried < tries:
-                pos.append(s)
-            elif progress:
-                p.update(1)
-            continue
-
-        # Checking
-        if ndf.empty:
-            logger.error(f'Empty NeighborhoodDF for accession {acc}, {tries - tried} attempts left.')
-            if progress:
-                p.update(1)
-            continue
-        elif column not in ndf.columns:
-            logger.error(f'NeighborhoodDF missing column {column} for accession {acc}. Ignoring...')
-            if progress:
-                p.update(1)
-            continue
-
-        # Identify queries
-        select = ndf[column].isin(in_ipg)
-        if not select.any():
-            logger.error(f'No matches in {acc}. Ignoring accession...')
-            if progress:
-                p.update(1)
-            continue
-
-        # Collecting neighbors
-        #ndf = ndf.vicinity(select, *args, **kwargs)
-        ndf = ndf.neighbors(select, *args, **kwargs)
-        ndf['replaced'] = ndf.pid.replace(replaced)
-
-        # Register, save and return current batch
-        processed[acc] = True
-        if save:
-            if os.path.exists(save):
-                ndf.to_csv(save, sep="\t", header=False, index=False, mode="a")
-            else:
-                ndf.to_csv(save, sep="\t", index=False)
-            if not olddf.empty:
-                ndf = pd.concat([olddf,ndf])
-                olddf = pd.DataFrame()
-
-        # Finish iteration
-        if not ndf.empty:
-            failed = False
-        if progress:
-            p.update(1)
-        yield ndf
-
-    # I tried everything and found no queries in the target genomes
-    if progress:
-        p.close()
-    if failed:
-        logger.error(f'No query was found after processing genomes in {len(ipgs.id.unique())} IPGs. Queries: {query}')
-        yield pd.DataFrame()
 
 # Load NCBI assembly reports
 def assemblies(baseurl=f'ftp://{config["ftpserver"]}/genomes/ASSEMBLY_REPORTS', taxonomy=True, progress=True):
@@ -778,62 +556,6 @@ def assemblies(baseurl=f'ftp://{config["ftpserver"]}/genomes/ASSEMBLY_REPORTS', 
     if progress:
         rotifer.logger.setLevel(origLevel)
     return df
-
-def best_ipgs(ipgs, assembly_reports=None, eukaryotes=False, criteria=findDataFiles(':db.ncbi.criteria.tsv')[0]):
-    """
-    Select best IPGs based on genome quality.
-    """
-    # Filter assembly_reports
-    if ipgs.assembly.notna().any():
-        if not isinstance(assembly_reports,pd.DataFrame) or assembly_reports.empty:
-            assembly_reports = assemblies(taxonomy=True)
-        assembly_reports = assembly_reports[assembly_reports.assembly.isin(ipgs.assembly.dropna())]
-        assembly_reports.excluded_from_refseq = assembly_reports.excluded_from_refseq.notna().astype(int)
-
-        # Load criteria
-        if not isinstance(criteria, pd.DataFrame):
-            criteria = pd.read_csv(criteria, sep="\t")
-        value_to_order = criteria.filter(["value", "vorder"]).set_index("value").vorder.to_dict()
-        cols = criteria.sort_values(["order", "vorder"]).colname.drop_duplicates().to_list()
-        if 'excluded_from_refseq' in cols:
-            cols = [ x for x in cols if x != "excluded_from_refseq" ]
-        assembly_reports = assembly_reports.filter(['assembly','excluded_from_refseq','superkingdom','domain'] + cols)
-
-    # IPG statistics
-    tmp = ipgs.query('assembly.notna()').groupby("assembly").agg(aid=('id','nunique')).reset_index()
-    ga = ipgs[['id','assembly','nucleotide']].merge(tmp, on='assembly', how='left')
-    tmp = ipgs.query('nucleotide.notna()').groupby("nucleotide").agg(nid=('id','nunique')).reset_index()
-    ga = ga.merge(tmp, on='nucleotide', how='left')
-    ga.aid = ga.aid.fillna(0).astype(int)
-    ga.nid = ga.nid.fillna(0).astype(int)
-
-    # Assembly data
-    if ipgs.assembly.notna().any():
-        ga = ga.merge(assembly_reports, on="assembly", how="left")
-        ga[cols] = ga[cols].replace(value_to_order)
-        sorting = [True, True, False, False] + len(cols) * [True]
-        cols = ["id", "excluded_from_refseq", "aid", "nid"] + cols
-    else:
-        sorting = [True, False, False]
-        cols = ["id", "aid", "nid"]
-
-    # Find best genomes
-    ga.sort_values(cols, ascending=sorting, inplace=True)
-    ga = ga.drop_duplicates("id", keep="first", ignore_index=True)
-
-    # Drop eukaryotes
-    if not eukaryotes:
-        if 'superkingdom' in ga.columns:
-            ga = ga[ga.superkingdom != "Eukaryota"]
-        elif 'domain' in ga.columns:
-            ga = ga[ga.domain != "Eukaryota"]
-
-    # Apply choices
-    ga = ipgs.merge(ga.filter(["id", "assembly","nucleotide"]), on=['id','assembly','nucleotide'], how='inner')
-    ga.sort_values(['id','order'], ascending=True, inplace=True)
-    ga.drop_duplicates("id", keep="first", ignore_index=True, inplace=True)
-    ga = ga[ga.assembly.notna() | ga.nucleotide.notna()]
-    return ga
 
 # END
 if __name__ == '__main__':
