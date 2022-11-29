@@ -714,3 +714,35 @@ def padding_df(df):
         pad_col_name.append(x.rjust(w))
     cdf.columns = pad_col_name    
     return cdf
+
+
+def alnxaln(seqobj, clustercol = 'c50i0', minseq=10):
+    import os
+    import tempfile
+    import pandas as pd
+    from rotifer.io import hhsuite
+    
+    path = os.getcwd()
+    result_table = pd.DataFrame()
+    if clustercol in seqobj.df.columns:
+        pass
+    else:
+       print(f'add the cluster{clustercol} columns to your seqobj')
+       return
+
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        os.chdir(tmpdirname)
+        seqobj = seqobj.copy()
+        alndict = dict()
+        clist = list(seqobj.df[clustercol].value_counts().where(lambda x: x>= minseq).dropna().index)
+        for x in clist:
+            alndict[x] = seqobj.filter(f'{clustercol} ==\"{x}\"').align(method='linsi')
+            alndict[x].to_file(f'{x}.aln') 
+        for x in clist:
+            os.system(f'for x in *.aln; do hhalign -i $x -t {x}.aln;done')
+            os.system('cat *.hhr >> allhhr.txt')
+            hhrs = hhsuite.read_hhr('./')
+            result_table = pd.concat([result_table, hhrs])
+        with open('./allhhr.txt', 'r') as f : allhhr = f.read()        
+    os.chdir(path)
+    return (result_table, allhhr, alndict) 

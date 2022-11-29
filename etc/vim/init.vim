@@ -1,6 +1,7 @@
 filetype plugin indent on
 syntax on
-
+windo set scrollbind
+set scrollbiding
 au VimEnter * 20 vsplit
 set sidescroll=1
 syntax reset
@@ -75,6 +76,8 @@ set runtimepath=$VIMMOVE
 hi LineNrAbove guifg=red ctermfg=red
 hi LineNrBelow guifg=green ctermfg=green
 hi LineNr guifg=blue ctermfg=blue
+hi CursorLineNr guifg=blue ctermfg=blue
+
 
 " Vim move keeys
 let g:move_key_modifier = 'C'
