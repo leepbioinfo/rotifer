@@ -3,7 +3,6 @@ import sys
 import types
 import socket
 import typing
-import logging
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -11,7 +10,7 @@ from ftplib import FTP
 from copy import deepcopy
 
 import rotifer
-import rotifer.db.core
+import rotifer.db.parallel
 from rotifer import GlobalConfig
 from rotifer.db.ncbi import NcbiConfig
 from rotifer.db.ncbi import utils as rdnu
@@ -38,7 +37,6 @@ class connection():
         cache: directory path
           Folder to store temporary files
         """
-        self._error = 0
         self.url = url
         self.tries = tries
         self.timeout = timeout
@@ -50,7 +48,6 @@ class connection():
         Connect or reconnect to server.
         """
         import time
-        self._error = 0
         attempt = 0
         while attempt < self.tries:
             try:
@@ -64,13 +61,11 @@ class connection():
                 try:
                     self.connection = FTP(self.url, timeout=self.timeout)
                     self.connection.login()
-                    self._error = 0
                     break
                 except socket.timeout:
                     time.sleep(1)
                 except TimeoutError:
                     time.sleep(1)
-                self._error = 1
             attempt += 1
 
     # Download files
@@ -95,7 +90,6 @@ class connection():
           Path to the downloaded file
         '''
         from tempfile import NamedTemporaryFile
-        from rotifer.db.ncbi import NcbiConfig
 
         # Create output directory, if necessary
         if not outdir:
@@ -104,9 +98,7 @@ class connection():
             try:
                 os.makedirs(outdir)
             except:
-                logger.exception(f'failed to create download directory {outdir}')
-                self._error = 1
-                return None
+                raise IOError(f'failed to create download directory {outdir}')
 
         # Retrieve contents for each folder
         # Prepare local file handle
@@ -123,7 +115,7 @@ class connection():
         # To avoid problems with very long names, I change to the target
         # directory and, later, back to /
         p = target.replace('ftp://',"")
-        p = p.replace(NcbiConfig['ftpserver'],"")
+        p = p.replace(self.url,"")
         p = p[1:] if p[0] == "/" else p
         p = p.split("/")
         self.connect()
@@ -132,14 +124,12 @@ class connection():
         try:
             self.connection.retrbinary("RETR " + p[-1], outfh.write)
         except:
-            logger.error(f'Unable to download {target}')
-            self._error = 1
-            return None
+            raise IOError(f'Unable to write stream to {target}')
         self.connection.cwd("/")
         outfh.close()
 
         # Return pandas object
-        logger.debug(f'download complete {NcbiConfig["ftpserver"]}{target}')
+        logger.debug(f'Download complete {self.url}/{target}')
         return outfile
 
     # List files in ftp directory
@@ -175,10 +165,7 @@ class connection():
                     x[1]["name"] = x[0]
                     d.append(x[1])
             except:
-                logger.error(f'''Could not retrieve list for directory {target} at the NCBI's FTP site.''')
-                continue
-        if not d:
-            self._error = 1
+                raise FileNotFoundError(f'''Could not retrieve list for directory {target} at the NCBI's FTP site.''')
         d = pd.DataFrame(d)
         return d
 
@@ -216,13 +203,9 @@ class connection():
         import rotifer.core.functions as rcf
         self.connect()
         outfile = self.ftp_get(target, avoid_collision=avoid_collision)
-        if self._error:
-            return None
-        else:
-            return _TemporaryFileWrapper(rcf.open_compressed(outfile, mode), outfile, delete)
+        return _TemporaryFileWrapper(rcf.open_compressed(outfile, mode), outfile, delete)
 
-#class GenomeCursor(BaseCursor):
-class GenomeCursor(rotifer.db.core.SimpleParallelProcessCursor):
+class GenomeCursor(rotifer.db.methods.GenomeCursor, rotifer.db.parallel.SimpleParallelProcessCursor):
     """
     Fetch genome sequences from the NCBI FTP site.
 
@@ -249,7 +232,7 @@ class GenomeCursor(rotifer.db.core.SimpleParallelProcessCursor):
     """
     def __init__(
             self,
-            progress=False,
+            progress=True,
             tries=3,
             batch_size=None,
             threads=15,
@@ -257,47 +240,9 @@ class GenomeCursor(rotifer.db.core.SimpleParallelProcessCursor):
             cache=GlobalConfig['cache'],
             *args, **kwargs
         ):
-        super().__init__(
-            progress=progress,
-            tries=tries,
-            batch_size=batch_size,
-            threads=threads
-        )
+        super().__init__(progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
         self.timeout = timeout
         self.cache = cache
-
-    def getids(self,obj):
-        if isinstance(obj,types.NoneType):
-            return set()
-        if isinstance(obj,list):
-            return set([ x.assembly for x in obj ])
-        else:
-            return {obj.assembly}
-
-    def fetcher(self, accession):
-        tries = self.tries
-        stream = self.open_genome(accession)
-        self.tries = tries
-        return stream
-
-    def parser(self, stream, accession):
-        from Bio import SeqIO
-        stack = []
-        for s in SeqIO.parse(stream,"genbank"):
-            s.assembly = accession
-            stack.append(s)
-        stream.close()
-        return stack
-
-    def worker(self,accessions):
-        stack = []
-        for accession in accessions:
-            objlist = self[accession]
-            if isinstance(objlist,types.Nonetype):
-                continue
-            if len(objlist) != 0:
-                stack.extend(objlist)
-        return stack
 
     def open_genome(self, accession, assembly_reports=None):
         """
@@ -346,19 +291,15 @@ class GenomeCursor(rotifer.db.core.SimpleParallelProcessCursor):
         ftp.connect()
         for attempt in range(0,self.tries):
             md5 = ftp.ftp_open(md5url, mode='rt', avoid_collision=True, delete=True)
-            if ftp._error:
-                logger.error(f'''Could not fetch checksum for {accession}.''')
-            else:
-                try:
-                    md5 = pd.read_csv(md5, sep=' +', names=['md5','filename'], engine="python")
-                    md5 = md5[md5.filename.fillna("_").str.contains('_genomic.gbff.gz')]
-                    md5 = md5.md5.iloc[0]
-                    if md5:
-                        break
-                except:
-                    logger.error(f'''Parsing of checksum for {accession} failed.''')
+            try:
+                md5 = pd.read_csv(md5, sep=' +', names=['md5','filename'], engine="python")
+                md5 = md5[md5.filename.fillna("_").str.contains('_genomic.gbff.gz')]
+                md5 = md5.md5.iloc[0]
+                if md5:
+                    break
+            except:
+                raise IOError(f'''Parsing of checksum for {accession} failed.''')
         if not md5:
-            ftp._error = 1
             return None
 
         # Download genome
@@ -366,12 +307,13 @@ class GenomeCursor(rotifer.db.core.SimpleParallelProcessCursor):
         ftp.connect()
         for attempt in range(0,self.tries):
             gz = ftp.ftp_open("/".join(path),  mode='rt', avoid_collision=True, delete=True)
-            if ftp._error:
-                logger.error(f'''Could not open GBFF for {accession}.''')
-            else:
+            try:
                 md5gz = rcf.md5(gz.name)
-                if md5 == md5gz:
-                    break
+            except:
+                raise IOError(f'''Could not open GBFF for {accession}.''')
+            if md5 == md5gz:
+                gz.assembly = accession
+                break
 
         # Return file object
         return gz
@@ -519,7 +461,7 @@ class GenomeCursor(rotifer.db.core.SimpleParallelProcessCursor):
 
         return sc, ar
 
-class GenomeFeaturesCursor(GenomeCursor):
+class GenomeFeaturesCursor(rotifer.db.methods.GenomeFeaturesCursor, GenomeCursor):
     """
     Fetch genome annotation as dataframes.
 
@@ -557,73 +499,18 @@ class GenomeFeaturesCursor(GenomeCursor):
             exclude_type=['source','gene','mRNA'],
             autopid=False,
             codontable='Bacterial',
-            progress=False,
+            progress=True,
             tries=3,
             batch_size=None,
             threads=15,
+            timeout=10,
             cache=GlobalConfig['cache'],
             *args, **kwargs
         ):
-        super().__init__(
-            progress=progress,
-            tries=tries,
-            batch_size=batch_size,
-            threads=threads,
-            cache=cache,
-        )
+        super().__init__(progress=progress, tries=tries, batch_size=batch_size, threads=threads, timeout=timeout, cache=cache, *args, **kwargs)
         self.exclude_type = exclude_type
         self.autopid = autopid
         self.codontable = codontable
-
-    def getids(self,obj):
-        if isinstance(obj,types.NoneType):
-            return set()
-        if isinstance(obj,list):
-            return set([ x.assembly for x in obj ])
-        else:
-            return set(obj.assembly)
-
-    def parser(self, stream, accession):
-        from Bio import SeqIO
-        data = SeqIO.parse(stream,"genbank")
-        data = seqrecords_to_dataframe(
-            data,
-            exclude_type = self.exclude_type,
-            autopid = self.autopid,
-            assembly = accession,
-            codontable = self.codontable,
-        )
-        stream.close()
-        return data
-
-    def worker(self, accessions):
-        stack = []
-        for accession in accessions:
-            df = self[accession]
-            if len(df) != 0:
-                stack.append(df)
-        return stack
-
-    def fetchall(self, accessions):
-        """
-        Fetch genomes.
-
-        Parameters
-        ----------
-        accessions: list of strings
-          NCBI genomes accessions
-
-        Returns
-        -------
-        rotifer.genome.data.NeighborhoodDF
-        """
-        stack = []
-        for df in self.fetchone(accessions):
-            stack.append(df)
-        if stack:
-            return pd.concat(stack, ignore_index=True)
-        else:
-            return seqrecords_to_dataframe([])
 
 class GeneNeighborhoodCursor(GenomeFeaturesCursor):
     """
@@ -694,7 +581,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
             exclude_type=['source','gene','mRNA'],
             autopid=False,
             codontable='Bacterial',
-            progress=False,
+            progress=True,
             tries=3,
             batch_size=None,
             threads=15,
@@ -720,7 +607,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         self.eukaryotes = eukaryotes
         self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error",'class'])
 
-    def _pids(self, obj):
+    def getids(self, obj):
         columns = ['pid']
         if 'replaced' in obj.columns:
             columns.append('replaced')
@@ -730,7 +617,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         ids.drop_duplicates(inplace=True)
         return ids.id.tolist()
 
-    def _add_to_missing(self, accessions, assembly, error):
+    def update_missing(self, accessions, assembly, error):
         err = [False,False,assembly,error,__name__]
         if "Eukaryotic" in error:
             err[1] = True
@@ -763,7 +650,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         ipgs = ipgs[ipgs.assembly.isin(best.assembly)]
         missing = set(protein) - set(ipgs.pid) - set(ipgs.representative)
         if missing:
-            self._add_to_missing(missing,np.NaN,"No IPGs")
+            self.update_missing(missing,np.NaN,"No IPGs")
             return objlist
 
         # Identify DNA data
@@ -783,23 +670,23 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
                     stream = self.fetcher(accession)
                 except RuntimeError:
                     error = f'{sys.exc_info()[1]}'
-                    if logger.getEffectiveLevel() <= logging.DEBUG:
+                    if logger.getEffectiveLevel() <= rotifer.logging.DEBUG:
                         logger.exception(error)
                     continue
                 except ValueError:
                     error = f'{sys.exc_info()[1]}'
-                    if logger.getEffectiveLevel() <= logging.DEBUG:
+                    if logger.getEffectiveLevel() <= rotifer.logging.DEBUG:
                         logger.exception(error)
                     break
                 except:
                     error = f'{sys.exc_info()[1]}'
                     #error = f'Failed to download genome {accession}: {sys.exc_info()[1]}'
-                    if logger.getEffectiveLevel() <= logging.DEBUG:
+                    if logger.getEffectiveLevel() <= rotifer.logging.DEBUG:
                         logger.exception(error)
                     continue
 
                 if isinstance(stream, types.NoneType):
-                    self._add_to_missing(expected, accession, error)
+                    self.update_missing(expected, accession, error)
                     continue
 
                 # Use parser to process results
@@ -808,14 +695,14 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
                     break
                 except:
                     error = f"Failed to parse genome {accession}:"
-                    if logger.getEffectiveLevel() <= logging.DEBUG:
+                    if logger.getEffectiveLevel() <= rotifer.logging.DEBUG:
                         logger.exception(error)
 
             if isinstance(obj, types.NoneType):
-                self._add_to_missing(expected, accession, error)
+                self.update_missing(expected, accession, error)
             elif len(obj) == 0:
                 error = f'No anchors in genome {accession}'
-                self._add_to_missing(expected, accession, error)
+                self.update_missing(expected, accession, error)
             else:
                 objlist.append(obj)
 
@@ -828,7 +715,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
 
         # Return data
         if len(objlist) > 0:
-            self.missing.drop(self._pids(objlist), axis=0, inplace=True, errors='ignore')
+            self.missing.drop(self.getids(objlist), axis=0, inplace=True, errors='ignore')
         return objlist
 
     def fetcher(self, accession):
@@ -847,6 +734,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
 
     def parser(self, stream, accession, proteins):
         data = super().parser(stream, accession)
+        data.assembly = accession
         data = data.neighbors(
             data[self.column].isin(proteins.keys()),
             before = self.before,
@@ -920,14 +808,14 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
             ic = entrez.IPGCursor(progress=self.progress, tries=self.tries, threads=self.threads)
             ipgs = ic.fetchall(todo)
             if len(ic.missing):
-                self._add_to_missing(ic.missing.index.to_list(), np.nan, "No IPGs at NCBI")
+                self.update_missing(ic.missing.index.to_list(), np.nan, "No IPGs at NCBI")
         ipgids = set(ipgs[ipgs.pid.isin(todo) | ipgs.representative.isin(todo)].id)
         ipgs = ipgs[ipgs.id.isin(ipgids) & (ipgs.assembly.notna() | ipgs.nucleotide.notna())]
 
         # Check for proteins without IPGs
         missing = set(todo) - set(ipgs.pid).union(ipgs.representative)
         if missing:
-            self._add_to_missing(missing,np.NaN,"Not found in IPGs")
+            self.update_missing(missing,np.NaN,"Not found in IPGs")
             todo -= missing
         if len(ipgs) == 0:
             return [seqrecords_to_dataframe([])]
@@ -949,7 +837,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
                     error = f"No nucleotide or assembly for protein {acc}"
                 else:
                     error = f"Fetch protein {acc} from nucleotide {row['nucleotide']}"
-                self._add_to_missing(acc,row['assembly'],error)
+                self.update_missing(acc,row['assembly'],error)
 
         # filter good IPGs for the best assemblies
         assemblies = assemblies[assemblies.assembly.notna()]
@@ -978,7 +866,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
                     if self.progress and len(done) > 0:
                         p.update(len(done))
                     genomes = genomes - done
-                    completed.update(self._pids(obj))
+                    completed.update(self.getids(obj))
                     self.missing.drop(completed, axis=0, inplace=True, errors='ignore')
                     yield obj
 

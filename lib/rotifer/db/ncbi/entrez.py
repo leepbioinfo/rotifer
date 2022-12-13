@@ -548,7 +548,7 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
         self.eukaryotes = eukaryotes
         self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error","class"])
 
-    def _pids(self, obj):
+    def getids(self, obj):
         columns = ['pid']
         if 'replaced' in obj.columns:
             columns.append('replaced')
@@ -558,7 +558,7 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
         ids.drop_duplicates(inplace=True)
         return ids.id.tolist()
 
-    def _add_to_missing(self, accessions, assembly, error):
+    def update_missing(self, accessions, assembly, error):
         err = [False,False,assembly,error,__name__]
         if "Eukaryotic" in error:
             err[1] = True
@@ -592,7 +592,7 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
         ipgs = ipgs[ipgs.nucleotide.isin(best.nucleotide)]
         missing = set(protein) - set(ipgs.pid) - set(ipgs.representative)
         if missing:
-            self._add_to_missing(missing,np.NaN,"No IPGs")
+            self.update_missing(missing,np.NaN,"No IPGs")
         if len(ipgs) == 0:
             return objlist
 
@@ -629,7 +629,7 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
                     continue
 
                 if isinstance(stream, types.NoneType):
-                    self._add_to_missing(expected, accession, error)
+                    self.update_missing(expected, accession, error)
                     continue
 
                 # Use parser to process results
@@ -645,10 +645,10 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
                     logger.debug(error)
 
             if isinstance(obj, types.NoneType):
-                self._add_to_missing(expected, accession, error)
+                self.update_missing(expected, accession, error)
             elif len(obj) == 0:
                 error = f'No anchors in nucleotide sequence {accession}'
-                self._add_to_missing(expected, accession, error)
+                self.update_missing(expected, accession, error)
             else:
                 objlist.extend(obj)
 
@@ -661,7 +661,7 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
 
         # Return data
         if len(objlist) > 0:
-            self.missing.drop(self._pids(objlist), axis=0, inplace=True, errors='ignore')
+            self.missing.drop(self.getids(objlist), axis=0, inplace=True, errors='ignore')
         return objlist
 
     def parser(self, stream, accession, proteins):
@@ -732,10 +732,10 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
             ic = entrez.IPGCursor(progress=self.progress, tries=self.tries, threads=self.threads)
             ipgs = ic.fetchall(list(proteins))
             if len(ic.missing):
-                self._add_to_missing(ic.missing.index.to_list(), np.nan, "No IPGs for nucleotides at NCBI")
+                self.update_missing(ic.missing.index.to_list(), np.nan, "No IPGs for nucleotides at NCBI")
         ipgs = ipgs[ipgs.pid.isin(proteins) | ipgs.representative.isin(proteins)]
         if len(ipgs) == 0:
-            self._add_to_missing(proteins,np.NaN,"No IPGs to match a nucleotide sequence")
+            self.update_missing(proteins,np.NaN,"No IPGs to match a nucleotide sequence")
             return [seqrecords_to_dataframe([])]
         nucleotides = rdnu.best_ipgs(ipgs)
         nucleotides = nucleotides[nucleotides.nucleotide.notna()]
@@ -765,7 +765,7 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
                     if self.progress and len(done) > 0:
                         p.update(len(done))
                     todo = todo - done
-                    completed.update(self._pids(obj))
+                    completed.update(self.getids(obj))
                     self.missing.drop(completed, axis=0, inplace=True, errors='ignore')
                     yield obj
 

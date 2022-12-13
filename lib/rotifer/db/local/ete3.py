@@ -47,7 +47,7 @@ class TaxonomyCursor(rotifer.db.core.BaseCursor):
     def __getitem__(self, accessions):
         targets = self.parse_ids(accessions)
         targetsAsIntegers = pd.Series(list(targets)).astype(int)
-        logger.info(f'Loading {len(targets)} taxids from Ete3 local database')
+        #logger.info(f'Loading {len(targets)} taxids from Ete3 local database')
 
         # Find replacements for phased-out taxids
         oldToNewDF = ",".join(targets)
@@ -75,7 +75,7 @@ class TaxonomyCursor(rotifer.db.core.BaseCursor):
         if len(missing) > 0:
             self.missing.update(missing)
 
-        logger.info(f'Loaded {len(targets.intersection(self.getids(li)))} taxids from Ete3 database')
+        #logger.info(f'Loaded {len(targets.intersection(self.getids(li)))} taxids from Ete3 database')
         return li
 
     def fetchone(self,accessions):

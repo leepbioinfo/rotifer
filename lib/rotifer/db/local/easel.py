@@ -1,6 +1,6 @@
 __doc__ = """
-Rotifer connections to local databases
-======================================
+Rotifer's connections to local databases
+========================================
 """
 
 import re
@@ -14,6 +14,7 @@ from Bio import SeqIO
 from io import StringIO
 
 import rotifer
+import rotifer.db.parallel
 from rotifer import GlobalConfig
 from rotifer.core.functions import loadConfig
 import rotifer.devel.beta.sequence as rdbs
@@ -24,7 +25,7 @@ config = loadConfig(__name__.replace('rotifer.',':'), defaults = {
     'local_database_path': os.path.join(GlobalConfig['data'],"fadb","nr","nr"),
 })
 
-class FastaCursor(rotifer.db.core.SimpleParallelProcessCursor):
+class FastaCursor(rotifer.db.parallel.SimpleParallelProcessCursor):
     """
     Fetch biomolecular sequences using Easel's esl-sfetch.
 
@@ -43,12 +44,12 @@ class FastaCursor(rotifer.db.core.SimpleParallelProcessCursor):
     def __init__(
             self,
             database_path=config["local_database_path"],
+            progress=True,
+            tries=1,
             batch_size=200,
             threads=int(np.floor(os.cpu_count()/2)),
-            progress=False,
-            tries=1,
-        ):
-        super().__init__(batch_size=batch_size, threads=threads, progress=progress, tries=tries)
+            *args, **kwargs):
+        super().__init__(progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
         self.executable = "esl-sfetch"
         if isinstance(database_path,str) or not isinstance(database_path,typing.Iterable):
             database_path = [ database_path ]

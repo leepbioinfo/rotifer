@@ -1,7 +1,6 @@
 import os
 import sys
 import types
-import socket
 import typing
 import logging
 import numpy as np
@@ -10,7 +9,8 @@ from tqdm import tqdm
 from copy import deepcopy
 
 import rotifer
-import rotifer.db.core
+import rotifer.db.parallel
+import rotifer.db.methods
 from rotifer import GlobalConfig
 from rotifer.db.ncbi import NcbiConfig
 from rotifer.db.ncbi import utils as rdnu
@@ -23,10 +23,10 @@ from rotifer.core.functions import loadConfig
 config = loadConfig(__name__.replace("rotifer.",":"), defaults = {
     "path": os.path.join(os.environ["ROTIFER_DATA"] if 'ROTIFER_DATA' in os.environ else "/databases","genomes")
 })
+
 # Classes
 
-#class GenomeCursor(BaseCursor):
-class GenomeCursor(ncbiftp.GenomeCursor):
+class GenomeCursor(rotifer.db.methods.GenomeCursor, rotifer.db.parallel.SimpleParallelProcessCursor):
     """
     Fetch genome sequences from a local mirror of the 
     NCBI genomes repository.
@@ -108,6 +108,7 @@ class GenomeCursor(ncbiftp.GenomeCursor):
         # Download genome
         path = os.path.join(*path)
         gz = rcf.open_compressed(path,  mode='rt')
+        gz.assembly = accession
 
         # Return file object
         return gz
@@ -151,24 +152,31 @@ class GenomeCursor(ncbiftp.GenomeCursor):
             path = accession[0:accession.find(".")].replace("_","")
             path = [ path[i : i + 3] for i in range(0, len(path), 3) ]
             path = os.path.join(self.basepath,'all',*path)
-            try:
+            if os.path.exists(path):
                 ls = os.listdir(path)
-            except:
-                raise FileNotFoundError(f'Directory {path} not found')
+            else:
+                logger.debug(f'No directory {path} for {accession}')
+                return ()
             ls = [ x for x in sorted(ls) if accession in x ]
             if len(ls):
                 ls = ls[-1] # Expected to be the latest version of the target genome
             else:
-                raise FileNotFoundError(f'No subdirectory for genome {accession} in diretocy {path}')
+                logger.debug(f'Empty directory for {accession} in {path}')
+                return ()
             path = os.path.join(path,ls)
 
             # Retrieve GBFF path
-            ls = os.listdir(path)
+            try:
+                ls = os.listdir(path)
+            except:
+                logger.debug(f'Unable to read directory for {accession} in {path}')
+                return ()
             ls = [ x for x in sorted(ls) if '.gbff.gz' in x ]
             if len(ls):
                 ls = ls[0] # Only one GBFF is expected
             else:
-                raise FileNotFoundError(f'No GBFF for {accession} in {path}')
+                logger.debug(f'No GBFF for {accession} in {path}')
+                return ()
             path = (path, ls)
 
         return path
@@ -257,7 +265,7 @@ class GenomeCursor(ncbiftp.GenomeCursor):
 
         return sc, ar
 
-class GenomeFeaturesCursor(GenomeCursor):
+class GenomeFeaturesCursor(rotifer.db.methods.GenomeFeaturesCursor, GenomeCursor):
     """
     Fetch genome annotation as dataframes.
 
@@ -302,67 +310,12 @@ class GenomeFeaturesCursor(GenomeCursor):
             tries=3,
             batch_size=None,
             threads=15,
+            *args, **kwargs
         ):
-        super().__init__(
-            basepath=basepath,
-            progress=progress,
-            tries=tries,
-            batch_size=batch_size,
-            threads=threads,
-        )
+        super().__init__(progress=progress, tries=tries, batch_size=batch_size, threads=threads, basepath=basepath, *args, **kwargs)
         self.exclude_type = exclude_type
         self.autopid = autopid
         self.codontable = codontable
-
-    def getids(self,obj):
-        if isinstance(obj,types.NoneType):
-            return set()
-        if isinstance(obj,list):
-            return set([ x.assembly for x in obj ])
-        else:
-            return set(obj.assembly)
-
-    def parser(self, stream, accession):
-        from Bio import SeqIO
-        data = SeqIO.parse(stream,"genbank")
-        data = seqrecords_to_dataframe(
-            data,
-            exclude_type = self.exclude_type,
-            autopid = self.autopid,
-            assembly = accession,
-            codontable = self.codontable,
-        )
-        stream.close()
-        return data
-
-    def worker(self, accessions):
-        stack = []
-        for accession in accessions:
-            df = self[accession]
-            if len(df) != 0:
-                stack.append(df)
-        return stack
-
-    def fetchall(self, accessions):
-        """
-        Fetch genomes.
-
-        Parameters
-        ----------
-        accessions: list of strings
-          NCBI genomes accessions
-
-        Returns
-        -------
-        rotifer.genome.data.NeighborhoodDF
-        """
-        stack = []
-        for df in self.fetchone(accessions):
-            stack.append(df)
-        if stack:
-            return pd.concat(stack, ignore_index=True)
-        else:
-            return seqrecords_to_dataframe([])
 
 class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor):
     """
@@ -460,7 +413,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
         self.eukaryotes = eukaryotes
         self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error",'class'])
 
-    def _pids(self, obj):
+    def getids(self, obj):
         columns = ['pid']
         if 'replaced' in obj.columns:
             columns.append('replaced')
@@ -470,7 +423,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
         ids.drop_duplicates(inplace=True)
         return ids.id.tolist()
 
-    def _add_to_missing(self, accessions, assembly, error):
+    def update_missing(self, accessions, assembly, error):
         err = [False,False,assembly,error,__name__]
         if "Eukaryotic" in error:
             err[1] = True
@@ -503,7 +456,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
         ipgs = ipgs[ipgs.assembly.isin(best.assembly)]
         missing = set(protein) - set(ipgs.pid) - set(ipgs.representative)
         if missing:
-            self._add_to_missing(missing,np.NaN,"No IPGs")
+            self.update_missing(missing,np.NaN,"No IPGs")
             return objlist
 
         # Identify DNA data
@@ -539,7 +492,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
                     continue
 
                 if isinstance(stream, types.NoneType):
-                    self._add_to_missing(expected, accession, error)
+                    self.update_missing(expected, accession, error)
                     continue
 
                 # Use parser to process results
@@ -552,10 +505,10 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
                         logger.exception(error)
 
             if isinstance(obj, types.NoneType):
-                self._add_to_missing(expected, accession, error)
+                self.update_missing(expected, accession, error)
             elif len(obj) == 0:
                 error = f'No anchors in genome {accession}'
-                self._add_to_missing(expected, accession, error)
+                self.update_missing(expected, accession, error)
             else:
                 objlist.append(obj)
 
@@ -568,7 +521,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
 
         # Return data
         if len(objlist) > 0:
-            self.missing.drop(self._pids(objlist), axis=0, inplace=True, errors='ignore')
+            self.missing.drop(self.getids(objlist), axis=0, inplace=True, errors='ignore')
         return objlist
 
     def fetcher(self, accession):
@@ -663,14 +616,14 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
             ic = entrez.IPGCursor(progress=self.progress, tries=self.tries, threads=self.threads)
             ipgs = ic.fetchall(todo)
             #if len(ic.missing):
-            #    self._add_to_missing(ic.missing.index.to_list(), np.nan, "No IPGs at NCBI")
+            #    self.update_missing(ic.missing.index.to_list(), np.nan, "No IPGs at NCBI")
         ipgids = set(ipgs[ipgs.pid.isin(todo) | ipgs.representative.isin(todo)].id)
         ipgs = ipgs[ipgs.id.isin(ipgids) & (ipgs.assembly.notna() | ipgs.nucleotide.notna())]
 
         # Check for proteins without IPGs
         missing = set(todo) - set(ipgs.pid).union(ipgs.representative)
         if missing:
-            self._add_to_missing(missing,np.NaN,"Not found in IPGs")
+            self.update_missing(missing,np.NaN,"Not found in IPGs")
             todo -= missing
         if len(ipgs) == 0:
             return [seqrecords_to_dataframe([])]
@@ -692,7 +645,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
                     error = f"No nucleotide or assembly for protein {acc}"
                 else:
                     error = f"Fetch protein {acc} from nucleotide {row['nucleotide']}"
-                self._add_to_missing(acc,row['assembly'],error)
+                self.update_missing(acc,row['assembly'],error)
 
         # filter good IPGs for the best assemblies
         assemblies = assemblies[assemblies.assembly.notna()]
@@ -704,7 +657,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
             if self.progress:
                 pids = set(assemblies.pid).union(assemblies.representative)
                 pids = len(pids.intersection(targets))
-                logger.warn(f'Downloading {len(genomes)} genomes for {pids} proteins...')
+                logger.warn(f'Loading {len(genomes)} genomes for {pids} proteins from {self.basepath}')
                 p = tqdm(total=len(genomes), initial=0)
             tasks = []
             for chunk in self.splitter(assemblies):
@@ -721,7 +674,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
                     if self.progress and len(done) > 0:
                         p.update(len(done))
                     genomes = genomes - done
-                    completed.update(self._pids(obj))
+                    completed.update(self.getids(obj))
                     self.missing.drop(completed, axis=0, inplace=True, errors='ignore')
                     yield obj
 

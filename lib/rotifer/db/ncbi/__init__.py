@@ -30,12 +30,15 @@ import pandas as pd
 from tqdm import tqdm
 from copy import deepcopy
 
-# Import core rotifer modules
+# Import rotifer modules
 import rotifer
 from rotifer import GlobalConfig
 logger = rotifer.logging.getLogger(__name__)
 
 # Load NCBI configuration
+import rotifer.db.core
+import rotifer.db.methods
+import rotifer.db.delegator
 from rotifer.core.functions import loadConfig
 config = loadConfig(
     __name__.replace("rotifer.",":"),
@@ -55,21 +58,13 @@ config = loadConfig(
 )
 NcbiConfig = config # for compatibility but deprecated: to be removed!
 
-# Cursor modules
-import rotifer.db.core as rdc
-from rotifer.db.ncbi import ftp
-from rotifer.db.ncbi import entrez
-from rotifer.db.ncbi import mirror as rdnm
-from rotifer.db.sql import sqlite3 as rdss
-
-# Other rotifer components
-
 # Classes
 
-class GenomeCursor(rdc.BaseSequentialDelegatorCursor):
-    def __init__(self,
+class GenomeCursor(rotifer.db.methods.GenomeCursor, rotifer.db.delegator.SequentialDelegatorCursor):
+    def __init__(
+            self,
             methods=['mirror','ftp'],
-            progress=False,
+            progress=True,
             tries=3,
             sleep_between_tries=1,
             batch_size=None,
@@ -85,72 +80,65 @@ class GenomeCursor(rdc.BaseSequentialDelegatorCursor):
         self.cache = cache
         super().__init__(methods=methods, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
 
-class TaxonomyCursor(rdc.BaseSequentialDelegatorCursor):
-    def __init__(self, methods=['ete3','entrez'], progress=False, tries=3, sleep_between_tries=1, batch_size=None, threads=10, *args, **kwargs):
-        self._shared_attributes = ['progress','tries','sleep_between_tries','batch_size','threads']
+class GenomeFeaturesCursor(rotifer.db.methods.GenomeFeaturesCursor, rotifer.db.delegator.SequentialDelegatorCursor):
+    """
+    Fetch genome annotation as dataframes.
+
+    Usage
+    -----
+    Load a random sample of genomes
+
+    >>> g = ['GCA_018744545.1', 'GCA_901308185.1']
+    >>> from rotifer.db.ncbi as ncbi
+    >>> gfc = ncbi.GenomeFeaturesCursor(progress=True)
+    >>> df = gfc.fetchall(g)
+
+    Parameters
+    ----------
+    exclude_type: list of strings
+      List of names for the features that must be ignored
+    autopid: boolean
+      Automatically set protein identifiers
+    codontable: string por int, default 'Bacterial'
+      Default codon table, if not set within the data
+    progress: boolean, deafult False
+      Whether to print a progress bar
+    tries: int, default 3
+      Number of attempts to download data
+    threads: integer, default 15
+      Number of processes to run parallel downloads
+    batch_size: int, default 1
+      Number of accessions per batch
+    cache: path-like string
+      Where to place temporary files
+
+    """
+    def __init__(
+            self,
+            methods=['mirror','ftp'],
+            exclude_type=['source','gene','mRNA'],
+            autopid=False,
+            codontable='Bacterial',
+            progress=True,
+            tries=3,
+            sleep_between_tries=1,
+            batch_size=None,
+            threads=15,
+            timeout=10,
+            basepath = config["mirror"],
+            cache=GlobalConfig['cache'],
+            *args, **kwargs):
+        self._shared_attributes = ['progress','tries','sleep_between_tries','batch_size','threads','cache','basepath']
         self.sleep_between_tries = sleep_between_tries
+        self.timeout = timeout
+        self.basepath = basepath
+        self.cache = cache
         super().__init__(methods=methods, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
-        self.taxcols = ['taxid','organism','superkingdom','lineage','classification','alternative_taxids']
+        self.exclude_type = exclude_type
+        self.autopid = autopid
+        self.codontable = codontable
 
-    def getids(self, obj, *args, **kwargs):
-        if not (isinstance(obj,list) or isinstance(obj,tuple)):
-            obj = [ obj ]
-        ids = set()
-        for item in obj:
-            ids.update(set(item.taxid.astype(str)))
-            if 'alternative_taxids' in item:
-                aids = item.alternative_taxids.dropna().astype(str)
-                aids = aids.str.split(",").explode().dropna()
-                ids.update(aids)
-        return ids
-
-    def __getitem__(self, accessions, *args, **kwargs):
-        """
-        Dictionary-like access to data.
-
-        Usage
-        -----
-        >>> import rotifer.db.ncbi as ncbi
-        >>> tc = ncbi.TaxonomyCursor(progress=True)
-        >>> t = tc[2599]
-
-        Parameters
-        ----------
-        accessions: list of strings
-          Database identifiers.
-
-        Returns
-        -------
-        Pandas dataframe
-        """
-        result = super().__getitem__(accessions, *args, **kwargs)
-        if len(result) == 0:
-            return pd.DataFrame(columns=self.taxcols)
-        elif isinstance(result,list):
-            return pd.concat(result, ignore_index=True)
-        else:
-            return result
-
-    def fetchall(self, accessions, *args, **kwargs):
-        """
-        Fetch data for all accessions.
-
-        Parameters
-        ----------
-        accessions: list of database identifiers
-          Database identifiers.
-
-        Returns
-        -------
-        Pandas dataframe
-        """
-        df = super().fetchall(accessions, *args, **kwargs)
-        if len(df) == 0:
-            return pd.DataFrame(columns=self.taxcols)
-        else:
-            return pd.concat(df, ignore_index=True)
-
-class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
+class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor):
     """
     Fetch gene neighborhoods as dataframes
     ======================================
@@ -268,13 +256,15 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
             exclude_type=['source','gene','mRNA'],
             autopid=False,
             codontable='Bacterial',
-            progress=False,
+            progress=True,
             tries=3,
             batch_size=None,
             threads=15,
             cache=GlobalConfig['cache'],
             *args, **kwargs
         ):
+        from rotifer.db.ncbi import ftp
+        from rotifer.db.ncbi import entrez
 
         # Setup special attributes
         self._shared_attributes = [
@@ -287,9 +277,11 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
             entrez.GeneNeighborhoodCursor()
         ]
         if mirror:
+            from rotifer.db.ncbi import mirror as rdnm
             cursor = rdnm.GeneNeighborhoodCursor(basepath=mirror)
             self.cursors.insert(0,cursor)
         if save:
+            from rotifer.db.sql import sqlite3 as rdss
             cursor = rdss.GeneNeighborhoodCursor(save, replace=replace)
             self.cursors.insert(0,cursor)
 
@@ -463,6 +455,71 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
             return pd.concat(stack, ignore_index=True)
         else:
             return seqrecords_to_dataframe([])
+
+class TaxonomyCursor(rotifer.db.delegator.SequentialDelegatorCursor):
+    def __init__(self, methods=['ete3','entrez'], progress=True, tries=3, sleep_between_tries=1, batch_size=None, threads=10, *args, **kwargs):
+        self._shared_attributes = ['progress','tries','sleep_between_tries','batch_size','threads']
+        self.sleep_between_tries = sleep_between_tries
+        super().__init__(methods=methods, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
+        self.taxcols = ['taxid','organism','superkingdom','lineage','classification','alternative_taxids']
+
+    def getids(self, obj, *args, **kwargs):
+        if not (isinstance(obj,list) or isinstance(obj,tuple)):
+            obj = [ obj ]
+        ids = set()
+        for item in obj:
+            ids.update(set(item.taxid.astype(str)))
+            if 'alternative_taxids' in item:
+                aids = item.alternative_taxids.dropna().astype(str)
+                aids = aids.str.split(",").explode().dropna()
+                ids.update(aids)
+        return ids
+
+    def __getitem__(self, accessions, *args, **kwargs):
+        """
+        Dictionary-like access to data.
+
+        Usage
+        -----
+        >>> import rotifer.db.ncbi as ncbi
+        >>> tc = ncbi.TaxonomyCursor(progress=True)
+        >>> t = tc[2599]
+
+        Parameters
+        ----------
+        accessions: list of strings
+          Database identifiers.
+
+        Returns
+        -------
+        Pandas dataframe
+        """
+        result = super().__getitem__(accessions, *args, **kwargs)
+        if len(result) == 0:
+            return pd.DataFrame(columns=self.taxcols)
+        elif isinstance(result,list):
+            return pd.concat(result, ignore_index=True)
+        else:
+            return result
+
+    def fetchall(self, accessions, *args, **kwargs):
+        """
+        Fetch data for all accessions.
+
+        Parameters
+        ----------
+        accessions: list of database identifiers
+          Database identifiers.
+
+        Returns
+        -------
+        Pandas dataframe
+        """
+        df = super().fetchall(accessions, *args, **kwargs)
+        if len(df) == 0:
+            return pd.DataFrame(columns=self.taxcols)
+        else:
+            return pd.concat(df, ignore_index=True)
 
 # FUNCTIONS
 
