@@ -1,5 +1,5 @@
 import rotifer
-from rotifer import GlobalConfig
+import rotifer.db.ncbi as ncbi
 from rotifer.core.functions import loadConfig
 from io import StringIO
 from Bio import SeqIO
@@ -18,7 +18,7 @@ config = loadConfig(
         'pdb_dir': os.path.join(os.environ['ROTIFER_DATA'] if 'ROTIFER_DATA' in os.environ else '/databases',"pdb"),
         'databases': ['pdb70','pfam'],
         'databases_path': os.path.join(os.environ['ROTIFER_DATA'] if 'ROTIFER_DATA' in os.environ else '/databases',"hhsuite"),
-        'local_database_path': os.path.join(GlobalConfig['data'],"fadb","nr","nr"),
+        'local_database_path': [ os.path.join(rotifer.config['data'],"fadb","nr","nr") ],
     })
 
 class sequence:
@@ -117,6 +117,12 @@ class sequence:
         self._reserved_columns = ['id','sequence','length','type']
         self.input_format = input_format
         self.name = name
+        if not isinstance(local_database_path,list):
+            local_database_path = [ local_database_path ]
+        self.cursors = {
+            'neighborhood': ncbi.GeneNeighborhoodCursor(batch_size=4),
+            'fasta': ncbi.FastaCursor(local_database_path=local_database_path),
+        }
 
         # Generate empty object
         if input_data is None:
@@ -148,8 +154,7 @@ class sequence:
             if isinstance(input_data[0],SeqRecord):
                 self.df = self._seqrecords_to_dataframe(input_data)
             elif isinstance(input_data[0],str):
-                import rotifer.db as rdb
-                seqrecords = rdb.proteins(input_data, local_database_path=local_database_path)
+                seqrecords = self.cursors['fasta'].fetchall(input_data)
                 self.df = self._seqrecords_to_dataframe(seqrecords)
 
         # Initialize for Pandas DataFrame
@@ -215,12 +220,6 @@ class sequence:
         # Statistics holder
         if not hasattr(self,'numerical'):
             self.numerical = pd.DataFrame(columns=['type']+list(range(1,self.get_alignment_length()+1)))
-
-        # Cursors
-        import rotifer.db.ncbi as ncbi
-        self.cursors = {
-            'neighborhood': ncbi.GeneNeighborhoodCursor(progress=True, batch_size=4),
-        }
 
     def __len__(self):
         return len(self.df.query('type == "sequence"'))
@@ -717,7 +716,7 @@ class sequence:
                 # Search PDB code in local PDB mirror
                 pdb_file = os.path.join(pdb_dir, pdb_id[1:3].lower(), "pdb"+pdb_id.lower()+".ent.gz")
             else:
-                pdb_file = PDBList(verbose=False).retrieve_pdb_file(pdb_id.lower(), file_format='pdb', pdir=GlobalConfig['cache'])
+                pdb_file = PDBList(verbose=False).retrieve_pdb_file(pdb_id.lower(), file_format='pdb', pdir=rotifer.config['cache'])
         if isinstance(pdb_file,str) and os.path.exists(pdb_file):
             if pdb_file[-3:] == '.gz':
                 import gzip
@@ -741,7 +740,7 @@ class sequence:
         dssp.secstr = dssp.secstr.map(dssp_to_ehc).fillna('-')
         dssp = dssp.query('chain == @chain_id')
         pdb_file.close()
-        if os.path.exists(pdb_file.name) and pdb_file.name[0:len(GlobalConfig['cache'])] == GlobalConfig['cache']:
+        if os.path.exists(pdb_file.name) and pdb_file.name[0:len(rotifer.config['cache'])] == rotifer.config['cache']:
             os.remove(pdb_file.name)
 
         # Search for pdb sequence in the aligment
@@ -1753,7 +1752,7 @@ class sequence:
         """
         import tempfile
         from subprocess import Popen, PIPE, STDOUT
-        from rotifer import GlobalConfig as gc
+        from rotifer import config as gc
         import os
         os.environ["VIMMOVE"] = f'{gc["base"]}/etc/vim/vim-move'
         aln = self.copy()

@@ -41,8 +41,16 @@ class TaxonomyCursor(rotifer.db.core.BaseCursor):
             self.ete3.update_taxonomy_database()
             os.chdir(cwd)
 
-    def getids(self,df):
-        return set(df.taxid.astype(str)).union(taxid.alternative_taxids)
+    def getids(self,obj):
+        if not isinstance(obj,list):
+            obj = [obj]
+        ids = set()
+        for o in obj:
+            if "taxid" in o.columns:
+                ids.update(o.taxid.astype(str))
+            if "alternative_taxids" in o.columns:
+                ids.update(o.alternative_taxids.astype(str))
+        return ids
 
     def __getitem__(self, accessions):
         targets = self.parse_ids(accessions)

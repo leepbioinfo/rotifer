@@ -15,14 +15,14 @@ class DelegatorCursor(rotifer.db.core.BaseCursor):
         self.tries = tries
         self.batch_size = batch_size
         self.threads = threads
-        self.load_cursor_modules()
         self.reset_cursors()
 
-    def load_cursor_modules(self):
+    @property
+    def _cursor_modules(self):
         import inspect
         import importlib
         mymodule = inspect.getmodule(self)
-        self._cursor_modules = dict()
+        cursor_modules = dict()
 
         # Check configuration
         try:
@@ -51,10 +51,12 @@ class DelegatorCursor(rotifer.db.core.BaseCursor):
                 logger.error(error)
                 raise ValueError(error)
             try:
-                self._cursor_modules[module] = importlib.import_module(module_name)
+                cursor_modules[module] = importlib.import_module(module_name)
             except:
                 logger.error(f'Unable to load module {module_name}: %s.', exc_info=1)
                 raise ImportError(f'Unable to load module {module_name}')
+
+        return cursor_modules
 
     def reset_cursors(self):
         myname = str(type(self)).split("'")[1].split(".")[-1]
@@ -63,8 +65,9 @@ class DelegatorCursor(rotifer.db.core.BaseCursor):
         else:
             kwargs = dict()
         self.cursors = dict()
-        for modulename in self._cursor_modules:
-            module = self._cursor_modules[modulename]
+        cursor_modules = self._cursor_modules
+        for modulename in cursor_modules:
+            module = cursor_modules[modulename]
             try:
                 cursorClass = getattr(module,myname)
             except:
