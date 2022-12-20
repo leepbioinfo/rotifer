@@ -32,7 +32,6 @@ from copy import deepcopy
 
 # Import rotifer modules
 import rotifer
-from rotifer import GlobalConfig
 logger = rotifer.logging.getLogger(__name__)
 
 # Load NCBI configuration
@@ -40,30 +39,179 @@ import rotifer.db.core
 import rotifer.db.methods
 import rotifer.db.delegator
 from rotifer.core.functions import loadConfig
-config = loadConfig(
-    __name__.replace("rotifer.",":"),
-    defaults = {
+config = loadConfig(__name__, defaults = {
+        'local_database_path': [ os.path.join(rotifer.config['data'],"fadb","nr","nr") ],
+        "entrez_database": "protein",
         "mirror": os.path.join(os.environ["ROTIFER_DATA"] if 'ROTIFER_DATA' in os.environ else "/databases","genomes"),
         'email': os.environ['USER'] + '@' + socket.gethostname(),
         'ftpserver': 'ftp.ncbi.nlm.nih.gov',
         'api_key': os.environ['NCBI_API_KEY'] if 'NCBI_API_KEY' in os.environ else None,
-        'cursor_methods': {
+        'readers': {
             'entrez': 'rotifer.db.ncbi.entrez',
+            'easel': 'rotifer.db.local.easel',
             'ete3': 'rotifer.db.local.ete3',
             'ftp': 'rotifer.db.ncbi.ftp',
             'mirror': 'rotifer.db.ncbi.mirror',
             'sqlite3': 'rotifer.db.sql.sqlite3',
+        },
+        'writers': {
+            'sqlite3': 'rotifer.db.sql.sqlite3',
         }
-    }
-)
+    })
 NcbiConfig = config # for compatibility but deprecated: to be removed!
 
 # Classes
 
-class GenomeCursor(rotifer.db.methods.GenomeCursor, rotifer.db.delegator.SequentialDelegatorCursor):
+class SequenceCursor(rotifer.db.methods.SequenceCursor, rotifer.db.delegator.SequentialDelegatorCursor):
+    """
+    Fetch sequences from NCBI.
+
+    This class loads and parses sequences in Genbank format, i.e.
+    the most richly annotated format from NCBI.
+
+    Usage
+    -----
+    Fetch a protein sequence
+    >>> from rotifer.db.ncbi import ncbi
+    >>> sc = ncbi.SequenceCursor(database="protein")
+    >>> seqrec = sc.fetchall("YP_009724395.1")
+
+    Fetch several nucleotide entries
+    >>> import sys
+    >>> from Bio import SeqIO
+    >>> from rotifer.db.ncbi import ncbi
+    >>> sc = ncbi.SequenceCursor(database="nucleotide")
+    >>> query = ['CP084314.1', 'NC_019757.1', 'AAHROG010000026.1']
+    >>> for seqrec in sc.fetchone(query):
+    >>>     print(SeqIO.write(seqrec, sys.stdout, "genbank")
+
+    Parameters
+    ----------
+    readers: list of strings, default ['entrez']
+      List of backend reader modules
+    writers: list of strings, default []
+      List of backend writer modules
+    database: string, default 'protein'
+        Valid NCBI sequence database
+    progress: boolean, deafult False
+      Whether to print a progress bar
+    tries: int, default 3
+      Number of attempts to download data
+    sleep_between_tries: int, default 1
+      Number of seconds to wait between download attempts
+    batch_size: int, default 1
+      Number of accessions per batch
+    threads: integer, default 3
+      Number of simultaneous threads to run
+
+    """
     def __init__(
             self,
-            methods=['mirror','ftp'],
+            readers=['entrez'],
+            writers=[],
+            database=config["entrez_database"],
+            progress=True,
+            tries=3,
+            sleep_between_tries=1,
+            batch_size=None,
+            threads=10,
+            *args, **kwargs):
+        self._shared_attributes = ['progress','tries','sleep_between_tries','batch_size','threads','database']
+        self.sleep_between_tries = sleep_between_tries
+        self.database = database
+        super().__init__(readers=readers, writers=writers, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
+
+class FastaCursor(rotifer.db.methods.SequenceCursor, rotifer.db.delegator.SequentialDelegatorCursor):
+    """
+    Fetch sequences from NCBI.
+
+    This class downloads FASTA files, i.e. doesn't include
+    sequence annotations but is made available for fast access
+    to sequence data.
+
+    Usage
+    -----
+    >>> from rotifer.db.ncbi import ncbi
+    >>> sc = ncbi.FastaCursor(database="protein")
+    >>> seqrec = sc.fetchall("YP_009724395.1")
+
+    Parameters
+    ----------
+    readers: list of strings, default ['entrez']
+      List of backend reader modules
+    writers: list of strings, default []
+      List of backend writer modules
+    local_database_path: list of strings
+        Path to local FASTA files indexed by esl-sfetch
+    entrez_database: string, default 'protein'
+        Valid NCBI sequence database
+    progress: boolean, deafult False
+      Whether to print a progress bar
+    tries: int, default 3
+      Number of attempts to download data
+    sleep_between_tries: int, default 1
+      Number of seconds to wait between download attempts
+    batch_size: int, default 1
+      Number of accessions per batch
+    threads: integer, default 3
+      Number of simultaneous threads to run
+
+    """
+    def __init__(
+            self,
+            readers=['entrez','easel'],
+            writers=[],
+            local_database_path=config["local_database_path"],
+            entrez_database=config["entrez_database"],
+            progress=True,
+            tries=3,
+            sleep_between_tries=1,
+            batch_size=None,
+            threads=10,
+            *args, **kwargs):
+        self._shared_attributes = ['progress','tries','sleep_between_tries','batch_size','threads','database','database_path']
+        self.sleep_between_tries = sleep_between_tries
+        self.database_path = local_database_path
+        self.database = entrez_database
+        super().__init__(readers=readers, writers=writers, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
+
+class GenomeCursor(rotifer.db.methods.GenomeCursor, rotifer.db.delegator.SequentialDelegatorCursor):
+    """
+    Fetch annotated genome sequences.
+
+    Usage
+    -----
+    Load a sample of genomes
+
+    >>> q = ['GCA_018744545.1', 'GCA_901308185.1']
+    >>> from rotifer.db.ncbi as ncbi
+    >>> gfc = ncbi.GenomeCursor(progress=True)
+    >>> g = gfc.fetchall(q)
+
+    Parameters
+    ----------
+    readers: list of strings, default ['entrez']
+      List of backend reader modules
+    writers: list of strings, default []
+      List of backend writer modules
+    progress: boolean, deafult False
+      Whether to print a progress bar
+    tries: int, default 3
+      Number of attempts to download data
+    threads: integer, default 15
+      Number of processes to run parallel downloads
+    batch_size: int, default 1
+      Number of accessions per batch
+    basepath: string
+      Path to a local mirror of the NCBI's FTP genome repository
+    cache: path-like string
+      Where to place temporary files
+
+    """
+    def __init__(
+            self,
+            readers=['mirror','ftp'],
+            writers=[],
             progress=True,
             tries=3,
             sleep_between_tries=1,
@@ -71,14 +219,14 @@ class GenomeCursor(rotifer.db.methods.GenomeCursor, rotifer.db.delegator.Sequent
             threads=10,
             timeout=10,
             basepath = config["mirror"],
-            cache=GlobalConfig['cache'],
+            cache=rotifer.config['cache'],
             *args, **kwargs):
         self._shared_attributes = ['progress','tries','sleep_between_tries','batch_size','threads','cache','basepath']
         self.sleep_between_tries = sleep_between_tries
         self.timeout = timeout
         self.basepath = basepath
         self.cache = cache
-        super().__init__(methods=methods, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
+        super().__init__(readers=readers, writers=writers, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
 
 class GenomeFeaturesCursor(rotifer.db.methods.GenomeFeaturesCursor, rotifer.db.delegator.SequentialDelegatorCursor):
     """
@@ -95,6 +243,10 @@ class GenomeFeaturesCursor(rotifer.db.methods.GenomeFeaturesCursor, rotifer.db.d
 
     Parameters
     ----------
+    readers: list of strings, default ['entrez']
+      List of backend reader modules
+    writers: list of strings, default []
+      List of backend writer modules
     exclude_type: list of strings
       List of names for the features that must be ignored
     autopid: boolean
@@ -109,13 +261,16 @@ class GenomeFeaturesCursor(rotifer.db.methods.GenomeFeaturesCursor, rotifer.db.d
       Number of processes to run parallel downloads
     batch_size: int, default 1
       Number of accessions per batch
+    basepath: string
+      Path to a local mirror of the NCBI's FTP genome repository
     cache: path-like string
       Where to place temporary files
 
     """
     def __init__(
             self,
-            methods=['mirror','ftp'],
+            readers=['mirror','ftp'],
+            writers=[],
             exclude_type=['source','gene','mRNA'],
             autopid=False,
             codontable='Bacterial',
@@ -126,14 +281,14 @@ class GenomeFeaturesCursor(rotifer.db.methods.GenomeFeaturesCursor, rotifer.db.d
             threads=15,
             timeout=10,
             basepath = config["mirror"],
-            cache=GlobalConfig['cache'],
+            cache=rotifer.config['cache'],
             *args, **kwargs):
         self._shared_attributes = ['progress','tries','sleep_between_tries','batch_size','threads','cache','basepath']
         self.sleep_between_tries = sleep_between_tries
         self.timeout = timeout
         self.basepath = basepath
         self.cache = cache
-        super().__init__(methods=methods, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
+        super().__init__(readers=readers, writers=writers, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
         self.exclude_type = exclude_type
         self.autopid = autopid
         self.codontable = codontable
@@ -260,7 +415,7 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor):
             tries=3,
             batch_size=None,
             threads=15,
-            cache=GlobalConfig['cache'],
+            cache=rotifer.config['cache'],
             *args, **kwargs
         ):
         from rotifer.db.ncbi import ftp
@@ -457,10 +612,10 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor):
             return seqrecords_to_dataframe([])
 
 class TaxonomyCursor(rotifer.db.delegator.SequentialDelegatorCursor):
-    def __init__(self, methods=['ete3','entrez'], progress=True, tries=3, sleep_between_tries=1, batch_size=None, threads=10, *args, **kwargs):
+    def __init__(self, readers=['ete3','entrez'], writers=[], progress=True, tries=3, sleep_between_tries=1, batch_size=None, threads=10, *args, **kwargs):
         self._shared_attributes = ['progress','tries','sleep_between_tries','batch_size','threads']
         self.sleep_between_tries = sleep_between_tries
-        super().__init__(methods=methods, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
+        super().__init__(readers=readers, writers=writers, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
         self.taxcols = ['taxid','organism','superkingdom','lineage','classification','alternative_taxids']
 
     def getids(self, obj, *args, **kwargs):

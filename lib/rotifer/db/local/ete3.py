@@ -18,11 +18,10 @@ import rotifer.db.core
 from rotifer import GlobalConfig
 from rotifer.taxonomy.utils import lineage
 from rotifer.core.functions import loadConfig
-from rotifer.db.core import SimpleParallelProcessCursor
 logger = rotifer.logging.getLogger(__name__)
 config = loadConfig(__name__, defaults = {
     "taxdump_file": None,
-    })
+})
 
 # Classes
 class TaxonomyCursor(rotifer.db.core.BaseCursor):
@@ -35,6 +34,7 @@ class TaxonomyCursor(rotifer.db.core.BaseCursor):
         """
         Update Ete3 taxonomy database.
         """
+        from tempfile import TemporaryDirectory
         cwd = os.getcwd()
         with TemporaryDirectory() as tmpdir:
             os.chdir(tmpdir)
@@ -42,7 +42,7 @@ class TaxonomyCursor(rotifer.db.core.BaseCursor):
             os.chdir(cwd)
 
     def getids(self,df):
-        return set(df.taxid.astype(str))
+        return set(df.taxid.astype(str)).union(taxid.alternative_taxids)
 
     def __getitem__(self, accessions):
         targets = self.parse_ids(accessions)
@@ -58,6 +58,8 @@ class TaxonomyCursor(rotifer.db.core.BaseCursor):
 
         # Fetch data from database
         tl = self.ete3.get_lineage_translator(targetsAsIntegers.tolist())
+        if len(tl) == 0:
+            return pd.DataFrame(columns=self.taxcols)
         ti = pd.Series(tl.values()).explode().unique()
         ti = self.ete3.get_taxid_translator(ti)
         li = [[x,ti[x],np.NaN,np.NaN,"; ".join([ ti[y] for y in tl[x] if ti[y] not in ["root","cellular organisms"] ]),x] for x in tl ]
@@ -73,7 +75,7 @@ class TaxonomyCursor(rotifer.db.core.BaseCursor):
         # Register missing entries
         missing = targets - self.getids(li)
         if len(missing) > 0:
-            self.missing.update(missing)
+            self.update_missing(missing,"Accession not found in database")
 
         #logger.info(f'Loaded {len(targets.intersection(self.getids(li)))} taxids from Ete3 database')
         return li

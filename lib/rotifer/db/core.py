@@ -1,3 +1,4 @@
+import types
 import typing
 import pandas as pd
 
@@ -26,6 +27,7 @@ class BaseCursor:
         self.progress = progress
         self.__name__ = str(type(self)).split("'")[1]
         self.missing = pd.DataFrame(columns=['error','class','retry'])
+        self.giveup = set()
 
     def parse_ids(self, accessions, as_string=True):
         """
@@ -60,17 +62,25 @@ class BaseCursor:
         targets = set(targets)
         return targets
 
-    def update_missing(self, accessions, error=None, retry=True, *args, **kwargs):
-        if error == None:
-            error = "Unknown error"
+    def update_missing(self, accessions, error=None, retry=None, *args, **kwargs):
+        if isinstance(retry,types.NoneType):
+            retry = True
+            for x in self.giveup:
+                if x in error:
+                    retry = False
+                    break
         err = [error, self.__name__, retry]
-        if not isinstance(accessions,typing.Iterable) or isinstance(accessions,str):
-            accessions = [accessions]
-        for x in accessions:
+        targets = self.parse_ids(accessions)
+        for x in targets:
+            if error == None:
+                if x in self.missing.index:
+                    err[0] = self.missing.loc[x,"error"]
+                else:
+                    err[0] = "Unknown error"
             self.missing.loc[x] = err
 
     def remove_missing(self, accessions):
-        self.missing.drop(self.getids(accessions), axis=0, inplace=True, errors='ignore')
+        self.missing.drop(accessions, axis=0, inplace=True, errors='ignore')
 
     def getids(self, obj):
         """

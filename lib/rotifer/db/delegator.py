@@ -1,4 +1,5 @@
 # External libraries
+import types
 from copy import deepcopy
 
 # Rotifer
@@ -7,9 +8,10 @@ import rotifer
 logger = rotifer.logging.getLogger(__name__)
 
 class DelegatorCursor(rotifer.db.core.BaseCursor):
-    def __init__(self, methods=[], progress=True, tries=3, batch_size=None, threads=10, *args, **kwargs):
+    def __init__(self, readers=[], writers=[], progress=True, tries=3, batch_size=None, threads=10, *args, **kwargs):
         super().__init__(progress=progress, *args, **kwargs)
-        self.methods = methods
+        self.readers = readers
+        self.writers = writers
         self.tries = tries
         self.batch_size = batch_size
         self.threads = threads
@@ -29,18 +31,25 @@ class DelegatorCursor(rotifer.db.core.BaseCursor):
             error = f'Module {mymodule.__name__} has no configuration! Blame the developer!'
             logger.error(error)
             raise ValueError(f'No attribute "config" in module {mymodule.__name__}')
-        if 'cursor_methods' not in myconfig:
-            error = f'Missing dictionary of methods in configuration of module {mymodule.__name__}'
+        if 'readers' not in myconfig:
+            error = f'Missing dictionary of reader modules in configuration of module {mymodule.__name__}'
+            logger.error(error)
+            raise ValueError(error)
+        if 'writers' not in myconfig:
+            error = f'Missing dictionary of writer modules in configuration of module {mymodule.__name__}'
             logger.error(error)
             raise ValueError(error)
 
         # Load modules
-        for module in self.methods:
-            if module not in myconfig['cursor_methods']:
-                error = f'Method {module} not found in {mymodule.__name__}.config["cursor_methods"]'
+        for module in set(self.readers + self.writers):
+            if "readers" in myconfig and module in myconfig['readers']:
+                module_name = myconfig['readers'][module]
+            elif "writers" in myconfig and module in myconfig['writers']:
+                module_name = myconfig['writers'][module]
+            else:
+                error = f'Missing module name "{module}" for writers or readers in {mymodule.__name__}.config'
                 logger.error(error)
                 raise ValueError(error)
-            module_name = myconfig['cursor_methods'][module]
             try:
                 self._cursor_modules[module] = importlib.import_module(module_name)
             except:
@@ -71,8 +80,8 @@ class DelegatorCursor(rotifer.db.core.BaseCursor):
                     cursor.__setattr__(name,value)
 
 class SequentialDelegatorCursor(DelegatorCursor):
-    def __init__(self, methods=[], progress=True, tries=3, batch_size=None, threads=10, *args, **kwargs):
-        super().__init__(methods=methods, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
+    def __init__(self, readers=[], writers=[], progress=True, tries=3, batch_size=None, threads=10, *args, **kwargs):
+        super().__init__(readers=readers, writers=writers, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
 
     def __getitem__(self, accessions, *args, **kwargs):
         """
@@ -102,10 +111,10 @@ class SequentialDelegatorCursor(DelegatorCursor):
         # Call cursors
         data = []
         todo = deepcopy(targets)
-        for i in range(0,len(self.methods)):
+        for i in range(0,len(self.readers)):
             if len(todo) == 0:
                 break
-            cursorName = self.methods[i]
+            cursorName = self.readers[i]
             if cursorName in self.cursors:
                 cursor = self.cursors[cursorName]
             else:
@@ -114,13 +123,15 @@ class SequentialDelegatorCursor(DelegatorCursor):
             found = self.getids(result, *args, **kwargs)
             done = targets.intersection(found)
             for j in range(0,i+1):
-                c = self.methods[j]
+                c = self.readers[j]
                 if c not in self.cursors:
                     continue
                 self.cursors[c].remove_missing(done)
             self.remove_missing(done)
             for missing in cursor.missing.iterrows():
                 self.update_missing(missing[0], *missing[1].drop("class").to_list())
+            if isinstance(result,types.NoneType):
+                continue
             if isinstance(result, list):
                 data.extend(result)
             else:
@@ -147,10 +158,10 @@ class SequentialDelegatorCursor(DelegatorCursor):
 
         # Call cursors
         todo = deepcopy(targets)
-        for i in range(0,len(self.methods)):
+        for i in range(0,len(self.readers)):
             if len(todo) == 0:
                 break
-            cursorName = self.methods[i]
+            cursorName = self.readers[i]
             if cursorName in self.cursors:
                 cursor = self.cursors[cursorName]
             else:
@@ -159,10 +170,14 @@ class SequentialDelegatorCursor(DelegatorCursor):
                 found = self.getids(result, *args, **kwargs)
                 done = todo.intersection(found)
                 for j in range(0,i+1):
-                    c = self.methods[j]
+                    c = self.readers[j]
                     if c not in self.cursors:
                         continue
                     self.cursors[c].remove_missing(done)
+                for j in self.writers:
+                    if j not in self.cursors:
+                        continue
+                    self.cursors[j].insert(result)
                 self.remove_missing(done)
                 for missing in cursor.missing.iterrows():
                     self.update_missing(missing[0], *missing[1].drop("class").to_list())

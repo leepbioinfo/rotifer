@@ -22,7 +22,7 @@ logger = rotifer.logging.getLogger(__name__)
 
 # Defaults
 config = loadConfig(__name__.replace('rotifer.',':'), defaults = {
-    'local_database_path': os.path.join(GlobalConfig['data'],"fadb","nr","nr"),
+    'local_database_path': [ os.path.join(GlobalConfig['data'],"fadb","nr","nr") ],
 })
 
 class FastaCursor(rotifer.db.parallel.SimpleParallelProcessCursor):
@@ -49,7 +49,7 @@ class FastaCursor(rotifer.db.parallel.SimpleParallelProcessCursor):
             batch_size=200,
             threads=int(np.floor(os.cpu_count()/2)),
             *args, **kwargs):
-        super().__init__(progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
+        super().__init__(progress=progress, tries=1, batch_size=batch_size, threads=threads, *args, **kwargs)
         self.executable = "esl-sfetch"
         if isinstance(database_path,str) or not isinstance(database_path,typing.Iterable):
             database_path = [ database_path ]
@@ -81,6 +81,7 @@ class FastaCursor(rotifer.db.parallel.SimpleParallelProcessCursor):
         -------
         A set of strings.
         """
+        import typing
         if isinstance(obj,list) or isinstance(obj,tuple):
             return set([ x.id for x in obj ])
         else:
@@ -94,7 +95,7 @@ class FastaCursor(rotifer.db.parallel.SimpleParallelProcessCursor):
                 break
         return result
 
-    def fetcher(self, accession, db, *args, **kwargs):
+    def fetcher(self, accession, *args, **kwargs):
         """
         Fetch one sequence from the database.
 
@@ -102,19 +103,24 @@ class FastaCursor(rotifer.db.parallel.SimpleParallelProcessCursor):
         -------
         A Bio.SeqRecord object
         """
-        stream = subprocess.run(["esl-sfetch",db,accession], capture_output=True)
-        if stream.stderr:
-            error = f'Esl-sfetch failed: no accession {accession} in database {db}'
-            self.update_missing(accession, error)
-            raise RuntimeError(error)
-        else:
-            stream = stream.stdout.decode()
-            stream = StringIO(stream)
-            return stream
+        targets = self.parse_ids(accession)
+        data = []
+        for acc in targets:
+            for db in self.path:
+                result = subprocess.run(["esl-sfetch", db, acc], capture_output=True)
+                if result.stderr:
+                    self.update_missing(acc, result.stderr.decode())
+                else:
+                    tmp = result.stdout.decode()
+                    data.append(tmp)
+                    break
+        return StringIO("".join(data))
 
     def parser(self, stream, accession, *args, **kwargs):
-        sequence = SeqIO.read(stream,"fasta")
-        sequence = self._clean_description(sequence)
+        sequence = []
+        for seq in SeqIO.parse(stream,"fasta"):
+            seq = self._clean_description(seq)
+            sequence.append(seq)
         stream.close()
         return sequence
 

@@ -62,7 +62,7 @@ class GenomeCursor(rotifer.db.methods.GenomeCursor, rotifer.db.parallel.SimplePa
             threads=15,
             basepath = config["path"],
             *args, **kwargs):
-        super().__init__(progress=progress, tries=tries, batch_size=batch_size, threads=threads)
+        super().__init__(progress=progress, tries=1, batch_size=batch_size, threads=threads)
         self.basepath = basepath
 
     def open_genome(self, accession, assembly_reports=None):
@@ -155,28 +155,24 @@ class GenomeCursor(rotifer.db.methods.GenomeCursor, rotifer.db.parallel.SimplePa
             if os.path.exists(path):
                 ls = os.listdir(path)
             else:
-                logger.debug(f'No directory {path} for {accession}')
-                return ()
+                raise FileNotFoundError(f'No directory {path} for {accession}')
             ls = [ x for x in sorted(ls) if accession in x ]
             if len(ls):
                 ls = ls[-1] # Expected to be the latest version of the target genome
             else:
-                logger.debug(f'Empty directory for {accession} in {path}')
-                return ()
+                raise FileNotFoundError(f'Empty directory for {accession} in {path}')
             path = os.path.join(path,ls)
 
             # Retrieve GBFF path
             try:
                 ls = os.listdir(path)
             except:
-                logger.debug(f'Unable to read directory for {accession} in {path}')
-                return ()
+                raise IOError(f'Unable to read directory for {accession} in {path}')
             ls = [ x for x in sorted(ls) if '.gbff.gz' in x ]
             if len(ls):
                 ls = ls[0] # Only one GBFF is expected
             else:
-                logger.debug(f'No GBFF for {accession} in {path}')
-                return ()
+                raise FileNotFoundError(f'No GBFF for {accession} in {path}')
             path = (path, ls)
 
         return path
@@ -307,17 +303,17 @@ class GenomeFeaturesCursor(rotifer.db.methods.GenomeFeaturesCursor, GenomeCursor
             autopid=False,
             codontable='Bacterial',
             progress=False,
-            tries=3,
+            tries=1,
             batch_size=None,
             threads=15,
             *args, **kwargs
         ):
-        super().__init__(progress=progress, tries=tries, batch_size=batch_size, threads=threads, basepath=basepath, *args, **kwargs)
+        super().__init__(progress=progress, tries=1, batch_size=batch_size, threads=threads, basepath=basepath, *args, **kwargs)
         self.exclude_type = exclude_type
         self.autopid = autopid
         self.codontable = codontable
 
-class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor):
+class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, ncbiftp.GenomeFeaturesCursor):
     """
     Fetch genome annotation as dataframes.
 
@@ -393,9 +389,16 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
             tries=3,
             batch_size=None,
             threads=15,
+            *args, **kwargs
         ):
         super().__init__(
-            basepath = basepath,
+            column = column,
+            before = before,
+            after = after,
+            min_block_distance = min_block_distance,
+            strand = strand,
+            fttype = fttype,
+            eukaryotes = eukaryotes,
             exclude_type = exclude_type,
             autopid = autopid,
             codontable = codontable,
@@ -403,36 +406,18 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
             tries = tries,
             batch_size = batch_size,
             threads = threads,
+            *args, **kwargs
         )
-        self.column = column
-        self.before = before
-        self.after = after
-        self.min_block_distance = min_block_distance
-        self.strand = strand
-        self.fttype = fttype
-        self.eukaryotes = eukaryotes
+        self.basepath = basepath
         self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error",'class'])
 
-    def getids(self, obj):
-        columns = ['pid']
-        if 'replaced' in obj.columns:
-            columns.append('replaced')
-        ids = obj.melt(id_vars=['nucleotide'], value_vars=columns, value_name='id', var_name='type')
-        ids.drop('type', axis=1, inplace=True)
-        ids.set_index('nucleotide', inplace=True)
-        ids.drop_duplicates(inplace=True)
-        return ids.id.tolist()
-
-    def update_missing(self, accessions, assembly, error):
-        err = [False,False,assembly,error,__name__]
-        if "Eukaryotic" in error:
-            err[1] = True
-        if "IPG" in error:
-            err[0] = True
-        if not isinstance(accessions,typing.Iterable) or isinstance(accessions,str):
-            accessions = [accessions]
-        for x in accessions:
-            self.missing.loc[x] = err
+    def assemblies(self, obj):
+        if not isinstance(obj,list):
+            obj = [obj]
+        ids = set()
+        for o in obj:
+            ids.update(o.assembly.unique().tolist())
+        return ids
 
     def __getitem__(self, protein, ipgs=None):
         """
@@ -669,7 +654,7 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor, ncbiftp.GenomeFeaturesCursor)
                     if s[0] in targets:
                         self.missing.loc[s[0]] = s[1]
                 for obj in data['result']:
-                    found = self.getids(obj)
+                    found = self.assemblies(obj)
                     done = genomes.intersection(found)
                     if self.progress and len(done) > 0:
                         p.update(len(done))

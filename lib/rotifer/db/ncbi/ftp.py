@@ -512,7 +512,7 @@ class GenomeFeaturesCursor(rotifer.db.methods.GenomeFeaturesCursor, GenomeCursor
         self.autopid = autopid
         self.codontable = codontable
 
-class GeneNeighborhoodCursor(GenomeFeaturesCursor):
+class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, GenomeFeaturesCursor):
     """
     Fetch genome annotation as dataframes.
 
@@ -589,6 +589,13 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
             *args, **kwargs
         ):
         super().__init__(
+            column = column,
+            before = before,
+            after = after,
+            min_block_distance = min_block_distance,
+            strand = strand,
+            fttype = fttype,
+            eukaryotes = eukaryotes,
             exclude_type = exclude_type,
             autopid = autopid,
             codontable = codontable,
@@ -596,37 +603,10 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
             tries = tries,
             batch_size = batch_size,
             threads = threads,
-            cache = cache,
+            *args, **kwargs
         )
-        self.column = column
-        self.before = before
-        self.after = after
-        self.min_block_distance = min_block_distance
-        self.strand = strand
-        self.fttype = fttype
-        self.eukaryotes = eukaryotes
+        self.cache = cache
         self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error",'class'])
-
-    def getids(self, obj):
-        columns = ['pid']
-        if 'replaced' in obj.columns:
-            columns.append('replaced')
-        ids = obj.melt(id_vars=['nucleotide'], value_vars=columns, value_name='id', var_name='type')
-        ids.drop('type', axis=1, inplace=True)
-        ids.set_index('nucleotide', inplace=True)
-        ids.drop_duplicates(inplace=True)
-        return ids.id.tolist()
-
-    def update_missing(self, accessions, assembly, error):
-        err = [False,False,assembly,error,__name__]
-        if "Eukaryotic" in error:
-            err[1] = True
-        if "IPG" in error:
-            err[0] = True
-        if not isinstance(accessions,typing.Iterable) or isinstance(accessions,str):
-            accessions = [accessions]
-        for x in accessions:
-            self.missing.loc[x] = err
 
     def __getitem__(self, protein, ipgs=None):
         """
@@ -770,6 +750,14 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
         batch = [ batch[x:x+size] for x in range(0,len(batch),size) ]
         return batch
 
+    def assemblies(self, obj):
+        if not isinstance(obj,list):
+            obj = [obj]
+        ids = set()
+        for o in obj:
+            ids.update(o.assembly.unique().tolist())
+        return ids
+
     def fetchone(self, accessions, ipgs=None):
         """
         Asynchronously fetch gene neighborhoods from NCBI.
@@ -859,9 +847,9 @@ class GeneNeighborhoodCursor(GenomeFeaturesCursor):
                 data = x.result()
                 for s in data['missing'].iterrows():
                     if s[0] in targets:
-                        self.missing.loc[s[0]] = s[1]
+                        self.missing.loc[s[0]] = s[1].to_list()
                 for obj in data['result']:
-                    found = self.getids(obj)
+                    found = self.assemblies(obj)
                     done = genomes.intersection(found)
                     if self.progress and len(done) > 0:
                         p.update(len(done))

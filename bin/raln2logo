@@ -1,4 +1,4 @@
-#!/home/linuxbrew/anaconda3/bin/Rscript --vanilla
+#!/usr/bin/env Rscript
 
 
 # check if a lib exist before call it and install if not exist

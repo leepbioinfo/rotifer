@@ -50,16 +50,19 @@ class SimpleParallelProcessCursor(rotifer.db.core.BaseCursor):
         for attempt in range(0,self.tries):
             try:
                 stream = self.fetcher(targets, *args, **kwargs)
-            except RuntimeError:
-                error = f'{sys.exc_info()[1]}'
-                if logger.getEffectiveLevel() <= rotifer.logging.DEBUG:
-                    logger.exception(error)
-                continue
             except:
                 error = f'{sys.exc_info()[1]}'
                 if logger.getEffectiveLevel() <= rotifer.logging.DEBUG:
                     logger.exception(error)
-                continue
+                giveup = False
+                for substr in self.giveup:
+                    if substr in error:
+                        giveup = True
+                        break
+                if giveup:
+                    break
+                else:
+                    continue
 
             if isinstance(stream,types.NoneType):
                 error = f"Empty stream for accession(s) {accession}"
@@ -73,19 +76,27 @@ class SimpleParallelProcessCursor(rotifer.db.core.BaseCursor):
                 error = f'{sys.exc_info()[1]}'
                 if logger.getEffectiveLevel() <= rotifer.logging.DEBUG:
                     logger.exception(f"Parser failed for {accession}")
-                continue
+                giveup = False
+                for substr in self.giveup:
+                    if substr in error:
+                        giveup = True
+                        break
+                if giveup:
+                    break
+                else:
+                    continue
 
         # Search for missing accessions
         found = set()
         if isinstance(obj,types.NoneType) or len(obj) == 0:
-            self.update_missing(targets, error)
+            self.update_missing(targets, error or "Empty object returned")
         else:
             found = self.getids(obj)
         if found:
             self.remove_missing(found)
         missing = targets - found
         if missing:
-            self.update_missing(missing, error)
+            self.update_missing(missing, error or f'Not found.')
 
         return obj
 
@@ -188,8 +199,10 @@ class SimpleParallelProcessCursor(rotifer.db.core.BaseCursor):
                 data = x.result()
                 for s in data['missing'].iterrows():
                     if s[0] in targets and s[0] not in completed:
-                        self.missing.loc[s[0]] = s[1]
+                        self.missing.loc[s[0]] = s[1].to_list()
                 result = data['result']
+                if isinstance(result,types.NoneType):
+                    continue
                 if not isinstance(result,list):
                     result = [result]
                 for obj in result:

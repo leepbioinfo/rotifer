@@ -78,4 +78,5 @@ def _setup_base_config(logger):
 
 # Setup configuration
 logger = _logger()
-GlobalConfig = _setup_base_config(logger)
+config = _setup_base_config(logger)
+GlobalConfig = config
