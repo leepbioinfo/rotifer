@@ -26,8 +26,9 @@ class BaseCursor:
     def __init__(self, progress=False, *args, **kwargs):
         self.progress = progress
         self.__name__ = str(type(self)).split("'")[1]
-        self.missing = pd.DataFrame(columns=['error','class','retry'])
-        self.giveup = set()
+        self._missing = dict()
+        self.giveup = set() # List of errors that will prevent further attempts to use failed accessions
+        self.maxgetitem = 1 # Maximum number of arguments accepted by __getitem__()
 
     def parse_ids(self, accessions, as_string=True):
         """
@@ -62,25 +63,47 @@ class BaseCursor:
         targets = set(targets)
         return targets
 
-    def update_missing(self, accessions, error=None, retry=None, *args, **kwargs):
-        if isinstance(retry,types.NoneType):
-            retry = True
-            for x in self.giveup:
-                if x in error:
-                    retry = False
-                    break
-        err = [error, self.__name__, retry]
-        targets = self.parse_ids(accessions)
-        for x in targets:
-            if error == None:
-                if x in self.missing.index:
-                    err[0] = self.missing.loc[x,"error"]
-                else:
-                    err[0] = "Unknown error"
-            self.missing.loc[x] = err
+    @property
+    def missing(self):
+        return pd.DataFrame(self._missing, index="error class retry".split(" ")).T
 
-    def remove_missing(self, accessions):
-        self.missing.drop(accessions, axis=0, inplace=True, errors='ignore')
+    def update_missing(self, accessions=[], error=None, retry=None, data=None, *args, **kwargs):
+        if isinstance(data, types.NoneType):
+            if isinstance(retry,types.NoneType):
+                retry = True
+                if not isinstance(error,types.NoneType):
+                    for x in self.giveup:
+                        if x in error:
+                            retry = False
+                            break
+            err = [error, self.__name__, retry]
+            targets = self.parse_ids(accessions)
+            for x in targets:
+                if error == None:
+                    if x in self._missing:
+                        err[0] = self._missing[x][0]
+                    else:
+                        err[0] = "Unknown error"
+                self._missing[x] = err
+        else:
+            self._missing.update(data)
+
+    def remove_missing(self, accessions=None):
+        """
+        Unregister missing accessions.
+
+        Parameters
+        ----------
+        accessions: list of strings or None
+          If set to None, all entries in the cache will be removed
+        """
+        if accessions == None:
+            old = self._missing.copy()
+            self._missing = dict()
+            return old
+        else:
+            for k in accessions:
+                self._missing.pop(k, None)
 
     def getids(self, obj):
         """
@@ -164,7 +187,11 @@ class BaseGeneNeighborhoodCursor(BaseCursor):
         self.tries = tries
         self.batch_size = batch_size
         self.threads = threads
-        self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error",'class'])
+        self._missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error",'class'])
+
+    @property
+    def missing(self):
+        return self._missing
 
     def update_missing(self, accessions, assembly, error):
         err = [False,False,assembly,error,str(type(self)).split("'")[1]]
@@ -175,7 +202,7 @@ class BaseGeneNeighborhoodCursor(BaseCursor):
         if not isinstance(accessions,typing.Iterable) or isinstance(accessions,str):
             accessions = [accessions]
         for x in accessions:
-            self.missing.loc[x] = err
+            self._missing.loc[x] = err
 
     def getids(self, obj, ipgs=None):
         import types

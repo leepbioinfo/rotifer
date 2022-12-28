@@ -159,7 +159,7 @@ class FastaCursor(rotifer.db.methods.SequenceCursor, rotifer.db.delegator.Sequen
     """
     def __init__(
             self,
-            readers=['entrez','easel'],
+            readers=['easel','entrez'],
             writers=[],
             local_database_path=config["local_database_path"],
             entrez_database=config["entrez_database"],
@@ -457,7 +457,11 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor):
         self.batch_size = batch_size
         self.threads = threads
         self.cache = cache
-        self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error",'class'])
+        self._missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error",'class'])
+
+    @property
+    def missing(self):
+        return self._missing
 
     def __setattr__(self, name, value):
         super().__setattr__(name, value)

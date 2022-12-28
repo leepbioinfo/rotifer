@@ -512,6 +512,57 @@ class GenomeFeaturesCursor(rotifer.db.methods.GenomeFeaturesCursor, GenomeCursor
         self.autopid = autopid
         self.codontable = codontable
 
+class ProteomeCursor(rotifer.db.methods.ProteomeCursor, GenomeCursor):
+    """
+    Fetch genome annotation as dataframes.
+
+    Usage
+    -----
+    Load a random sample of genomes
+
+    >>> g = ['GCA_018744545.1', 'GCA_901308185.1']
+    >>> from rotifer.db.ncbi import ftp
+    >>> gfc = ftp.GenomeFeaturesCursor(g)
+    >>> df = gfc.fetchall()
+
+    Parameters
+    ----------
+    exclude_type: list of strings
+      List of names for the features that must be ignored
+    autopid: boolean
+      Automatically set protein identifiers
+    codontable: string por int, default 'Bacterial'
+      Default codon table, if not set within the data
+    progress: boolean, deafult False
+      Whether to print a progress bar
+    tries: int, default 3
+      Number of attempts to download data
+    threads: integer, default 15
+      Number of processes to run parallel downloads
+    batch_size: int, default 1
+      Number of accessions per batch
+    cache: path-like string
+      Where to place temporary files
+
+    """
+    def __init__(
+            self,
+            exclude_type=['source','gene','mRNA'],
+            autopid=False,
+            codontable='Bacterial',
+            progress=True,
+            tries=3,
+            batch_size=None,
+            threads=15,
+            timeout=10,
+            cache=GlobalConfig['cache'],
+            *args, **kwargs
+        ):
+        super().__init__(progress=progress, tries=tries, batch_size=batch_size, threads=threads, timeout=timeout, cache=cache, *args, **kwargs)
+        self.exclude_type = exclude_type
+        self.autopid = autopid
+        self.codontable = codontable
+
 class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, GenomeFeaturesCursor):
     """
     Fetch genome annotation as dataframes.
@@ -565,6 +616,9 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, GenomeF
       Number of processes to run parallel downloads
     batch_size: int, default 1
       Number of accessions per batch
+    timeout: integer
+      Maximum amount of time, in seconds, to wait 
+      for a connection to the server
     cache: path-like string
       Where to place temporary files
 
@@ -585,6 +639,7 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, GenomeF
             tries=3,
             batch_size=None,
             threads=15,
+            timeout=10,
             cache=GlobalConfig['cache'],
             *args, **kwargs
         ):
@@ -605,8 +660,9 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, GenomeF
             threads = threads,
             *args, **kwargs
         )
+        self.timeout = timeout
         self.cache = cache
-        self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error",'class'])
+        #self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error",'class'])
 
     def __getitem__(self, protein, ipgs=None):
         """

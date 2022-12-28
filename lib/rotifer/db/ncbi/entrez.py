@@ -22,7 +22,11 @@ from rotifer.core.functions import loadConfig
 from rotifer.genome.utils import seqrecords_to_dataframe
 logger = rotifer.logging.getLogger(__name__)
 
-# Classes
+# Configuration
+config = loadConfig(__name__, defaults = {
+        'batch_size': NcbiConfig['batch_size'] if 'batch_size' in NcbiConfig else 20,
+        "maxgetitem": 200,
+    })
 
 class SequenceCursor(rotifer.db.methods.SequenceCursor, rotifer.db.parallel.SimpleParallelProcessCursor):
     """
@@ -69,13 +73,14 @@ class SequenceCursor(rotifer.db.methods.SequenceCursor, rotifer.db.parallel.Simp
             progress=True,
             tries=3,
             sleep_between_tries=1,
-            batch_size=None,
+            batch_size=config['batch_size'],
             threads=10,
             *args, **kwargs):
         super().__init__(progress=progress, *args, **kwargs)
-        self.database = database
+        self.maxgetitem = config['maxgetitem']
         self._tries = tries
         self.tries = 1
+        self.database = database
         self.sleep_between_tries = sleep_between_tries
         self.batch_size = batch_size
         self.threads = threads or 10
@@ -114,28 +119,6 @@ class SequenceCursor(rotifer.db.methods.SequenceCursor, rotifer.db.parallel.Simp
                 sleep_between_tries=self.sleep_between_tries,
         )
 
-    def worker(self,accessions):
-        """
-        Fetch several accessions.
-
-        Notes
-        -----
-        * This method is executed in the main thread
-
-        Returns
-        -------
-        A list of Bio.SeqRecord objects
-        """
-        targets = list(self.parse_ids(accessions))
-        stack = []
-        for chunk in [ targets[x:x+200] for x in range(0,len(targets),200) ]:
-            obj = self.__getitem__(chunk)
-            if isinstance(obj, list):
-                stack.extend(obj)
-            else:
-                stack.append(obj)
-        return {"result":stack,"missing":self.missing}
-
     def __getitem__(self, accession):
         """
         Run EFetch to download NCBI data.
@@ -154,6 +137,7 @@ class SequenceCursor(rotifer.db.methods.SequenceCursor, rotifer.db.parallel.Simp
         objlist = []
         batch = [",".join(targets)]
         for attempt in range(0,2):
+            #logger.debug(f'Process {os.getpid()}, Attempt: {attempt}, processing {len(targets)} accessions by sending {len(batch)} strings') 
             for accs in batch:
                 result = super().__getitem__(accs)
                 if isinstance(result, types.NoneType):
@@ -162,7 +146,7 @@ class SequenceCursor(rotifer.db.methods.SequenceCursor, rotifer.db.parallel.Simp
                     objlist.extend(result)
                 else:
                     objlist.append(result)
-            batch = self.missing.query('retry == True').index.tolist()
+            batch = [ k for k, v in self._missing.items() if v[-1] == True ]
             if len(batch) == 0:
                 break
         if len(targets) == 1 and len(objlist) == 1:
@@ -170,13 +154,13 @@ class SequenceCursor(rotifer.db.methods.SequenceCursor, rotifer.db.parallel.Simp
         return objlist
 
 class FastaCursor(SequenceCursor):
-    def __init__(self, database="protein", progress=True, tries=3, sleep_between_tries=1, batch_size=None, threads=10, *args, **kwargs):
+    def __init__(self, database="protein", progress=True, tries=3, sleep_between_tries=1, batch_size=config['batch_size'], threads=10, *args, **kwargs):
         super().__init__(database=database, progress=progress, tries=tries, sleep_between_tries=sleep_between_tries, batch_size=batch_size, threads=threads, *args, **kwargs)
         self._rettype = "fasta"
         self._format = 'fasta'
 
 class IPGCursor(SequenceCursor):
-    def __init__(self, progress=True, tries=3, sleep_between_tries=1, batch_size=None, threads=10):
+    def __init__(self, progress=True, tries=3, sleep_between_tries=1, batch_size=config['batch_size'], threads=10):
         super().__init__(database="ipg", progress=progress, tries=tries, sleep_between_tries=sleep_between_tries, batch_size=batch_size, threads=threads)
         self._rettype = "ipg"
         self._columns = ['id','ipg_source','nucleotide','start','stop','strand','pid','description','ipg_organism','strain','assembly']
@@ -292,7 +276,7 @@ class IPGCursor(SequenceCursor):
         return df
 
 class TaxonomyCursor(SequenceCursor):
-    def __init__(self, progress=True, tries=3, sleep_between_tries=1, batch_size=None, threads=10):
+    def __init__(self, progress=True, tries=3, sleep_between_tries=1, batch_size=config['batch_size'], threads=10):
         super().__init__(database="taxonomy",progress=progress,tries=tries,sleep_between_tries=sleep_between_tries,batch_size=batch_size,threads=threads)
         self._rettype = "full"
         self._retmode = 'xml'
@@ -345,7 +329,7 @@ class NucleotideFeaturesCursor(SequenceCursor):
             progress = True,
             tries = 3,
             sleep_between_tries=1,
-            batch_size = None,
+            batch_size = config['batch_size'],
             threads = 10
         ):
         super().__init__(
@@ -452,7 +436,7 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
             progress = True,
             tries = 3,
             sleep_between_tries = 1,
-            batch_size = None,
+            batch_size = config['batch_size'],
             threads = 15,
         ):
         super().__init__(
@@ -472,7 +456,11 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
         self.strand = strand
         self.fttype = fttype
         self.eukaryotes = eukaryotes
-        self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error","class"])
+        self._missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error","class"])
+
+    @property
+    def missing(self):
+        return self._missing
 
     def getids(self, obj, *args, **kwargs):
         columns = ['pid']

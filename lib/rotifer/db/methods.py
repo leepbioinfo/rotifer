@@ -123,3 +123,134 @@ class GenomeFeaturesCursor(GenomeCursor):
             return pd.concat(stack, ignore_index=True)
         else:
             return seqrecords_to_dataframe([])
+
+class ProteomeCursor(GenomeCursor):
+    def proteins(self, seqrecords):
+        for seqrecord in seqrecords:
+            # Extract data for each feature
+            feature_order = {}
+            internal_id = 0
+            seqrecord.features.sort(key=lambda x: (x.location.start, x.location.end))
+            for ft in seqrecord.features:
+                qualifiers = ft.qualifiers
+
+                # Feature type
+                feature_type = ft.type
+
+                # Pseudogenes
+                if feature_type not in feature_order:
+                    feature_order[feature_type] = 0
+                if feature_type == 'pseudogene':
+                    feature_type = 'PSE'
+                    if 'PSE' not in feature_order:
+                        feature_order['PSE'] = 0
+                if exclude_type and feature_type in exclude_type:
+                    continue
+
+                # PID
+                locus = qualifiers['locus_tag'][0] if 'locus_tag' in qualifiers else seqrecord.id + f'.{internal_id:0{digits}}'
+                plen = sum([ len(x) for x in ft.location.parts ])
+                pid = np.NaN
+                if feature_type == 'CDS':
+                    if 'pseudo' in qualifiers:
+                        feature_type = 'PSE'
+                        if 'PSE' not in feature_order:
+                            feature_order['PSE'] = 0
+                    else:
+                        if 'translation' in qualifiers:
+                            plen = len(qualifiers['translation'][0])
+                        else:
+                            selectedTable = codontable
+                            if 'transl_table' in qualifiers:
+                                selectedTable = int(qualifiers['transl_table'][0])
+                            try:
+                                plen = len(ft.translate(seqrecord, table=selectedTable, cds=False, to_stop=True))
+                            except:
+                                feature_type = 'PSE'
+                                if 'PSE' not in feature_order:
+                                    feature_order['PSE'] = 0
+                    if feature_type == 'CDS':
+                        if 'protein_id' in qualifiers:
+                            pid = qualifiers['protein_id'][0]
+                        elif autopid == 'auto':
+                            pid = f'{locus}.p{feature_order["CDS"]:0{digits}}'
+                        elif autopid == 'copy':
+                            pid = locus
+
+                # Other feature attributes
+                gene = qualifiers['gene'][0] if 'gene' in qualifiers else np.NaN
+                product = np.NaN
+                for tag in ['product','inference']:
+                    if tag in qualifiers:
+                        product = qualifiers[tag][0]
+                        break
+
+                # Strand
+                try:
+                    strand = int(ft.location.strand)
+                except:
+                    strand = 1
+
+                # Feature location: check if multiple locations imply running through the origin
+                origin = 0
+                location = []
+                for l in ft.location.parts:
+                    start = l.start+1
+                    end = int(l.end)
+                    if location:
+                        if ((end - location[-1][1]) * strand) <= 0:
+                            if end == nlen and location[-1][0] == 1:
+                                location.insert(-1,[start,end])
+                            else:
+                                location.append([start,end])
+                            origin = 1
+                        else:
+                            location[-1][0] = min(location[-1][0],start)
+                            location[-1][1] = max(location[-1][1],end)
+                    else:
+                        location.append([start,end])
+
+                # Store each location
+                for l in location:
+                    data.append({
+                        'nucleotide': seqrecord.id,
+                        'start': l[0],
+                        'end': l[1],
+                        'strand': strand,
+                        'nlen': nlen,
+                        'block_id': seqrecord.id,
+                        'query':0,
+                        'pid': pid,
+                        'type': feature_type,
+                        'plen': plen,
+                        'locus': locus,
+                        'seq_type': seq_type,
+                        'assembly': assemblyID,
+                        'gene':gene,
+                        'origin':origin,
+                        'topology': topology,
+                        'product': product,
+                        'taxid': taxid,
+                        'organism': organism,
+                        'lineage':pd.NA,
+                        'classification': taxonomy,
+                        'feature_order':feature_order[feature_type],
+                        'internal_id':internal_id,
+                        'is_fragment':0})
+                    internal_id += 1
+
+                # Increment feature counters
+                feature_order[feature_type] += 1
+
+    def parser(self, stream, accession):
+        from Bio import SeqIO
+        stack = []
+        for fh in stream:
+            if isinstance(fh,types.NoneType):
+                continue
+            for s in SeqIO.parse(fh,"genbank"):
+                setattr(s,"assembly",fh.assembly)
+                stack.extend(self.proteins(s))
+            fh.close()
+        return stack
+

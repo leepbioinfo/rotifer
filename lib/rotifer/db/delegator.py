@@ -131,8 +131,7 @@ class SequentialDelegatorCursor(DelegatorCursor):
                     continue
                 self.cursors[c].remove_missing(done)
             self.remove_missing(done)
-            for missing in cursor.missing.iterrows():
-                self.update_missing(missing[0], *missing[1].drop("class").to_list())
+            self.update_missing(data=cursor._missing)
             if isinstance(result,types.NoneType):
                 continue
             if isinstance(result, list):
@@ -182,8 +181,7 @@ class SequentialDelegatorCursor(DelegatorCursor):
                         continue
                     self.cursors[j].insert(result)
                 self.remove_missing(done)
-                for missing in cursor.missing.iterrows():
-                    self.update_missing(missing[0], *missing[1].drop("class").to_list())
+                self.update_missing(data=cursor._missing)
                 todo = todo - done
                 yield result
 
