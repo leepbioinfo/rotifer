@@ -85,7 +85,7 @@ class NeighborhoodDF(pd.DataFrame):
         stack = []
         for datum in data:
             # Prepare input
-            if type(datum) != pd.DataFrame:
+            if not isinstance(datum, pd.DataFrame):
                 datum = pd.DataFrame(datum, *args, **kwargs)
             else:
                 datum = datum.copy()
