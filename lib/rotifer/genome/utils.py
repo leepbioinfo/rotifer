@@ -106,9 +106,10 @@ def seqrecords_to_dataframe(seqrecs=None, exclude_type=[], autopid=False, assemb
 
         # Extract data for each feature
         feature_order = {}
-        internal_id = 0
+        internal_id = -1
         seqrecord.features.sort(key=lambda x: (x.location.start, x.location.end))
         for ft in seqrecord.features:
+            internal_id += 1 # Internal ID depends solely on the features annotated in the data source
             qualifiers = ft.qualifiers
 
             # Feature type
@@ -214,7 +215,6 @@ def seqrecords_to_dataframe(seqrecs=None, exclude_type=[], autopid=False, assemb
                     'feature_order':feature_order[feature_type],
                     'internal_id':internal_id,
                     'is_fragment':0})
-                internal_id += 1
 
             # Increment feature counters
             feature_order[feature_type] += 1

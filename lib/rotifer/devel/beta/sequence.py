@@ -19,6 +19,14 @@ config = loadConfig(
         'databases': ['pdb70','pfam'],
         'databases_path': os.path.join(os.environ['ROTIFER_DATA'] if 'ROTIFER_DATA' in os.environ else '/databases',"hhsuite"),
         'local_database_path': [ os.path.join(rotifer.config['data'],"fadb","nr","nr") ],
+        'cursor_args': {
+            'neighborhood': {
+                'batch_size': 4
+            },
+            'fasta': {
+                'batch_size': 20,
+            },
+        },
     })
 
 class sequence:
@@ -112,16 +120,30 @@ class sequence:
     >>> aln = sequence(">Seq1\nACFH--GHT\n>Seq2\nACFW--GHS\n")
     >>> aln.add_consensus().view()
     """
-    def __init__(self, input_data=None, input_format='fasta', name=None, local_database_path=config['local_database_path']):
+    def __init__(self,
+            input_data=None,
+            input_format='fasta',
+            name=None,
+            local_database_path=config['local_database_path'],
+            cursor_args=config['cursor_args'].copy(),
+            *args, **kwargs):
         from io import IOBase
         self._reserved_columns = ['id','sequence','length','type']
         self.input_format = input_format
         self.name = name
         if not isinstance(local_database_path,list):
             local_database_path = [ local_database_path ]
+        if ('neighborhood' not in cursor_args):
+                cursor_args['neighborhood'] = config['cursor_args']['neighborhood'].copy()
+        if ('fasta' not in cursor_args):
+            if ('fasta' in config['cursor_args']):
+                cursor_args['fasta'] = config['cursor_args']['fasta'].copy()
+            else:
+                cursor_args['fasta'] = dict()
+        cursor_args['fasta']['local_database_path'] = local_database_path
         self.cursors = {
-            'neighborhood': ncbi.GeneNeighborhoodCursor(batch_size=4),
-            'fasta': ncbi.FastaCursor(local_database_path=local_database_path),
+            'neighborhood': ncbi.GeneNeighborhoodCursor(**cursor_args['neighborhood']),
+            'fasta': ncbi.FastaCursor(**cursor_args['fasta']),
         }
 
         # Generate empty object
