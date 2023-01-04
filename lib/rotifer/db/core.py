@@ -67,6 +67,9 @@ class BaseCursor:
     def missing(self):
         return pd.DataFrame(self._missing, index="error class retry".split(" ")).T
 
+    def missing_ids(self):
+        return set(sorted(list(self._missing.keys())))
+
     def update_missing(self, accessions=[], error=None, retry=None, data=None, *args, **kwargs):
         if isinstance(data, types.NoneType):
             if isinstance(retry,types.NoneType):

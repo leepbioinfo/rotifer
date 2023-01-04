@@ -548,8 +548,9 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor):
             ic = entrez.IPGCursor(progress=self.progress, tries=self.tries, threads=self.threads)
             ipgs = ic.fetchall(list(todo))
             if len(ic.missing):
-                self.update_missing(ic.missing, np.nan, "No IPGs")
-                todo -= ic.missing
+                missing = self.missing_ids()
+                self.update_missing(missing, np.nan, "No IPGs")
+                todo -= missing
 
         # Select IPGs corresponding to our queries
         ipgs = ipgs[ipgs.id.isin(ipgs[ipgs.pid.isin(todo) | ipgs.representative.isin(todo)].id)]

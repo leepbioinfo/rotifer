@@ -41,7 +41,6 @@ _column_dict = OrderedDict({
 })
 
 class NeighborhoodDF(pd.DataFrame):
-    # mandatory columns????
     _metadata = ['filterby','NDFProperties']
     NDFProperties = {
         "columns": list(_column_dict.keys()),
