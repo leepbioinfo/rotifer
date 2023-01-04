@@ -101,7 +101,7 @@ class FastaCursor(rotifer.db.parallel.SimpleParallelProcessCursor):
                 objlist.extend(result)
             else:
                 objlist.append(result)
-            todo = todo.intersection(self._missing.keys())
+            todo = todo.intersection(self.missing_ids())
             if not todo:
                 break
         if len(targets) == 1 and len(objlist) == 1:
