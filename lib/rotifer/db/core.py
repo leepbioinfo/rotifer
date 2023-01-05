@@ -196,6 +196,9 @@ class BaseGeneNeighborhoodCursor(BaseCursor):
     def missing(self):
         return self._missing
 
+    def missing_ids(self):
+        return set(self._missing.index)
+
     def update_missing(self, accessions, assembly, error):
         err = [False,False,assembly,error,str(type(self)).split("'")[1]]
         if "Eukaryotic" in error:
