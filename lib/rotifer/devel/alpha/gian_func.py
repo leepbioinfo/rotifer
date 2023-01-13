@@ -567,7 +567,8 @@ def annotate_seqobj(seqobj,
 
 def psiblast(acc,
              db='nr.50',
-             cpu=96):
+             cpu=96,
+             aln=True):
     '''
     Psiblast it can accept sequence object. 
     '''
@@ -602,14 +603,20 @@ def psiblast(acc,
         # temporary save fasta sequence file
         if isinstance (acc, sequence):
             acc.to_file(f'{tmpdirname}/seqfile') 
-            Popen(f'splishpsi -a {cpu} -in_msa {tmpdirname}/seqfile -d {db} > {tmpdirname}/out',
-                  stdout=PIPE,
-                  shell=True
-                  ).communicate()
+            if aln:
+                Popen(f'splishpsi -a {cpu} -in_msa {tmpdirname}/seqfile -d {db} > {tmpdirname}/out',
+                      stdout=PIPE,
+                      shell=True
+                      ).communicate()
+            else:
+                Popen(f'splishpsi -a {cpu} -i {tmpdirname}/seqfile -d {db} > {tmpdirname}/out',
+                      stdout=PIPE,
+                      shell=True
+                      ).communicate()
             Popen(f'blast2table {tmpdirname}/out > {tmpdirname}/out.tsv',
                   stdout=PIPE,
                   shell=True).communicate()
-            t = pd.read_csv(f'{tmpdirname}/out.tsv', sep='\t', names=cols)
+            t = pd.read_csv(f'{tmpdirname}/out.tsv', sep="\t", names=cols)
             with open(f'{tmpdirname}/out') as f:
                     blast_r = f.read()
         
@@ -746,3 +753,45 @@ def alnxaln(seqobj, clustercol = 'c50i0', minseq=10):
         with open('./allhhr.txt', 'r') as f : allhhr = f.read()        
     os.chdir(path)
     return (result_table, allhhr, alndict) 
+
+
+
+def split_by_model(seqobj, model):
+    '''
+    Using a hmm model to split your sequence object to match only the model region.
+    If more than one match in one protein, it will split the match in two sequence.
+    '''
+
+    import tempfile
+    import subprocess
+    from subprocess import Popen, PIPE, STDOUT
+    from rotifer.devel.beta.sequence import sequence as sequence
+    import os
+    import pandas as pd
+    
+    nseqobj =seqobj.copy()
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        seqobj.to_file(f'{tmpdirname}/seqfile') 
+        Popen(f'hmmsearch {model} {tmpdirname}/seqfile > {tmpdirname}/hhsearch_r',
+              stdout=PIPE,
+              shell=True).communicate()
+        Popen(f'hmmer2table {tmpdirname}/hhsearch_r |domain2architecture |architecture2table > {tmpdirname}/hhsearch_table',
+              stdout=PIPE,
+              shell=True).communicate()
+        t = pd.read_csv(f'{tmpdirname}/hhsearch_table', sep="\t")
+
+    nseqobj.df = nseqobj.df.merge(t.rename({'ID':'id'},axis=1), how='left')
+    nseqobj.df.end = nseqobj.df.end.fillna(nseqobj.df.length)
+    nseqobj.df.start = nseqobj.df.start.fillna(1)
+    nseqobj.df.sequence = nseqobj.df.apply(lambda x: x.sequence[int(x.start):int(x.end)], axis=1)
+    return (nseqobj)
+
+def remove_redundancy(seqobj, identity =80, coverage = 70):
+    from rotifer.devel.beta.sequence import sequence as sequence
+    import pandas as pd
+    s = seqobj.copy()
+    s.add_cluster(coverage=coverage, identity=identity, inplace=True)
+    s = s.filter(keep=s.df[f'c{coverage}i{identity}'].drop_duplicates().to_list())
+    return(s)
+
+
