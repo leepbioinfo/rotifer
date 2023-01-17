@@ -469,7 +469,7 @@ def hhr_to_aln(seqobj, hhr, database=False):
     return hhr_nolr
 
 
-def add_arch_to_df(df):
+def add_arch_to_df(df, full=True):
     '''
     Add architecture and clusters info to a neighborhood df
     '''
@@ -491,8 +491,13 @@ def add_arch_to_df(df):
 
         os.chdir(tmpdirname)
         os.makedirs('tmpd')
+        if full:
+            script = 'scanseqs.nih.sh'
+        else:
+            script = 'scanseqs.short.nih.sh' 
+
         Popen(
-                '/home/nicastrogg/bin/scanseqs.nih.sh tmp seqfile',
+                f'/home/nicastrogg/bin/{script} tmp seqfile',
                 stdout=PIPE,
                 shell=True
                 ).communicate()
@@ -523,15 +528,16 @@ def add_arch_to_df(df):
                     skiprows=[0]
                     ),
                 how="left")
-        info = info.merge(
-                pd.read_csv(
-                    'tmp.query.pfam.rps.arch',
-                    sep='\t',
-                    names=['c100i100', 'pfam'],
-                    usecols=[0, 1],
-                    skiprows=[0]
-                    ),
-                how="left")
+        if full:
+            info = info.merge(
+                    pd.read_csv(
+                        'tmp.query.pfam.rps.arch',
+                        sep='\t',
+                        names=['c100i100', 'pfam'],
+                        usecols=[0, 1],
+                        skiprows=[0]
+                        ),
+                    how="left")
         df = df.merge(info, how='left')
         os.chdir(cwd)
 
@@ -540,7 +546,8 @@ def add_arch_to_df(df):
 
 def annotate_seqobj(seqobj,
                     df,
-                    cnt='profiledb'
+                    cnt='profiledb',
+                    full=True
                     ):
     '''
     Add annotation to seqobject tax,clusters,compact_neighborhood
@@ -551,14 +558,21 @@ def annotate_seqobj(seqobj,
     cn = df[
             df.block_id.isin(df.query('pid in @accs').block_id)
             ].compact_neighborhood(cnt)
-    seqobj.df = seqobj.df.merge(df.query('pid in @accs')[
-        ['pid',
+    if full:
+        selected_collumns = ['pid',
          'block_id',
          'profiledb',
          'pfam',
          'c80e3',
          'c80i70']
-        ].rename(
+    else:
+        selected_collumns = ['pid',
+         'block_id',
+         'profiledb',
+         'c80e3',
+         'c80i70']
+
+    seqobj.df = seqobj.df.merge(df.query('pid in @accs')[selected_collumns ].rename(
             {'pid': 'id'}, axis=1
             ).set_index('block_id').join(cn), on='id', how='left')
 
@@ -693,10 +707,11 @@ def full_annotate(seqobj,
                   progress=True,
                   batch_size=8,
                   mirror="/am/ftp-genomes",
-                  threads=8,
+                  threads=None,
                   after=5,
                   before=5,
-                  eukaryotes=False):
+                  eukaryotes=False,
+                  full=True):
     from rotifer.db import ncbi 
     from rotifer.devel.alpha import gian_func as gf
     gnc = ncbi.GeneNeighborhoodCursor(
@@ -707,7 +722,7 @@ def full_annotate(seqobj,
             after=after,
             before=before,
             eukaryotes=eukaryotes)
-    seqobj.ndf = gf.add_arch_to_df(gnc.fetchall(seqobj.df.id.to_list()))
+    seqobj.ndf = gf.add_arch_to_df(gnc.fetchall(seqobj.df.id.to_list()),full=full)
     return seqobj
 
 def padding_df(df):
