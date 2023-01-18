@@ -20,8 +20,8 @@ logger = rotifer.logging.getLogger(__name__)
 
 # Configuration
 from rotifer.core.functions import loadConfig
-config = loadConfig(__name__.replace("rotifer.",":"), defaults = {
-    "path": os.path.join(os.environ["ROTIFER_DATA"] if 'ROTIFER_DATA' in os.environ else "/databases","genomes")
+config = loadConfig(__name__, defaults = {
+    "path": os.path.join(rotifer.config['data'],"genomes")
 })
 
 # Classes
