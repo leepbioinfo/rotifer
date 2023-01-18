@@ -409,7 +409,6 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, ncbiftp
             *args, **kwargs
         )
         self.basepath = basepath
-        self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error",'class'])
 
     def assemblies(self, obj):
         if not isinstance(obj,list):

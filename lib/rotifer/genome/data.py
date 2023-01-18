@@ -2,6 +2,7 @@
 
 # Data here is a child of Pandas DataFrame
 
+from collections import OrderedDict
 import itertools
 import numpy as np
 import pandas as pd
@@ -11,14 +12,50 @@ from rotifer.taxonomy.utils import lineage as rtlineage
 from rotifer.genome.utils import seqrecords_to_dataframe
 logger = rotifer.logging.getLogger(__name__)
 
+_column_dict = OrderedDict({
+  'nucleotide'     :'nucleotide',
+  'start'          :'location',
+  'end'            :'location',
+  'strand'         :'location',
+  'nlen'           :'nucleotide',
+  'block_id'       :'block',
+  'query'          :'block',
+  'pid'            :'feature',
+  'type'           :'feature',
+  'plen'           :'feature',
+  'locus'          :'feature',
+  'seq_type'       :'nucleotide',
+  'assembly'       :'nucleotide',
+  'gene'           :'feature',
+  'origin'         :'feature',
+  'topology'       :'nucleotide',
+  'product'        :'feature',
+  'taxid'          :'taxonomy',
+  'organism'       :'taxonomy',
+  'lineage'        :'taxonomy',
+  'classification' :'taxonomy',
+  'feature_order'  :'feature',
+  'internal_id'    :'feature',
+  'is_fragment'    :'nucleotide',
+  'replaced'       :'feature',
+})
+
 class NeighborhoodDF(pd.DataFrame):
-    # mandatory columns????
-    _metadata = ['filterby']
+    _metadata = ['filterby','NDFProperties']
+    NDFProperties = {
+        "columns": list(_column_dict.keys()),
+        "required": [ 'assembly','nucleotide','start','end','strand','type' ],
+        "order": [ 'assembly','nucleotide','start','end','strand' ],
+    }
 
     def __init__(self, *args, **kwargs):
         self.filterby  = kwargs.pop('filterby', None)
         update_lineage = kwargs.pop('update_lineage',False)
         preferred_taxa = kwargs.pop('preferred_taxa',None)
+        if len(args) == 0 and 'columns' not in kwargs:
+            kwargs['columns'] = NDFProperties["columns"]
+
+        # Call super().__init__()
         super(NeighborhoodDF, self).__init__(*args, **kwargs)
 
         # Update or add lineage column
@@ -34,6 +71,86 @@ class NeighborhoodDF(pd.DataFrame):
     @property
     def _constructor(self):
         return NeighborhoodDF
+
+    def add_features(self, data, *args, inplace=False, **kwargs):
+        # Prepare to copy data from self
+        nucdata = ['nucleotide','taxonomy'] 
+        nucdata = [ x for x in self.NDFProperties["columns"] if _column_dict[x] in nucdata ]
+        nucdata = self.filter(nucdata).drop_duplicates()
+
+        # Process input
+        if not isinstance(data,list):
+            data = [data]
+        stack = []
+        for datum in data:
+            # Prepare input
+            if not isinstance(datum, pd.DataFrame):
+                datum = pd.DataFrame(datum, *args, **kwargs)
+            else:
+                datum = datum.copy()
+
+            # Verify whether required columns are present and set
+            cols = datum.columns.to_list()
+            if not set(cols).issuperset(self.NDFProperties["required"]):
+                missing = [ x for x in self.NDFProperties["required"] if x not in cols ]
+                logger.error(f'DataFrame must contain all required columns: {self.NDFProperties["required"]}. Missing columns: {missing}')
+                continue
+            if self[self.NDFProperties["required"]].isna().any().any():
+                missing = self[self.NDFProperties["required"]].isna().any().where(lambda x: x).dropna().index.to_list()
+                logger.error(f'The following columns are not allowed to contain null values: {missing}')
+                continue
+
+            # Add default columns to input data
+            tobeadded = nucdata.columns.difference(cols)
+            if not tobeadded.empty:
+                tobeadded = nucdata[tobeadded.insert(0,'nucleotide')].drop_duplicates()
+                datum = datum.merge(tobeadded, on="nucleotide", how="left")
+                cols = datum.columns.to_list()
+            missing = [ x for x in self.NDFProperties["columns"] if x not in cols ]
+            if missing:
+                datum[missing] = np.NaN
+            if cols[0:len(self.NDFProperties["columns"])] != self.NDFProperties["columns"]:
+                cols = self.NDFProperties["columns"] + [ x for x in cols if x not in self.NDFProperties["columns"] ]
+                datum = datum[cols].copy()
+            stack.append(datum)
+
+        # Reset internal_id and feature_id
+        if stack:
+            stack = pd.concat([self] + stack, ignore_index=True)
+            stack.sort_values(self.NDFProperties["order"], inplace=True)
+            stack.reset_index(drop=True, inplace=True)
+            stack['query'] = stack['query'].fillna(0).astype(int)
+            stack['is_fragment'] = stack['is_fragment'].fillna(False).astype(bool)
+            stack['block_id'] = np.where(stack.block_id.isna(), stack.nucleotide, stack.block_id)
+
+            # Update internal_id
+            stack.internal_id = (stack.assembly != stack.assembly.shift(1))
+            stack.internal_id = stack.internal_id | (stack.nucleotide != stack.nucleotide.shift(1))
+            stack.internal_id = (stack.internal_id * stack.index.to_series()).cummax()
+            stack.internal_id = stack.index.to_series() - stack.internal_id
+
+            # Update internal_id
+            fomin = self.boundaries().filter(['assembly','nucleotide','type','fomin'])
+            stack.sort_values(['type'] + self.NDFProperties["order"], inplace=True)
+            stack.reset_index(drop=True, inplace=True)
+            stack.feature_order = (stack.type != stack.type.shift(1))
+            stack.feature_order = stack.feature_order | (stack.assembly != stack.assembly.shift(1))
+            stack.feature_order = stack.feature_order | (stack.nucleotide != stack.nucleotide.shift(1))
+            stack.feature_order = (stack.feature_order * stack.index.to_series()).cummax()
+            stack.feature_order = stack.index.to_series() - stack.feature_order
+            stack = stack.merge(fomin, on=['assembly','nucleotide','type'], how='left')
+            stack.fomin.fillna(0, inplace=True)
+            stack.eval('feature_order = feature_order + fomin', inplace=True)
+            stack.drop('fomin', axis=1, inplace=True)
+            stack.feature_order = stack.feature_order.astype(int)
+            stack.sort_values(stack.NDFProperties["order"], inplace=True)
+
+            # Return
+            if inplace:
+                self.drop(self.index, axis=0, inplace=True)
+                self[stack.columns] = stack.values
+            else:
+                return stack
 
     def writer(self, output_format='table', **kwargs):
         '''
@@ -446,7 +563,7 @@ class NeighborhoodDF(pd.DataFrame):
         iidlim = df.groupby(['assembly','nucleotide']).agg({'internal_id':['min','max']})
         iidlim.reset_index(inplace=True)
         iidlim.columns = ['assembly','nucleotide','iidmin','iidmax']
-        bidlim = df.groupby(['assembly']).agg({'block_id':['min','max']})
+        bidlim = df.groupby(['assembly']).agg({'block_id':[lambda x: 1,'nunique']})
         bidlim.reset_index(inplace=True)
         bidlim.columns = ['assembly','bidmin','bidmax']
         dflim = dflim.merge(iidlim, left_on=['assembly','nucleotide'], right_on=['assembly','nucleotide'], how='left')
@@ -521,7 +638,7 @@ class NeighborhoodDF(pd.DataFrame):
 
         # Process features with type
         if (fttype == 'same'):
-            blksCols = [ x for x in [*cols,'block_id','feature_order','is_fragment'] if x in self.columns ]
+            blksCols = [ x for x in [*cols,'block_id','feature_order','internal_id','is_fragment'] if x in self.columns ]
             blks = self[select].filter(blksCols)
             if 'is_fragment' not in self.columns:
                 blks['is_fragment'] = False
@@ -537,12 +654,13 @@ class NeighborhoodDF(pd.DataFrame):
             blks['block_id'] = bid.cumsum()
             blks = blks.groupby([*cols,'block_id']).agg({
                 'feature_order': lambda x: ", ".join(sorted(set([ str(y) for y in x]))),
+                'internal_id': lambda x: ", ".join(sorted(set([ str(y) for y in x]))),
                 'foup': min,
                 'fodown': max,
                 'is_fragment': 'all'
             }).reset_index()
             blks = blks.merge(dflim, left_on=['assembly','nucleotide','type'], right_on=['assembly','nucleotide','type'], how='left')
-            blks.rename({'feature_order':'targets'}, axis=1, inplace=True)
+            blks.rename({'feature_order':'targets','internal_id':'tiids'}, axis=1, inplace=True)
             blks['origin'] = 0
 
             # Initiate analysis of circular replicons

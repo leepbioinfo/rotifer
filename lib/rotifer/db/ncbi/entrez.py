@@ -268,7 +268,8 @@ class IPGCursor(SequenceCursor):
             yield ipg
 
     def fetchall(self, accessions):
-        df = list(self.fetchone(accessions))
+        targets = self.parse_ids(accessions)
+        df = list(self.fetchone(targets))
         if len(df) > 0:
             df = pd.concat(df, ignore_index=True)
         else:
@@ -750,3 +751,26 @@ def elink(accessions, dbfrom="protein", dbto="taxonomy", linkname=None):
     data = pd.DataFrame(data, columns=["qacc", "quid", "dbfrom", "linkname", "dbto", "tuid"])
 
     return data
+
+def nucleotide2assembly(nucids):
+    from Bio import Entrez
+    Entrez.email = NcbiConfig["email"]
+    Entrez.api_key = NcbiConfig["api_key"]
+    t = elink(nucids, dbfrom="nuccore", dbto="assembly")
+    t.rename({'qacc':'nucleotide','quid':'nuid','tuid':'auid'}, axis=1, inplace=True)
+    t.drop(['dbfrom','linkname','dbto'], axis=1, inplace=True)
+    t['assembly'] = np.NaN
+    if len(t) == 0:
+        return t
+    auids = t.auid.to_list()
+    fh = Entrez.efetch(db="assembly", rettype="docsum", retmode="xml", id=",".join(auids))
+    data = Entrez.read(fh)
+    if "DocumentSummarySet" not in data:
+        return t
+    if "DocumentSummary" not in data["DocumentSummarySet"]:
+        return t
+    for x in data["DocumentSummarySet"]["DocumentSummary"]:
+        auid = x.attributes['uid']
+        if auid in auids:
+            t.loc[t.auid == auid,"assembly"] = x["AssemblyAccession"]
+    return t

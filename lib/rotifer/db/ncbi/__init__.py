@@ -23,11 +23,8 @@ import sys
 import types
 import socket
 import typing
-import logging
-import importlib
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 from copy import deepcopy
 
 # Import rotifer modules
@@ -551,8 +548,9 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor):
             ic = entrez.IPGCursor(progress=self.progress, tries=self.tries, threads=self.threads)
             ipgs = ic.fetchall(list(todo))
             if len(ic.missing):
-                self.update_missing(ic.missing, np.nan, "No IPGs")
-                todo -= ic.missing
+                missing = self.missing_ids()
+                self.update_missing(missing, np.nan, "No IPGs")
+                todo = todo - missing
 
         # Select IPGs corresponding to our queries
         ipgs = ipgs[ipgs.id.isin(ipgs[ipgs.pid.isin(todo) | ipgs.representative.isin(todo)].id)]

@@ -15,14 +15,12 @@ from io import StringIO
 
 import rotifer
 import rotifer.db.parallel
-from rotifer import GlobalConfig
 from rotifer.core.functions import loadConfig
-import rotifer.devel.beta.sequence as rdbs
 logger = rotifer.logging.getLogger(__name__)
 
 # Defaults
 config = loadConfig(__name__.replace('rotifer.',':'), defaults = {
-    'local_database_path': [ os.path.join(GlobalConfig['data'],"fadb","nr","nr") ],
+    'local_database_path': [ os.path.join(rotifer.config['data'],"fadb","nr","nr") ],
 })
 
 class FastaCursor(rotifer.db.parallel.SimpleParallelProcessCursor):
@@ -88,26 +86,6 @@ class FastaCursor(rotifer.db.parallel.SimpleParallelProcessCursor):
         else:
             return {obj.id}
 
-    def __getitem__(self, accession):
-        targets = self.parse_ids(accession)
-        objlist = []
-        todo = targets.copy()
-        for db in self.path:
-            #logger.debug(f'Process {os.getpid()}, Database: {db}, Accessions: {len(targets)}') 
-            result = super().__getitem__(todo, db)
-            if result == None:
-                continue
-            if isinstance(result,list):
-                objlist.extend(result)
-            else:
-                objlist.append(result)
-            todo = todo.intersection(self._missing.keys())
-            if not todo:
-                break
-        if len(targets) == 1 and len(objlist) == 1:
-            objlist = objlist[0]
-        return objlist
-
     def fetcher(self, accession, *args, **kwargs):
         """
         Fetch one sequence from the database.
@@ -120,27 +98,31 @@ class FastaCursor(rotifer.db.parallel.SimpleParallelProcessCursor):
         from subprocess import Popen, PIPE
         targets = self.parse_ids(accession)
         data = ""
-        missing = set()
         for db in self.path:
+            missing = set()
             while len(targets) > 0:
-                with tempfile.NamedTemporaryFile(mode="w+t", delete=True) as f:
+                if len(targets) == 1:
+                    p = Popen([self.executable,db,next(iter(targets))], stderr=PIPE, stdout=PIPE, text=True)
+                    o, e = p.communicate()
+                else:
+                    f = tempfile.NamedTemporaryFile(mode="w+t", delete=True)
                     print("\n".join(list(targets)), file=f)
                     f.flush()
-                    p = Popen(["esl-sfetch","-f",db,f.name], stderr=PIPE, stdout=PIPE, text=True)
+                    p = Popen([self.executable,"-f",db,f.name], stderr=PIPE, stdout=PIPE, text=True)
                     o, e = p.communicate()
-                    if len(e) > 0:
-                        missing.update({e.split(" ")[1]})
-                    done = set()
-                    if len(o) > 0:
-                        data += o
-                        done = set([ x.replace(">","").split(" ")[0] for x in o.split("\n") if len(x) > 0 and x[0] == ">" ])
-                        missing.discard(done)
-                    targets = targets - missing - done
+                if len(e) > 0:
+                    missing.update({e.split(" ")[1]})
+                found = set()
+                if len(o) > 0:
+                    data += o
+                    found = set([ x.replace(">","").split(" ")[0] for x in o.split("\n") if len(x) > 0 and x[0] == ">" ])
+                    missing.discard(found)
+                targets = targets - found - missing
             targets = missing
             if not targets:
                 break
-        if missing:
-            self.update_missing(missing, "Not found")
+        if targets:
+            self.update_missing(targets, "Not found")
         return StringIO(data)
 
     def parser(self, stream, accession, *args, **kwargs):
@@ -150,4 +132,3 @@ class FastaCursor(rotifer.db.parallel.SimpleParallelProcessCursor):
             sequence.append(seq)
         stream.close()
         return sequence
-
