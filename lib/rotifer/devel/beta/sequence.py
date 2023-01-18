@@ -1,6 +1,7 @@
 import rotifer
 import rotifer.db.ncbi as ncbi
 from rotifer.core.functions import loadConfig
+from copy import deepcopy
 from io import StringIO
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
@@ -11,23 +12,14 @@ import re
 logger = rotifer.logging.getLogger(__name__)
 
 # Defaults
-config = loadConfig(
-    __name__.replace('rotifer.',':'),
-    defaults = {
-        'fetch': 'pfetch',
-        'pdb_dir': os.path.join(os.environ['ROTIFER_DATA'] if 'ROTIFER_DATA' in os.environ else '/databases',"pdb"),
-        'databases': ['pdb70','pfam'],
-        'databases_path': os.path.join(os.environ['ROTIFER_DATA'] if 'ROTIFER_DATA' in os.environ else '/databases',"hhsuite"),
-        'local_database_path': [ os.path.join(rotifer.config['data'],"fadb","nr","nr") ],
-        'cursor_args': {
-            'neighborhood': {
-                'batch_size': 4
-            },
-            'fasta': {
-                'batch_size': 20,
-            },
-        },
-    })
+config = loadConfig(__name__, defaults = {
+    'fetch': 'pfetch',
+    'pdb_dir': os.path.join(rotifer.config['data'],"pdb"),
+    'databases': ['pdb70','pfam'],
+    'databases_path': os.path.join(rotifer.config['data'],"hhsuite"),
+    'local_database_path': [ os.path.join(rotifer.config['data'],"fadb","nr","nr") ],
+    'batch_size': 20,
+})
 
 class sequence:
     """
@@ -125,7 +117,7 @@ class sequence:
             input_format='fasta',
             name=None,
             local_database_path=config['local_database_path'],
-            cursor_args=config['cursor_args'].copy(),
+            batch_size=config['batch_size'],
             *args, **kwargs):
         from io import IOBase
         self._reserved_columns = ['id','sequence','length','type']
@@ -133,17 +125,14 @@ class sequence:
         self.name = name
         if not isinstance(local_database_path,list):
             local_database_path = [ local_database_path ]
-        if ('neighborhood' not in cursor_args):
-                cursor_args['neighborhood'] = config['cursor_args']['neighborhood'].copy()
-        if ('fasta' not in cursor_args):
-            if ('fasta' in config['cursor_args']):
-                cursor_args['fasta'] = config['cursor_args']['fasta'].copy()
-            else:
-                cursor_args['fasta'] = dict()
-        cursor_args['fasta']['local_database_path'] = local_database_path
+
+        # Cursors: use method arguments or defaults
+        kwargs['local_database_path'] = local_database_path
+        kwargs['batch_size'] = batch_size
+        kwargs.update({ k:v for k,v in deepcopy(config).items() if k not in kwargs })
         self.cursors = {
-            'neighborhood': ncbi.GeneNeighborhoodCursor(**cursor_args['neighborhood']),
-            'fasta': ncbi.FastaCursor(**cursor_args['fasta']),
+            'neighborhood': ncbi.GeneNeighborhoodCursor(**kwargs),
+            'fasta': ncbi.FastaCursor(**kwargs),
         }
 
         # Generate empty object
@@ -246,6 +235,20 @@ class sequence:
     def __len__(self):
         return len(self.df.query('type == "sequence"'))
 
+    def __eq__(self, other):
+        if type(self) != type(other):
+            logger.error(f'Cannot compare sequence object and {type(other)}')
+            return None
+        return self.checksum == other.checksum
+
+    @property
+    def checksum(self):
+        import hashlib
+        cksum = self.df.sequence.sort_values().to_list()
+        cksum = "\n".join(cksum).encode()
+        cksum = hashlib.md5(cksum).hexdigest()
+        return cksum
+
     def copy(self, reset=False):
         '''
         Copy alignment to new object.
@@ -325,6 +328,7 @@ class sequence:
                 querystr = f'id in @keep'
         if querystr:
             result.df = result.df.query(querystr)
+        result.df.reset_index(drop=True, inplace=True)
         return result
 
     def get_alignment_length(self):
@@ -1078,7 +1082,7 @@ class sequence:
         SeqIO.write(self.to_seqrecords(annotations=annotations, remove_gaps=remove_gaps), sio, output_format)
         return sio.getvalue()
 
-    def align(self, method='famsa', cpu=12, region=False):
+    def align(self, method='famsa', cpu=12, region=False, inplace=False):
         """
         Rebuild the alignment using Mafft.
 
@@ -1091,6 +1095,8 @@ class sequence:
             kalign 
         cpu : integer, default is 12
             Number of threads to use, kalign do not have thread option
+        inplace: boolean, default False
+            Align sequences inplace, i.e. don't create a new object
 
         Returns
         -------
@@ -1110,17 +1116,22 @@ class sequence:
         elif method =='kalign':
             child = Popen(f'cat|kalign' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
 
-        result = self.from_string(child[0].decode("utf-8"), input_format = 'fasta')
+        if inplace:
+            result = self
+        else:
+            result = self.copy()
+
+        aligned = self.from_string(child[0].decode("utf-8"), input_format = 'fasta')
+
         if region:
             r1 = self.slice((1, region[0] - 1))
             r2 = self.slice((region[1] + 1, len(self.df.iloc[0,1])))
-            r3 = self.copy()
-            r3.df.sequence = r1.df.sequence + result.df.sequence + r3.df.sequence
-            result = r3
+            result.df.sequence = r1.df.sequence + aligned.df.sequence + r2.df.sequence
+        else:
+            result.df.sequence = aligned.df.sequence
 
-        result.file_path = 'from align function'
-        result.name = self.name
-        return result
+        if not inplace:
+            return result
 
     def view(self, color=True, scale=True, consensus=True, separator="=", interval=10, columns=True, pager='less -SR'):
         """

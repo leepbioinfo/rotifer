@@ -52,7 +52,7 @@ def _setup_base_config(logger):
         'baseConfig': os.path.join(baseDir,"etc","rotifer"),
         'baseDataDirectory': os.path.join(baseDir,"share","rotifer"),
         'cache': expanduser(os.path.join('~','.cache','rotifer')),
-        'data': os.path.join(baseDir,"share","rotifer"),
+        'data': "/databases",
         'user': userDir,
         'userConfig': os.path.join(userDir,"etc"),
         'userDataDirectory': os.path.join(userDir,"share"),

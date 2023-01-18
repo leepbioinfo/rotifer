@@ -8,7 +8,7 @@ import rotifer
 logger = rotifer.logging.getLogger(__name__)
 
 class DelegatorCursor(rotifer.db.core.BaseCursor):
-    def __init__(self, readers=[], writers=[], progress=True, tries=3, batch_size=None, threads=10, *args, **kwargs):
+    def __init__(self, readers=[], writers=[], progress=True, tries=None, batch_size=None, threads=None, *args, **kwargs):
         super().__init__(progress=progress, *args, **kwargs)
         self.readers = readers
         self.writers = writers
@@ -79,11 +79,11 @@ class DelegatorCursor(rotifer.db.core.BaseCursor):
         super().__setattr__(name, value)
         if hasattr(self,'cursors') and hasattr(self,'_shared_attributes') and name in self._shared_attributes:
             for cursor in self.cursors.values():
-                if hasattr(cursor,name):
+                if hasattr(cursor,name) and not isinstance(value,types.NoneType):
                     cursor.__setattr__(name,value)
 
 class SequentialDelegatorCursor(DelegatorCursor):
-    def __init__(self, readers=[], writers=[], progress=True, tries=3, batch_size=None, threads=10, *args, **kwargs):
+    def __init__(self, readers=[], writers=[], progress=True, tries=None, batch_size=None, threads=None, *args, **kwargs):
         super().__init__(readers=readers, writers=writers, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
 
     def __getitem__(self, accessions, *args, **kwargs):
