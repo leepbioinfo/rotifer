@@ -26,7 +26,7 @@ logger = rotifer.logging.getLogger(__name__)
 config = loadConfig(__name__, defaults = {
     'batch_size': NcbiConfig['batch_size'] if 'batch_size' in NcbiConfig else 20,
     "maxgetitem": 200,
-    "threads": 10
+    "threads": 10,
 })
 
 class SequenceCursor(rotifer.db.methods.SequenceCursor, rotifer.db.parallel.SimpleParallelProcessCursor):
