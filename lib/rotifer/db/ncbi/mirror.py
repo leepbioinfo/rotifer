@@ -319,7 +319,7 @@ class GenomeFeaturesCursor(rotifer.db.methods.GenomeFeaturesCursor, GenomeCursor
         self.autopid = autopid
         self.codontable = codontable
 
-class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, ncbiftp.GenomeFeaturesCursor):
+class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, GenomeFeaturesCursor):
     """
     Fetch genome annotation as dataframes.
 
