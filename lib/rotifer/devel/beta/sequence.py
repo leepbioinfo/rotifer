@@ -18,7 +18,6 @@ config = loadConfig(__name__, defaults = {
     'databases': ['pdb70','pfam'],
     'databases_path': os.path.join(rotifer.config['data'],"hhsuite"),
     'local_database_path': [ os.path.join(rotifer.config['data'],"fadb","nr","nr") ],
-    'batch_size': None,
 })
 
 class sequence:
@@ -117,7 +116,6 @@ class sequence:
             input_format='fasta',
             name=None,
             local_database_path=config['local_database_path'],
-            batch_size=config['batch_size'],
             *args, **kwargs):
         from io import IOBase
         self._reserved_columns = ['id','sequence','length','type']
@@ -128,7 +126,6 @@ class sequence:
 
         # Cursors: use method arguments or defaults
         kwargs['local_database_path'] = local_database_path
-        kwargs['batch_size'] = batch_size
         kwargs.update({ k:v for k,v in deepcopy(config).items() if k not in kwargs })
         self.cursors = {
             'neighborhood': ncbi.GeneNeighborhoodCursor(**kwargs),
