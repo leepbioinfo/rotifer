@@ -417,14 +417,6 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, ncbiftp
         )
         self.basepath = basepath
 
-    def assemblies(self, obj):
-        if not isinstance(obj,list):
-            obj = [obj]
-        ids = set()
-        for o in obj:
-            ids.update(o.assembly.unique().tolist())
-        return ids
-
     def __getitem__(self, protein, ipgs=None):
         """
         Find gene neighborhoods in a genome.
@@ -565,6 +557,14 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, ncbiftp
             batch.append((proteins, y.copy()))
         batch = [ batch[x:x+size] for x in range(0,len(batch),size) ]
         return batch
+
+    def assemblies(self, obj):
+        if not isinstance(obj,list):
+            obj = [obj]
+        ids = set()
+        for o in obj:
+            ids.update(o.assembly.unique().tolist())
+        return ids
 
     def fetchone(self, accessions, ipgs=None):
         """

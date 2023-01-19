@@ -533,10 +533,7 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor):
         from rotifer.genome.utils import seqrecords_to_dataframe
 
         # Copy identifiers and remove redundancy
-        targets = deepcopy(accessions)
-        if not isinstance(targets,typing.Iterable) or isinstance(targets,str):
-            targets = [targets]
-        targets = set(targets)
+        targets = self.parse_ids(accessions)
         todo = deepcopy(targets)
 
         # Make sure we have IPGs
