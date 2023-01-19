@@ -782,7 +782,6 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, GenomeF
 
     def parser(self, stream, accession, proteins):
         data = super().parser(stream, accession)
-        data.assembly = accession
         data = data.neighbors(
             data[self.column].isin(proteins.keys()),
             before = self.before,
@@ -791,6 +790,7 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, GenomeF
             strand = self.strand,
             fttype = self.fttype,
         )
+        data.assembly = accession
         data['replaced'] = data.pid.replace(proteins)
         return data
 

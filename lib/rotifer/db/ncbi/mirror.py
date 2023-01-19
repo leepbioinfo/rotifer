@@ -531,6 +531,7 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, GenomeF
             strand = self.strand,
             fttype = self.fttype,
         )
+        data.assembly = accession
         data['replaced'] = data.pid.replace(proteins)
         return data
 
