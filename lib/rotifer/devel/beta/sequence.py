@@ -18,7 +18,6 @@ config = loadConfig(__name__, defaults = {
     'databases': ['pdb70','pfam'],
     'databases_path': os.path.join(rotifer.config['data'],"hhsuite"),
     'local_database_path': [ os.path.join(rotifer.config['data'],"fadb","nr","nr") ],
-    'batch_size': 20,
 })
 
 class sequence:
