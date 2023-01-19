@@ -199,7 +199,7 @@ class GenomeCursor(rotifer.db.methods.GenomeCursor, rotifer.db.delegator.Sequent
       Number of processes to run parallel downloads
     batch_size: int, default 1
       Number of accessions per batch
-    basepath: string
+    path: string
       Path to a local mirror of the NCBI's FTP genome repository
     cache: path-like string
       Where to place temporary files
@@ -215,13 +215,13 @@ class GenomeCursor(rotifer.db.methods.GenomeCursor, rotifer.db.delegator.Sequent
             batch_size=None,
             threads=None,
             timeout=10,
-            basepath = config["mirror"],
+            path = config["mirror"],
             cache=rotifer.config['cache'],
             *args, **kwargs):
-        self._shared_attributes = ['progress','tries','sleep_between_tries','batch_size','threads','cache','basepath']
+        self._shared_attributes = ['progress','tries','sleep_between_tries','batch_size','threads','cache','path']
         self.sleep_between_tries = sleep_between_tries
         self.timeout = timeout
-        self.basepath = basepath
+        self.path = path
         self.cache = cache
         super().__init__(readers=readers, writers=writers, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
 
@@ -258,7 +258,7 @@ class GenomeFeaturesCursor(rotifer.db.methods.GenomeFeaturesCursor, rotifer.db.d
       Number of processes to run parallel downloads
     batch_size: int, default 1
       Number of accessions per batch
-    basepath: string
+    path: string
       Path to a local mirror of the NCBI's FTP genome repository
     cache: path-like string
       Where to place temporary files
@@ -277,13 +277,13 @@ class GenomeFeaturesCursor(rotifer.db.methods.GenomeFeaturesCursor, rotifer.db.d
             batch_size=None,
             threads=None,
             timeout=10,
-            basepath = config["mirror"],
+            path = config["mirror"],
             cache=rotifer.config['cache'],
             *args, **kwargs):
-        self._shared_attributes = ['progress','tries','sleep_between_tries','batch_size','threads','cache','basepath']
+        self._shared_attributes = ['progress','tries','sleep_between_tries','batch_size','threads','cache','path']
         self.sleep_between_tries = sleep_between_tries
         self.timeout = timeout
-        self.basepath = basepath
+        self.path = path
         self.cache = cache
         super().__init__(readers=readers, writers=writers, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
         self.exclude_type = exclude_type
@@ -430,7 +430,7 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor):
         ]
         if mirror:
             from rotifer.db.ncbi import mirror as rdnm
-            cursor = rdnm.GeneNeighborhoodCursor(basepath=mirror)
+            cursor = rdnm.GeneNeighborhoodCursor(path=mirror)
             self.cursors.insert(0,cursor)
         if save:
             from rotifer.db.sql import sqlite3 as rdss

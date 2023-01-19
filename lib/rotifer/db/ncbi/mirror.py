@@ -44,7 +44,7 @@ class GenomeCursor(rotifer.db.methods.GenomeCursor, rotifer.db.parallel.SimplePa
 
     Parameters
     ----------
-    basepath: string
+    path: string
       Path to a mirror of the genomes section of the 
       NCBI FTP site. Contents are expected to be the
       same or a subset of the genomes directory.
@@ -64,11 +64,11 @@ class GenomeCursor(rotifer.db.methods.GenomeCursor, rotifer.db.parallel.SimplePa
             tries=1,
             batch_size = config["batch_size"],
             threads = config["threads"] or _defaults['threads'],
-            basepath = config["path"],
+            path = config["path"],
             *args, **kwargs):
         threads = threads or _defaults['threads']
         super().__init__(progress=progress, tries=1, batch_size=batch_size, threads=threads)
-        self.basepath = basepath
+        self.path = path
 
     def open_genome(self, accession, assembly_reports=None):
         """
@@ -150,13 +150,13 @@ class GenomeCursor(rotifer.db.methods.GenomeCursor, rotifer.db.parallel.SimplePa
             if not path.empty:
                 path = path.ftp_path.iloc[0]
                 path = path.replace(f'ftp://{NcbiConfig["ftpserver"]}/genomes/','')
-                path = (os.path.join(self.basepath,path),os.path.basename(path) + "_genomic.gbff.gz")
+                path = (os.path.join(self.path,path),os.path.basename(path) + "_genomic.gbff.gz")
 
         # Retrieve genome path for newest version
         if len(path) == 0:
             path = accession[0:accession.find(".")].replace("_","")
             path = [ path[i : i + 3] for i in range(0, len(path), 3) ]
-            path = os.path.join(self.basepath,'all',*path)
+            path = os.path.join(self.path,'all',*path)
             if os.path.exists(path):
                 ls = os.listdir(path)
             else:
@@ -281,7 +281,7 @@ class GenomeFeaturesCursor(rotifer.db.methods.GenomeFeaturesCursor, GenomeCursor
 
     Parameters
     ----------
-    basepath: string
+    path: string
       Path to a mirror of the genomes section of the 
       NCBI FTP site. Contents are expected to be the
       same or a subset of the genomes directory.
@@ -303,7 +303,7 @@ class GenomeFeaturesCursor(rotifer.db.methods.GenomeFeaturesCursor, GenomeCursor
     """
     def __init__(
             self,
-            basepath = config["path"],
+            path = config["path"],
             exclude_type=['source','gene','mRNA'],
             autopid=False,
             codontable='Bacterial',
@@ -314,7 +314,7 @@ class GenomeFeaturesCursor(rotifer.db.methods.GenomeFeaturesCursor, GenomeCursor
             *args, **kwargs
         ):
         threads = threads or _defaults['threads']
-        super().__init__(progress=progress, tries=1, batch_size=batch_size, threads=threads, basepath=basepath, *args, **kwargs)
+        super().__init__(progress=progress, tries=1, batch_size=batch_size, threads=threads, path=path, *args, **kwargs)
         self.exclude_type = exclude_type
         self.autopid = autopid
         self.codontable = codontable
@@ -358,7 +358,7 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, ncbiftp
                setting neighborhood boundaries
     eukaryotes : boolean, default False
       If set to True, neighborhood data for eukaryotic genomes
-    basepath: string
+    path: string
       Path to a mirror of the genomes section of the 
       NCBI FTP site. Contents are expected to be the
       same or a subset of the genomes directory.
@@ -387,7 +387,7 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, ncbiftp
             strand = None,
             fttype = 'same',
             eukaryotes=False,
-            basepath = config["path"],
+            path = config["path"],
             exclude_type=['source','gene','mRNA'],
             autopid=False,
             codontable='Bacterial',
@@ -415,7 +415,7 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, ncbiftp
             threads = threads,
             *args, **kwargs
         )
-        self.basepath = basepath
+        self.path = path
 
     def __getitem__(self, protein, ipgs=None):
         """
@@ -648,7 +648,7 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, ncbiftp
             if self.progress:
                 pids = set(assemblies.pid).union(assemblies.representative)
                 pids = len(pids.intersection(targets))
-                logger.warn(f'Loading {len(genomes)} genomes for {pids} proteins from {self.basepath}')
+                logger.warn(f'Loading {len(genomes)} genomes for {pids} proteins from {self.path}')
                 p = tqdm(total=len(genomes), initial=0)
             tasks = []
             for chunk in self.splitter(assemblies):
