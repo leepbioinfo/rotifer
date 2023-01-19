@@ -15,7 +15,7 @@ import rotifer
 from rotifer import GlobalConfig
 import rotifer.db.parallel
 import rotifer.db.methods
-from rotifer.db.ncbi import NcbiConfig
+from rotifer.db.ncbi import config as NcbiConfig
 from rotifer.db.ncbi import utils as rdnu
 from rotifer.core.functions import findDataFiles
 from rotifer.core.functions import loadConfig
@@ -24,7 +24,7 @@ logger = rotifer.logging.getLogger(__name__)
 
 # Configuration
 _defaults = {
-    'batch_size': NcbiConfig['batch_size'] if 'batch_size' in NcbiConfig else 20,
+    'batch_size': 20,
     "maxgetitem": 200,
     "threads": 10,
 }
