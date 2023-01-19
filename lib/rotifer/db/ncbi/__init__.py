@@ -111,7 +111,7 @@ class SequenceCursor(rotifer.db.methods.SequenceCursor, rotifer.db.delegator.Seq
             tries=3,
             sleep_between_tries=1,
             batch_size=None,
-            threads=10,
+            threads=None,
             *args, **kwargs):
         self._shared_attributes = ['progress','tries','sleep_between_tries','batch_size','threads','database']
         self.sleep_between_tries = sleep_between_tries
@@ -164,7 +164,7 @@ class FastaCursor(rotifer.db.methods.SequenceCursor, rotifer.db.delegator.Sequen
             tries=3,
             sleep_between_tries=1,
             batch_size=None,
-            threads=10,
+            threads=None,
             *args, **kwargs):
         self._shared_attributes = ['progress','tries','sleep_between_tries','batch_size','threads','database','database_path']
         self.sleep_between_tries = sleep_between_tries
@@ -213,7 +213,7 @@ class GenomeCursor(rotifer.db.methods.GenomeCursor, rotifer.db.delegator.Sequent
             tries=3,
             sleep_between_tries=1,
             batch_size=None,
-            threads=10,
+            threads=None,
             timeout=10,
             basepath = config["mirror"],
             cache=rotifer.config['cache'],
@@ -275,7 +275,7 @@ class GenomeFeaturesCursor(rotifer.db.methods.GenomeFeaturesCursor, rotifer.db.d
             tries=3,
             sleep_between_tries=1,
             batch_size=None,
-            threads=15,
+            threads=None,
             timeout=10,
             basepath = config["mirror"],
             cache=rotifer.config['cache'],
@@ -411,7 +411,7 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor):
             progress=True,
             tries=3,
             batch_size=None,
-            threads=15,
+            threads=None,
             cache=rotifer.config['cache'],
             *args, **kwargs
         ):
@@ -462,9 +462,9 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor):
 
     def __setattr__(self, name, value):
         super().__setattr__(name, value)
-        if hasattr(self,'_shared_attributes') and name in self._shared_attributes:
+        if hasattr(self,'cursors') and hasattr(self,'_shared_attributes') and name in self._shared_attributes:
             for cursor in self.cursors:
-                if hasattr(cursor,name):
+                if hasattr(cursor,name) and not isinstance(value,types.NoneType):
                     cursor.__setattr__(name,value)
 
     def __getitem__(self, protein, ipgs=None):
@@ -614,7 +614,7 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor):
             return seqrecords_to_dataframe([])
 
 class TaxonomyCursor(rotifer.db.delegator.SequentialDelegatorCursor):
-    def __init__(self, readers=['ete3','entrez'], writers=[], progress=True, tries=3, sleep_between_tries=1, batch_size=None, threads=10, *args, **kwargs):
+    def __init__(self, readers=['ete3','entrez'], writers=[], progress=True, tries=3, sleep_between_tries=1, batch_size=None, threads=None, *args, **kwargs):
         self._shared_attributes = ['progress','tries','sleep_between_tries','batch_size','threads']
         self.sleep_between_tries = sleep_between_tries
         super().__init__(readers=readers, writers=writers, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)

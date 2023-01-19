@@ -23,11 +23,12 @@ from rotifer.genome.utils import seqrecords_to_dataframe
 logger = rotifer.logging.getLogger(__name__)
 
 # Configuration
-config = loadConfig(__name__, defaults = {
+_defaults = {
     'batch_size': NcbiConfig['batch_size'] if 'batch_size' in NcbiConfig else 20,
     "maxgetitem": 200,
     "threads": 10,
-})
+}
+config = loadConfig(__name__, defaults = _defaults)
 
 class SequenceCursor(rotifer.db.methods.SequenceCursor, rotifer.db.parallel.SimpleParallelProcessCursor):
     """
@@ -75,7 +76,7 @@ class SequenceCursor(rotifer.db.methods.SequenceCursor, rotifer.db.parallel.Simp
             tries=3,
             sleep_between_tries=1,
             batch_size=config['batch_size'],
-            threads=config['threads'],
+            threads = config["threads"] or _defaults['threads'],
             *args, **kwargs):
         super().__init__(progress=progress, *args, **kwargs)
         self.maxgetitem = config['maxgetitem']
@@ -84,7 +85,7 @@ class SequenceCursor(rotifer.db.methods.SequenceCursor, rotifer.db.parallel.Simp
         self.database = database
         self.sleep_between_tries = sleep_between_tries
         self.batch_size = batch_size
-        self.threads = threads or 10
+        self.threads = threads or _defaults['threads']
         if self.threads > 3:
             if NcbiConfig['api_key']:
                 if self.threads > 10:
@@ -155,13 +156,27 @@ class SequenceCursor(rotifer.db.methods.SequenceCursor, rotifer.db.parallel.Simp
         return objlist
 
 class FastaCursor(SequenceCursor):
-    def __init__(self, database="protein", progress=True, tries=3, sleep_between_tries=1, batch_size=config['batch_size'], threads=config['threads'], *args, **kwargs):
+    def __init__(self,
+            database="protein",
+            progress=True,
+            tries=3,
+            sleep_between_tries=1,
+            batch_size=config['batch_size'],
+            threads = config["threads"] or _defaults['threads'],
+            *args, **kwargs):
+        threads = threads or _defaults['threads']
         super().__init__(database=database, progress=progress, tries=tries, sleep_between_tries=sleep_between_tries, batch_size=batch_size, threads=threads, *args, **kwargs)
         self._rettype = "fasta"
         self._format = 'fasta'
 
 class IPGCursor(SequenceCursor):
-    def __init__(self, progress=True, tries=3, sleep_between_tries=1, batch_size=config['batch_size'], threads=config['threads']):
+    def __init__(self, progress=True,
+            tries=3,
+            sleep_between_tries=1,
+            batch_size=config['batch_size'],
+            threads = config["threads"] or _defaults['threads'],
+        ):
+        threads = threads or _defaults['threads']
         super().__init__(database="ipg", progress=progress, tries=tries, sleep_between_tries=sleep_between_tries, batch_size=batch_size, threads=threads)
         self._rettype = "ipg"
         self._columns = ['id','ipg_source','nucleotide','start','stop','strand','pid','description','ipg_organism','strain','assembly']
@@ -278,7 +293,14 @@ class IPGCursor(SequenceCursor):
         return df
 
 class TaxonomyCursor(SequenceCursor):
-    def __init__(self, progress=True, tries=3, sleep_between_tries=1, batch_size=config['batch_size'], threads=config['threads']):
+    def __init__(self,
+            progress=True,
+            tries=3,
+            sleep_between_tries=1,
+            batch_size=config['batch_size'],
+            threads = config["threads"] or _defaults['threads'],
+        ):
+        threads = threads or _defaults['threads']
         super().__init__(database="taxonomy",progress=progress,tries=tries,sleep_between_tries=sleep_between_tries,batch_size=batch_size,threads=threads)
         self._rettype = "full"
         self._retmode = 'xml'
@@ -332,8 +354,9 @@ class NucleotideFeaturesCursor(SequenceCursor):
             tries = 3,
             sleep_between_tries=1,
             batch_size = config['batch_size'],
-            threads = config['threads'],
+            threads = config["threads"] or _defaults['threads'],
         ):
+        threads = threads or _defaults['threads']
         super().__init__(
                 database='nucleotide',
                 progress=progress,
@@ -439,8 +462,9 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
             tries = 3,
             sleep_between_tries = 1,
             batch_size = config['batch_size'],
-            threads = 15,
+            threads = config["threads"] or _defaults['threads'],
         ):
+        threads = threads or _defaults['threads']
         super().__init__(
             exclude_type = exclude_type,
             autopid = autopid,

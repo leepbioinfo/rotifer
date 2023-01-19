@@ -11,11 +11,19 @@ from copy import deepcopy
 
 import rotifer
 import rotifer.db.parallel
-from rotifer import GlobalConfig
 from rotifer.db.ncbi import NcbiConfig
 from rotifer.db.ncbi import utils as rdnu
+from rotifer.core.functions import loadConfig
 from rotifer.genome.utils import seqrecords_to_dataframe
 logger = rotifer.logging.getLogger(__name__)
+
+# Configuration
+_defaults = {
+    'batch_size': 4,
+    "maxgetitem": 1,
+    "threads": 15,
+}
+config = loadConfig(__name__, defaults = _defaults)
 
 # Classes
 
@@ -23,7 +31,7 @@ class connection():
     """
     This class represents a live connection to the NCBI FTP server.
     """
-    def __init__(self, url=NcbiConfig['ftpserver'], tries=3, timeout=50, cache=GlobalConfig['cache']):
+    def __init__(self, url=NcbiConfig['ftpserver'], tries=3, timeout=50, cache=rotifer.config['cache']):
         """
         Parameters
         ----------
@@ -234,12 +242,13 @@ class GenomeCursor(rotifer.db.methods.GenomeCursor, rotifer.db.parallel.SimplePa
             self,
             progress=True,
             tries=3,
-            batch_size=None,
-            threads=15,
+            batch_size=config['batch_size'],
+            threads = config["threads"] or _defaults['threads'],
             timeout=10,
-            cache=GlobalConfig['cache'],
+            cache=rotifer.config['cache'],
             *args, **kwargs
         ):
+        threads = threads or _defaults['threads']
         super().__init__(progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
         self.timeout = timeout
         self.cache = cache
@@ -501,12 +510,13 @@ class GenomeFeaturesCursor(rotifer.db.methods.GenomeFeaturesCursor, GenomeCursor
             codontable='Bacterial',
             progress=True,
             tries=3,
-            batch_size=None,
-            threads=15,
+            batch_size=config['batch_size'],
+            threads = config["threads"] or _defaults['threads'],
             timeout=10,
-            cache=GlobalConfig['cache'],
+            cache=rotifer.config['cache'],
             *args, **kwargs
         ):
+        threads = threads or _defaults['threads']
         super().__init__(progress=progress, tries=tries, batch_size=batch_size, threads=threads, timeout=timeout, cache=cache, *args, **kwargs)
         self.exclude_type = exclude_type
         self.autopid = autopid
@@ -552,12 +562,13 @@ class ProteomeCursor(rotifer.db.methods.ProteomeCursor, GenomeCursor):
             codontable='Bacterial',
             progress=True,
             tries=3,
-            batch_size=None,
-            threads=15,
+            batch_size=config['batch_size'],
+            threads = config["threads"] or _defaults['threads'],
             timeout=10,
-            cache=GlobalConfig['cache'],
+            cache=rotifer.config['cache'],
             *args, **kwargs
         ):
+        threads = threads or _defaults['threads']
         super().__init__(progress=progress, tries=tries, batch_size=batch_size, threads=threads, timeout=timeout, cache=cache, *args, **kwargs)
         self.exclude_type = exclude_type
         self.autopid = autopid
@@ -637,12 +648,13 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, GenomeF
             codontable='Bacterial',
             progress=True,
             tries=3,
-            batch_size=None,
-            threads=15,
+            batch_size=config['batch_size'],
+            threads = config["threads"] or _defaults['threads'],
             timeout=10,
-            cache=GlobalConfig['cache'],
+            cache=rotifer.config['cache'],
             *args, **kwargs
         ):
+        threads = threads or _defaults['threads']
         super().__init__(
             column = column,
             before = before,
@@ -678,7 +690,7 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, GenomeF
 
         if isinstance(ipgs,types.NoneType):
             from rotifer.db.ncbi import entrez
-            ic = entrez.IPGCursor(progress=False, tries=self.tries, batch_size=self.batch_size, threads=self.threads)
+            ic = entrez.IPGCursor(progress=False, tries=self.tries)
             ipgs = ic.fetchall(protein)
         ipgs = ipgs[ipgs.id.isin(ipgs[ipgs.pid.isin(protein) | ipgs.representative.isin(protein)].id)]
         best = rdnu.best_ipgs(ipgs)
@@ -849,7 +861,7 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, GenomeF
             if self.progress:
                 logger.warn(f'Downloading IPGs for {len(todo)} proteins...')
             size = self.batch_size
-            ic = entrez.IPGCursor(progress=self.progress, tries=self.tries, threads=self.threads)
+            ic = entrez.IPGCursor(progress=self.progress, tries=self.tries)
             ipgs = ic.fetchall(todo)
             if len(ic.missing):
                 self.update_missing(ic.missing.index.to_list(), np.nan, "No IPGs at NCBI")

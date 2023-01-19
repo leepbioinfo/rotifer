@@ -15,14 +15,18 @@ from rotifer import GlobalConfig
 from rotifer.db.ncbi import NcbiConfig
 from rotifer.db.ncbi import utils as rdnu
 import rotifer.db.ncbi.ftp as ncbiftp
+from rotifer.core.functions import loadConfig
 from rotifer.genome.utils import seqrecords_to_dataframe
 logger = rotifer.logging.getLogger(__name__)
 
 # Configuration
 from rotifer.core.functions import loadConfig
-config = loadConfig(__name__, defaults = {
-    "path": os.path.join(rotifer.config['data'],"genomes")
-})
+_defaults = {
+    "path": os.path.join(rotifer.config['data'],"genomes"),
+    "batch_size": None,
+    "threads": int(np.floor(os.cpu_count()/2)),
+}
+config = loadConfig(__name__, defaults = _defaults)
 
 # Classes
 
@@ -58,10 +62,11 @@ class GenomeCursor(rotifer.db.methods.GenomeCursor, rotifer.db.parallel.SimplePa
             self,
             progress=False,
             tries=1,
-            batch_size=None,
-            threads=15,
+            batch_size = config["batch_size"],
+            threads = config["threads"] or _defaults['threads'],
             basepath = config["path"],
             *args, **kwargs):
+        threads = threads or _defaults['threads']
         super().__init__(progress=progress, tries=1, batch_size=batch_size, threads=threads)
         self.basepath = basepath
 
@@ -304,10 +309,11 @@ class GenomeFeaturesCursor(rotifer.db.methods.GenomeFeaturesCursor, GenomeCursor
             codontable='Bacterial',
             progress=False,
             tries=1,
-            batch_size=None,
-            threads=15,
+            batch_size = config["batch_size"],
+            threads = config["threads"] or _defaults['threads'],
             *args, **kwargs
         ):
+        threads = threads or _defaults['threads']
         super().__init__(progress=progress, tries=1, batch_size=batch_size, threads=threads, basepath=basepath, *args, **kwargs)
         self.exclude_type = exclude_type
         self.autopid = autopid
@@ -387,10 +393,11 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, ncbiftp
             codontable='Bacterial',
             progress=False,
             tries=3,
-            batch_size=None,
-            threads=15,
+            batch_size = config["batch_size"],
+            threads = config["threads"] or _defaults['threads'],
             *args, **kwargs
         ):
+        threads = threads or _defaults['threads']
         super().__init__(
             column = column,
             before = before,
@@ -432,7 +439,7 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, ncbiftp
 
         if isinstance(ipgs,types.NoneType):
             from rotifer.db.ncbi import entrez
-            ic = entrez.IPGCursor(progress=False, tries=self.tries, batch_size=self.batch_size, threads=self.threads)
+            ic = entrez.IPGCursor(progress=False, tries=self.tries)
             ipgs = ic.fetchall(protein)
         ipgs = ipgs[ipgs.id.isin(ipgs[ipgs.pid.isin(protein) | ipgs.representative.isin(protein)].id)]
         best = rdnu.best_ipgs(ipgs)
@@ -597,7 +604,7 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, ncbiftp
             if self.progress:
                 logger.warn(f'Downloading IPGs for {len(todo)} proteins...')
             size = self.batch_size
-            ic = entrez.IPGCursor(progress=self.progress, tries=self.tries, threads=self.threads)
+            ic = entrez.IPGCursor(progress=self.progress, tries=self.tries)
             ipgs = ic.fetchall(todo)
             #if len(ic.missing):
             #    self.update_missing(ic.missing.index.to_list(), np.nan, "No IPGs at NCBI")

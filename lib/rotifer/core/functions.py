@@ -514,11 +514,19 @@ def yaml_search(string, path):
         from yaml import CLoader as Loader
     except ImportError:
         from yaml import Loader
-    exts = ['.yml','.yaml','.config']
 
+    # If a file matches path + exts, use it!
+    exts = ['.yml','.yaml','.config']
+    ls = string.split('.')
+    for ext in exts:
+        target = os.path.join(path,*ls) + ext
+        if os.path.exists(target):
+            return yaml_load(open(target), Loader=Loader)
+
+    # This loop searches for entries within files
+    # Do we need it?
     last = None
     data = {}
-    ls = string.split('.')
     query = ls[-1]
     while ls:
 

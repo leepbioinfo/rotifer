@@ -19,9 +19,12 @@ from rotifer.core.functions import loadConfig
 logger = rotifer.logging.getLogger(__name__)
 
 # Defaults
-config = loadConfig(__name__.replace('rotifer.',':'), defaults = {
+_defaults = {
     'local_database_path': [ os.path.join(rotifer.config['data'],"fadb","nr","nr") ],
-})
+    "batch_size": 200,
+    "threads": int(np.floor(os.cpu_count()/2)),
+}
+config = loadConfig(__name__.replace('rotifer.',':'), defaults = _defaults)
 
 class FastaCursor(rotifer.db.parallel.SimpleParallelProcessCursor):
     """
@@ -44,9 +47,10 @@ class FastaCursor(rotifer.db.parallel.SimpleParallelProcessCursor):
             database_path=config["local_database_path"],
             progress=True,
             tries=1,
-            batch_size=200,
-            threads=int(np.floor(os.cpu_count()/2)),
+            batch_size = config['batch_size'],
+            threads = config['threads'] or _defaults['threads'],
             *args, **kwargs):
+        threads = threads or _defaults['threads']
         super().__init__(progress=progress, tries=1, batch_size=batch_size, threads=threads, *args, **kwargs)
         self.executable = "esl-sfetch"
         self.maxgetitem = 1
