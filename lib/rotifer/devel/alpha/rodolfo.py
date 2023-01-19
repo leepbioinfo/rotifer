@@ -766,7 +766,6 @@ def full_annotate(seqobj,
                   eukaryotes=False):
     '''
     Annotate a seqobj with its own genome neighborhood.
-
     '''
     from rotifer.db import ncbi 
     from rotifer.devel.alpha.rodolfo import add_arch_to_df
@@ -833,3 +832,82 @@ def alnxaln(seqobj, clustercol = 'c50i0', minseq=10):
         with open('./allhhr.txt', 'r') as f : allhhr = f.read()        
     os.chdir(path)
     return (result_table, allhhr, alndict) 
+
+def split_by_model(seqobj=None, df=False, evalue=1e-3, arch=None, coverage=50, method='hmmer', ldbp=None):
+    '''
+    Using a hmm model to split your sequence object to match only the model region.
+    If more than one match in one protein, it will split the match in two sequence.
+    From a search tabular file, filter by coverage, and evalue to make a aligned seqobj.
+
+    Dependencies:
+        hmmersearch
+        hmmer2table
+        domain2architecture
+        architecture2table
+        splishrps
+        rps2arch
+    '''
+
+    import os
+    import pandas as pd
+    import tempfile
+    import subprocess
+    from subprocess import Popen, PIPE, STDOUT
+    from rotifer.devel.beta.sequence import sequence as sequence
+    
+    if coverage > 1:
+        coverage = coverage/100
+
+    #seqobj =seqobj.copy()
+
+    if method == 'hmmer':
+
+        df = df.query(f'evalue <= {evalue} and cov > {coverage}')
+       # with tempfile.TemporaryDirectory() as tmpdirname:
+           # seqobj.to_file(f'{tmpdirname}/seqfile') 
+           # Popen(f'hmmsearch {model} {tmpdirname}/seqfile > {tmpdirname}/hmmsearch_r',
+           #       stdout=PIPE,
+           #       shell=True).communicate()
+           # Popen(f'hmmer2table {tmpdirname}/hmmsearch_r |domain2architecture |architecture2table > {tmpdirname}/hmmsearch_table',
+           #       stdout=PIPE,
+           #       shell=True).communicate()
+           # t = pd.read_csv(f'{tmpdirname}/hmmsearch_table', sep="\t")
+        seqobj = sequence(df.sequence.drop_duplicates().to_list(), local_database_path=ldbp)
+        seqobj.df = seqobj.df.merge(df.rename({'sequence':'id'},axis=1), how='left')
+        seqobj.df.end = seqobj.df.eend.fillna(seqobj.df.length)
+        seqobj.df.start = seqobj.df.estart.fillna(1)
+        seqobj.df.sequence = seqobj.df.apply(lambda x: x.sequence[int(x.estart):int(x.eend)], axis=1)
+        seqobj.df['id'] = seqobj.df['id'] + '/' + seqobj.df['estart'].astype(str) + '-' + seqobj.df['eend'].astype(str)
+
+    else:
+
+        if df:
+            df = df.query(f'evalue <= {evalue} and querycoverage > {coverage}')
+            seqobj = seqobj.filter(keep=df.hit.drop_duplicates().to_list())
+        if arch == 'profiledb':
+            arch = ' '
+        if arch:
+            with tempfile.TemporaryDirectory() as tmpdirname:
+                seqobj.to_file(f'{tmpdirname}/fasta')
+                Popen(f'cat {tmpdirname}/fasta|splishrps {arch}|rps2arch -pcut 0.001 -overlap 0.03 > {tmpdirname}/arch', stdout=PIPE,shell=True).communicate()
+                archdf = pd.read_csv(f'{tmpdirname}/arch',sep="\t", names=['id', 'arch', 'position'])
+
+        seqobj.df = seqobj.df.merge(df[['hit','evalue','hitstart','hitend']].rename({'hit':'id'},axis=1), how='left')
+        seqobj.df.sequence = seqobj.df.apply(lambda x: x.sequence[x.hitstart:x.hitend], axis=1)
+        seqobj = seqobj.align()
+        seqobj.df = seqobj.df.merge(df[['hit','evalue','hitstart','hitend']].rename({'hit':'id'},axis=1), how='left')
+        seqobj = seqobj.sort(['evalue'])
+        if arch:
+            seqobj.df = seqobj.df.merge(archdf, how='left')
+
+    return (seqobj)
+
+def remove_redundancy(seqobj, identity =80, coverage = 70):
+    from rotifer.devel.beta.sequence import sequence as sequence
+    import pandas as pd
+    s = seqobj.copy()
+    s.add_cluster(coverage=coverage, identity=identity, inplace=True)
+    s = s.filter(keep=s.df[f'c{coverage}i{identity}'].drop_duplicates().to_list())
+    return(s)
+
+
