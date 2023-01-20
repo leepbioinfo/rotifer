@@ -1814,22 +1814,20 @@ class sequence:
 
     def fetch_neighbors(self, before=5, after=5):
         '''
-        Remove alignment columns based on column statistics.
+        Fetch genome neighborhood from the sequences on the sequence object.
 
         Parameters
         ----------
-        max_perc_gaps: integer or float
-          Maximum relative frequency of gaps
+        after: integer, defult 5.
+          Number of neighbors downstream you query, defaul 5.
 
-        minimum_length : integer, default 1
-          Minimum number of consecutive bad quality columns.
-          Columns located in regions shorter than this threshold
-          will not removed.
+        before: integer, default 5.
+          Number of neighbors upstream you query, defaul 5.
 
         Examples
         --------
-        Remove all columns with more than 70% of gaps.
-        >>> aln.trim(70)
+        Collect 3 genes upstream and downstream your query sequence:
+        >>> aln.fetch_neighbors(after=3, before=3)
         '''
         gnc = self.cursors['neighborhood']
         gnc.after = after
