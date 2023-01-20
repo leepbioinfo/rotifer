@@ -1812,6 +1812,35 @@ class sequence:
         
         return result 
 
+    def fetch_neighbors(self, before=5, after=5):
+        '''
+        Remove alignment columns based on column statistics.
+
+        Parameters
+        ----------
+        max_perc_gaps: integer or float
+          Maximum relative frequency of gaps
+
+        minimum_length : integer, default 1
+          Minimum number of consecutive bad quality columns.
+          Columns located in regions shorter than this threshold
+          will not removed.
+
+        Examples
+        --------
+        Remove all columns with more than 70% of gaps.
+        >>> aln.trim(70)
+        '''
+        gnc = self.cursors['neighborhood']
+        gnc.after = after
+        gnc.before = before
+        pids = self.df.id
+        self.ndf = gnc.fetchall(pids)
+
+        return "Neighborhood DF was created at seqobj.ndf" 
+
+
+
     ## Class methods
 
     @classmethod
