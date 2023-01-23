@@ -14,7 +14,6 @@ import rotifer.db.methods
 from rotifer import GlobalConfig
 from rotifer.db.ncbi import NcbiConfig
 from rotifer.db.ncbi import utils as rdnu
-import rotifer.db.ncbi.ftp as ncbiftp
 from rotifer.core.functions import loadConfig
 from rotifer.genome.utils import seqrecords_to_dataframe
 logger = rotifer.logging.getLogger(__name__)
@@ -319,7 +318,7 @@ class GenomeFeaturesCursor(rotifer.db.methods.GenomeFeaturesCursor, GenomeCursor
         self.autopid = autopid
         self.codontable = codontable
 
-class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, GenomeFeaturesCursor):
+class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, rotifer.db.parallel.GeneNeighborhoodCursor, GenomeFeaturesCursor):
     """
     Fetch genome annotation as dataframes.
 
@@ -397,7 +396,9 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, GenomeF
             threads = config["threads"] or _defaults['threads'],
             *args, **kwargs
         ):
+
         threads = threads or _defaults['threads']
+
         super().__init__(
             column = column,
             before = before,
@@ -416,280 +417,6 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor, GenomeF
             *args, **kwargs
         )
         self.path = path
-
-    def __getitem__(self, protein, ipgs=None):
-        """
-        Find gene neighborhoods in a genome.
-
-        Returns
-        -------
-        rotifer.genome.data.NeighborhoodDF
-        """
-        objlist = seqrecords_to_dataframe([])
-        if not isinstance(protein,typing.Iterable) or isinstance(protein,str):
-            protein = [protein]
-
-        if isinstance(ipgs,types.NoneType):
-            from rotifer.db.ncbi import entrez
-            ic = entrez.IPGCursor(progress=False, tries=self.tries)
-            ipgs = ic.fetchall(protein)
-        ipgs = ipgs[ipgs.id.isin(ipgs[ipgs.pid.isin(protein) | ipgs.representative.isin(protein)].id)]
-        best = rdnu.best_ipgs(ipgs)
-        best = best[best.assembly.notna()]
-        ipgs = ipgs[ipgs.assembly.isin(best.assembly)]
-        missing = set(protein) - set(ipgs.pid) - set(ipgs.representative)
-        if missing:
-            self.update_missing(missing,np.NaN,"No IPGs")
-            return objlist
-
-        # Identify DNA data
-        assemblies, nucleotides = rdnu.ipgs_to_dicts(ipgs)
-
-        # Download and parse
-        objlist = []
-        for accession in assemblies.keys():
-            expected = set([ y for x in assemblies[accession].items() for y in x ])
-
-            obj = None
-            for attempt in range(0,self.tries):
-                # Download and open data file
-                error = None
-                stream = None
-                try:
-                    stream = self.fetcher(accession)
-                except RuntimeError:
-                    error = f'{sys.exc_info()[1]}'
-                    if logger.getEffectiveLevel() <= logging.DEBUG:
-                        logger.exception(error)
-                    continue
-                except ValueError:
-                    error = f'{sys.exc_info()[1]}'
-                    if logger.getEffectiveLevel() <= logging.DEBUG:
-                        logger.exception(error)
-                    break
-                except:
-                    error = f'{sys.exc_info()[1]}'
-                    #error = f'Failed to download genome {accession}: {sys.exc_info()[1]}'
-                    if logger.getEffectiveLevel() <= logging.DEBUG:
-                        logger.exception(error)
-                    continue
-
-                if isinstance(stream, types.NoneType):
-                    self.update_missing(expected, accession, error)
-                    continue
-
-                # Use parser to process results
-                try:
-                    obj = self.parser(stream, accession, assemblies[accession])
-                    break
-                except:
-                    error = f"Failed to parse genome {accession}:"
-                    if logger.getEffectiveLevel() <= logging.DEBUG:
-                        logger.exception(error)
-
-            if isinstance(obj, types.NoneType):
-                self.update_missing(expected, accession, error)
-            elif len(obj) == 0:
-                error = f'No anchors in genome {accession}'
-                self.update_missing(expected, accession, error)
-            else:
-                objlist.append(obj)
-
-        # No data?
-        if len(objlist) == 0:
-            return seqrecords_to_dataframe([])
-
-        # Concatenate and evaluate
-        objlist = pd.concat(objlist, ignore_index=True)
-
-        # Return data
-        if len(objlist) > 0:
-            self.missing.drop(self.getids(objlist), axis=0, inplace=True, errors='ignore')
-        return objlist
-
-    def fetcher(self, accession):
-        if not self.eukaryotes:
-            import rotifer.db.ncbi as ncbi
-            contigs, report = self.genome_report(accession)
-            if len(report) > 0:
-                tc = ncbi.TaxonomyCursor(sleep_between_tries=15, tries=5)
-                taxonomy = tc[report.loc['taxid'][0]] # Fetching from database
-                if taxonomy.loc[0,"superkingdom"] == "Eukaryota":
-                    raise ValueError(f"Eukaryotic genome {accession} ignored.")
-        stream = self.open_genome(accession)
-        if isinstance(stream,types.NoneType):
-            raise ValueError(f'Unable to access files for genome {accession}.')
-        return stream
-
-    def parser(self, stream, accession, proteins):
-        data = super().parser(stream, accession)
-        data = data.neighbors(
-            data[self.column].isin(proteins.keys()),
-            before = self.before,
-            after = self.after,
-            min_block_distance = self.min_block_distance,
-            strand = self.strand,
-            fttype = self.fttype,
-        )
-        data.assembly = accession
-        data['replaced'] = data.pid.replace(proteins)
-        return data
-
-    def worker(self, chunk):
-        result = []
-        for args in chunk:
-            df = self.__getitem__(*args)
-            if len(df) == 0:
-                continue
-            for x in df.groupby('block_id'):
-                result.append(x[1])
-        # Make sure some content, even if empty, is always returned
-        if len(result) == 0:
-            result = [ seqrecords_to_dataframe([]) ]
-        return {"result":result,"missing":self.missing}
-
-    def splitter(self, ipgs):
-        size = self.batch_size
-        if size == None or size == 0:
-            size = max(int(ipgs.assembly.nunique()/self.threads),1)
-        batch = []
-        for x, y in ipgs.groupby('assembly'):
-            proteins = set(y.pid).union(y.representative)
-            batch.append((proteins, y.copy()))
-        batch = [ batch[x:x+size] for x in range(0,len(batch),size) ]
-        return batch
-
-    def assemblies(self, obj):
-        if not isinstance(obj,list):
-            obj = [obj]
-        ids = set()
-        for o in obj:
-            ids.update(o.assembly.unique().tolist())
-        return ids
-
-    def fetchone(self, accessions, ipgs=None):
-        """
-        Asynchronously fetch gene neighborhoods from NCBI.
-
-        Parameters
-        ----------
-        accessions: list of strings
-          NCBI protein identifiers
-        ipgs : Pandas dataframe
-          This parameter may be used to avoid downloading IPGs
-          from NCBI. Example:
-
-          >>> from rotifer.db.ncbi import entrez
-          >>> from rotifer.db.ncbi import mirror
-          >>> ic = ncbi.IPGCursor(batch_size=1)
-          >>> gnc = mirror.GeneNeighborhoodCursor(progress=True)
-          >>> i = ic.fetchall(['WP_063732599.1'])
-          >>> n = gnc.fetchall(['WP_063732599.1'], ipgs=i)
-
-        Returns
-        -------
-        A generator for rotifer.genome.data.NeighborhoodDF objects
-        """
-        from concurrent.futures import ProcessPoolExecutor, as_completed
-
-        # Make sure no identifiers are used twice
-        targets = deepcopy(accessions)
-        if not isinstance(targets,typing.Iterable) or isinstance(targets,str):
-            targets = [targets]
-        targets = set(targets)
-        todo = deepcopy(targets)
-
-        # Make sure we have usable IPGs
-        if isinstance(ipgs,types.NoneType):
-            from rotifer.db.ncbi import entrez
-            if self.progress:
-                logger.warn(f'Downloading IPGs for {len(todo)} proteins...')
-            size = self.batch_size
-            ic = entrez.IPGCursor(progress=self.progress, tries=self.tries)
-            ipgs = ic.fetchall(todo)
-            #if len(ic.missing):
-            #    self.update_missing(ic.missing.index.to_list(), np.nan, "No IPGs at NCBI")
-        ipgids = set(ipgs[ipgs.pid.isin(todo) | ipgs.representative.isin(todo)].id)
-        ipgs = ipgs[ipgs.id.isin(ipgids) & (ipgs.assembly.notna() | ipgs.nucleotide.notna())]
-
-        # Check for proteins without IPGs
-        missing = set(todo) - set(ipgs.pid).union(ipgs.representative)
-        if missing:
-            self.update_missing(missing,np.NaN,"Not found in IPGs")
-            todo -= missing
-        if len(ipgs) == 0:
-            return [seqrecords_to_dataframe([])]
-
-        # Select best IPGs
-        assemblies = rdnu.best_ipgs(ipgs)
-
-        # Mark proteins without assembly
-        missing = assemblies[assemblies.assembly.isna()]
-        if len(missing):
-            for idx, row in missing.iterrows():
-                if row['pid'] in todo:
-                    acc = row['pid']
-                elif row['representative'] in todo:
-                    acc = row['representative']
-                else:
-                    continue
-                if pd.isna(row['nucleotide']):
-                    error = f"No nucleotide or assembly for protein {acc}"
-                else:
-                    error = f"Fetch protein {acc} from nucleotide {row['nucleotide']}"
-                self.update_missing(acc,row['assembly'],error)
-
-        # filter good IPGs for the best assemblies
-        assemblies = assemblies[assemblies.assembly.notna()]
-        assemblies = ipgs[ipgs.assembly.isin(assemblies.assembly)]
-
-        # Split jobs and execute
-        genomes = set(assemblies.assembly.unique())
-        with ProcessPoolExecutor(max_workers=self.threads) as executor:
-            if self.progress:
-                pids = set(assemblies.pid).union(assemblies.representative)
-                pids = len(pids.intersection(targets))
-                logger.warn(f'Loading {len(genomes)} genomes for {pids} proteins from {self.path}')
-                p = tqdm(total=len(genomes), initial=0)
-            tasks = []
-            for chunk in self.splitter(assemblies):
-                tasks.append(executor.submit(self.worker, chunk))
-            completed = set()
-            for x in as_completed(tasks):
-                data = x.result()
-                for s in data['missing'].iterrows():
-                    if s[0] in targets:
-                        self.missing.loc[s[0]] = s[1]
-                for obj in data['result']:
-                    found = self.assemblies(obj)
-                    done = genomes.intersection(found)
-                    if self.progress and len(done) > 0:
-                        p.update(len(done))
-                    genomes = genomes - done
-                    completed.update(self.getids(obj))
-                    self.missing.drop(completed, axis=0, inplace=True, errors='ignore')
-                    yield obj
-
-    def fetchall(self, accessions, ipgs=None):
-        """
-        Fetch genomes.
-
-        Parameters
-        ----------
-        accessions: list of strings
-          NCBI protein identifiers
-
-        Returns
-        -------
-        rotifer.genome.data.NeighborhoodDF
-        """
-        stack = []
-        for df in self.fetchone(accessions, ipgs=ipgs):
-            stack.append(df)
-        if stack:
-            return pd.concat(stack, ignore_index=True)
-        else:
-            return seqrecords_to_dataframe([])
 
 # Is this library being used as a script?
 if __name__ == '__main__':

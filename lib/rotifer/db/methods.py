@@ -1,4 +1,5 @@
 import types
+import typing
 import pandas as pd
 from copy import deepcopy
 import rotifer
@@ -124,133 +125,81 @@ class GenomeFeaturesCursor(GenomeCursor):
         else:
             return seqrecords_to_dataframe([])
 
-class ProteomeCursor(GenomeCursor):
-    def proteins(self, seqrecords):
-        for seqrecord in seqrecords:
-            # Extract data for each feature
-            feature_order = {}
-            internal_id = 0
-            seqrecord.features.sort(key=lambda x: (x.location.start, x.location.end))
-            for ft in seqrecord.features:
-                qualifiers = ft.qualifiers
+class GeneNeighborhoodCursor:
+    def getids(self, obj, ipgs=None):
+        import types
 
-                # Feature type
-                feature_type = ft.type
+        # extract ids from dataframe
+        if isinstance(obj,pd.DataFrame):
+            # Load columns
+            columns = self.column
+            if not isinstance(columns,typing.Iterable) or isinstance(columns,str):
+                columns = [columns]
+            else:
+                columns = list(columns)
 
-                # Pseudogenes
-                if feature_type not in feature_order:
-                    feature_order[feature_type] = 0
-                if feature_type == 'pseudogene':
-                    feature_type = 'PSE'
-                    if 'PSE' not in feature_order:
-                        feature_order['PSE'] = 0
-                if exclude_type and feature_type in exclude_type:
-                    continue
+            # when searching for proteins, ensure all columns with protein IDs are used
+            pids = ['pid','replaced','representative']
+            if set(columns).intersection(pids):
+                columns += [ x for x in pids if x not in columns ]
 
-                # PID
-                locus = qualifiers['locus_tag'][0] if 'locus_tag' in qualifiers else seqrecord.id + f'.{internal_id:0{digits}}'
-                plen = sum([ len(x) for x in ft.location.parts ])
-                pid = np.NaN
-                if feature_type == 'CDS':
-                    if 'pseudo' in qualifiers:
-                        feature_type = 'PSE'
-                        if 'PSE' not in feature_order:
-                            feature_order['PSE'] = 0
-                    else:
-                        if 'translation' in qualifiers:
-                            plen = len(qualifiers['translation'][0])
-                        else:
-                            selectedTable = codontable
-                            if 'transl_table' in qualifiers:
-                                selectedTable = int(qualifiers['transl_table'][0])
-                            try:
-                                plen = len(ft.translate(seqrecord, table=selectedTable, cds=False, to_stop=True))
-                            except:
-                                feature_type = 'PSE'
-                                if 'PSE' not in feature_order:
-                                    feature_order['PSE'] = 0
-                    if feature_type == 'CDS':
-                        if 'protein_id' in qualifiers:
-                            pid = qualifiers['protein_id'][0]
-                        elif autopid == 'auto':
-                            pid = f'{locus}.p{feature_order["CDS"]:0{digits}}'
-                        elif autopid == 'copy':
-                            pid = locus
+            # Load identifiers from object
+            ids = set()
+            for col in columns:
+                if col in obj.columns:
+                    ids.update(set(obj[col].dropna().drop_duplicates()))
 
-                # Other feature attributes
-                gene = qualifiers['gene'][0] if 'gene' in qualifiers else np.NaN
-                product = np.NaN
-                for tag in ['product','inference']:
-                    if tag in qualifiers:
-                        product = qualifiers[tag][0]
-                        break
+        # If obj is not a Pandas Dataframe
+        elif not isinstance(obj,typing.Iterable) or isinstance(obj,str):
+            ids = {obj}
+        elif isinstance(obj,typing.Iterable):
+            ids = set(obj)
+        else:
+            logger.error(f'Unknown type {type(obj)}')
 
-                # Strand
-                try:
-                    strand = int(ft.location.strand)
-                except:
-                    strand = 1
+        # Add synonyms from IPGs
+        if not isinstance(ipgs,types.NoneType):
+            ipgids = ipgs[ipgs.pid.isin(ids) | ipgs.representative.isin(ids)].id
+            ipgids = ipgs[ipgs.id.isin(ipgids)]
+            ids.update(ipgids.pid.dropna())
+            ids.update(ipgids.representative.dropna())
 
-                # Feature location: check if multiple locations imply running through the origin
-                origin = 0
-                location = []
-                for l in ft.location.parts:
-                    start = l.start+1
-                    end = int(l.end)
-                    if location:
-                        if ((end - location[-1][1]) * strand) <= 0:
-                            if end == nlen and location[-1][0] == 1:
-                                location.insert(-1,[start,end])
-                            else:
-                                location.append([start,end])
-                            origin = 1
-                        else:
-                            location[-1][0] = min(location[-1][0],start)
-                            location[-1][1] = max(location[-1][1],end)
-                    else:
-                        location.append([start,end])
+        return ids
 
-                # Store each location
-                for l in location:
-                    data.append({
-                        'nucleotide': seqrecord.id,
-                        'start': l[0],
-                        'end': l[1],
-                        'strand': strand,
-                        'nlen': nlen,
-                        'block_id': seqrecord.id,
-                        'query':0,
-                        'pid': pid,
-                        'type': feature_type,
-                        'plen': plen,
-                        'locus': locus,
-                        'seq_type': seq_type,
-                        'assembly': assemblyID,
-                        'gene':gene,
-                        'origin':origin,
-                        'topology': topology,
-                        'product': product,
-                        'taxid': taxid,
-                        'organism': organism,
-                        'lineage':pd.NA,
-                        'classification': taxonomy,
-                        'feature_order':feature_order[feature_type],
-                        'internal_id':internal_id,
-                        'is_fragment':0})
-                    internal_id += 1
+    def ipgs_to_dict(self, ipgs, column='assembly'):
+        d = { k: v.set_index('pid').representative.to_dict() for k,v in ipgs.groupby(column) }
+        return d
 
-                # Increment feature counters
-                feature_order[feature_type] += 1
+    def ipg_proteins(self, ipgs):
+        allipgids = set(ipgs.pid).union(ipgs.representative.drop_duplicates())
+        return allipgids
 
-    def parser(self, stream, accession):
-        from Bio import SeqIO
+    def genome_ids(self, obj):
+        if not isinstance(obj,list):
+            obj = [obj]
+        ids = set()
+        for o in obj:
+            ids.update(o[self._target_column].drop_duplicates().dropna())
+        return ids
+
+    def fetchall(self, accessions, ipgs=None):
+        """
+        Fetch all neighbors from nucleotide sequences.
+
+        Parameters
+        ----------
+        accessions: list of strings
+          NCBI protein identifiers
+
+        Returns
+        -------
+        rotifer.genome.data.NeighborhoodDF
+        """
         stack = []
-        for fh in stream:
-            if isinstance(fh,types.NoneType):
-                continue
-            for s in SeqIO.parse(fh,"genbank"):
-                setattr(s,"assembly",fh.assembly)
-                stack.extend(self.proteins(s))
-            fh.close()
-        return stack
+        for df in self.fetchone(accessions, ipgs=ipgs):
+            stack.append(df)
+        if stack:
+            return pd.concat(stack, ignore_index=True)
+        else:
+            return seqrecords_to_dataframe([])
 

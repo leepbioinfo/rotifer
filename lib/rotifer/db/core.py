@@ -4,7 +4,6 @@ import pandas as pd
 
 # Rotifer
 import rotifer
-import rotifer.db.methods
 logger = rotifer.logging.getLogger(__name__)
 
 class BaseCursor:
@@ -26,7 +25,7 @@ class BaseCursor:
     def __init__(self, progress=False, *args, **kwargs):
         self.progress = progress
         self.__name__ = str(type(self)).split("'")[1]
-        self._missing = dict()
+        self._missing = dict() # Keys are accessions, values are lists of three elements
         self.giveup = set() # List of errors that will prevent further attempts to use failed accessions
         self.maxgetitem = 1 # Maximum number of arguments accepted by __getitem__()
 
@@ -67,10 +66,41 @@ class BaseCursor:
     def missing(self):
         return pd.DataFrame(self._missing, index="error class retry".split(" ")).T
 
-    def missing_ids(self):
-        return set(sorted(list(self._missing.keys())))
+    def missing_ids(self, retry=None):
+        """
+        Retrieve accessions not found in the target database.
+
+        Parameters
+        ----------
+        retry: boolean, default None
+          Filter accession based on whether they might
+          still be recovered (retry=True) or not (retry=False)
+        """
+        if isinstance(retry, types.NoneType):
+            return set(sorted(list(self._missing.keys())))
+        else:
+            return set(sorted([ x for x in self._missing.keys() if self._missing[x][2] == retry ]))
 
     def update_missing(self, accessions=[], error=None, retry=None, data=None, *args, **kwargs):
+        """
+        Update or add entries to the registry of missing entries.
+
+        Parameters
+        ----------
+        accessions: list, tuple or set
+          Database identifiers
+        error: string, default None
+          A string describing the latest error
+        retry: boolean, default None
+          Whether the error is recoverable or not
+        data: dictionary, default None
+          A dictionary that matches the internal
+          registry, with accessions as keys and
+          three-elements lists as values.
+
+          If using this parameter, error and retry
+          are ignored.
+        """
         if isinstance(data, types.NoneType):
             if isinstance(retry,types.NoneType):
                 retry = True
@@ -90,6 +120,8 @@ class BaseCursor:
                 self._missing[x] = err
         else:
             self._missing.update(data)
+            retry = any([ v[2] for k,v in data.items() ])
+        return retry
 
     def remove_missing(self, accessions=None):
         """
@@ -100,12 +132,12 @@ class BaseCursor:
         accessions: list of strings or None
           If set to None, all entries in the cache will be removed
         """
-        if accessions == None:
+        if isinstance(accessions,types.NoneType):
             old = self._missing.copy()
             self._missing = dict()
             return old
         else:
-            for k in accessions:
+            for k in self.parse_ids(accessions):
                 self._missing.pop(k, None)
 
     def getids(self, obj):
@@ -157,98 +189,6 @@ class BaseCursor:
          Database entry identifiers 
         """
         raise NotImplementedError(f'Method fetchall() must be implemented by descendants')
-
-class BaseGeneNeighborhoodCursor(BaseCursor):
-    def __init__(
-            self,
-            column = 'pid',
-            before = 7,
-            after = 7,
-            min_block_distance = 0,
-            strand = None,
-            fttype = 'same',
-            eukaryotes = False,
-            exclude_type = ['gene','mRNA','source'],
-            autopid = True,
-            codontable = 'Bacterial',
-            progress=False,
-            tries=3,
-            batch_size=None,
-            threads=10,
-            *args, **kwargs):
-        super().__init__(progress=progress, *args, **kwargs)
-        self.column = column
-        self.before = before
-        self.after = after
-        self.min_block_distance = min_block_distance
-        self.strand = strand
-        self.fttype = fttype
-        self.eukaryotes = eukaryotes
-        self.exclude_type = exclude_type
-        self.autopid = autopid
-        self.codontable = codontable
-        self.tries = tries
-        self.batch_size = batch_size
-        self.threads = threads
-        self._missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error",'class'])
-
-    @property
-    def missing(self):
-        return self._missing
-
-    def missing_ids(self):
-        return set(self._missing.index)
-
-    def update_missing(self, accessions, assembly, error):
-        err = [False,False,assembly,error,str(type(self)).split("'")[1]]
-        if "Eukaryotic" in error:
-            err[1] = True
-        if "IPG" in error:
-            err[0] = True
-        if not isinstance(accessions,typing.Iterable) or isinstance(accessions,str):
-            accessions = [accessions]
-        for x in accessions:
-            self._missing.loc[x] = err
-
-    def getids(self, obj, ipgs=None):
-        import types
-
-        # extract ids from dataframe
-        if isinstance(obj,pd.DataFrame):
-            # Load columns
-            columns = self.column
-            if not isinstance(columns,typing.Iterable) or isinstance(columns,str):
-                columns = [columns]
-            else:
-                columns = list(columns)
-
-            # when searching for proteins, ensure all columns with protein IDs are used
-            pids = ['pid','replaced','representative']
-            if set(columns).intersection(pids):
-                columns += [ x for x in pids if x not in columns ]
-
-            # Load identifiers from object
-            ids = set()
-            for col in columns:
-                if col in obj.columns:
-                    ids.update(set(obj[col].dropna()))
-
-        # If obj is a list
-        elif not isinstance(obj,typing.Iterable) or isinstance(obj,str):
-            ids = {obj}
-        elif isinstance(obj,typing.Iterable):
-            ids = set(obj)
-        else:
-            logger.error(f'Unknown type {type(obj)}')
-
-        # Add synonyms from IPGs
-        if not isinstance(ipgs,types.NoneType):
-            ipgids = ipgs[ipgs.pid.isin(ids) | ipgs.representative.isin(ids)].id
-            ipgids = ipgs[ipgs.id.isin(ipgids)]
-            ids.update(ipgids.pid.dropna())
-            ids.update(ipgids.representative.dropna())
-
-        return ids
 
 if __name__ == '__main__':
     pass

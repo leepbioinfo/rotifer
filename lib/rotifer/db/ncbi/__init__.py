@@ -280,7 +280,10 @@ class GenomeFeaturesCursor(rotifer.db.methods.GenomeFeaturesCursor, rotifer.db.d
             path = config["mirror"],
             cache=rotifer.config['cache'],
             *args, **kwargs):
-        self._shared_attributes = ['progress','tries','sleep_between_tries','batch_size','threads','cache','path']
+        self._shared_attributes = [
+            'progress','tries','sleep_between_tries','batch_size','threads','cache','path',
+            'exclude_type','autopid','codontable',
+        ]
         self.sleep_between_tries = sleep_between_tries
         self.timeout = timeout
         self.path = path
@@ -290,7 +293,7 @@ class GenomeFeaturesCursor(rotifer.db.methods.GenomeFeaturesCursor, rotifer.db.d
         self.autopid = autopid
         self.codontable = codontable
 
-class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor):
+class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, rotifer.db.core.BaseCursor):
     """
     Fetch gene neighborhoods as dataframes
     ======================================
@@ -395,6 +398,8 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor):
     """
     def __init__(
             self,
+            readers = ['ftp','entrez'],
+            writers = [],
             column = 'pid',
             before = 7,
             after = 7,
@@ -415,27 +420,42 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor):
             cache=rotifer.config['cache'],
             *args, **kwargs
         ):
-        from rotifer.db.ncbi import ftp
-        from rotifer.db.ncbi import entrez
+        super().__init__(
+            progress = progress,
+            *args, **kwargs
+        )
+        self.readers = readers
+        self.writers = writers
+        self.batch_size = batch_size
+        self.threads = threads
+        self.save = save
 
         # Setup special attributes
         self._shared_attributes = [
             'column','before','after','min_block_distance','strand','fttype','eukaryotes',
             'exclude_type','autopid','codontable',
             'progress','tries','batch_size','threads','cache',
+            'giveup',
         ]
-        self.cursors = [
-            ftp.GeneNeighborhoodCursor(),
-            entrez.GeneNeighborhoodCursor()
-        ]
+
+        # Loading cursors
+        from rotifer.db.ncbi import ftp
+        from rotifer.db.ncbi import entrez
+        self.cursors = {
+            'ftp': ftp.GeneNeighborhoodCursor(),
+            'entrez': entrez.GeneNeighborhoodCursor(),
+        }
         if mirror:
             from rotifer.db.ncbi import mirror as rdnm
             cursor = rdnm.GeneNeighborhoodCursor(path=mirror)
-            self.cursors.insert(0,cursor)
+            self.readers.insert(0,'mirror')
+            self.cursors['mirror'] = cursor
         if save:
             from rotifer.db.sql import sqlite3 as rdss
             cursor = rdss.GeneNeighborhoodCursor(save, replace=replace)
-            self.cursors.insert(0,cursor)
+            self.readers.insert(0,'sqlite3')
+            self.writers.insert(0,'sqlite3')
+            self.cursors['sqlite3'] = cursor
 
         # Setup simple attributes
         self.column = column
@@ -444,26 +464,22 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor):
         self.min_block_distance = min_block_distance
         self.strand = strand
         self.fttype = fttype
-        self.save = save
         self.eukaryotes = eukaryotes
         self.exclude_type = exclude_type
         self.autopid = autopid
         self.codontable = codontable
         self.progress = progress
         self.tries = tries
-        self.batch_size = batch_size
-        self.threads = threads
         self.cache = cache
-        self._missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error",'class'])
-
-    @property
-    def missing(self):
-        return self._missing
+        self.giveup.update(["HTTP Error 400"])
+        self.giveup.update(["no IPG","No IPG"])
+        if not eukaryotes:
+            self.giveup.update(["Eukaryot","eukaryot"])
 
     def __setattr__(self, name, value):
         super().__setattr__(name, value)
         if hasattr(self,'cursors') and hasattr(self,'_shared_attributes') and name in self._shared_attributes:
-            for cursor in self.cursors:
+            for cursor in self.cursors.values():
                 if hasattr(cursor,name) and not isinstance(value,types.NoneType):
                     cursor.__setattr__(name,value)
 
@@ -498,11 +514,22 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor):
          """
         from rotifer.genome.utils import seqrecords_to_dataframe
         result = seqrecords_to_dataframe([])
-        for cursor in self.cursors:
-            result = cursor.__getitem__(protein, ipgs=ipgs)
+        targets = self.parse_ids(protein)
+        tried = []
+        for reader in self.readers:
+            if reader not in self.cursors:
+                continue
+            tried.append(reader)
+            reader = self.cursors[reader]
+            result = reader.__getitem__(targets, ipgs=ipgs)
             if not isinstance(result,types.NoneType) and len(result) > 0:
-                if self.save and (cursor != self.cursors[0]):
-                    self.cursors[0].insert(result)
+                for otherReader in tried:
+                    self.cursors[otherReader].remove_missing(targets)
+                if self.save:
+                    for writer in self.writers:
+                        if writer not in self.cursors:
+                            continue
+                        self.cursors[writer].insert(result)
                 break
         return result
 
@@ -534,48 +561,47 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseGeneNeighborhoodCursor):
 
         # Copy identifiers and remove redundancy
         targets = self.parse_ids(accessions)
-        todo = deepcopy(targets)
 
         # Make sure we have IPGs
         if isinstance(ipgs,types.NoneType):
             from rotifer.db.ncbi import entrez
             if self.progress:
-                logger.warn(f'Downloading IPGs for {len(todo)} proteins....')
-            size = self.batch_size
+                logger.warn(f'Downloading IPGs for {len(targets)} proteins....')
             ic = entrez.IPGCursor(progress=self.progress, tries=self.tries)
-            ipgs = ic.fetchall(list(todo))
-            if len(ic.missing):
-                missing = self.missing_ids()
-                self.update_missing(missing, np.nan, "No IPGs")
-                todo = todo - missing
+            ipgs = ic.fetchall(targets)
+            self.update_missing(data=ic.remove_missing())
+            targets = targets - self.missing_ids(retry=False)
 
         # Select IPGs corresponding to our queries
-        ipgs = ipgs[ipgs.id.isin(ipgs[ipgs.pid.isin(todo) | ipgs.representative.isin(todo)].id)]
-        missing = todo - set(ipgs.pid).union(ipgs.representative)
+        ipgs = ipgs[ipgs.id.isin(ipgs[ipgs.pid.isin(targets) | ipgs.representative.isin(targets)].id)]
+        missing = targets - set(ipgs.pid).union(ipgs.representative)
         if missing:
-            self.update_missing(missing,np.NaN,"Not found in IPGs")
-            todo = todo - missing
+            self.update_missing(missing,"Not found in IPGs")
+            targets = targets - missing
         if len(ipgs) == 0:
             return [seqrecords_to_dataframe([])]
 
         # Call cursors
-        lost = 'noipgs == False'
-        if not self.eukaryotes:
-            lost += ' and eukaryote == False'
-        for i in range(0,len(self.cursors)):
-            cursor = self.cursors[i]
-            if len(todo) == 0:
+        tried = []
+        for reader in self.readers:
+            if len(targets) == 0:
                 break
-            for result in cursor.fetchone(todo, ipgs=ipgs):
-                if self.save and i > 0:
-                    self.cursors[0].insert(result)
-                found = self.getids(result, ipgs=ipgs)
-                for c in [self] + self.cursors[0:i+1]:
-                    c.missing.drop(found, axis=0, inplace=True, errors="ignore")
-                for s in cursor.missing.iterrows():
-                    if s[0] in targets:
-                        self.missing.loc[s[0]] = s[1]
-                todo = set(self.missing.query(lost).index)
+            if reader not in self.cursors:
+                continue
+            tried.append(reader)
+            reader = self.cursors[reader]
+            for result in reader.fetchone(targets, ipgs=ipgs):
+                if self.save:
+                    for writer in self.writers:
+                        if writer not in self.cursors:
+                            continue
+                        self.cursors[writer].insert(result)
+                found = targets.intersection(self.getids(result, ipgs=ipgs))
+                for readerName in tried:
+                    self.cursors[readerName].remove_missing(found)
+                self.remove_missing(found)
+                self.update_missing(data=reader._missing)
+                targets = targets - found
                 yield result
 
     def fetchall(self, proteins, ipgs=None):

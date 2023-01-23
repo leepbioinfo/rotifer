@@ -226,8 +226,8 @@ class sequence:
         self.df.reset_index(drop=True, inplace=True)
 
         # Statistics holder
-        if not hasattr(self,'numerical'):
-            self.numerical = pd.DataFrame(columns=['type']+list(range(1,self.get_alignment_length()+1)))
+        #if not hasattr(self,'numerical'):
+        #   self.numerical = pd.DataFrame(columns=['type']+list(range(1,self.get_alignment_length()+1)))
 
     def __len__(self):
         return len(self.df.query('type == "sequence"'))
@@ -394,7 +394,7 @@ class sequence:
 
         # Cut slices
         sequence  = []
-        numerical = []
+        #numerical = []
         for pos in position:
             pos = [*pos]
             if len(pos) == 3:
@@ -403,15 +403,15 @@ class sequence:
                 pos[0:2] = (refseq.loc[pos[0]-1:pos[1]].mapped_position.agg(['min','max'])).tolist()
                 pos[0] += 1
             sequence.append(result.df.sequence.str.slice(pos[0]-1, pos[1]))
-            numerical.extend(list(range(pos[0],pos[1]+1)))
+            #numerical.extend(list(range(pos[0],pos[1]+1)))
 
         # Rebuild sequence
         result.df['sequence'] = pd.concat(sequence, axis=1).sum(axis=1)
 
         # Rebuild numerical
-        other = set(self.numerical.columns) - set(['type']) - set(list(range(1, self.get_alignment_length() + 1)))
-        result.numerical = result.numerical[['type'] + numerical + list(other)]
-        result.numerical.columns = ['type'] + list(range(1,len(numerical)+1)) + list(other)
+        #other = set(self.numerical.columns) - set(['type']) - set(list(range(1, self.get_alignment_length() + 1)))
+        #result.numerical = result.numerical[['type'] + numerical + list(other)]
+        #result.numerical.columns = ['type'] + list(range(1,len(numerical)+1)) + list(other)
 
         # Return new sequence object
         result._reset()
@@ -1319,9 +1319,9 @@ class sequence:
         columns_to_keep = self.residue_frequencies.T.query('gap <= @max_perc_gaps').T.columns.to_list()
         result = self.copy()
         result.df['sequence'] = result.residues.loc[:, columns_to_keep].sum(axis=1)
-        other = set(self.numerical.columns) - set(['type']) - set(list(range(1, self.get_alignment_length() + 1)))
-        result.numerical = result.numerical[['type'] + columns_to_keep + list(other)]
-        result.numerical.columns = ['type'] + list(range(1,len(columns_to_keep)+1)) + list(other)
+        #other = set(self.numerical.columns) - set(['type']) - set(list(range(1, self.get_alignment_length() + 1)))
+        #result.numerical = result.numerical[['type'] + columns_to_keep + list(other)]
+        #result.numerical.columns = ['type'] + list(range(1,len(columns_to_keep)+1)) + list(other)
         result._reset()
         return result
 
@@ -1749,7 +1749,6 @@ class sequence:
         #if whant to send to latex, replace set_stick... to:to_latex(environment='longtable', convert_css=True)
         return df_style
 
-
     def edit(self, consensus=True, scale=True):
         """
         Search the alignment against a HMM databases using hhsearch.
@@ -1836,8 +1835,6 @@ class sequence:
         self.ndf = gnc.fetchall(pids)
 
         return "Neighborhood DF was created at seqobj.ndf" 
-
-
 
     ## Class methods
 

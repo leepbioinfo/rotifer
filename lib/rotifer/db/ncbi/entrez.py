@@ -13,6 +13,7 @@ from copy import deepcopy
 # Import submodules
 import rotifer
 from rotifer import GlobalConfig
+import rotifer.db.core
 import rotifer.db.parallel
 import rotifer.db.methods
 from rotifer.db.ncbi import config as NcbiConfig
@@ -392,7 +393,7 @@ class NucleotideFeaturesCursor(SequenceCursor):
             df = seqrecords_to_dataframe([])
         return df
 
-class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
+class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, NucleotideFeaturesCursor):
     """
     Fetch gene neighbors from nucleotide annotation.
 
@@ -464,7 +465,9 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
             batch_size = config['batch_size'],
             threads = config["threads"] or _defaults['threads'],
         ):
+
         threads = threads or _defaults['threads']
+
         super().__init__(
             exclude_type = exclude_type,
             autopid = autopid,
@@ -482,13 +485,12 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
         self.strand = strand
         self.fttype = fttype
         self.eukaryotes = eukaryotes
-        self._missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error","class"])
+        self.giveup.update(["HTTP Error 400"])
+        self.giveup.update(["no IPG","No IPG"])
+        if not eukaryotes:
+            self.giveup.update(["Eukaryot","eukaryot"])
 
-    @property
-    def missing(self):
-        return self._missing
-
-    def getids(self, obj, *args, **kwargs):
+    def getids2(self, obj, *args, **kwargs):
         columns = ['pid']
         if 'replaced' in obj.columns:
             columns.append('replaced')
@@ -498,18 +500,7 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
         ids.drop_duplicates(inplace=True)
         return ids.id.tolist()
 
-    def update_missing(self, accessions, assembly, error):
-        err = [False,False,assembly,error,__name__]
-        if "Eukaryotic" in error:
-            err[1] = True
-        if "IPG" in error:
-            err[0] = True
-        if not isinstance(accessions,typing.Iterable) or isinstance(accessions,str):
-            accessions = [accessions]
-        for x in accessions:
-            self.missing.loc[x] = err
-
-    def __getitem__(self, protein, ipgs=None):
+    def __getitem__(self, accessions, ipgs=None):
         """
         Find gene neighborhoods in a nucleotide sequence.
 
@@ -518,23 +509,27 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
         rotifer.genome.data.NeighborhoodDF
         """
         objlist = seqrecords_to_dataframe([])
-        if not isinstance(protein,typing.Iterable) or isinstance(protein,str):
-            protein = [protein]
+
+        # Make sure no identifiers are used twice
+        targets = self.parse_ids(accessions)
 
         if isinstance(ipgs,types.NoneType):
             from rotifer.db.ncbi import entrez
             ic = entrez.IPGCursor(progress=False, tries=self.tries, batch_size=self.batch_size, threads=self.threads)
-            ipgs = ic.fetchall(protein)
-        ipgids = set(ipgs[ipgs.pid.isin(protein) | ipgs.representative.isin(protein)].id)
+            ipgs = ic.fetchall(targets)
+            targets = targets - ic.missing_ids()
+            self.update_missing(data=ic.remove_missing())
+        ipgids = set(ipgs[ipgs.pid.isin(targets) | ipgs.representative.isin(targets)].id)
         ipgs = ipgs[ipgs.id.isin(ipgids) & (ipgs.assembly.notna() | ipgs.nucleotide.notna())]
         best = rdnu.best_ipgs(ipgs)
         best = best[best.nucleotide.notna()]
         ipgs = ipgs[ipgs.nucleotide.isin(best.nucleotide)]
-        missing = set(protein) - set(ipgs.pid) - set(ipgs.representative)
+        missing = targets - self.getids(ipgs)
         if missing:
-            self.update_missing(missing,np.NaN,"No IPGs")
-        if len(ipgs) == 0:
-            return objlist
+            self.update_missing(missing, error="No IPGs", retry=False)
+            targets = targets - missing
+            if len(targets) == 0:
+                return objlist
 
         # Identify DNA data
         nucleotides = ipgs.filter(['nucleotide','pid','representative'])
@@ -547,6 +542,7 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
         objlist = []
         for accession in nucleotides.keys():
             expected = set([ y for x in nucleotides[accession].items() for y in x ])
+            expected = targets.intersection(expected)
 
             obj = None
             for attempt in range(0,self.tries):
@@ -556,11 +552,11 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
                 try:
                     stream = self.fetcher(accession)
                 except RuntimeError:
-                    error = f'Runtime error: {sys.exc_info()[1]}'
+                    error = f'Runtime error for nucleotide {accession}: {sys.exc_info()[1]}'
                     logger.debug(error)
                     continue
                 except ValueError:
-                    error = f'Value error: {sys.exc_info()[1]}'
+                    error = f'Value error for nucleotide {accession}: {sys.exc_info()[1]}'
                     logger.debug(error)
                     break
                 except:
@@ -568,27 +564,36 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
                     logger.debug(error)
                     continue
 
-                if isinstance(stream, types.NoneType):
-                    self.update_missing(expected, accession, error)
-                    continue
+                if error or isinstance(stream, types.NoneType):
+                    if self.update_missing(expected, error):
+                        continue
+                    else:
+                        break
 
                 # Use parser to process results
                 try:
                     obj = self.parser(stream, accession, nucleotides[accession])
                     break
                 except ValueError:
-                    error = f'Value error: {sys.exc_info()[1]}'
+                    error = f'Value error for nucleotide {accession}: {sys.exc_info()[1]}'
                     logger.debug(error)
                     break
                 except:
-                    error = f"Failed to parse nucleotide {accession}: {str(sys.exc_info()[1])}"
+                    error = f"Failed to parse nucleotide {accession}: {sys.exc_info()[1]}"
                     logger.debug(error)
 
+                # See if the error indicates we should give up
+                if error:
+                    if self.update_missing(expected, error):
+                        continue
+                    else:
+                        break
+
             if isinstance(obj, types.NoneType):
-                self.update_missing(expected, accession, error)
+                self.update_missing(expected, error)
             elif len(obj) == 0:
                 error = f'No anchors in nucleotide sequence {accession}'
-                self.update_missing(expected, accession, error)
+                self.update_missing(expected, error)
             else:
                 objlist.extend(obj)
 
@@ -601,7 +606,7 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
 
         # Return data
         if len(objlist) > 0:
-            self.missing.drop(self.getids(objlist), axis=0, inplace=True, errors='ignore')
+            self.remove_missing(self.getids(objlist))
         return objlist
 
     def parser(self, stream, accession, proteins):
@@ -630,26 +635,34 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
                 continue
             for x in df.groupby('block_id'):
                 result.append(x[1])
-        return {"result":result,"missing":self.missing}
+        return {"result":result,"missing":self.remove_missing()}
 
-    def splitter(self, ipgs):
+    def splitter(self, accessions, ipgs):
         size = self.batch_size
         if size == None or size == 0:
             size = max(int(ipgs.nucleotide.nunique()/self.threads),1)
         batch = []
         for x, y in ipgs.groupby('nucleotide'):
-            proteins = set(y.pid).union(y.representative)
+            proteins = accessions.intersection(self.getids(ipgs))
             batch.append((proteins, y.copy()))
         batch = [ batch[x:x+size] for x in range(0,len(batch),size) ]
         return batch
 
-    def fetchone(self, proteins, ipgs=None):
+    def nucleotide_ids(self, obj):
+        if not isinstance(obj,list):
+            obj = [obj]
+        ids = set()
+        for o in obj:
+            ids.update(o.nucleotide.unique().tolist())
+        return ids
+
+    def fetchone(self, accessions, ipgs=None):
         """
         Asynchronously fetch gene neighborhoods from NCBI.
 
         Parameters
         ----------
-        proteins: list of strings
+        accessions: list of strings
           NCBI protein identifiers
 
         Returns
@@ -659,24 +672,25 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
         from concurrent.futures import ProcessPoolExecutor, as_completed
 
         # Make sure no identifiers are used twice
-        if not isinstance(proteins,typing.Iterable) or isinstance(proteins,str):
-            proteins = [proteins]
-        proteins = set(proteins)
+        targets = self.parse_ids(accessions)
 
         # Make sure we have IPGs
         if isinstance(ipgs,types.NoneType):
             from rotifer.db.ncbi import entrez
             if self.progress:
-                logger.info(f'Downloading IPGs for {len(proteins)} proteins...')
-            size = self.batch_size
+                logger.warning(f'Downloading IPGs for {len(targets)} proteins...')
             ic = entrez.IPGCursor(progress=self.progress, tries=self.tries, threads=self.threads)
-            ipgs = ic.fetchall(list(proteins))
-            if len(ic.missing):
-                self.update_missing(ic.missing.index.to_list(), np.nan, "No IPGs for nucleotides at NCBI")
-        ipgs = ipgs[ipgs.pid.isin(proteins) | ipgs.representative.isin(proteins)]
+            ipgs = ic.fetchall(targets)
+            targets = targets - ic.missing_ids()
+            self.update_missing(data=ic.remove_missing())
+        ipgs = ipgs[ipgs.pid.isin(targets) | ipgs.representative.isin(targets)]
         if len(ipgs) == 0:
-            self.update_missing(proteins,np.NaN,"No IPGs to match a nucleotide sequence")
+            self.update_missing(targets,"No IPGs to match a nucleotide sequence")
             return [seqrecords_to_dataframe([])]
+        missing = targets - self.getids(ipgs)
+        if missing:
+            self.update_missing(missing,"No IPGs")
+            targets = targets - missing
         nucleotides = rdnu.best_ipgs(ipgs)
         nucleotides = nucleotides[nucleotides.nucleotide.notna()]
         nucleotides = ipgs[ipgs.nucleotide.isin(nucleotides.nucleotide)]
@@ -687,48 +701,31 @@ class GeneNeighborhoodCursor(NucleotideFeaturesCursor):
         todo = set(nucleotides.nucleotide.unique())
         with ProcessPoolExecutor(max_workers=self.threads) as executor:
             if self.progress:
-                targets = set(nucleotides.pid).union(nucleotides.representative)
-                targets = len(targets.intersection(proteins))
-                logger.warn(f'Downloading {len(todo)} nucleotides for {targets} proteins...')
+                pids = set(nucleotides.pid).union(nucleotides.representative)
+                pids = len(pids.intersection(targets))
+                logger.warn(f'Downloading {len(todo)} nucleotides for {pids} proteins...')
                 p = tqdm(total=len(todo), initial=0)
             tasks = []
-            for chunk in self.splitter(nucleotides):
+            missing = self.remove_missing()
+            for chunk in self.splitter(targets, nucleotides):
                 tasks.append(executor.submit(self.worker, chunk))
+            self.update_missing(data=missing)
             completed = set()
             for x in as_completed(tasks):
                 data = x.result()
-                for s in data['missing'].iterrows():
-                    self.missing.loc[s[0]] = s[1]
+                for acc in completed.intersection(data['missing'].keys()):
+                    data['missing'].pop(acc, None)
+                self.update_missing(data=data['missing'])
                 for obj in data['result']:
-                    found = self.getids(obj)
-                    done = todo.intersection(found)
-                    if self.progress and len(done) > 0:
-                        p.update(len(done))
+                    found = targets.intersection(self.getids(obj))
+                    self.remove_missing(found)
+                    done = todo.intersection(self.nucleotide_ids(obj)) - completed
+                    if  len(done) > 0:
+                        completed.update(done)
+                        if self.progress:
+                            p.update(len(done))
                     todo = todo - done
-                    completed.update(self.getids(obj))
-                    self.missing.drop(completed, axis=0, inplace=True, errors='ignore')
                     yield obj
-
-    def fetchall(self, proteins, ipgs=None):
-        """
-        Fetch all neighbors from nucleotide sequences.
-
-        Parameters
-        ----------
-        proteins: list of strings
-          NCBI protein identifiers
-
-        Returns
-        -------
-        rotifer.genome.data.NeighborhoodDF
-        """
-        stack = []
-        for df in self.fetchone(proteins, ipgs=ipgs):
-            stack.append(df)
-        if stack:
-            return pd.concat(stack, ignore_index=True)
-        else:
-            return seqrecords_to_dataframe([])
 
 def elink(accessions, dbfrom="protein", dbto="taxonomy", linkname=None):
     """
