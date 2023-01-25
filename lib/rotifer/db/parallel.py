@@ -198,7 +198,7 @@ class SimpleParallelProcessCursor(rotifer.db.core.BaseCursor):
         targets = self.parse_ids(accessions)
         with ProcessPoolExecutor(max_workers=self.threads) as executor:
             if self.progress:
-                p = tqdm(total=len(targets), initial=0)
+                tqdmobj = tqdm(total=len(targets), initial=0)
             tasks = []
             missing = self.remove_missing()
             for chunk in self.splitter(list(targets), *args, **kwargs):
@@ -225,7 +225,7 @@ class SimpleParallelProcessCursor(rotifer.db.core.BaseCursor):
                         completed.update(done)
                         self.remove_missing(done)
                         if self.progress:
-                            p.update(len(done))
+                            tqdmobj.update(len(done))
                     yield obj
 
     def fetchall(self, accessions, *args, **kwargs):
@@ -469,17 +469,17 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseCursor):
             ipgs = ic.fetchall(targets)
             targets = targets - ic.missing_ids()
             self.update_missing(data=ic.remove_missing())
-        if self.progress:
-            logger.warn(f'Processing {len(ipgs)} rows of {ipgs.id.nunique()} IPGs.')
         valid = ipgs.pid.isin(targets) | ipgs.representative.isin(targets)
         if not valid.all():
             valid = ipgs[valid].id.drop_duplicates()
             ipgs = ipgs[ipgs.id.isin(valid)]
+        if self.progress:
+            logger.warn(f'Processing {len(ipgs)} rows of {ipgs.id.nunique()} IPGs.')
 
         # Check for proteins without IPGs
         missing = targets - self.ipg_proteins(ipgs)
         if missing:
-            self.update_missing(missing,"Not found in IPGs")
+            self.update_missing(missing, error="Not found in IPGs", retry=False)
             targets = targets - missing
         if len(ipgs) == 0:
             return [seqrecords_to_dataframe([])]
@@ -516,10 +516,6 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseCursor):
         # Split jobs and execute
         genomes = set(assemblies.assembly.unique())
         with ProcessPoolExecutor(max_workers=self.threads) as executor:
-            if self.progress:
-                logger.warn(f'Downloading {len(genomes)} genomes for {len(targets)} proteins...')
-            if self.progress:
-                logger.warn(f'Distributing {len(genomes)} genomes among {self.threads} workers...')
             tasks = []
             missing = self.remove_missing()
             for chunk in self.splitter(targets, assemblies):
@@ -527,8 +523,9 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseCursor):
             self.update_missing(data=missing)
 
             if self.progress:
-                logger.warn(f'Running {len(tasks)} batches...')
-                p = tqdm(total=len(genomes), initial=0)
+                m = f'Downloading {len(genomes)} genomes for {len(targets)} proteins in {len(tasks)} batches, using {self.threads} threads ({self.batch_size} targets/batch)'
+                logger.warn(m)
+                tqdmobj = tqdm(total=len(genomes), initial=0)
 
             # Actually processing batches
             completed = set() # Registry of processed IPG ids
@@ -542,7 +539,7 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseCursor):
                     found = self.genome_ids(obj)
                     done = genomes.intersection(found)
                     if self.progress and len(done) > 0:
-                        p.update(len(done))
+                        tqdmobj.update(len(done))
                     genomes = genomes - done
                     for acc in self.getids(obj):
                         if acc in pid2ipg and pid2ipg[acc] not in completed:

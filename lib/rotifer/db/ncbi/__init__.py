@@ -570,13 +570,13 @@ class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, rotifer.
             ic = entrez.IPGCursor(progress=self.progress, tries=self.tries)
             ipgs = ic.fetchall(targets)
             self.update_missing(data=ic.remove_missing())
-            targets = targets - self.missing_ids(retry=False)
+            targets = targets - self.missing_ids()
 
         # Select IPGs corresponding to our queries
         ipgs = ipgs[ipgs.id.isin(ipgs[ipgs.pid.isin(targets) | ipgs.representative.isin(targets)].id)]
         missing = targets - set(ipgs.pid).union(ipgs.representative)
         if missing:
-            self.update_missing(missing,"Not found in IPGs")
+            self.update_missing(missing,"Not found in IPGs",False)
             targets = targets - missing
         if len(ipgs) == 0:
             return [seqrecords_to_dataframe([])]
