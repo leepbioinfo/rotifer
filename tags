@@ -2125,9 +2125,9 @@ fun	lib/rotifer/core/dev/cli.py	/^    class fun(argparse.Action):$/;"	c	class:ac
 functions	lib/rotifer/core/__init__.py	/^from . import functions$/;"	i
 g:loaded_move	etc/vim/vim-move/plugin/move.vim	/^let g:loaded_move = 1$/;"	v
 g:move_auto_indent	etc/vim/vim-move/plugin/move.vim	/^    let g:move_auto_indent = 1$/;"	v
-g:move_key_modifier	etc/vim/config.vim	/^let g:move_key_modifier = 'C'$/;"	v
+g:move_key_modifier	etc/vim/init.vim	/^let g:move_key_modifier = 'C'$/;"	v
 g:move_key_modifier	etc/vim/vim-move/plugin/move.vim	/^    let g:move_key_modifier = 'A'$/;"	v
-g:move_key_modifier_visualmode	etc/vim/config.vim	/^let g:move_key_modifier_visualmode = 'S'$/;"	v
+g:move_key_modifier_visualmode	etc/vim/init.vim	/^let g:move_key_modifier_visualmode = 'S'$/;"	v
 g:move_key_modifier_visualmode	etc/vim/vim-move/plugin/move.vim	/^    let g:move_key_modifier_visualmode = 'A'$/;"	v
 g:move_map_keys	etc/vim/vim-move/plugin/move.vim	/^    let g:move_map_keys = 1$/;"	v
 g:move_normal_option	etc/vim/vim-move/plugin/move.vim	/^    let g:move_normal_option = 0$/;"	v

@@ -1,4 +1,5 @@
 import rotifer
+import rotifer.pipeline
 import rotifer.db.ncbi as ncbi
 from rotifer.core.functions import loadConfig
 from copy import deepcopy
@@ -20,7 +21,7 @@ config = loadConfig(__name__, defaults = {
     'local_database_path': [ os.path.join(rotifer.config['data'],"fadb","nr","nr") ],
 })
 
-class sequence:
+class sequence(rotifer.pipeline.Annotatable):
     """
     This class represents a multiple sequence alignment (MSA)
     or a collection of unaligned sequences.

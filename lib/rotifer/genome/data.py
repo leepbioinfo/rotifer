@@ -7,6 +7,7 @@ import itertools
 import numpy as np
 import pandas as pd
 import rotifer
+import rotifer.pipeline
 from rotifer.core.functions import not_kwargs
 from rotifer.taxonomy.utils import lineage as rtlineage
 from rotifer.genome.utils import seqrecords_to_dataframe
@@ -40,7 +41,7 @@ _column_dict = OrderedDict({
   'replaced'       :'feature',
 })
 
-class NeighborhoodDF(pd.DataFrame):
+class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
     _metadata = ['filterby','NDFProperties']
     NDFProperties = {
         "columns": list(_column_dict.keys()),
@@ -899,5 +900,4 @@ class NeighborhoodDF(pd.DataFrame):
         v4 = v3.merge(ncc, how='left')
         v5 = viz.merge(v4[['vizi', 'nei_c', 'ncc']], how='left')
         return v5
-
 
