@@ -528,24 +528,27 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseCursor):
                 tqdmobj = tqdm(total=len(genomes), initial=0)
 
             # Actually processing batches
-            for x in as_completed(tasks):
-                data = x.result()
-                logger.warn(f'Processing {len(data["result"])} blocks and {len(data["missing"])} lost IDs from genomes {pd.concat([ pd.Series(list(gnc.getids(x))) for x in data["result"] ]).unique().tolist()}')
-                for acc in data['missing'].keys():
-                    if x in pid2ipg and pid2ipg[x] in completed:
-                        data['missing'].pop(acc, None)
-                self.update_missing(data=data['missing'])
-                for obj in data['result']:
-                    found = self.genome_ids(obj)
-                    done = genomes.intersection(found)
-                    if self.progress and len(done) > 0:
-                        tqdmobj.update(len(done))
-                    genomes = genomes - done
-                    for acc in self.getids(obj):
-                        if acc in pid2ipg:
-                            if pid2ipg[acc] in ipg2targets:
-                                found = targets.intersection(ipg2targets[pid2ipg[acc]])
-                                self.remove_missing(found)
-                                del(ipg2targets[pid2ipg[acc]])
-                    yield obj
+            try:
+                for x in as_completed(tasks):
+                    data = x.result()
+                    for acc in data['missing'].keys():
+                        if x in pid2ipg and pid2ipg[x] in completed:
+                            data['missing'].pop(acc, None)
+                    self.update_missing(data=data['missing'])
+                    for obj in data['result']:
+                        found = self.genome_ids(obj)
+                        done = genomes.intersection(found)
+                        if self.progress and len(done) > 0:
+                            tqdmobj.update(len(done))
+                        genomes = genomes - done
+                        for acc in self.getids(obj):
+                            if acc in pid2ipg:
+                                if pid2ipg[acc] in ipg2targets:
+                                    found = targets.intersection(ipg2targets[pid2ipg[acc]])
+                                    self.remove_missing(found)
+                                    del(ipg2targets[pid2ipg[acc]])
+                        yield obj
+            finally:
+                if self.progress:
+                    tqdmobj.close()
 
