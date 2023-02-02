@@ -73,6 +73,11 @@ def _setup_base_config(logger):
         if name in os.environ:
             GlobalConfig[value] = os.environ[name]
 
+    # Libraries
+    libdir = os.path.join(userDir,"lib","python")
+    if libdir not in sys.path:
+        sys.path.insert(0,libdir)
+
     # Return main configuration
     return GlobalConfig
 
