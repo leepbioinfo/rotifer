@@ -833,6 +833,46 @@ def alnxaln(seqobj, clustercol = 'c50i0', minseq=10):
     os.chdir(path)
     return (result_table, allhhr, alndict) 
 
+def extract_envelope(df, start='estart', end='eend', expand=10, local_database_path='/database/fadb/nr/nr50'): 
+    '''
+    Using a hmm model to split your sequence object to match only the model region.
+    If more than one match in one protein, it will split the match in two sequence.
+
+    
+    '''
+
+    import os
+    import pandas as pd
+    import tempfile
+    import subprocess
+    from subprocess import Popen, PIPE, STDOUT
+    import rotifer.devel.beta.sequence as rdbs
+    
+    myDF = df.drop_duplicates()
+
+    if len(df.sequence.drop_duplicates().tolist()) > 0:
+        seqobj = rdbs.sequence(df.sequence.drop_duplicates().to_list(), local_database_path=local_database_path)
+        seqobj.df = seqobj.df.merge(df.rename({'sequence':'id'},axis=1), how='left')
+        seqobj.df.end = seqobj.df[end].fillna(seqobj.df.length)
+        seqobj.df.start = seqobj.df[start].fillna(1)
+        seqobj.df.sequence = seqobj.df.apply(lambda x: x.sequence[int(x[start])-expand:int(x[end])+expand], axis=1)
+        seqobj.df['pid'] = seqobj.df['id']
+        seqobj.df['id'] = seqobj.df['id'] + '/' + seqobj.df[start].astype(str) + '-' + seqobj.df[end].astype(str)
+    else:
+        print(f'No sequences were left after filtering')
+        seqobj = rdbs.sequence()
+    seqobj._reset()
+    return (seqobj)
+
+def envelope_collection(df='hmmer2table', alignment_method='linsi'):
+
+    for m,sliceDF in df.grouby('model'): 
+        z[m] = extract_envelope(sliceDF)
+        z[m] = z[m].align(method=alignment_method)
+        z[m] = z[m].sort(['evalue','cov'])
+
+    return z
+
 def split_by_model(seqobj=None, df=False, evalue=1e-3, arch=None, coverage=50, method='hmmer', ldbp=None):
     '''
     Using a hmm model to split your sequence object to match only the model region.
