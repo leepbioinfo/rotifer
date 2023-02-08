@@ -735,7 +735,7 @@ def add_arch_to_df(df):
                 how="left")
         info = info.merge(
                 pd.read_csv(
-                    'tmp1.aravind.scan.arch.tsv',
+                    'tmp1.aravind.scan.arch',
                     sep='\t',
                     names=['c100i100', 'profiledb'],
                     usecols=[0, 1],
@@ -744,7 +744,7 @@ def add_arch_to_df(df):
                 how="left")
         info = info.merge(
                 pd.read_csv(
-                    'tmp1.pfam.scan.arch.tsv',
+                    'tmp1.pfam.scan.arch',
                     sep='\t',
                     names=['c100i100', 'pfam'],
                     usecols=[0, 1],
@@ -778,7 +778,7 @@ def full_annotate(seqobj,
             before=before,
             eukaryotes=eukaryotes)
     seqobj.ndf = add_arch_to_df(gnc.fetchall(seqobj.df.id.to_list()))
-    seqobj.ndf = seqobj.ndf.drop_duplicates(['start', 'end', 'nucleotide'])
+    #seqobj.ndf = seqobj.ndf.drop_duplicates(['start', 'end', 'nucleotide'])
     return seqobj
 
 def padding_df(df):
