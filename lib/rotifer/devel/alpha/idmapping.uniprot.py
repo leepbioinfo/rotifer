@@ -172,6 +172,13 @@ def get_id_mapping_results_stream(url):
     return decode_results(request, file_format, compressed)
 
 
+import csv
+import pandas as pd
+
+def get_data_frame_from_tsv_results(tsv_results):
+    reader = csv.DictReader(tsv_results, delimiter="\t", quotechar='"')
+    return pd.DataFrame(list(reader))
+
 # Test Run with few acc:
 # Usage
 
@@ -184,4 +191,17 @@ if check_id_mapping_results_ready(job_id):
     link = get_id_mapping_results_link(job_id)
     results = get_id_mapping_results_search(link)
 print(results)
+
+def get_data_frame_from_tsv_results(tsv_results):
+    reader = csv.DictReader(tsv_results, delimiter="\t", quotechar='"')
+    return pd.DataFrame(list(reader))
+job_id = submit_id_mapping(
+    from_db="EMBL-GenBank-DDBJ_CDS",
+    to_db="UniProtKB",
+    ids=["BAE76179.1","AAC73502.1"])
+if check_id_mapping_results_ready(job_id):
+    link = get_id_mapping_results_link(job_id)
+    results = get_id_mapping_results_stream(link+"?compressed=true&fields=accession%2Cxref_alphafolddb%2C&format=tsv")
+get_data_frame_from_tsv_results(results)
+
 '''
