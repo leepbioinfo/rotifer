@@ -722,7 +722,7 @@ class sequence(rotifer.pipeline.Annotatable):
         result = self.copy()
 
         # Find local file or download and then open it!
-        if pdb_file:
+        if pdb_file != 'esm':
             if not os.path.exists(pdb_file):
                 if os.path.exists(os.path.join(pdb_dir,pdb_file)):
                     pdb_file = os.path.exists(os.path.join(pdb_dir,pdb_file))
@@ -734,6 +734,17 @@ class sequence(rotifer.pipeline.Annotatable):
                     pdb_file.write(pdb_data)
                     pdb_file.flush()
                     pdb_file.seek(0)
+        if pdb_file == 'esm':
+            # Sends first sequence ESM-Fold API 
+            import urllib
+            data = self.to_string(output_format='fasta-2line').split('\n')[1].encode('utf-8')
+            req = urllib.request.Request(url="https://api.esmatlas.com/foldSequence/v1/pdb/", data=data, method='POST')
+            pdb_data = urllib.request.urlopen(req).read()
+            pdb_file = tempfile.NamedTemporaryFile(suffix=".pdb", delete=True)
+            pdb_file.write(pdb_data)
+            pdb_file.flush()
+            pdb_file.seek(0)
+
         else:
             # No file!
             if os.path.exists(os.path.join(pdb_dir,pdb_id[1:3].lower(),"pdb"+pdb_id.lower()+".ent.gz")):
