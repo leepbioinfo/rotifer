@@ -734,7 +734,7 @@ class sequence(rotifer.pipeline.Annotatable):
                         req = urllib.request.Request(url="https://api.esmatlas.com/foldSequence/v1/pdb/", data=data, method='POST')
                         pdb_data = urllib.request.urlopen(req).read()
                         pdb_file = tempfile.NamedTemporaryFile(suffix=".pdb", delete=True)
-                        pdb_file.write(str(pdb_data))
+                        pdb_file.write(pdb_data)
                         pdb_file.flush()
                         pdb_file.seek(0)
                     else:
