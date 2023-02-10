@@ -733,10 +733,7 @@ class sequence(rotifer.pipeline.Annotatable):
                         data = self.to_string(output_format='fasta-2line').split('\n')[1].encode('utf-8')
                         req = urllib.request.Request(url="https://api.esmatlas.com/foldSequence/v1/pdb/", data=data, method='POST')
                         pdb_data = urllib.request.urlopen(req).read()
-                        pdb_file = tempfile.NamedTemporaryFile(suffix=".pdb", delete=True)
-                        pdb_file.write(pdb_data)
-                        pdb_file.flush()
-                        pdb_file.seek(0)
+                        pdb_file = pdb_data.decode('utf-8')
                     else:
                         # Try using pdb_file as URL
                         import urllib
