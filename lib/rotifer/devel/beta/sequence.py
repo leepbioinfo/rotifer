@@ -730,19 +730,21 @@ class sequence(rotifer.pipeline.Annotatable):
                     if pdb_file == 'esm':
                         # Sends first sequence to ESM-Fold API 
                         import urllib
-                        data = self.to_string(output_format='fasta-2line').split('\n')[1].encode('utf-8')
+                        data = self.filter(keep=pdb_id).to_string(output_format='fasta-2line').split('\n')[1].encode('utf-8')
                         req = urllib.request.Request(url="https://api.esmatlas.com/foldSequence/v1/pdb/", data=data, method='POST')
                         pdb_data = urllib.request.urlopen(req).read()
-                        pdb_file = tempfile.NamedTemporaryFile(suffix=".pdb", delete=True)
+                        pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "wb")
                         pdb_file.write(pdb_data)
+                        pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "r")
                         pdb_file.flush()
                         pdb_file.seek(0)
                     else:
                         # Try using pdb_file as URL
                         import urllib
                         pdb_data = urllib.request.urlopen(pdb_file).read()
-                        pdb_file = tempfile.NamedTemporaryFile(suffix=".pdb", delete=True)
+                        pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "wb")
                         pdb_file.write(pdb_data)
+                        pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "r")
                         pdb_file.flush()
                         pdb_file.seek(0)
 
@@ -1196,7 +1198,7 @@ class sequence(rotifer.pipeline.Annotatable):
                 df.sequence = df.sequence.str.pad(df.sequence.str.len().max(), side="right")
             page(df.to_string(index=False) + "\n", pager_cmd=pager)
 
-    def hhblits(self, databases=config['databases'], database_path=config['databases_path'], view=True):
+    def hhblits(self, databases=config['databases'], database_path=config['databases_path'], view=True, cpu=18):
         """
         Search the alignment against a HMM databases using hhsearch.
 
@@ -1233,7 +1235,7 @@ class sequence(rotifer.pipeline.Annotatable):
         dbs = " ".join([ " -d " + os.path.join(database_path, x) for x in databases ])
         with tempfile.TemporaryDirectory() as tmpdirname:
             self.to_file(f'{tmpdirname}/seqaln')
-            child = f'hhblits -i {tmpdirname}/seqaln {dbs} -M 50 -cpu 18 -o {tmpdirname}/seqaln.hhr'
+            child = f'hhblits -i {tmpdirname}/seqaln {dbs} -M 50 -cpu {cpu} -o {tmpdirname}/seqaln.hhr'
             child = Popen(child, stdout=PIPE,shell=True).communicate()
             hhtable = read_hhr(f'{tmpdirname}/seqaln.hhr')
             with open(f'{tmpdirname}/seqaln.hhr') as f:
@@ -1243,7 +1245,7 @@ class sequence(rotifer.pipeline.Annotatable):
                 page(hhr_result)
             return (hhr_result, hhtable)
 
-    def hhsearch(self, databases=config['databases'], database_path=config['databases_path'], view=True):
+    def hhsearch(self, databases=config['databases'], database_path=config['databases_path'], view=True, cpu=18):
         """
         Search the alignment against a HMM databases using hhsearch.
 
@@ -1280,7 +1282,7 @@ class sequence(rotifer.pipeline.Annotatable):
         dbs = " ".join([ " -d " + os.path.join(database_path, x) for x in databases ])
         with tempfile.TemporaryDirectory() as tmpdirname:
             self.to_file(f'{tmpdirname}/seqaln')
-            child = f'hhsearch -i {tmpdirname}/seqaln {dbs} -M 50 -cpu 18 -o {tmpdirname}/seqaln.hhr'
+            child = f'hhsearch -i {tmpdirname}/seqaln {dbs} -M 50 -cpu {cpu} -o {tmpdirname}/seqaln.hhr'
             child = Popen(child, stdout=PIPE,shell=True).communicate()
             hhtable = read_hhr(f'{tmpdirname}/seqaln.hhr')
             with open(f'{tmpdirname}/seqaln.hhr') as f:
