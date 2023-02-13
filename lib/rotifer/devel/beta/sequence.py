@@ -730,7 +730,7 @@ class sequence(rotifer.pipeline.Annotatable):
                     if pdb_file == 'esm':
                         # Sends first sequence to ESM-Fold API 
                         import urllib
-                        data = self.filter(keep=pdb_id).to_string(output_format='fasta-2line').split('\n')[1].encode('utf-8')
+                        data = self.filter(keep=pdb_id).to_string(output_format='fasta-2line', remove_gaps=True).split('\n')[1].encode('utf-8')
                         req = urllib.request.Request(url="https://api.esmatlas.com/foldSequence/v1/pdb/", data=data, method='POST')
                         pdb_data = urllib.request.urlopen(req).read()
                         pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "wb")
