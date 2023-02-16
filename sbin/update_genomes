@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# Load configuration
+module load brew
+
+if [ "$DATABASES" == "" ]; then
+	DATABASES=/db
+fi
+
+# Sync reports
+/home/geninfo/rfsouza/git/rotifer/bin/rrsw -p $DATABASES -s $DATABASES/src --tmp $DATABASES/tmp genomes
+
+# Sync assemblies
+grep --color=auto -v '^#' ${DATABASES}/genomes/ASSEMBLY_REPORTS/assembly_summary_*.txt \
+| cut -f 20 | cut -f 4- -d / | grep --color=auto -v '^na$' | sort -u \
+| parallel -N1 -j15 /usr/bin/rsync -arHv --no-motd --delete --prune-empty-dirs -L --safe-links --mkpath \
+  rsync://ftp.ncbi.nlm.nih.gov/{}/ /db/{}/
+
+# Exit cleanly
+exit $:?
