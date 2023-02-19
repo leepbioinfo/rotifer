@@ -7,14 +7,17 @@ if [ "$DATABASES" == "" ]; then
 	DATABASES=/db
 fi
 
+mypath=$(dirname $(dirname $0))
+
 # Sync reports
-/home/geninfo/rfsouza/git/rotifer/bin/rrsw -p $DATABASES -s $DATABASES/src --tmp $DATABASES/tmp genomes
+$mypath/bin/rrsw -p $DATABASES -s $DATABASES/src --tmp $DATABASES/tmp genomes
 
 # Sync assemblies
-grep --color=auto -v '^#' ${DATABASES}/genomes/ASSEMBLY_REPORTS/assembly_summary_{refseq,genbank}.txt \
-| cut -f 20 | cut -f 4- -d / | grep --color=auto -v '^na$' | sort -u \
-| parallel -N1 -j15 /usr/bin/rsync -arHv --no-motd --delete --prune-empty-dirs -L --safe-links --mkpath \
-  rsync://ftp.ncbi.nlm.nih.gov/{}/ /db/{}/
+grep -v '^#' ${DATABASES}/genomes/ASSEMBLY_REPORTS/assembly_summary_{refseq,genbank}.txt \
+| cut -f 20 | cut -f 4- -d / | grep -v '^na$' | sort -u \
+| parallel -N1 -j15 \
+  /usr/bin/rsync -arHv --no-motd --delete --prune-empty-dirs -L --safe-links --mkpath \
+  -f ". $mypath/etc/rotifer/rrsw/genome_mirror.rules" rsync://ftp.ncbi.nlm.nih.gov/{}/ /db/{}/
 
 # Exit cleanly
 exit $:?
