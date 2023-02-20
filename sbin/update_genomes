@@ -17,7 +17,7 @@ grep -v '^#' ${DATABASES}/genomes/ASSEMBLY_REPORTS/assembly_summary_{refseq,genb
 | cut -f 20 | cut -f 4- -d / | grep -v '^na$' | sort -u \
 | parallel -N1 -j15 \
   /usr/bin/rsync -arHv --no-motd --delete --prune-empty-dirs -L --safe-links --mkpath \
-  -f ". $mypath/etc/rotifer/rrsw/genome_mirror.rules" rsync://ftp.ncbi.nlm.nih.gov/{}/ /db/{}/
+  -f '". $mypath/etc/rotifer/rrsw/genome_mirror.rules"' rsync://ftp.ncbi.nlm.nih.gov/{}/ /db/{}/
 
 # Exit cleanly
 exit $?
