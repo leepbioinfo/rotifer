@@ -20,4 +20,4 @@ grep -v '^#' ${DATABASES}/genomes/ASSEMBLY_REPORTS/assembly_summary_{refseq,genb
   -f ". $mypath/etc/rotifer/rrsw/genome_mirror.rules" rsync://ftp.ncbi.nlm.nih.gov/{}/ /db/{}/
 
 # Exit cleanly
-exit $:?
+exit $?
