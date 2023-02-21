@@ -15,6 +15,7 @@ Available options:
  -n             : dry run (test only)      : off
  -t <threads>   : set number of threads    : 15
 "
+exit 1
 }
 
 function mirror_genome() {
