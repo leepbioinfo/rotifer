@@ -3,6 +3,7 @@
 # Include some top-level directories
 #+ /*
 #. /databases/tmp/rrsw/genomes.rules
++ /*.txt
 + /*_genomic.gbff.gz
 
 # Excluded patterns
