@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Python
-mypath=$(dirname $(dirname $0))
-export PYTHONPATH=$mypath/lib
+MYPATH=$(dirname $(dirname $(realpath $0)))
+export PYTHONPATH=$MYPATH/lib
 
 # Functions
 function show_help() {
@@ -20,11 +20,11 @@ Available options:
 function mirror_genome() {
 	db=$1
 	path=$2
-	runtest=$3
+	mypath=$3
+	runtest=$4
 	justecho=""
 	if [ "$runtest" != "" ]; then justecho="echo"; fi
 	bn=$(basename $path)
-	mypath=$(dirname $(dirname $0))
 
 	# Download/update metadata
 	/usr/bin/rsync -arHv --no-motd --delete --prune-empty-dirs -L --safe-links --mkpath $runtest \
@@ -66,7 +66,7 @@ source /etc/profile
 #module load brew
 
 # Load libraries
-source $mypath/lib/rotifer/rbashpipe/base/00.logger.lib
+source $MYPATH/lib/rotifer/rbashpipe/base/00.logger.lib
 
 # Parse command line options
 DB=/db
@@ -114,12 +114,12 @@ if [ "$TARGETS" == "" ]; then
 fi
 
 # Sync reports
-$mypath/bin/rrsw $TEST -p $DB -s $DB/src --tmp $DB/tmp genomes
+$MYPATH/bin/rrsw $TEST -p $DB -s $DB/src --tmp $DB/tmp genomes
 
 # Sync assemblies
 grep -v '^#' ${TARGETS} \
 | cut -f 20 | cut -f 4- -d / | grep -v '^na$' | sort -u \
-| parallel -N1 -j$THREADS mirror_genome $DB {} $TEST
+| parallel -N1 -j$THREADS mirror_genome $DB {} $MYPATH $TEST
 
 # Exit cleanly
 exit $?
