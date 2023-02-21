@@ -116,7 +116,7 @@ fi
 $mypath/bin/rrsw $TEST -p $DB -s $DB/src --tmp $DB/tmp genomes
 
 # Sync assemblies
-grep -v '^#' ${TARGETS}
+grep -v '^#' ${TARGETS} \
 | cut -f 20 | cut -f 4- -d / | grep -v '^na$' | sort -u \
 | parallel -N1 -j$THREADS mirror_genome $DB {} $TEST
 
