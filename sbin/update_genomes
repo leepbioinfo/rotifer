@@ -24,6 +24,7 @@ function mirror_genome() {
 	justecho=""
 	if [ "$runtest" != "" ]; then justecho="echo"; fi
 	bn=$(basename $path)
+	mypath=$(dirname $(dirname $0))
 
 	# Download/update metadata
 	/usr/bin/rsync -arHv --no-motd --delete --prune-empty-dirs -L --safe-links --mkpath $runtest \
