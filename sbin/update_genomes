@@ -62,7 +62,7 @@ export -f mirror_genome
 
 # Load configuration
 source /etc/profile
-module load brew
+#module load brew
 
 # Load libraries
 source $mypath/lib/rotifer/rbashpipe/base/00.logger.lib
