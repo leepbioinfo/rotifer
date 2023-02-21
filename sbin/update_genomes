@@ -13,12 +13,13 @@ function show_help() {
 Usage: $(basename $0) [options] <targets>
 
 Available options:
- Option         : Description              : Default
-----------------:--------------------------:---------
- -d <databases> : root databases directory : /db
- -e             : include Eukaryotes       : off
- -n             : dry run (test only)      : off
- -t <threads>   : set number of threads    : 15
+ Option         : Description               : Default
+----------------:---------------------------:---------
+ -d <databases> : root databases directory  : /db
+ -e             : include Eukaryotes        : off
+ -n             : dry run (test only)       : off
+ -t <threads>   : set number of threads     : 15
+ -u             : update ETE3's taxonomy DB : off
 
 Rotifer's root: $MYPATH
 "
@@ -80,10 +81,11 @@ source $MYPATH/lib/rotifer/rbashpipe/base/00.logger.lib
 # Parse command line options
 DB=/db
 typeset -i EUKARYOTES=0
+typeset -i UPDATE_ETE3_TAXONOMY=0
 TEST=""
 THREADS=15
 OPTERR=0
-while getopts "d:nt:" opt
+while getopts "d:ent:u" opt
 do
     case "$opt" in
 	d)
@@ -101,6 +103,10 @@ do
 	t)
 	    export THREADS="$OPTARG"
 	    simplelog INFO "setting number of threads to $THREADS"
+	    ;;
+	u)
+	    typeset -i UPDATE_ETE3_TAXONOMY=1
+	    simplelog INFO "Will update ETE3's local taxonomy database..."
 	    ;;
 	*)
 	    show_help
@@ -131,7 +137,9 @@ fi
 $MYPATH/bin/rrsw $TEST -p $DB -s $DB/src --tmp $DB/tmp genomes
 
 # Update taxonomy
-python3 -c 'from rotifer.db.local import ete3; tc = ete3.TaxonomyCursor(); tc.update_database()'
+if [ $UPDATE_ETE3_TAXONOMY -eq 1 ]; then
+	python3 -c 'from rotifer.db.local import ete3; tc = ete3.TaxonomyCursor(); tc.update_database()'
+fi
 
 # Sync assemblies
 grep -v '^#' ${TARGETS} \
