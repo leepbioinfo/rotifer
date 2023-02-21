@@ -9,13 +9,14 @@ export PYTHONPATH=$MYPATH/lib
 
 # Functions
 function show_help() {
-	echo "Synchronize a local NCBI Genome's mirror.
-
+	echo -n "Update a local mirror of the NCBI Genome's FTP site.
 Usage: $(basename $0) [options] <targets>
+
 Available options:
  Option         : Description              : Default
 ----------------:--------------------------:---------
  -d <databases> : root databases directory : /db
+ -e             : include Eukaryotes       : off
  -n             : dry run (test only)      : off
  -t <threads>   : set number of threads    : 15
 
@@ -28,7 +29,8 @@ function mirror_genome() {
 	db=$1
 	path=$2
 	mypath=$3
-	runtest=$4
+	typeset -i eukaryotes=$4
+	runtest=$5
 	justecho=""
 	if [ "$runtest" != "" ]; then justecho="echo"; fi
 	bn=$(basename $path)
@@ -42,7 +44,7 @@ function mirror_genome() {
 		taxid=$(awk '/Taxid/{print $NF}' $DB/$path/${bn}_assembly_report.txt)
 		if [ "$taxid" != "" ]; then
 			kingdom=$(python3 -c "import rotifer.db.ncbi as ncbi; tc = ncbi.TaxonomyCursor(); print(tc[$taxid].superkingdom.iloc[0])")
-			if [ "$kingdom" == "Eukaryota" ]; then
+			if [ $eukaryotes -eq 0 ] && [ "$kingdom" == "Eukaryota" ]; then
 				if [ -f $db/$path/${bn}_genomic.gbff.gz ]; then
 					$justecho rm -f $db/$path/${bn}_genomic.gbff.gz
 				fi
@@ -77,6 +79,7 @@ source $MYPATH/lib/rotifer/rbashpipe/base/00.logger.lib
 
 # Parse command line options
 DB=/db
+typeset -i EUKARYOTES=0
 TEST=""
 THREADS=15
 OPTERR=0
@@ -85,15 +88,19 @@ do
     case "$opt" in
 	d)
 	    export DB="$OPTARG"
-	    simplelog INFO "setting database directory to $DB"
+	    simplelog INFO "Setting database directory to $DB"
 	    ;;
-	t)
-	    export THREADS="$OPTARG"
-	    simplelog INFO "setting number of threads to $THREADS"
+	e)
+	    typeset -i EUKARYOTES=1
+	    simplelog INFO "Enabling download of eukaryotic genomes."
 	    ;;
 	n)
 	    TEST="-n"
 	    simplelog INFO "Test mode: show targets..."
+	    ;;
+	t)
+	    export THREADS="$OPTARG"
+	    simplelog INFO "setting number of threads to $THREADS"
 	    ;;
 	*)
 	    show_help
@@ -120,13 +127,16 @@ if [ "$TARGETS" == "" ]; then
 	done
 fi
 
-# Sync reports
+# Update reports
 $MYPATH/bin/rrsw $TEST -p $DB -s $DB/src --tmp $DB/tmp genomes
+
+# Update taxonomy
+python3 -c 'from rotifer.db.local import ete3; tc = ete3.TaxonomyCursor(); tc.update_database()'
 
 # Sync assemblies
 grep -v '^#' ${TARGETS} \
 | cut -f 20 | cut -f 4- -d / | grep -v '^na$' | sort -u \
-| parallel -N1 -j$THREADS mirror_genome $DB {} $MYPATH $TEST
+| parallel -N1 -j$THREADS mirror_genome $DB {} $MYPATH $EUKARYOTES $TEST
 
 # Exit cleanly
 exit $?
