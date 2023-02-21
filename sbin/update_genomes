@@ -27,7 +27,7 @@ function mirror_genome() {
 
 	# Download/update metadata
 	/usr/bin/rsync -arHv --no-motd --delete --prune-empty-dirs -L --safe-links --mkpath $runtest \
-  	-f ".\ $mypath/etc/rotifer/rrsw/genome_description.rules" rsync://ftp.ncbi.nlm.nih.gov/$path/ $db/$path/
+  	-f ". $mypath/etc/rotifer/rrsw/genome_description.rules" rsync://ftp.ncbi.nlm.nih.gov/$path/ $db/$path/
 
 	# Check if organism is an eukaryote
 	if [ -f "$db/$path/${bn}_assembly_report.txt" ]; then
@@ -56,7 +56,7 @@ function mirror_genome() {
 
 	# Download GBFF
 	/usr/bin/rsync -arHv --no-motd --delete --prune-empty-dirs -L --safe-links --mkpath $runtest \
-  	-f ".\ $mypath/etc/rotifer/rrsw/genome_mirror.rules" rsync://ftp.ncbi.nlm.nih.gov/$path/ $db/$path/
+  	-f ". $mypath/etc/rotifer/rrsw/genome_mirror.rules" rsync://ftp.ncbi.nlm.nih.gov/$path/ $db/$path/
 }
 export -f mirror_genome
 
