@@ -6,7 +6,8 @@ export PYTHONPATH=$MYPATH/lib
 
 # Functions
 function show_help() {
-	echo "$(basename $0): synchronize NCBI Genome's mirror
+	echo "$MYPATH
+Synchronize a local NCBI Genome's mirror
 Usage: $(basename $0) [options] <targets>
 Available options:
  Option         : Description              : Default
