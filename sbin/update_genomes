@@ -1,23 +1,124 @@
 #!/bin/bash
 
+# Python
+mypath=$(dirname $(dirname $0))
+export PYTHONPATH=$mypath/lib
+
+# Functions
+function show_help() {
+	echo "$(basename $0): synchronize NCBI Genome's mirror
+Usage: $(basename $0) [options] <targets>
+Available options:
+ Option         : Description              : Default
+----------------:--------------------------:---------
+ -d <databases> : root databases directory : /db
+ -n             : dry run (test only)      : off
+ -t <threads>   : set number of threads    : 15
+"
+}
+
+function mirror_genome() {
+	db=$1
+	path=$2
+	runtest=$3
+	justecho=""
+	if [ "$runtest" != "" ]; then justecho="echo"; fi
+	bn=$(basename $path)
+
+	# Download/update metadata
+	/usr/bin/rsync -arHv --no-motd --delete --prune-empty-dirs -L --safe-links --mkpath $runtest \
+  	-f ".\ $mypath/etc/rotifer/rrsw/genome_description.rules" rsync://ftp.ncbi.nlm.nih.gov/$path/ $db/$path/
+
+	# Check if organism is an eukaryote
+	if [ -f "$db/$path/${bn}_assembly_report.txt" ]; then
+		taxid=$(awk '/Taxid/{print $NF}' $DB/$path/${bn}_assembly_report.txt)
+		if [ "$taxid" != "" ]; then
+			kingdom=$(python3 -c "import rotifer.db.ncbi as ncbi; tc = ncbi.TaxonomyCursor(); print(tc[$taxid].superkingdom.iloc[0])")
+			if [ "$kingdom" == "Eukaryota" ]; then
+				if [ -f $db/$path/${bn}_genomic.gbff.gz ]; then
+					$justecho rm -f $db/$path/${bn}_genomic.gbff.gz
+				fi
+				return 1
+			fi
+		fi
+	fi
+
+	# Check whether ithis genome has genes annotations
+	if [ -f "$db/$path/${bn}_feature_count.txt.gz" ]; then
+		typeset -i cds=$(gunzip -c $db/$path/${bn}_feature_count.txt.gz | awk '/gene.protein_coding/{c=NF-1;print $c}')
+		if [ "$cds" == "" ] || [ $cds -eq 0 ]; then
+			if [ -f $db/$path/${bn}_genomic.gbff.gz ]; then
+				$justecho rm -f $db/$path/${bn}_genomic.gbff.gz
+			fi
+			return 1
+		fi
+	fi
+
+	# Download GBFF
+	/usr/bin/rsync -arHv --no-motd --delete --prune-empty-dirs -L --safe-links --mkpath $runtest \
+  	-f ".\ $mypath/etc/rotifer/rrsw/genome_mirror.rules" rsync://ftp.ncbi.nlm.nih.gov/$path/ $db/$path/
+}
+export -f mirror_genome
+
 # Load configuration
+source /etc/profile
 module load brew
 
-if [ "$DATABASES" == "" ]; then
-	DATABASES=/db
+# Load libraries
+source $mypath/lib/rotifer/rbashpipe/base/00.logger.lib
+
+# Parse command line options
+DB=/db
+TEST=""
+THREADS=15
+OPTERR=0
+while getopts "d:nt:" opt
+do
+    case "$opt" in
+	d)
+	    export DB="$OPTARG"
+	    simplelog INFO "setting database directory to $DB"
+	    ;;
+	t)
+	    export THREADS="$OPTARG"
+	    simplelog INFO "setting number of threads to $THREADS"
+	    ;;
+	n)
+	    TEST="-n"
+	    simplelog INFO "Test mode: show targets..."
+	    ;;
+	*)
+	    show_help
+	    break
+	    ;;
+    esac
+done
+shift $((OPTIND-1))
+OPTIND=0
+OPTERR=1
+TARGETS="$@"
+if [ ! -d $DB ]; then
+	simplelog ERROR "No root database directory $DB"
+	exit 1
+fi
+if [ "$TARGETS" == "" ]; then
+	TARGETS=$(echo ${DB}/genomes/ASSEMBLY_REPORTS/assembly_summary_{refseq,genbank}.txt)
+	for f in $TARGETS
+	do
+		if [ ! -f $f ]; then
+			simplelog ERROR "Target $f not found!"
+			exit 0
+		fi
+	done
 fi
 
-mypath=$(dirname $(dirname $0))
-
 # Sync reports
-$mypath/bin/rrsw -p $DATABASES -s $DATABASES/src --tmp $DATABASES/tmp genomes
+$mypath/bin/rrsw $TEST -p $DB -s $DB/src --tmp $DB/tmp genomes
 
 # Sync assemblies
-grep -v '^#' ${DATABASES}/genomes/ASSEMBLY_REPORTS/assembly_summary_{refseq,genbank}.txt \
+grep -v '^#' ${TARGETS}
 | cut -f 20 | cut -f 4- -d / | grep -v '^na$' | sort -u \
-| parallel -N1 -j15 \
-  /usr/bin/rsync -arHv --no-motd --delete --prune-empty-dirs -L --safe-links --mkpath \
-  -f ".\ $mypath/etc/rotifer/rrsw/genome_mirror.rules" rsync://ftp.ncbi.nlm.nih.gov/{}/ /db/{}/
+| parallel -N1 -j$THREADS mirror_genome $DB {} $TEST
 
 # Exit cleanly
 exit $?
