@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Stop at first error
+set -e
+
 # Python
 MYPATH=$(dirname $(dirname $(realpath $0)))
 export PYTHONPATH=$MYPATH/lib
