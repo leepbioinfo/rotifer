@@ -44,7 +44,7 @@ function mirror_genome() {
 
 	# Check if organism is an eukaryote
 	if [ -f "$db/$path/${bn}_assembly_report.txt" ]; then
-		taxid=$(awk '/Taxid/{print $NF}' $db/$path/${bn}_assembly_report.txt)
+		taxid="$(awk '/Taxid/{print \$NF}' $db/$path/${bn}_assembly_report.txt)"
 		if [ "$taxid" != "" ]; then
 			echo Fetching superkingdom of taxid $taxid for $db/$path
 			kingdom=$(python3 -c "import rotifer.db.ncbi as ncbi; tc = ncbi.TaxonomyCursor(); print(tc[$taxid].superkingdom.iloc[0])")
