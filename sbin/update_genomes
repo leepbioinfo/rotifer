@@ -36,7 +36,7 @@ function mirror_genome() {
 	justecho=""
 	if [ "$runtest" != "" ]; then justecho="echo"; fi
 	bn=$(basename $path)
-	echo "Updating target $db/$path"
+	echo "Updating target $db/$path" 1>&2
 
 	# Download/update metadata
 	/usr/bin/rsync -arHv --no-motd --delete --prune-empty-dirs -L --safe-links --mkpath $runtest \
@@ -71,7 +71,7 @@ function mirror_genome() {
 	/usr/bin/rsync -arHv --no-motd --delete --prune-empty-dirs -L --safe-links --mkpath $runtest \
   	-f ". $mypath/etc/rotifer/rrsw/genome_mirror.rules" rsync://ftp.ncbi.nlm.nih.gov/$path/ $db/$path/
 
-	echo "Target $db/$path updated!"
+	echo "Target $db/$path updated!" 1>&2
 }
 export -f mirror_genome
 
