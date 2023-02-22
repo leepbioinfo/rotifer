@@ -18,6 +18,7 @@ Available options:
  -d <databases> : root databases directory  : /db
  -e             : include Eukaryotes        : off
  -n             : dry run (test only)       : off
+ -r             : update assembly reports   : off
  -t <threads>   : set number of threads     : 15
  -u             : update ETE3's taxonomy DB : off
 
@@ -35,6 +36,7 @@ function mirror_genome() {
 	justecho=""
 	if [ "$runtest" != "" ]; then justecho="echo"; fi
 	bn=$(basename $path)
+	echo "Updating target $db/$path"
 
 	# Download/update metadata
 	/usr/bin/rsync -arHv --no-motd --delete --prune-empty-dirs -L --safe-links --mkpath $runtest \
@@ -68,6 +70,8 @@ function mirror_genome() {
 	# Download GBFF
 	/usr/bin/rsync -arHv --no-motd --delete --prune-empty-dirs -L --safe-links --mkpath $runtest \
   	-f ". $mypath/etc/rotifer/rrsw/genome_mirror.rules" rsync://ftp.ncbi.nlm.nih.gov/$path/ $db/$path/
+
+	echo "Target $db/$path updated!"
 }
 export -f mirror_genome
 
@@ -82,8 +86,10 @@ source $MYPATH/lib/rotifer/rbashpipe/base/00.logger.lib
 DB=/db
 typeset -i EUKARYOTES=0
 typeset -i UPDATE_ETE3_TAXONOMY=0
+typeset -i UPDATE_REPORTS=0
 TEST=""
 THREADS=15
+
 OPTERR=0
 while getopts "d:ent:u" opt
 do
@@ -100,6 +106,10 @@ do
 	    TEST="-n"
 	    simplelog INFO "Test mode: show targets..."
 	    ;;
+	r)
+	    typeset -i UPDATE_REPORTS=1
+	    simplelog INFO "Will update assembly reports..."
+	    ;;
 	t)
 	    export THREADS="$OPTARG"
 	    simplelog INFO "setting number of threads to $THREADS"
@@ -115,6 +125,7 @@ do
     esac
 done
 shift $((OPTIND-1))
+
 OPTIND=0
 OPTERR=1
 TARGETS="$@"
@@ -134,7 +145,9 @@ if [ "$TARGETS" == "" ]; then
 fi
 
 # Update reports
-$MYPATH/bin/rrsw $TEST -p $DB -s $DB/src --tmp $DB/tmp genomes
+if [ $UPDATE_REPORTS -eq 1 ]; then
+	$MYPATH/bin/rrsw $TEST -p $DB -s $DB/src --tmp $DB/tmp genomes
+fi
 
 # Update taxonomy
 if [ $UPDATE_ETE3_TAXONOMY -eq 1 ]; then

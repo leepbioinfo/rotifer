@@ -489,18 +489,18 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseCursor):
         missing = best[best[self._target_column].isna()]
         best = best[best[self._target_column].notna()]
         if len(missing):
-            err = missing.melt(id_vars='nucleotide', value_vars=['pid','representative'], value_name='pid', var_name='class')
-            err = err[err.pid.isin(targets)]
+            err = missing.melt(id_vars='nucleotide', value_vars=['pid','representative'], value_name='pids', var_name='class')
+            err = err[err.pids.isin(targets)]
             err.rename({'nucleotide':'error'}, axis=1, inplace=1)
             err['class'] = self.__name__
             err['retry'] = err.error.notna()
             err['error'] = np.where(
                     err.error.isna(),
-                    "No nucleotide or assembly for protein " + err.pid,
-                    "Fetch protein " + err.pid + " from nucleotide " + err.error.fillna("")
+                    "No nucleotide or assembly for protein " + err.pids,
+                    "Fetch protein " + err.pids + " from nucleotide " + err.error.fillna("")
             )
-            err.retry = err.drop(['pid'], axis=1).values.tolist()
-            err = err.set_index('pid')[['retry']].retry.to_dict()
+            err.retry = err.drop(['pids'], axis=1).values.tolist()
+            err = err.set_index('pids')[['retry']].retry.to_dict()
             self.update_missing(data=err)
             targets = targets - self.missing_ids(retry=False)
 
@@ -508,10 +508,10 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseCursor):
         assemblies = ipgs[ipgs[self._target_column].isin(best[self._target_column])]
 
         # Indexing proteins and IPGs
-        pid2ipg = ipgs.melt(id_vars='id', value_vars=['pid','representative'], value_name='pid')
-        pid2ipg.drop_duplicates(['id','pid'], inplace=True)
-        ipg2targets = pid2ipg[pid2ipg.pid.isin(targets)].groupby('id').agg({'pid':'unique'}).pid.to_dict()
-        pid2ipg = pid2ipg.set_index('pid').id.to_dict()
+        pid2ipg = ipgs.melt(id_vars='id', value_vars=['pid','representative'], value_name='pids')
+        pid2ipg.drop_duplicates(['id','pids'], inplace=True)
+        ipg2targets = pid2ipg[pid2ipg.pids.isin(targets)].groupby('id').agg({'pids':'unique'}).pids.to_dict()
+        pid2ipg = pid2ipg.set_index('pids').id.to_dict()
 
         # Split jobs and execute
         genomes = set(assemblies.assembly.unique())
