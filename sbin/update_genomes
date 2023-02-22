@@ -70,6 +70,7 @@ function mirror_genome() {
 			if [ -f $db/$path/${bn}_genomic.gbff.gz ]; then
 				$justecho rm -f $db/$path/${bn}_genomic.gbff.gz
 			fi
+			echo "=====> Skipped unannotated genome $db/$path"
 			return 1
 		fi
 	fi
