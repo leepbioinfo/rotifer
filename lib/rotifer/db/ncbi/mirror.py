@@ -176,7 +176,7 @@ class GenomeCursor(rotifer.db.methods.GenomeCursor, rotifer.db.parallel.SimplePa
             if len(ls):
                 ls = ls[0] # Only one GBFF is expected
             else:
-                raise FileNotFoundError(f'No GBFF for {accession} in {path}')
+                ls = None
             path = (path, ls)
 
         return path
