@@ -99,7 +99,7 @@ TEST=""
 THREADS=15
 
 OPTERR=0
-while getopts "d:ent:u" opt
+while getopts "d:enrt:u" opt
 do
     case "$opt" in
 	d)
