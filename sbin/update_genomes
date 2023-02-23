@@ -65,7 +65,7 @@ function mirror_genome() {
 
 	# Check whether ithis genome has genes annotations
 	if [ -f "$db/$path/${bn}_feature_count.txt.gz" ]; then
-		typeset -i cds=$(gunzip -c $db/$path/${bn}_feature_count.txt.gz | awk '/gene.protein_coding/{c=NF-1;print $c}')
+		typeset -i cds=$(gunzip -c $db/$path/${bn}_feature_count.txt.gz | awk '/gene.protein_coding/{c=NF-1;s=s+$c};END{print s}')
 		if [ "$cds" == "" ] || [ $cds -eq 0 ]; then
 			if [ -f $db/$path/${bn}_genomic.gbff.gz ]; then
 				$justecho rm -f $db/$path/${bn}_genomic.gbff.gz
