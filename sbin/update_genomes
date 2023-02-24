@@ -1,0 +1,171 @@
+#!/bin/bash
+
+# Stop at first error
+set -e
+
+# Python
+MYPATH=$(dirname $(dirname $(realpath $0)))
+export PYTHONPATH=$MYPATH/lib
+
+# Functions
+function show_help() {
+	echo -n "Update a local mirror of the NCBI Genome's FTP site.
+Usage: $(basename $0) [options] <targets>
+
+Available options:
+ Option         : Description               : Default
+----------------:---------------------------:---------
+ -d <databases> : root databases directory  : /db
+ -e             : include Eukaryotes        : off
+ -n             : dry run (test only)       : off
+ -r             : update assembly reports   : off
+ -t <threads>   : set number of threads     : 15
+ -u             : update ETE3's taxonomy DB : off
+
+Rotifer's root: $MYPATH
+"
+exit 1
+}
+
+function mirror_genome() {
+	db=$1
+	path=$2
+	mypath=$3
+	typeset -i eukaryotes=$4
+	runtest=$5
+	justecho=""
+	if [ "$runtest" != "" ]; then justecho="echo"; fi
+	bn=$(basename $path)
+	echo "=====> Updating target $db/$path"
+
+	# Download/update metadata
+	/usr/bin/rsync -arHv --no-motd --delete --prune-empty-dirs -L --safe-links --mkpath $runtest \
+  	-f ". $mypath/etc/rotifer/rrsw/genome_description.rules" rsync://ftp.ncbi.nlm.nih.gov/$path/ $db/$path/
+
+	# Check if organism is an eukaryote
+	if [ -f "$db/$path/${bn}_assembly_report.txt" ]; then
+		taxid=$(perl -ne '/Taxid:\s+(\d+)/ && do { print "$1" }' $db/$path/${bn}_assembly_report.txt)
+		if [ "$taxid" != "" ]; then
+			#echo Fetching superkingdom of taxid $taxid for $db/$path
+			kingdom=$(python3 -c "import rotifer.db.ncbi as ncbi;tc=ncbi.TaxonomyCursor();t=tc[$taxid];t=t.superkingdom.iloc[0] if len(t)>0 else 0; print(t)")
+			#echo Superkingdom of taxid $taxid is $kingdom for $db/$path
+			if [ $eukaryotes -eq 0 ]; then
+				if [ "$kingdom" == "" ] || [ "$kingdom" == "0" ]; then
+					echo "=====> Unknown taxonomy issue for $db/$path"
+				elif [ "$kingdom" == "Eukaryota" ]; then
+					if [ -f $db/$path/${bn}_genomic.gbff.gz ]; then
+						$justecho rm -f $db/$path/${bn}_genomic.gbff.gz
+					fi
+					echo "=====> Skipped eukaryotic genome $db/$path"
+					return 1
+				fi
+			fi
+		fi
+	fi
+
+	# Check whether ithis genome has genes annotations
+	if [ -f "$db/$path/${bn}_feature_count.txt.gz" ]; then
+		typeset -i cds=$(gunzip -c $db/$path/${bn}_feature_count.txt.gz | awk '/gene.protein_coding/{c=NF-1;s=s+$c};END{print s}')
+		if [ "$cds" == "" ] || [ $cds -eq 0 ]; then
+			if [ -f $db/$path/${bn}_genomic.gbff.gz ]; then
+				$justecho rm -f $db/$path/${bn}_genomic.gbff.gz
+			fi
+			echo "=====> Skipped unannotated genome $db/$path"
+			return 1
+		fi
+	fi
+
+	# Download GBFF
+	/usr/bin/rsync -arHv --no-motd --delete --prune-empty-dirs -L --safe-links --mkpath $runtest \
+  	-f ". $mypath/etc/rotifer/rrsw/genome_mirror.rules" rsync://ftp.ncbi.nlm.nih.gov/$path/ $db/$path/
+
+	echo "=====> Target $db/$path updated!"
+}
+export -f mirror_genome
+
+# Load configuration
+source /etc/profile
+#module load brew
+
+# Load libraries
+source $MYPATH/lib/rotifer/rbashpipe/base/00.logger.lib
+
+# Parse command line options
+DB=/db
+typeset -i EUKARYOTES=0
+typeset -i UPDATE_ETE3_TAXONOMY=0
+typeset -i UPDATE_REPORTS=0
+TEST=""
+THREADS=15
+
+OPTERR=0
+while getopts "d:enrt:u" opt
+do
+    case "$opt" in
+	d)
+	    export DB="$OPTARG"
+	    simplelog INFO "Setting database directory to $DB"
+	    ;;
+	e)
+	    typeset -i EUKARYOTES=1
+	    simplelog INFO "Enabling download of eukaryotic genomes."
+	    ;;
+	n)
+	    TEST="-n"
+	    simplelog INFO "Test mode: show targets..."
+	    ;;
+	r)
+	    typeset -i UPDATE_REPORTS=1
+	    simplelog INFO "Will update assembly reports..."
+	    ;;
+	t)
+	    export THREADS="$OPTARG"
+	    simplelog INFO "setting number of threads to $THREADS"
+	    ;;
+	u)
+	    typeset -i UPDATE_ETE3_TAXONOMY=1
+	    simplelog INFO "Will update ETE3's local taxonomy database..."
+	    ;;
+	*)
+	    show_help
+	    break
+	    ;;
+    esac
+done
+shift $((OPTIND-1))
+
+OPTIND=0
+OPTERR=1
+TARGETS="$@"
+if [ ! -d $DB ]; then
+	simplelog ERROR "No root database directory $DB"
+	exit 1
+fi
+if [ "$TARGETS" == "" ]; then
+	TARGETS=$(echo ${DB}/genomes/ASSEMBLY_REPORTS/assembly_summary_{refseq,genbank}.txt)
+	for f in $TARGETS
+	do
+		if [ ! -f $f ]; then
+			simplelog ERROR "Target $f not found!"
+			exit 0
+		fi
+	done
+fi
+
+# Update reports
+if [ $UPDATE_REPORTS -eq 1 ]; then
+	$MYPATH/bin/rrsw $TEST -p $DB -s $DB/src --tmp $DB/tmp genomes
+fi
+
+# Update taxonomy
+if [ $UPDATE_ETE3_TAXONOMY -eq 1 ]; then
+	python3 -c 'from rotifer.db.local import ete3; tc = ete3.TaxonomyCursor(); tc.update_database()'
+fi
+
+# Sync assemblies
+grep -v '^#' ${TARGETS} \
+| cut -f 20 | cut -f 4- -d / | grep -v '^na$' | sort -u \
+| parallel -N1 -j$THREADS mirror_genome $DB {} $MYPATH $EUKARYOTES $TEST
+
+# Exit cleanly
+exit $?

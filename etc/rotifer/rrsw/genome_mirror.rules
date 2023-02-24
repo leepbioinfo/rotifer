@@ -1,0 +1,13 @@
+# Rsync rules file (see 'man rsync')
+
+# Include some top-level directories
+#+ /*
+#. /databases/tmp/rrsw/genomes.rules
++ /*.txt
++ /*_feature_count.txt.gz
++ /*_genomic.gbff.gz
+
+# Excluded patterns
+
+# Exclude all other files/directories at the source's root
+- /*
