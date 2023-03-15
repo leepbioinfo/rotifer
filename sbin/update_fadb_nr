@@ -1,0 +1,105 @@
+#!/bin/bash
+
+# This script assumes data will be stored in a master data
+# directory, with subdirectories corresponding to different
+# sections of the data store and a directory for each data
+# slot (target) under that section.
+#
+# root data directory => section => target
+#
+# Under this model, the path to the working directory of this
+# script is /databases (root) => fadb (section) => nr (target)
+# i.e. /databases/fadb/nr
+#
+# Additionally, the basename of most data files will match the
+# target name. Therefore, the NR FASTA file, is
+#
+# /databases/fadb/nr/nr
+#
+# The script performs atomic updates by storing each update
+# within a versioned name (nr.$version), derived from the last
+# run date, and updating the link /databases/fadb/nr points to
+# 
+
+set -e # Abort at first error!
+
+# Environment and parameters
+dependencies="aria2c mmseqs esl-sfetch"
+modules="leep brew"
+version=$(date +%Y%m%d)
+section=fadb
+target=nr
+new=$target.$version
+log=${new}.log
+
+# Make sure environment modules are working
+if [ "$(declare -F module)" == "" ]; then
+	echo No environment modules: cannot proceeed!
+	exit 1
+fi
+module load $modules
+if [ $? -ne 0 ]; then
+	echo "Error loading modules: $modules"
+	exit 1
+fi
+
+# Check for dependencies
+for program in $dependencies
+do
+	if [ -z $(which $program) ]; then
+		echo "Could not find mmseqs executable! Aborting..."
+		exit 1
+	fi
+done
+
+# Access data root directory
+if [ ! -d $ROTIFER_DATA ]; then
+	echo "Data root directory not set! Aborting..."
+	exit 1
+fi
+cd $ROTIFER_DATA
+
+# Enter section
+if [ ! -d $section ]; then
+	echo "Creating directory for section $section at $ROTIFER_DATA"
+	mkdir $section
+fi
+cd $section
+
+# Build new directory
+if [ -d $new ]; then
+	echo "Cleaning up target $new"
+	rm -fr $new
+fi
+mkdir $new
+cd $new
+
+# Download and unpack
+#aria2c -s 8 ftp://ftp.ncbi.nlm.nih.gov/blast/db/FASTA/nr.gz
+#gunzip nr.gz
+{
+	echo "Downloading latest NR and taxonomy files to $new"
+	mmseqs databases NR nrDB tmp
+	mmseqs convert2fasta nrDB nr
+	esl-sfetch --index nr
+
+	echo "Using linclust to cluster NR database: 50% identity and 80% alignment coverage"
+	mmseqs linclust nrDB nr50linclu tmp2 --min-seq-id 0.5 --threads 20 --split-memory-limit 64G
+	mmseqs createtsv nrDB nr50linclu nr50linclu.tsv
+	mmseqs createsubdb nr50linclu nrDB nr50DB
+	mmseqs convert2fasta nr50DB nr50
+	esl-sfetch --index nr50
+	makeblastdb -dbtype prot -in nr50 -parse_seqids \
+	 -title "NCBI Protein database representatives for 50% indentity maximum" \
+	 -taxid_map /databASES/taxonomy/accession2taxid/prot.accession2taxid
+
+	# Update link
+	cd $ROTIFER_DATA/$section
+	if [ -L $target ]; then
+		rm -f $target
+	fi
+	ln -s $new $target
+} > $log 2>&1
+
+# Exit cleanly
+exit $?

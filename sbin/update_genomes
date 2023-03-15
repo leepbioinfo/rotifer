@@ -84,7 +84,7 @@ function mirror_genome() {
 export -f mirror_genome
 
 # Load configuration
-source /etc/profile
+#source /etc/profile
 #module load brew
 
 # Load libraries
