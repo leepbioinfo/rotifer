@@ -985,7 +985,9 @@ def alnclu(info, c80e3="c80e3", c80i70="c80i70", i=3, local_database_path='', ba
                 os.mkdir(f'{curr_dir}/clusters/{x}')
                 os.chdir(f'{curr_dir}/clusters/{x}')
                 k = info[info.c80e3 == x].c80i70.drop_duplicates().to_list()
-                c.filter(keep=k).align(method='linsi').to_file(f'{x}.{c80e3}.aln')
+                j = rdbs.sequence()
+                j.df = c.df.query('id.isin(@k)')
+                j.align(method='linsi').to_file(f'{x}.{c80e3}.aln')
             os.chdir(f'{curr_dir}')
                 
     os.chdir('clusters')
