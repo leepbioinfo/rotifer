@@ -4,7 +4,7 @@
 # Output is directory named clusters with one alignment per higher cluster per file
 
 
-def alnclu(info, c80e3="c80e3", c100i100="c80i70", i=3, index="complete.fa"):
+def alnclu(info, c80e3="c80e3", c100i100="c80i70", i=3, index="complete.fa", base='db'):
     '''
     Function to generate alignments for all clusters indicated by c80e3
     takes a indexed multifasta by esl-sfetch as index, and aggregates the
@@ -37,8 +37,8 @@ def alnclu(info, c80e3="c80e3", c100i100="c80i70", i=3, index="complete.fa"):
     os.system('for x in */*.aln; do y=$(echo $x|cut -f1 -d"/"); echo \#$y|cat - $x > ./hhmdb/aln/$y.aln;done')
 
     os.chdir('hhmdb')
-    os.system(f'/home/leep/ggnicastro/bin/build/build_hhdb.sh ./aln ../{index}')
+    os.system(f'/home/leep/ggnicastro/bin/build_hhdb.sh ./aln ../{base}')
 
     os.chdir('aln')
-    os.system(f'for x in *.aln; do hhsearch -i $x -d ../{index} -M 50;done')
+    os.system(f'for x in *.aln; do hhsearch -i $x -d ../{base} -M 50;done')
     #os.system('python3 /home/leep/ggnicastro/bin/hhsearch_table.py')
