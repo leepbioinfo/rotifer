@@ -37,8 +37,11 @@ def alnclu(info, c80e3="c80e3", c100i100="c80i70", i=3, index="complete.fa", bas
     os.system('for x in */*.aln; do y=$(echo $x|cut -f1 -d"/"); echo \#$y|cat - $x > ./hhmdb/aln/$y.aln;done')
 
     os.chdir('hhmdb')
-    os.system(f'/home/leep/ggnicastro/bin/build_hhdb.sh ./aln ../{base}')
+    os.system(f'/home/leep/ggnicastro/bin/build_hhdb.sh ./aln ../../{base}')
 
     os.chdir('aln')
-    os.system(f'for x in *.aln; do hhsearch -i $x -d ../{base} -M 50;done')
-    #os.system('python3 /home/leep/ggnicastro/bin/hhsearch_table.py')
+    os.system(f'for x in *.aln; do hhsearch -i $x -d ../../../{base} -M 50;done')
+    os.system(f'hhsuite2table *hhr > {base}.tsv')
+    os.chdir(f'{curr_dir}')
+    os.system(f'ln -s {curr_dir}/clusters/hhmdb/aln/{base}.tsv .')
+
