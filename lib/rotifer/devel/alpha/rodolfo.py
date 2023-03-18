@@ -951,7 +951,7 @@ def remove_redundancy(seqobj, identity =80, coverage = 70):
     return(s)
 
 
-def alnclu(info, c80e3="c80e3", c100i100="c80i70", i=3, local_database_path='', base='db', method='memory'):
+def alnclu(info, c80e3="c80e3", c80i70="c80i70", i=3, local_database_path='', base='db', method='memory'):
     '''
     Function to generate alignments for all clusters indicated by c80e3
     takes a indexed multifasta by esl-sfetch as index, and aggregates the
@@ -973,10 +973,10 @@ def alnclu(info, c80e3="c80e3", c100i100="c80i70", i=3, local_database_path='', 
     os.makedirs(f'{curr_dir}/clusters/hhmdb/aln')
     if method == 'disk':
         for x in info.c80e3.unique():
-            if info[info.c80e3 == x].c100i100.nunique() >= i:
+            if info[info.c80e3 == x].c80i70.nunique() >= i:
                 os.mkdir(f'{curr_dir}/clusters/{x}')
                 os.chdir(f'{curr_dir}/clusters/{x}')
-                rdbs.sequence(info[info.c80e3 == x].c100i100.drop_duplicates().to_list(), local_database_path=local_database_path).align(method='linsi').to_file(f'{x}.{c80e3}.aln')
+                rdbs.sequence(info[info.c80e3 == x].c80i70.drop_duplicates().to_list(), local_database_path=local_database_path).align(method='linsi').to_file(f'{x}.{c80e3}.aln')
             os.chdir(f'{curr_dir}')
     if method == 'memory':
         c = rdbs.sequence(info.pid.unique().tolist(), local_database_path=local_database_path)
