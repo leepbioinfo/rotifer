@@ -951,3 +951,52 @@ def remove_redundancy(seqobj, identity =80, coverage = 70):
     return(s)
 
 
+def alnclu(info, c80e3="c80e3", c100i100="c80i70", i=3, local_database_path='', base='db', method='memory'):
+    '''
+    Function to generate alignments for all clusters indicated by c80e3
+    takes a indexed multifasta by esl-sfetch as index, and aggregates the
+    clusters by a higher level cluster, in this case, c100i100.
+    parameter i is 3 by default, increasing it exclude small clusters.
+    Usage:
+    alnclu(pd.Dataframe, 'c80e3', 'c100i100')
+    '''
+    import os
+    import pandas as pd
+    import rotifer.devel.beta.sequence as rdbs
+
+    # Validate input
+    if not isinstance(info, pd.DataFrame):
+        print(f'''First argument should be a Pandas DataFrame not a {type(info)}''', file=sys.stderr)
+        return None
+
+    curr_dir = os.getcwd()
+    os.makedirs(f'{curr_dir}/clusters/hhmdb/aln')
+    if method == 'disk':
+        for x in info.c80e3.unique():
+            if info[info.c80e3 == x].c100i100.nunique() >= i:
+                os.mkdir(f'{curr_dir}/clusters/{x}')
+                os.chdir(f'{curr_dir}/clusters/{x}')
+                rdbs.sequence(info[info.c80e3 == x].c100i100.drop_duplicates().to_list(), local_database_path=local_database_path).align(method='linsi').to_file(f'{x}.{c80e3}.aln')
+            os.chdir(f'{curr_dir}')
+    if method == 'memory':
+        c = rdbs.sequence(info.pid.unique().tolist(), local_database_path=local_database_path)
+        for x in info.c80e3.unique():
+            if info[info.c80e3 == x].c80i70.nunique() >= i:
+                os.mkdir(f'{curr_dir}/clusters/{x}')
+                os.chdir(f'{curr_dir}/clusters/{x}')
+                k = info[info.c80e3 == x].c80i70.drop_duplicates().to_list()
+                c.filter(keep=k).align(method='linsi').to_file(f'{x}.{c80e3}.aln')
+            os.chdir(f'{curr_dir}')
+                
+    os.chdir('clusters')
+    os.system('for x in */*.aln; do y=$(echo $x|cut -f1 -d"/"); echo \#$y|cat - $x > ./hhmdb/aln/$y.aln;done')
+
+    os.chdir('hhmdb')
+    os.system(f'/home/leep/ggnicastro/bin/build_hhdb.sh ./aln ../../{base}')
+
+    os.chdir('aln')
+    os.system(f'for x in *.aln; do hhsearch -i $x -d ../../../{base} -M 50;done')
+    os.system(f'hhsuite2table *hhr > {base}.tsv')
+    os.chdir(f'{curr_dir}')
+    os.system(f'ln -s {curr_dir}/clusters/hhmdb/aln/{base}.tsv .')
+
