@@ -3,10 +3,8 @@
 # Input is a dataframe containing 2 hierarchical clusters
 # Output is directory named clusters with one alignment per higher cluster per file
 
-import os
-import pandas as pd
 
-def alnclu(info, c80e3="c80e3", c100i100="c80i70", i=3):
+def alnclu(info, c80e3="c80e3", c100i100="c80i70", i=3, index="complete.fa"):
     '''
     Function to generate alignments for all clusters indicated by c80e3
     takes a indexed multifasta by esl-sfetch as index, and aggregates the
@@ -17,6 +15,9 @@ def alnclu(info, c80e3="c80e3", c100i100="c80i70", i=3):
     Usage:
     alnclu(pd.Dataframe, 'c80e3', 'c100i100', 'complete.faa')
     '''
+    import os
+    import pandas as pd
+    import rotifer.devel.beta.sequence as rdbs
 
     # Validate input
     if not isinstance(info, pd.DataFrame):
@@ -29,7 +30,7 @@ def alnclu(info, c80e3="c80e3", c100i100="c80i70", i=3):
         if info[info.c80e3 == x].c100i100.nunique() >= i:
             os.mkdir(f'{curr_dir}/clusters/{x}')
             os.chdir(f'{curr_dir}/clusters/{x}')
-            info[info.c80e3 == x].c100i100.drop_duplicates().to_list(), local_database_path={curr_dir}/{index}).align(method='linsi').to_file({x}.{c80e3}.aln)
+            rdbs.sequence(info[info.c80e3 == x].c100i100.drop_duplicates().to_list(), local_database_path=f'{curr_dir}/{index}').align(method='linsi').to_file(f'{x}.{c80e3}.aln')
         os.chdir(f'{curr_dir}')
 
     os.chdir('clusters')
