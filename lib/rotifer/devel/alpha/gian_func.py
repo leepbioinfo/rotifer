@@ -469,7 +469,7 @@ def hhr_to_aln(seqobj, hhr, database=False):
     return hhr_nolr
 
 
-def add_arch_to_df(df, full=True):
+def add_arch_to_df(seqobj, full=False, inplace=False, raw=False):
     '''
     Add architecture and clusters info to a neighborhood df
     '''
@@ -479,7 +479,12 @@ def add_arch_to_df(df, full=True):
     from rotifer.devel.beta.sequence import sequence as sequence
     import os
     import pandas as pd
-    df = df.copy()
+    seqobjc = seqobj.copy()
+    if hasattr(seqobjc, 'ndf'):
+        df = seqobjc.ndf
+    else:
+        print('Seq object do not have neighborhood df, please ren fetch neighbors first')
+        return seqobj
     cwd = os.getcwd()
     with tempfile.TemporaryDirectory() as tmpdirname:
         # temporary save fasta sequence file
@@ -538,10 +543,39 @@ def add_arch_to_df(df, full=True):
                         skiprows=[0]
                         ),
                     how="left")
-        df = df.merge(info, how='left')
-        os.chdir(cwd)
+        if inplace:
+            seqobj.ndf = df.merge(info, how='left')
+            seqobj.profiledb = pd.read_csv(
+                    'tmp.query.profiledb.rps.dom.tsv',
+                    sep='\t')
+            with open('tmp.profiledb.rps.query.out') as f:
+                seqobj.profiledbout = ''.join(f.readlines())
+            if full:
+                seqobj.pfam = pd.read_csv(
+                        'tmp.query.pfam.rps.dom.tsv',
+                        sep='\t')
+                with open('tmp.pfam.rps.query.out') as f:
+                    seqobj.pfamout = ''.join(f.readlines())
+            os.chdir(cwd)
+            return 'architecuture add to seqobj'
 
-    return df
+        if full:
+            with open('tmp.pfam.rps.query.out') as f:
+                seqobjc.pfamout = ''.join(f.readlines())
+
+            seqobjc.pfam = pd.read_csv(
+                    'tmp.query.pfam.rps.dom.tsv',
+                    sep='\t')
+
+        seqobjc.profiledb = pd.read_csv(
+                'tmp.query.profiledb.rps.dom.tsv',
+                sep='\t')
+        with open('tmp.profiledb.rps.query.out') as f:
+            seqobjc.profiledbout = ''.join(f.readlines())
+        seqobjc.ndf = df.merge(info, how='left')
+        os.chdir(cwd)
+        
+    return seqobjc
 
 
 def annotate_seqobj(seqobj,
