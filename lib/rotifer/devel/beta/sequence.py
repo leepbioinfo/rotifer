@@ -201,7 +201,7 @@ class sequence(rotifer.pipeline.Annotatable):
         setattr(self, key, value)
 
     def __getitem__(self, key):
-        return getattr(self, key)
+        return self.filter(keep=[key])
 
     def _seqrecords_to_dataframe(self, data):
         cols = self._reserved_columns + ['description']
@@ -225,10 +225,6 @@ class sequence(rotifer.pipeline.Annotatable):
         if not self.name and not self.df.empty:
             self.name = self.df.id.loc[0]
         self.df.reset_index(drop=True, inplace=True)
-
-        # Statistics holder
-        #if not hasattr(self,'numerical'):
-        #   self.numerical = pd.DataFrame(columns=['type']+list(range(1,self.get_alignment_length()+1)))
 
     def __len__(self):
         return len(self.df.query('type == "sequence"'))
@@ -395,7 +391,6 @@ class sequence(rotifer.pipeline.Annotatable):
 
         # Cut slices
         sequence  = []
-        #numerical = []
         for pos in position:
             pos = [*pos]
             if len(pos) == 3:
@@ -404,15 +399,9 @@ class sequence(rotifer.pipeline.Annotatable):
                 pos[0:2] = (refseq.loc[pos[0]-1:pos[1]].mapped_position.agg(['min','max'])).tolist()
                 pos[0] += 1
             sequence.append(result.df.sequence.str.slice(pos[0]-1, pos[1]))
-            #numerical.extend(list(range(pos[0],pos[1]+1)))
 
         # Rebuild sequence
         result.df['sequence'] = pd.concat(sequence, axis=1).sum(axis=1)
-
-        # Rebuild numerical
-        #other = set(self.numerical.columns) - set(['type']) - set(list(range(1, self.get_alignment_length() + 1)))
-        #result.numerical = result.numerical[['type'] + numerical + list(other)]
-        #result.numerical.columns = ['type'] + list(range(1,len(numerical)+1)) + list(other)
 
         # Return new sequence object
         result._reset()
@@ -678,7 +667,7 @@ class sequence(rotifer.pipeline.Annotatable):
             structure_df = pd.DataFrame({'query':list(sequence_query), 'target':list(sequence_target), 'ss':list(T_ss_dssp)})
         else:
             structure_df = pd.DataFrame({'query':list(sequence_query), 'query_pred': list(Q_ss_pred), 'target':list(sequence_target), 'ss':list(T_ss_dssp)})
-        
+
         # join aln to hhpred results
         result = self.copy()
         aln = pd.Series(list(result.df.query('id == @query').sequence.iloc[0])).where(lambda x: x!='-').dropna().reset_index().rename({'index':'position', 0:'sequence'}, axis=1)
@@ -1197,9 +1186,10 @@ class sequence(rotifer.pipeline.Annotatable):
         A new MSA object.
         """
         from subprocess import Popen, PIPE, STDOUT
-        seq_string = self.to_string(remove_gaps=True).encode()
         if region:
             seq_string = self.slice((region[0],region[1])).to_string(remove_gaps=True).encode()
+        else:
+            seq_string = self.to_string(remove_gaps=True).encode()
 
         if method =='mafft':
             child = Popen(f'cat|mafft  --thread {cpu} -' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
@@ -1416,9 +1406,6 @@ class sequence(rotifer.pipeline.Annotatable):
         columns_to_keep = self.residue_frequencies.T.query('gap <= @max_perc_gaps').T.columns.to_list()
         result = self.copy()
         result.df['sequence'] = result.residues.loc[:, columns_to_keep].sum(axis=1)
-        #other = set(self.numerical.columns) - set(['type']) - set(list(range(1, self.get_alignment_length() + 1)))
-        #result.numerical = result.numerical[['type'] + columns_to_keep + list(other)]
-        #result.numerical.columns = ['type'] + list(range(1,len(columns_to_keep)+1)) + list(other)
         result._reset()
         return result
 
