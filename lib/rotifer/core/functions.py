@@ -385,6 +385,7 @@ def findDataFiles(load, path=None):
     Notice that files from the user standard location take precedence
     over files under rotifer's installation path.
     '''
+    import rotifer
 
     # Make sure input is a list
     if not isinstance(load,list):
@@ -416,7 +417,7 @@ def findDataFiles(load, path=None):
             files.append(os.path.join(user_path, *g))
 
         # Databases
-        databases = GlobalConfig['data']
+        databases = rotifer.config['data']
         if os.path.exists(os.path.join(databases, *f)):
             files.append(os.path.join(databases, *f))
         elif len(g) > 0 and os.path.exists(os.path.join(databases, *g)):

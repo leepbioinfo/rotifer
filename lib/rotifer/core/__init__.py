@@ -14,7 +14,7 @@ def _setup_config():
     from os.path import expanduser, dirname, realpath
 
     # Base directories
-    baseDir = dirname(dirname(dirname(realpath(__file__))))
+    baseDir = dirname(dirname(dirname(dirname(realpath(__file__)))))
     userDir = expanduser(os.path.join('~','.rotifer'))
 
     # Main dictionary: this is the most important part of this module!!!!
