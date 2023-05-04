@@ -119,7 +119,7 @@ class sequence(rotifer.pipeline.Annotatable):
             local_database_path=config['local_database_path'],
             *args, **kwargs):
         from io import IOBase
-        self._reserved_columns = ['id','sequence','length','type']
+        self._reserved_columns = ['id','sequence','length','type','description']
         self.input_format = input_format
         self.name = name
         if not isinstance(local_database_path,list):
@@ -204,7 +204,7 @@ class sequence(rotifer.pipeline.Annotatable):
         return self.filter(keep=[key])
 
     def _seqrecords_to_dataframe(self, data):
-        cols = self._reserved_columns + ['description']
+        cols = self._reserved_columns
         parsed = []
         for s in data:
             current = [ s.id, str(s.seq) ]
@@ -315,7 +315,7 @@ class sequence(rotifer.pipeline.Annotatable):
         if remove:
             querystr.append('(id not in @remove)')
         querystr = " and ".join(querystr)
-        if keep:
+        if len(keep) > 0:
             if querystr:
                 querystr = f'(id in @keep) or ({querystr})'
             else:
@@ -619,7 +619,7 @@ class sequence(rotifer.pipeline.Annotatable):
             consensus = self.consensus(cutoff, frequencies=frequencies)
             cx.append([ f'Consensus {cutoff}%', consensus, len(consensus.replace('.','')), "consensus" ])
         if separator:
-            cx.append([ 'separator', "".join([ separator for x in range(0,self.get_alignment_length()) ]), self.get_alignment_length(), "view" ])
+            cx.append([ 'separator', "".join([ separator for x in range(0,self.get_alignment_length()) ]), self.get_alignment_length(), "view", "separator" ])
         result.df = pd.concat([pd.DataFrame(cx, columns=self._reserved_columns), result.df])
         return result
 
@@ -785,7 +785,7 @@ class sequence(rotifer.pipeline.Annotatable):
             to['structure'] = pdb_df.structure.to_list()
             pdbn = f'ss_from:{pdb_id}_{chain_id}'
             pdbss = ''.join(pd.Series(list(result.df.loc[pdb_index].sequence)).to_frame().join(to).fillna('-').structure.to_list())
-            result.df =  pd.concat([pd.DataFrame([[pdbn,pdbss,len(pdbss),"residue_annotation"]], columns=self._reserved_columns),self.df])
+            result.df =  pd.concat([pd.DataFrame([[pdbn,pdbss,len(pdbss),"residue_annotation",f'Secondary structure from {pdb_id}']], columns=self._reserved_columns),self.df])
             return result
 
         if isinstance(pdb_id,list):
@@ -866,7 +866,7 @@ class sequence(rotifer.pipeline.Annotatable):
                 to['structure'] = pdb_df.structure.to_list()
                 pdbn = f'ss_from:{pdb_id}_{chain_id}'
                 pdbss = ''.join(pd.Series(list(result.df.loc[pdb_index].sequence)).to_frame().join(to).fillna('-').structure.to_list())
-                result.df =  pd.concat([pd.DataFrame([[pdbn,pdbss,len(pdbss),"residue_annotation"]], columns=self._reserved_columns),self.df])
+                result.df =  pd.concat([pd.DataFrame([[pdbn,pdbss,len(pdbss),"residue_annotation",f'Secondary structure from {pdb_id}']], columns=self._reserved_columns),self.df])
             return result
 
     def add_seq(self, seq_to_add, cpu=12, fast=False, fetch=config["fetch"]):
@@ -1217,7 +1217,7 @@ class sequence(rotifer.pipeline.Annotatable):
         if not inplace:
             return result
 
-    def view(self, color=True, scale=True, consensus=True, separator="=", interval=10, columns=True, pager='less -SR'):
+    def to_table(self, color=True, scale=True, consensus=True, separator="=", interval=10, columns=True):
         """
         Display alignment and alignment annotations.
 
@@ -1238,37 +1238,55 @@ class sequence(rotifer.pipeline.Annotatable):
             List of annotation columns to show
             If set to False, only the default columns are shown
             If set to True, all columns in the internal DataFrame are shown
-        pager: string
-          Command line to be used for displaying the alignment.
+        groupby: string, default None
+          Choose a column to group sequences and show alignments
+          and annotations for that group in a separate block of rows
 
         Returns
         -------
             None
         """
-        from IPython.core.page import page
         df = self.copy()
-        basic_columns = ['id', 'sequence','length','type',]
         if isinstance(columns,bool):
             if not columns:
-                df.df = df.df[basic_columns]
+                df.df = df.df[self._reserved_columns]
         else:
             if isinstance(columns,list):
-                df.df = df.df[basic_columns + columns]
+                df.df = df.df[self._reserved_columns + columns]
             else :
                 logger.error('columns should be either a list or a bool')
 
         if consensus:
             df = df.add_consensus(separator=separator)
+
         if color:
             df = df.to_color(scale=scale, interval=interval)
-            page(df.to_string(header=False, index=False) + "\n", pager_cmd=pager)
+            df = df.to_string(header=False, index=False) + "\n"
         else:
             df = df.df.copy()
             if scale:
                 scale = self._scale_bar(self.get_alignment_length(), interval=interval)
                 df = pd.concat([ scale, df ]) 
                 df.sequence = df.sequence.str.pad(df.sequence.str.len().max(), side="right")
-            page(df.to_string(index=False) + "\n", pager_cmd=pager)
+            df = df.to_string(index=False) + "\n"
+
+        return df
+
+    def view(self, color=True, scale=True, consensus=True, separator="=", interval=10, columns=True, groupby=None, min_group_size=2, pager='less -SR'):
+        from IPython.core.page import page
+        out = ""
+        if groupby:
+            aln = self.df.groupby(groupby).id.unique().to_frame().reset_index()
+            aln["n"] = aln.id.apply(len)
+            small = aln[aln.n < min_group_size].id.explode().tolist()
+            large = aln.query(f'n >= {min_group_size}').id.tolist()
+            for x in large + small:
+                a = self.filter(keep=x)
+                a = a.to_table(color=color, scale=scale, consensus=consensus, separator=separator, interval=interval, columns=columns)
+                out = out + "\n" + a
+        else:
+            out = self.to_table(color=color, scale=scale, consensus=consensus, separator=separator, interval=interval, columns=columns)
+        page(out, pager_cmd=pager)
 
     def hhblits(self, databases=config['databases'], database_path=config['databases_path'], view=True, cpu=18):
         """
@@ -1991,6 +2009,40 @@ class sequence(rotifer.pipeline.Annotatable):
                        See Bio.SeqIO and/or Bio.AlignIO.
         '''
         return cls(input_file, input_format=input_format)
+
+# Class method
+def concat(alignments, axis=0, by='id'):
+    """
+    Concatenate data from one or more alignments.
+
+    Parameters
+    ----------
+    axis: {0/'rows', 1/'columns'}, default 0
+      Merge alignments by appending rows (axis == 1), or by
+      concatenating sequences sharing the same id (axis = 0).
+    """
+    if not isinstance(alignments,list):
+        logger.error("Expected a list of rotifer.sequence objects as first argument!")
+        return
+    aln = sequence()
+    if axis == 0 or axis == "rows":
+        aln.name = " + ".join([ x.name for x in alignments[1:] ])
+        aln.df = pd.concat([ x.df for x in alignments ])
+    else:
+        aln.name = " | ".join([ x.name for x in alignments[1:] ])
+        aln.df = alignments[0].df.copy()
+        aln.df.description = alignments[0].name
+        for y in alignments[1:]:
+            y = y.copy()
+            y.df.description = y.name
+            gap_x = "-" * aln.get_alignment_length()
+            gap_y = "-" * y.get_alignment_length()
+            aln.df = aln.df.merge(y.df, on=by, how="outer", suffixes=["",f"_{y.name}"])
+            aln.df.sequence = aln.df.sequence.fillna(gap_x) + aln.df[f"sequence_{y.name}"].fillna(gap_y)
+            aln.df.description = aln.df.description.fillna("") + "," + aln.df[f'description_{y.name}'].fillna("")
+            aln.df.drop([ x + f"_{y.name}" for x in y._reserved_columns if x != "id" ], axis=1, inplace=True)
+    aln._reset()
+    return aln
 
 __doc__ = """
 ========================
