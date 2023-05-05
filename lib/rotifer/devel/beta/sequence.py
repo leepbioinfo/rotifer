@@ -594,7 +594,7 @@ class sequence(rotifer.pipeline.Annotatable):
 
         return result
 
-    def add_consensus(self, cutoffs=(50, 60, 70, 80, 90), separator=None):
+    def add_consensus(self, cutoffs=(50, 60, 70, 80, 90), separator='='):
         """
         Add consensus rows to the MSA object.
 
