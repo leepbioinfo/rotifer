@@ -1,7 +1,10 @@
 import rotifer
 import rotifer.pipeline
 import rotifer.db.ncbi as ncbi
+from rotifer.pandas import functions as rpf
 from rotifer.core.functions import loadConfig
+
+from IPython.core.page import page
 from copy import deepcopy
 from io import StringIO
 from Bio import SeqIO
@@ -342,6 +345,14 @@ class sequence(rotifer.pipeline.Annotatable):
         else:
             return int(self.df.query('type == "sequence"').sequence.str.len().max())
 
+    def get_group(self, group: dict):
+        gname = tuple(group.values())
+        if len(gname) == 1:
+            gname = gname[0]
+        aln = self.copy()
+        aln.df = self.df.groupby(list(group.keys())).get_group(gname)
+        aln._reset()
+
     def slice(self, position):
         '''
         Select and concatenate one or more sets of columns.
@@ -617,7 +628,7 @@ class sequence(rotifer.pipeline.Annotatable):
         frequencies = result.residue_frequencies
         for cutoff in reversed(sorted(cutoffs)):
             consensus = self.consensus(cutoff, frequencies=frequencies)
-            cx.append([ f'Consensus {cutoff}%', consensus, len(consensus.replace('.','')), "consensus" ])
+            cx.append([ f'Consensus {cutoff}%', consensus, len(consensus.replace('.','')), "consensus", f'Consensus {cutoff}%' ])
         if separator:
             cx.append([ 'separator', "".join([ separator for x in range(0,self.get_alignment_length()) ]), self.get_alignment_length(), "view", "separator" ])
         result.df = pd.concat([pd.DataFrame(cx, columns=self._reserved_columns), result.df])
@@ -866,7 +877,7 @@ class sequence(rotifer.pipeline.Annotatable):
                 to['structure'] = pdb_df.structure.to_list()
                 pdbn = f'ss_from:{pdb_id}_{chain_id}'
                 pdbss = ''.join(pd.Series(list(result.df.loc[pdb_index].sequence)).to_frame().join(to).fillna('-').structure.to_list())
-                result.df =  pd.concat([pd.DataFrame([[pdbn,pdbss,len(pdbss),"residue_annotation",f'Secondary structure from {pdb_id}']], columns=self._reserved_columns),self.df])
+                result.df = pd.concat([pd.DataFrame([[pdbn,pdbss,len(pdbss),"residue_annotation",f'Secondary structure from {pdb_id}']], columns=self._reserved_columns),self.df])
             return result
 
     def add_seq(self, seq_to_add, cpu=12, fast=False, fetch=config["fetch"]):
@@ -1217,9 +1228,94 @@ class sequence(rotifer.pipeline.Annotatable):
         if not inplace:
             return result
 
-    def to_table(self, color=True, scale=True, consensus=True, separator="=", interval=10, columns=True):
+    def view_groups(self, groupby=None, min_group_size=2, color=True, scale=True, consensus=True, separator="=", interval=10, columns=True, pager='less -SR', *args, **kwargs):
         """
-        Display alignment and alignment annotations.
+        See a colored versions of alignments defined by a grouping column.
+
+        Parameters
+        ----------
+        groupby: string, default None
+          Choose a column to group sequences and show alignments
+          and annotations for that group in a separate block of rows
+        color : bool
+            Color sequence residues
+        scale : bool, default True
+            If set to False, no scale is shown
+        consensus : bool, default True
+            Whether to display consensus rows
+        separator : character
+            Single character to fill row separating the alignment
+            and the consensus sequence
+        interval : integer, default 10
+            Interval between position marks in the scale
+        columns : bool or list of strings, default is True
+            List of annotation columns to show
+            If set to False, only the default columns are shown
+            If set to True, all columns in the internal DataFrame are shown
+
+        Returns
+        -------
+            None
+        """
+        # Add consensus for the full dataframe
+        df = []
+        if consensus:
+            df = self.view_sequence(color=False, scale=True, consensus=consensus, separator=separator, columns=columns, pager=None)
+            df = df.query('type != "sequence"').copy()
+            df.id = df.id.str.replace("Consensus",f'Full ')
+            df = pd.concat([ df, pd.DataFrame([[np.NaN] * len(df.columns)], columns=df.columns) ], ignore_index=True)
+            df = [ df ]
+
+        # Processing each group
+        small = []
+        blocks = self.df.groupby(groupby)
+        for g in blocks.size().sort_values(ascending=False).reset_index().values.tolist():
+            sz = g.pop()
+            if len(g) == 1:
+                g = g[0]
+
+            # Load sub-alignment
+            aln = self.copy()
+            aln.df = blocks.get_group(g)
+
+            # Isolate small groups
+            if sz < min_group_size:
+                small.append(aln.df)
+                continue
+
+            # Format and add to stack
+            aln = aln.view_sequence(color=False, scale=scale, consensus=consensus, separator=separator, interval=interval, columns=columns, pager=None)
+            aln[groupby] = aln.loc[aln.type == "sequence",groupby].values[0]
+            aln = pd.concat([ aln, pd.DataFrame([[np.NaN] * len(aln.columns)], columns=aln.columns) ], ignore_index=True)
+            df.append(aln)
+
+        # Merge and process small groups
+        if small:
+            small = pd.concat(small, ignore_index=True)
+            small[groupby] = "small"
+            aln = self.copy()
+            aln.df = small
+            aln = aln.view_sequence(color=False, scale=scale, consensus=consensus, separator=separator, interval=interval, columns=columns, pager=None)
+            df.append(aln)
+
+        # Merge all sub-alignments
+        df = pd.concat(df, ignore_index=True).fillna("")
+
+        # Choose coloring
+        if color:
+            df.sequence = rpf.to_color(df.sequence, padding='left')
+            df = df.to_string(header=False, index=False) + "\n"
+        else:
+            df = df.to_string(index=False) + "\n"
+
+        if pager:
+            page(df, pager_cmd=pager)
+        else:
+            return df
+
+    def view_sequence(self, color=True, scale=True, consensus=True, separator="=", interval=10, columns=True, pager='less -SR', *args, **kwargs):
+        """
+        See a colored version of the alignment with annotations.
 
         Parameters
         ----------
@@ -1238,15 +1334,14 @@ class sequence(rotifer.pipeline.Annotatable):
             List of annotation columns to show
             If set to False, only the default columns are shown
             If set to True, all columns in the internal DataFrame are shown
-        groupby: string, default None
-          Choose a column to group sequences and show alignments
-          and annotations for that group in a separate block of rows
 
         Returns
         -------
             None
         """
         df = self.copy()
+
+        # Choose columns to display
         if isinstance(columns,bool):
             if not columns:
                 df.df = df.df[self._reserved_columns]
@@ -1257,36 +1352,43 @@ class sequence(rotifer.pipeline.Annotatable):
                 logger.error('columns should be either a list or a bool')
 
         if consensus:
-            df = df.add_consensus(separator=separator)
+            if isinstance(consensus,bool):
+                kwargs = {}
+            elif isinstance(consensus,int):
+                kwargs = {'cutoffs': (consensus,)}
+            else:
+                kwargs = {'cutoffs': consensus}
+            df = df.add_consensus(separator=separator, **kwargs)
 
+        kwargs = {'index': False}
         if color:
             df = df.to_color(scale=scale, interval=interval)
-            df = df.to_string(header=False, index=False) + "\n"
+            kwargs['header'] = False
         else:
             df = df.df.copy()
             if scale:
                 scale = self._scale_bar(self.get_alignment_length(), interval=interval)
                 df = pd.concat([ scale, df ]) 
                 df.sequence = df.sequence.str.pad(df.sequence.str.len().max(), side="right")
-            df = df.to_string(index=False) + "\n"
 
-        return df
-
-    def view(self, color=True, scale=True, consensus=True, separator="=", interval=10, columns=True, groupby=None, min_group_size=2, pager='less -SR'):
-        from IPython.core.page import page
-        out = ""
-        if groupby:
-            aln = self.df.groupby(groupby).id.unique().to_frame().reset_index()
-            aln["n"] = aln.id.apply(len)
-            small = aln[aln.n < min_group_size].id.explode().tolist()
-            large = aln.query(f'n >= {min_group_size}').id.tolist()
-            for x in large + small:
-                a = self.filter(keep=x)
-                a = a.to_table(color=color, scale=scale, consensus=consensus, separator=separator, interval=interval, columns=columns)
-                out = out + "\n" + a
+        if pager:
+            df = df.to_string(**kwargs) + "\n"
+            page(df, pager_cmd=pager)
         else:
-            out = self.to_table(color=color, scale=scale, consensus=consensus, separator=separator, interval=interval, columns=columns)
-        page(out, pager_cmd=pager)
+            return df
+
+    def view(self, mode="sequence", color=True, pager='less -SR', *args, **kwargs):
+        out = self.view_sequence(color=color, pager=None, **kwargs)
+
+        if color:
+            out = out.to_string(header=False, index=False) + "\n"
+        else:
+            out = out.to_string(index=False) + "\n"
+
+        if pager:
+            page(out, pager_cmd=pager)
+        else:
+            return out
 
     def hhblits(self, databases=config['databases'], database_path=config['databases_path'], view=True, cpu=18):
         """

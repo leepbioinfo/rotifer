@@ -4,6 +4,61 @@ import sys
 import pandas as pd
 from collections import OrderedDict
 
+def pad(data, side='left', fillchar=' '):
+    data = data.astype(str)
+    if isinstance(data,pd.DataFrame):
+        side = { x: side[x] if x in side else 'left' for x in data.columns }
+        data = data.apply(lambda x: x.str.pad(x.str.len().max(), side=side[x.name], fillchar=fillchar))
+    elif isinstance(data,pd.Series):
+        data = data.str.pad(data.str.len().max(), side=side, fillchar=fillchar)
+    return data
+
+def to_color(data, mode='fg', colors=None, padding=None, fillchar=' '):
+    """
+    Convert a Series to DType str and colorize it.
+    """
+    import yaml
+    from rotifer.core import functions as rcf
+
+    if colors == None:
+        colors = yaml.load(open(rcf.findDataFiles(":colors/aminoacids.yml")[0]), Loader=yaml.Loader)
+
+    def color_res(s, cs):
+        if s in colors:
+            return cs(s, colors[s])
+        else:
+            return cs(s, "000")
+
+    def color_bg(s, color = ''):
+        '''
+        s: String
+        '''
+        if color == "000":
+            color = f'49;5;000'
+        else:
+            color = f'48;5;{color}'
+        return f'\033[{color}m{s}\033[0m'
+
+    def color_fg(s, color = ''):
+        if color == "000":
+            color = f'39;5;000'
+        else:
+            color = f'38;5;{color}'
+        return f'\033[{color}m{s}\033[m'
+
+    # Choose the coloring function
+    color_switch = {'background':color_bg, 'bg':color_bg, 'foreground':color_fg, 'fg':color_fg}
+
+    # Color the data
+    if padding:
+        data = pad(data, side=padding, fillchar=fillchar)
+    if isinstance(data,pd.DataFrame):
+        data = data.applymap(lambda x: ''.join([color_res(y, color_switch[mode]) for y in x]))
+    elif isinstance(data,pd.Series):
+        data = data.map(lambda x: ''.join([color_res(y, color_switch[mode]) for y in x]))
+
+    return data
+
 def optimize_memory_usage(df):
     '''
     Optimize memory usage of a Pandas DataFrame.
