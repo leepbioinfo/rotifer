@@ -344,7 +344,7 @@ def not_kwargs(dict_args, key, value):
         return dict_args[key]
     return value
 
-def findDataFiles(load, path=None):
+def findDataFiles(load, all=False):
     '''
     This routine locates data files under Rotifer's standard locations.
 
@@ -431,6 +431,8 @@ def findDataFiles(load, path=None):
             files.append(os.path.join(system_path, *g))
 
     # Return
+    if files and not all:
+        files = files[0]
     return files
 
 def loadConfig(filepath, user_path=CoreConfig['userConfig'], system_path=CoreConfig['baseConfig'], defaults={}):

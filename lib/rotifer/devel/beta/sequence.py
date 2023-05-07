@@ -1044,65 +1044,6 @@ class sequence(rotifer.pipeline.Annotatable):
         from Bio.Align import MultipleSeqAlignment
         return MultipleSeqAlignment(self.to_seqrecords())
 
-    def to_color(self, color='fg', scale=True, interval=10):
-        """
-        Colorize sequence column and return aligment as a DataFrame
-        """
-
-        def color_res(s, cs):
-            if s in 'A I L M F W V'.split():
-                return cs(s, "033")
-            elif s in 'K R'.split():
-                return cs(s, "124")
-            elif s in 'E D'.split():
-                return cs(s, "127")
-            elif s in 'N Q S T'.split():
-                return cs(s, "034")
-            elif s  == 'C':
-                return cs(s, "168")
-            elif s == 'G':
-                return cs(s, "166")
-            elif s == 'P':
-                return cs(s, "178")
-            elif s in 'H Y'.split():
-                return cs(s, "037")
-            else:
-                 return cs(s, "000")
-
-        def color_bg(s, color = ''):
-            '''
-            s: String
-            '''
-            if color == "000":
-                color = f'49;5;000'
-            else:
-                color = f'48;5;{color}'
-            return f'\033[{color}m{s}\033[0m'
-
-        def color_fg(s, color = ''):
-            if color == "000":
-                color = f'39;5;000'
-            else:
-                color = f'38;5;{color}'
-            return f'\033[{color}m{s}\033[m'
-
-        # Make a copy of the input dataframe
-        result = self.df.copy()
-        header = pd.Series(result.columns, index=result.columns).to_frame().T
-
-        # Add scale
-        if scale:
-            scale = self._scale_bar(self.get_alignment_length(), interval=interval)
-            result = pd.concat([ header, scale, result.astype(str) ])
-        else:
-            result = pd.concat([ header, result.astype(str) ])
-
-        # Color the sequence column and return
-        color_switch = {'background':color_bg, 'bg':color_bg, 'foreground':color_fg, 'fg':color_fg}
-        result.sequence = result.sequence.str.pad(result.sequence.str.len().max(), side="right")
-        result.sequence = result.sequence.map(lambda x: ''.join([color_res(y, color_switch[color]) for y in x]))
-        return result
-
     def to_file(self, file_path=None, output_format='fasta', annotations=None, remove_gaps=False):
         if output_format == "a3m":
             fh = open(file_path,"wt")
@@ -1228,15 +1169,39 @@ class sequence(rotifer.pipeline.Annotatable):
         if not inplace:
             return result
 
-    def view_groups(self, groupby=None, min_group_size=2, color=True, scale=True, consensus=True, separator="=", interval=10, columns=True, pager='less -SR', *args, **kwargs):
+    def view_groups(self,
+            groupby=None,
+            min_group_size=2,
+            sample=None,
+            color=True,
+            scale=True,
+            consensus=True,
+            separator="=",
+            interval=10,
+            columns=True,
+            pager='less -SR',
+            *args, **kwargs):
         """
-        See a colored versions of alignments defined by a grouping column.
+        See colored versions of all sub-alignments defined by
+        one or more grouping column(s).
+
+        Usage
+        -----
+        >>> from rotifer.devel.beta import sequence as rdbs
+        >>> aln = rdbs.sequence("my.aln","fasta")
+        >>> aln.add_cluster(coverage=0, identity=0).view("groups", groupby="c0i0")
 
         Parameters
         ----------
         groupby: string, default None
           Choose a column to group sequences and show alignments
-          and annotations for that group in a separate block of rows
+          and annotations for that group in a separate block of
+          rows
+        min_group_size: int, default None
+          Size of the smallest clusters that will be shown as a
+          separate group.
+        sample: int, default None
+          Sample at most this number of sequences from each group
         color : bool
             Color sequence residues
         scale : bool, default True
@@ -1263,8 +1228,12 @@ class sequence(rotifer.pipeline.Annotatable):
             df = self.view_sequence(color=False, scale=True, consensus=consensus, separator=separator, columns=columns, pager=None)
             df = df.query('type != "sequence"').copy()
             df.id = df.id.str.replace("Consensus",f'Full ')
-            df = pd.concat([ df, pd.DataFrame([[np.NaN] * len(df.columns)], columns=df.columns) ], ignore_index=True)
-            df = [ df ]
+            empty = pd.DataFrame([[np.NaN] * len(df.columns)], columns=df.columns)
+            if pager and color:
+                header = pd.Series(df.columns, index=df.columns).to_frame().T.astype(str)
+            else:
+                header = pd.DataFrame([], columns=df.columns)
+            df = [ header, df, empty ]
 
         # Processing each group
         small = []
@@ -1360,35 +1329,32 @@ class sequence(rotifer.pipeline.Annotatable):
                 kwargs = {'cutoffs': consensus}
             df = df.add_consensus(separator=separator, **kwargs)
 
-        kwargs = {'index': False}
+        # Shift work to the internal dataframe, erasing the sequence object
+        df = df.df.copy().astype(str)
+
+        # Add scale bar rows
+        if scale:
+            scale = self._scale_bar(self.get_alignment_length(), interval=interval).astype(str)
+            df = pd.concat([ scale, df ]) 
+
+        # Deal with coloring
+        header=True
         if color:
-            df = df.to_color(scale=scale, interval=interval)
-            kwargs['header'] = False
-        else:
-            df = df.df.copy()
-            if scale:
-                scale = self._scale_bar(self.get_alignment_length(), interval=interval)
-                df = pd.concat([ scale, df ]) 
-                df.sequence = df.sequence.str.pad(df.sequence.str.len().max(), side="right")
+            if pager:
+                header = pd.Series(df.columns, index=df.columns).to_frame().T
+                df = pd.concat([ header, df ])
+                header = False
+            df.sequence = rpf.to_color(df.sequence, padding='left')
 
         if pager:
-            df = df.to_string(**kwargs) + "\n"
+            df = df.to_string(index= False, header=header) + "\n"
             page(df, pager_cmd=pager)
         else:
             return df
 
-    def view(self, mode="sequence", color=True, pager='less -SR', *args, **kwargs):
-        out = self.view_sequence(color=color, pager=None, **kwargs)
-
-        if color:
-            out = out.to_string(header=False, index=False) + "\n"
-        else:
-            out = out.to_string(index=False) + "\n"
-
-        if pager:
-            page(out, pager_cmd=pager)
-        else:
-            return out
+    def view(self, mode="sequence", *args, **kwargs):
+        method = self.__getattribute__(f'view_{mode}')
+        return method(**kwargs)
 
     def hhblits(self, databases=config['databases'], database_path=config['databases_path'], view=True, cpu=18):
         """

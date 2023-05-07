@@ -18,7 +18,6 @@ import rotifer.db.parallel
 import rotifer.db.methods
 from rotifer.db.ncbi import config as NcbiConfig
 from rotifer.db.ncbi import utils as rdnu
-from rotifer.core.functions import findDataFiles
 from rotifer.core.functions import loadConfig
 from rotifer.genome.utils import seqrecords_to_dataframe
 logger = rotifer.logging.getLogger(__name__)

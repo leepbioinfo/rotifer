@@ -7,7 +7,7 @@ from rotifer.core.functions import findDataFiles
 
 def loadPreferredTaxa():
     preferred_taxa = []
-    for p in findDataFiles(':taxonomy.taxonomy.txt'):
+    for p in findDataFiles(':taxonomy.taxonomy.txt', all=True):
         p = open(p,'rt')
         preferred_taxa.extend([ s.strip("\n").lower() for s in p.readlines() if s[0] != '#' ])
         p.close()
