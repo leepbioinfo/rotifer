@@ -353,6 +353,12 @@ class sequence(rotifer.pipeline.Annotatable):
         aln.df = self.df.groupby(list(group.keys())).get_group(gname)
         aln._reset()
 
+    def sample(self, n: 'int | None' = None, frac: 'float | None' = None, replace = False):
+        other = self.filter('type != "sequence"').copy()
+        seqs =  self.filter('type == "sequence"').copy()
+        seqs.df = seqs.df.sample(n=n, frac=frac, replace=replace)
+        return concat([ other, seqs ])
+
     def slice(self, position):
         '''
         Select and concatenate one or more sets of columns.
@@ -1169,10 +1175,17 @@ class sequence(rotifer.pipeline.Annotatable):
         if not inplace:
             return result
 
+    def view_consensus(self, groupby = None, *args, **kwargs):
+        if groupby:
+            return self.view_groups(groupby=groupby, *args, **kwargs, sample=0, scale=False, separator=None, group_separator=None)
+        else:
+            return self.view_sequence(*args, **kwargs, sample=0)
+
     def view_groups(self,
             groupby=None,
             min_group_size=2,
             sample=None,
+            group_separator=np.NaN,
             color=True,
             scale=True,
             consensus=True,
@@ -1201,7 +1214,14 @@ class sequence(rotifer.pipeline.Annotatable):
           Size of the smallest clusters that will be shown as a
           separate group.
         sample: int, default None
-          Sample at most this number of sequences from each group
+          Randomly select and display up to this number of 
+          sequences per group.
+
+          Note: You can set this number to 0 hide ALL sequences!
+
+        group_separator:
+           Character to add to the rows separating groups.
+           Set it to None to disable.
         color : bool
             Color sequence residues
         scale : bool, default True
@@ -1217,6 +1237,13 @@ class sequence(rotifer.pipeline.Annotatable):
             List of annotation columns to show
             If set to False, only the default columns are shown
             If set to True, all columns in the internal DataFrame are shown
+        pager: str, default 'less -SR'
+          External command to use as viewer.
+
+        Returns
+        -------
+          Nothing if pager is set.
+          When pager is set to None, the formatted dataframe is returned.
 
         Returns
         -------
@@ -1228,24 +1255,27 @@ class sequence(rotifer.pipeline.Annotatable):
             df = self.view_sequence(color=False, scale=True, consensus=consensus, separator=separator, columns=columns, pager=None)
             df = df.query('type != "sequence"').copy()
             df.id = df.id.str.replace("Consensus",f'Full ')
-            empty = pd.DataFrame([[np.NaN] * len(df.columns)], columns=df.columns)
+            df[groupby] = 'Full'
+            df = [ df ]
             if pager and color:
-                header = pd.Series(df.columns, index=df.columns).to_frame().T.astype(str)
-            else:
-                header = pd.DataFrame([], columns=df.columns)
-            df = [ header, df, empty ]
+                header = pd.Series(df[0].columns, index=df[0].columns).to_frame().T.astype(str)
+                df = [ header ] + df
+            if group_separator:
+                empty = [[ group_separator * df[0][x].astype(str).str.len().max() for x in df[0].columns ]]
+                empty = pd.DataFrame(empty, columns=df[0].columns)
+                df.append(empty)
 
         # Processing each group
         small = []
         blocks = self.df.groupby(groupby)
-        for g in blocks.size().sort_values(ascending=False).reset_index().values.tolist():
-            sz = g.pop()
-            if len(g) == 1:
-                g = g[0]
+        for group in blocks.size().sort_values(ascending=False).reset_index().values.tolist():
+            sz = group.pop()
+            if len(group) == 1:
+                group = group[0]
 
             # Load sub-alignment
             aln = self.copy()
-            aln.df = blocks.get_group(g)
+            aln.df = blocks.get_group(group)
 
             # Isolate small groups
             if sz < min_group_size:
@@ -1253,18 +1283,22 @@ class sequence(rotifer.pipeline.Annotatable):
                 continue
 
             # Format and add to stack
-            aln = aln.view_sequence(color=False, scale=scale, consensus=consensus, separator=separator, interval=interval, columns=columns, pager=None)
-            aln[groupby] = aln.loc[aln.type == "sequence",groupby].values[0]
-            aln = pd.concat([ aln, pd.DataFrame([[np.NaN] * len(aln.columns)], columns=aln.columns) ], ignore_index=True)
+            aln = aln.view_sequence(color=False, scale=scale, consensus=consensus, separator=separator, interval=interval, columns=columns, sample=sample, pager=None)
+            aln[groupby] = group
+
+            # Add block to stack
             df.append(aln)
+            if group_separator:
+                empty = pd.DataFrame([[ group_separator * aln[x].astype(str).str.len().max() for x in aln.columns ]], columns=aln.columns)
+                df.append(empty)
 
         # Merge and process small groups
         if small:
             small = pd.concat(small, ignore_index=True)
-            small[groupby] = "small"
             aln = self.copy()
             aln.df = small
-            aln = aln.view_sequence(color=False, scale=scale, consensus=consensus, separator=separator, interval=interval, columns=columns, pager=None)
+            aln = aln.view_sequence(color=False, scale=scale, consensus=consensus, separator=separator, interval=interval, columns=columns, sample=sample, pager=None)
+            aln[groupby] = "small"
             df.append(aln)
 
         # Merge all sub-alignments
@@ -1273,16 +1307,25 @@ class sequence(rotifer.pipeline.Annotatable):
         # Choose coloring
         if color:
             df.sequence = rpf.to_color(df.sequence, padding='left')
-            df = df.to_string(header=False, index=False) + "\n"
+            out = df.to_string(header=False, index=False) + "\n"
         else:
-            df = df.to_string(index=False) + "\n"
+            out = df.to_string(index=False) + "\n"
 
         if pager:
-            page(df, pager_cmd=pager)
+            page(out, pager_cmd=pager)
         else:
             return df
 
-    def view_sequence(self, color=True, scale=True, consensus=True, separator="=", interval=10, columns=True, pager='less -SR', *args, **kwargs):
+    def view_sequence(self,
+            color=True,
+            scale=True,
+            consensus=True,
+            separator="=",
+            interval=10,
+            columns=True,
+            sample=None,
+            pager='less -SR',
+            *args, **kwargs):
         """
         See a colored version of the alignment with annotations.
 
@@ -1303,10 +1346,18 @@ class sequence(rotifer.pipeline.Annotatable):
             List of annotation columns to show
             If set to False, only the default columns are shown
             If set to True, all columns in the internal DataFrame are shown
+        sample: int, default None
+          Randomly select and display up to this number of 
+          sequences per group.
+
+          Note: You can set this number to 0 hide ALL sequences!
+        pager: str, default 'less -SR'
+          External command to use as viewer.
 
         Returns
         -------
-            None
+          Nothing if pager is set.
+          When pager is set to None, the formatted dataframe is returned.
         """
         df = self.copy()
 
@@ -1336,6 +1387,14 @@ class sequence(rotifer.pipeline.Annotatable):
         if scale:
             scale = self._scale_bar(self.get_alignment_length(), interval=interval).astype(str)
             df = pd.concat([ scale, df ]) 
+
+        # Select sequences
+        if sample != None:
+            seqs =  df.query('type == "sequence"')
+            if len(seqs) > sample:
+                seqs = seqs.sample(sample)
+                other = df.query('type != "sequence"')
+                df = pd.concat([ other, seqs ])
 
         # Deal with coloring
         header=True
