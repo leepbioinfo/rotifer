@@ -2153,8 +2153,7 @@ def concat(alignments, axis=0, by='id'):
         return
     aln = sequence()
     if axis == 0 or axis == "rows":
-        aln.name = " + ".join([ x.name for x in alignments[1:] ])
-        aln.df = pd.concat([ x.df for x in alignments ])
+        aln.df = pd.concat([ x.df.eval(f'source_object = "{x.name}"') for x in alignments ])
     else:
         aln.name = " | ".join([ x.name for x in alignments[1:] ])
         aln.df = alignments[0].df.copy()
