@@ -85,7 +85,7 @@ cd $new
 
 	echo "Using linclust to cluster NR database: 50% identity and 80% alignment coverage"
 	mmseqs linclust nrDB nr50linclu tmp2 --min-seq-id 0.5 --threads 20 --split-memory-limit 64G
-	mmseqs createtsv nrDB nr50linclu nr50linclu.tsv
+	mmseqs createtsv nrDB nrDB nr50linclu nr50linclu.tsv
 	mmseqs createsubdb nr50linclu nrDB nr50DB
 	mmseqs convert2fasta nr50DB nr50
 	esl-sfetch --index nr50

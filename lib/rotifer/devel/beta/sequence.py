@@ -226,7 +226,7 @@ class sequence(rotifer.pipeline.Annotatable):
                 self.df.sequence.str.replace('-', '').str.len(),
                 maxlen)
         if not self.name and not self.df.empty:
-            self.name = self.df.id.loc[0]
+            self.name = self.df.id.iloc[0]
         self.df.reset_index(drop=True, inplace=True)
 
     def __len__(self):
@@ -1169,8 +1169,6 @@ class sequence(rotifer.pipeline.Annotatable):
             r1 = self.slice((1, region[0] - 1))
             r2 = self.slice((region[1] + 1, len(self.df.iloc[0,1])))
             result.df.sequence = r1.df.sequence + aligned.df.sequence + r2.df.sequence
-        else:
-            result.df.sequence = aligned.df.sequence
 
         if not inplace:
             return result
@@ -2152,10 +2150,10 @@ def concat(alignments, axis=0, by='id'):
         logger.error("Expected a list of rotifer.sequence objects as first argument!")
         return
     aln = sequence()
+    aln.name = " | ".join([ x.name for x in alignments[1:] ])
     if axis == 0 or axis == "rows":
-        aln.df = pd.concat([ x.df.eval(f'source_object = "{x.name}"') for x in alignments ])
+        aln.df = pd.concat([ x.df.eval(f'source_object = "{x.name}"') for x in alignments ], ignore_index=True)
     else:
-        aln.name = " | ".join([ x.name for x in alignments[1:] ])
         aln.df = alignments[0].df.copy()
         aln.df.description = alignments[0].name
         for y in alignments[1:]:
