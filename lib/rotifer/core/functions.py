@@ -3,9 +3,9 @@
 from datetime import datetime as dt
 import os
 import sys
-import rotifer
-from rotifer import GlobalConfig
-logger = rotifer.logging.getLogger(__name__)
+from rotifer.core import config as CoreConfig
+from rotifer.core import logger as rcl
+logger = rcl.get_logger(__name__)
 
 """
 Rotifer core functions
@@ -344,7 +344,7 @@ def not_kwargs(dict_args, key, value):
         return dict_args[key]
     return value
 
-def findDataFiles(load, path=None):
+def findDataFiles(load, all=False):
     '''
     This routine locates data files under Rotifer's standard locations.
 
@@ -385,6 +385,7 @@ def findDataFiles(load, path=None):
     Notice that files from the user standard location take precedence
     over files under rotifer's installation path.
     '''
+    import rotifer
 
     # Make sure input is a list
     if not isinstance(load,list):
@@ -409,30 +410,32 @@ def findDataFiles(load, path=None):
                 del(g[-1])
 
         # User path
-        user_path = GlobalConfig['userDataDirectory']
+        user_path = CoreConfig['userDataDirectory']
         if os.path.exists(os.path.join(user_path, *f)):
             files.append(os.path.join(user_path, *f))
         elif len(g) > 0 and os.path.exists(os.path.join(user_path, *g)):
             files.append(os.path.join(user_path, *g))
 
         # Databases
-        databases = GlobalConfig['data']
+        databases = rotifer.config['data']
         if os.path.exists(os.path.join(databases, *f)):
             files.append(os.path.join(databases, *f))
         elif len(g) > 0 and os.path.exists(os.path.join(databases, *g)):
             files.append(os.path.join(databases, *g))
 
         # System path
-        system_path = GlobalConfig['baseDataDirectory']
+        system_path = CoreConfig['baseDataDirectory']
         if os.path.exists(os.path.join(system_path, *f)):
             files.append(os.path.join(system_path, *f))
         elif len(g) > 0 and os.path.exists(os.path.join(system_path, *g)):
             files.append(os.path.join(system_path, *g))
 
     # Return
+    if files and not all:
+        files = files[0]
     return files
 
-def loadConfig(filepath, user_path=GlobalConfig['userConfig'], system_path=GlobalConfig['baseConfig'], defaults={}):
+def loadConfig(filepath, user_path=CoreConfig['userConfig'], system_path=CoreConfig['baseConfig'], defaults={}):
     '''
     This routine loads configuration parameters from YAML file(s).
 
@@ -568,7 +571,7 @@ def yaml_search(string, path):
     else:
         return {}
 
-def loadClasses(load, user_path=os.path.join(GlobalConfig['user'],'lib'), system_path=os.path.join(GlobalConfig['base'],'lib','rotifer')):
+def loadClasses(load, user_path=os.path.join(CoreConfig['user'],'lib'), system_path=os.path.join(CoreConfig['base'],'lib','rotifer')):
     '''
     This function list all classes and methods
     The main problem is the import

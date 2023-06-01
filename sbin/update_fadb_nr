@@ -91,7 +91,7 @@ cd $new
 	esl-sfetch --index nr50
 	makeblastdb -dbtype prot -in nr50 -parse_seqids \
 	 -title "NCBI Protein database representatives for 50% indentity maximum" \
-	 -taxid_map /databASES/taxonomy/accession2taxid/prot.accession2taxid
+	 -taxid_map /databases/taxonomy/accession2taxid/prot.accession2taxid
 
 	# Update link
 	cd $ROTIFER_DATA/$section

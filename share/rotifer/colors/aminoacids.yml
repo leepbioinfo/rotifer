@@ -1,0 +1,37 @@
+# See ANSI color codes at https://github.com/fidian/ansi
+
+# Hydrophobic
+A: "033"
+I: "033"
+L: "033"
+M: "033"
+F: "033"
+W: "033"
+V: "033"
+
+# Positive
+K: "124"
+R: "124"
+
+# NEgative
+E: "127"
+D: "127"
+
+# Polar
+N: "034"
+Q: "034"
+S: "034"
+T: "034"
+
+# Cysteine
+C: "168"
+
+# Glycine
+G: "166"
+
+# Proline
+P: "178"
+
+# Aliphatic and polar
+H: "037"
+Y: "037"

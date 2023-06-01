@@ -1,7 +1,10 @@
 import rotifer
 import rotifer.pipeline
 import rotifer.db.ncbi as ncbi
+from rotifer.pandas import functions as rpf
 from rotifer.core.functions import loadConfig
+
+from IPython.core.page import page
 from copy import deepcopy
 from io import StringIO
 from Bio import SeqIO
@@ -119,7 +122,7 @@ class sequence(rotifer.pipeline.Annotatable):
             local_database_path=config['local_database_path'],
             *args, **kwargs):
         from io import IOBase
-        self._reserved_columns = ['id','sequence','length','type']
+        self._reserved_columns = ['id','sequence','length','type','description']
         self.input_format = input_format
         self.name = name
         if not isinstance(local_database_path,list):
@@ -201,10 +204,10 @@ class sequence(rotifer.pipeline.Annotatable):
         setattr(self, key, value)
 
     def __getitem__(self, key):
-        return getattr(self, key)
+        return self.filter(keep=[key])
 
     def _seqrecords_to_dataframe(self, data):
-        cols = self._reserved_columns + ['description']
+        cols = self._reserved_columns
         parsed = []
         for s in data:
             current = [ s.id, str(s.seq) ]
@@ -225,10 +228,6 @@ class sequence(rotifer.pipeline.Annotatable):
         if not self.name and not self.df.empty:
             self.name = self.df.id.loc[0]
         self.df.reset_index(drop=True, inplace=True)
-
-        # Statistics holder
-        #if not hasattr(self,'numerical'):
-        #   self.numerical = pd.DataFrame(columns=['type']+list(range(1,self.get_alignment_length()+1)))
 
     def __len__(self):
         return len(self.df.query('type == "sequence"'))
@@ -319,7 +318,7 @@ class sequence(rotifer.pipeline.Annotatable):
         if remove:
             querystr.append('(id not in @remove)')
         querystr = " and ".join(querystr)
-        if keep:
+        if len(keep) > 0:
             if querystr:
                 querystr = f'(id in @keep) or ({querystr})'
             else:
@@ -345,6 +344,20 @@ class sequence(rotifer.pipeline.Annotatable):
             return 0
         else:
             return int(self.df.query('type == "sequence"').sequence.str.len().max())
+
+    def get_group(self, group: dict):
+        gname = tuple(group.values())
+        if len(gname) == 1:
+            gname = gname[0]
+        aln = self.copy()
+        aln.df = self.df.groupby(list(group.keys())).get_group(gname)
+        aln._reset()
+
+    def sample(self, n: 'int | None' = None, frac: 'float | None' = None, replace = False):
+        other = self.filter('type != "sequence"').copy()
+        seqs =  self.filter('type == "sequence"').copy()
+        seqs.df = seqs.df.sample(n=n, frac=frac, replace=replace)
+        return concat([ other, seqs ])
 
     def slice(self, position):
         '''
@@ -395,9 +408,12 @@ class sequence(rotifer.pipeline.Annotatable):
 
         # Cut slices
         sequence  = []
+<<<<<<< HEAD
         ids = []
         pids = []
         #numerical = []
+=======
+>>>>>>> 962beff7acb0ac0557ceb5d07500cedc0875296f
         for pos in position:
             pos = [*pos]
             if len(pos) == 3:
@@ -406,19 +422,17 @@ class sequence(rotifer.pipeline.Annotatable):
                 pos[0:2] = (refseq.loc[pos[0]-1:pos[1]].mapped_position.agg(['min','max'])).tolist()
                 pos[0] += 1
             sequence.append(result.df.sequence.str.slice(pos[0]-1, pos[1]))
+<<<<<<< HEAD
             pids.append(result.df.id.str.split("/", expand=True)[0])
             ids.append(result.df.id + "/" + str(pos[0]) + "-" + str(pos[1]))
             #numerical.extend(list(range(pos[0],pos[1]+1)))
+=======
+>>>>>>> 962beff7acb0ac0557ceb5d07500cedc0875296f
 
         # Rebuild sequence
         result.df['sequence'] = pd.concat(sequence, axis=1).sum(axis=1)
         result.df['pid'] = pd.concat(pids, axis=1)
         result.df['id'] = pd.concat(ids, axis=1)
-
-        # Rebuild numerical
-        #other = set(self.numerical.columns) - set(['type']) - set(list(range(1, self.get_alignment_length() + 1)))
-        #result.numerical = result.numerical[['type'] + numerical + list(other)]
-        #result.numerical.columns = ['type'] + list(range(1,len(numerical)+1)) + list(other)
 
         # Return new sequence object
         result._reset()
@@ -611,7 +625,7 @@ class sequence(rotifer.pipeline.Annotatable):
 
         return result
 
-    def add_consensus(self, cutoffs=(50, 60, 70, 80, 90), separator=None):
+    def add_consensus(self, cutoffs=(50, 60, 70, 80, 90), separator='='):
         """
         Add consensus rows to the MSA object.
 
@@ -634,9 +648,9 @@ class sequence(rotifer.pipeline.Annotatable):
         frequencies = result.residue_frequencies
         for cutoff in reversed(sorted(cutoffs)):
             consensus = self.consensus(cutoff, frequencies=frequencies)
-            cx.append([ f'Consensus {cutoff}%', consensus, len(consensus.replace('.','')), "consensus" ])
+            cx.append([ f'Consensus {cutoff}%', consensus, len(consensus.replace('.','')), "consensus", f'Consensus {cutoff}%' ])
         if separator:
-            cx.append([ 'separator', "".join([ separator for x in range(0,self.get_alignment_length()) ]), self.get_alignment_length(), "view" ])
+            cx.append([ 'separator', "".join([ separator for x in range(0,self.get_alignment_length()) ]), self.get_alignment_length(), "view", "separator" ])
         result.df = pd.concat([pd.DataFrame(cx, columns=self._reserved_columns), result.df])
         return result
 
@@ -684,7 +698,7 @@ class sequence(rotifer.pipeline.Annotatable):
             structure_df = pd.DataFrame({'query':list(sequence_query), 'target':list(sequence_target), 'ss':list(T_ss_dssp)})
         else:
             structure_df = pd.DataFrame({'query':list(sequence_query), 'query_pred': list(Q_ss_pred), 'target':list(sequence_target), 'ss':list(T_ss_dssp)})
-        
+
         # join aln to hhpred results
         result = self.copy()
         aln = pd.Series(list(result.df.query('id == @query').sequence.iloc[0])).where(lambda x: x!='-').dropna().reset_index().rename({'index':'position', 0:'sequence'}, axis=1)
@@ -804,9 +818,93 @@ class sequence(rotifer.pipeline.Annotatable):
             to['structure'] = pdb_df.structure.to_list()
             pdbn = f'ss_from:{pdb_id}_{chain_id}'
             pdbss = ''.join(pd.Series(list(result.df.loc[pdb_index].sequence)).to_frame().join(to).fillna('-').structure.to_list())
-            result.df =  pd.concat([pd.DataFrame([[pdbn,pdbss,len(pdbss),"residue_annotation"]], columns=self._reserved_columns),self.df])
+            result.df =  pd.concat([pd.DataFrame([[pdbn,pdbss,len(pdbss),"residue_annotation",f'Secondary structure from {pdb_id}']], columns=self._reserved_columns),self.df])
             return result
 
+<<<<<<< HEAD
+=======
+        if isinstance(pdb_id,list):
+            pdb_ids = pdb_id 
+            for i in range(0, len(pdb_ids)):
+                pdb_id = pdb_ids[i]
+                # Find local file or download and then open it!
+                if pdb_file:
+                    if not os.path.exists(pdb_file):
+                        if os.path.exists(os.path.join(pdb_dir,pdb_file)):
+                            pdb_file = os.path.exists(os.path.join(pdb_dir,pdb_file))
+                        else:
+                            if pdb_file == 'esm':
+                                # Sends first sequence to ESM-Fold API 
+                                import urllib
+                                data = self.filter(keep=pdb_id).to_string(output_format='fasta-2line', remove_gaps=True).split('\n')[1].encode('utf-8')
+                                req = urllib.request.Request(url="https://api.esmatlas.com/foldSequence/v1/pdb/", data=data, method='POST')
+                                pdb_data = urllib.request.urlopen(req).read()
+                                pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "wb")
+                                pdb_file.write(pdb_data)
+                                pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "r")
+                                pdb_file.flush()
+                                pdb_file.seek(0)
+                            else:
+                                # Try using pdb_file as URL
+                                import urllib
+                                pdb_data = urllib.request.urlopen(pdb_file).read()
+                                pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "wb")
+                                pdb_file.write(pdb_data)
+                                pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "r")
+                                pdb_file.flush()
+                                pdb_file.seek(0)
+
+                else:
+                    # No file!
+                    if os.path.exists(os.path.join(pdb_dir,pdb_id[1:3].lower(),"pdb"+pdb_id.lower()+".ent.gz")):
+                        # Search PDB code in local PDB mirror
+                        pdb_file = os.path.join(pdb_dir, pdb_id[1:3].lower(), "pdb"+pdb_id.lower()+".ent.gz")
+                    else:
+                        pdb_file = PDBList(verbose=False).retrieve_pdb_file(pdb_id.lower(), file_format='pdb', pdir=rotifer.config['cache'])
+                if isinstance(pdb_file,str) and os.path.exists(pdb_file):
+                    if pdb_file[-3:] == '.gz':
+                        import gzip
+                        orig = gzip.open(pdb_file,"rt")
+                        pdb_file = tempfile.NamedTemporaryFile(suffix=".pdb", delete=True, mode="r+t")
+                        pdb_file.write(orig.read())
+                        pdb_file.flush()
+                        pdb_file.seek(0)
+                        orig.close()
+                    else:
+                        pdb_file = open(pdb_file,"rt")
+
+                # Parse PDB file to a Pandas DataFrame
+                dssp_columns  = ['pdb_id','chain','c1','c2','c3','idx','aa','secstr','rASA','phi','psi']
+                dssp_columns += ['NH_O_1_relidx','NH_O_1_energy','O_NH_1_relidx','O_NH_1_energy']
+                dssp_columns += ['NH_O_2_relidx','NH_O_2_energy','O_NH_2_relidx','O_NH_2_energy']
+                dssp = PDBParser().get_structure(pdb_id, pdb_file)
+                dssp = DSSP(dssp[0], pdb_file.name, file_type="PDB")
+                dssp = pd.DataFrame([ (pdb_id,x[0],*x[1],*dssp[x]) for x in dssp.keys() ], columns=dssp_columns)
+                dssp_to_ehc = {"I":"C","S":"C","H":"H","E":"E","G":"C","B":"E","T":"C","C":"C"}
+                dssp.secstr = dssp.secstr.map(dssp_to_ehc).fillna('-')
+                dssp = dssp.query('chain == @chain_id')
+                pdb_file.close()
+                if os.path.exists(pdb_file.name) and pdb_file.name[0:len(rotifer.config['cache'])] == rotifer.config['cache']:
+                    os.remove(pdb_file.name)
+
+                # Search for pdb sequence in the aligment
+                pdb_from_pdb = ''.join(dssp.aa.to_list())
+                pdb_index = result.df[result.df.id.str.contains(pdb_id, case=False)]
+                pdb_index = pdb_index[~pdb_index.id.str.contains('ss_from')] #Avoids annotating itself
+                pdb_index = pdb_index.index[0]
+                pdb_in_aln = result.df.loc[pdb_index].sequence.replace('-', '')
+                ali = pairwise2.align.localxx(pdb_in_aln, pdb_from_pdb)[0]
+                ss = pd.Series(list(ali.seqB)).where(lambda x : x != '-').dropna().to_frame()
+                ss['structure'] = dssp.secstr.to_list()
+                pdb_df = pd.Series(list(ali.seqA)).rename('seq').to_frame().join(ss['structure']).fillna('-').query(' seq != "-"')
+                to = pd.Series(list(result.df.loc[pdb_index].sequence)).where(lambda x: x !='-').dropna().rename('ung').to_frame()
+                to['structure'] = pdb_df.structure.to_list()
+                pdbn = f'ss_from:{pdb_id}_{chain_id}'
+                pdbss = ''.join(pd.Series(list(result.df.loc[pdb_index].sequence)).to_frame().join(to).fillna('-').structure.to_list())
+                result.df = pd.concat([pd.DataFrame([[pdbn,pdbss,len(pdbss),"residue_annotation",f'Secondary structure from {pdb_id}']], columns=self._reserved_columns),self.df])
+            return result
+
+>>>>>>> 962beff7acb0ac0557ceb5d07500cedc0875296f
     def add_seq(self, seq_to_add, cpu=12, fast=False, fetch=config["fetch"]):
         import tempfile
         import subprocess
@@ -971,65 +1069,6 @@ class sequence(rotifer.pipeline.Annotatable):
         from Bio.Align import MultipleSeqAlignment
         return MultipleSeqAlignment(self.to_seqrecords())
 
-    def to_color(self, color='fg', scale=True, interval=10):
-        """
-        Colorize sequence column and return aligment as a DataFrame
-        """
-
-        def color_res(s, cs):
-            if s in 'A I L M F W V'.split():
-                return cs(s, "033")
-            elif s in 'K R'.split():
-                return cs(s, "124")
-            elif s in 'E D'.split():
-                return cs(s, "127")
-            elif s in 'N Q S T'.split():
-                return cs(s, "034")
-            elif s  == 'C':
-                return cs(s, "168")
-            elif s == 'G':
-                return cs(s, "166")
-            elif s == 'P':
-                return cs(s, "178")
-            elif s in 'H Y'.split():
-                return cs(s, "037")
-            else:
-                 return cs(s, "000")
-
-        def color_bg(s, color = ''):
-            '''
-            s: String
-            '''
-            if color == "000":
-                color = f'49;5;000'
-            else:
-                color = f'48;5;{color}'
-            return f'\033[{color}m{s}\033[0m'
-
-        def color_fg(s, color = ''):
-            if color == "000":
-                color = f'39;5;000'
-            else:
-                color = f'38;5;{color}'
-            return f'\033[{color}m{s}\033[m'
-
-        # Make a copy of the input dataframe
-        result = self.df.copy()
-        header = pd.Series(result.columns, index=result.columns).to_frame().T
-
-        # Add scale
-        if scale:
-            scale = self._scale_bar(self.get_alignment_length(), interval=interval)
-            result = pd.concat([ header, scale, result.astype(str) ])
-        else:
-            result = pd.concat([ header, result.astype(str) ])
-
-        # Color the sequence column and return
-        color_switch = {'background':color_bg, 'bg':color_bg, 'foreground':color_fg, 'fg':color_fg}
-        result.sequence = result.sequence.str.pad(result.sequence.str.len().max(), side="right")
-        result.sequence = result.sequence.map(lambda x: ''.join([color_res(y, color_switch[color]) for y in x]))
-        return result
-
     def to_file(self, file_path=None, output_format='fasta', annotations=None, remove_gaps=False):
         if output_format == "a3m":
             fh = open(file_path,"wt")
@@ -1124,9 +1163,10 @@ class sequence(rotifer.pipeline.Annotatable):
         A new MSA object.
         """
         from subprocess import Popen, PIPE, STDOUT
-        seq_string = self.to_string(remove_gaps=True).encode()
         if region:
             seq_string = self.slice((region[0],region[1])).to_string(remove_gaps=True).encode()
+        else:
+            seq_string = self.to_string(remove_gaps=True).encode()
 
         if method =='mafft':
             child = Popen(f'cat|mafft  --thread {cpu} -' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
@@ -1154,9 +1194,159 @@ class sequence(rotifer.pipeline.Annotatable):
         if not inplace:
             return result
 
-    def view(self, color=True, scale=True, consensus=True, separator="=", interval=10, columns=True, pager='less -SR'):
+    def view_consensus(self, groupby = None, *args, **kwargs):
+        if groupby:
+            return self.view_groups(groupby=groupby, *args, **kwargs, sample=0, scale=False, separator=None, group_separator=None)
+        else:
+            return self.view_sequence(*args, **kwargs, sample=0)
+
+    def view_groups(self,
+            groupby=None,
+            min_group_size=2,
+            sample=None,
+            group_separator=np.NaN,
+            color=True,
+            scale=True,
+            consensus=True,
+            separator="=",
+            interval=10,
+            columns=True,
+            pager='less -SR',
+            *args, **kwargs):
         """
-        Display alignment and alignment annotations.
+        See colored versions of all sub-alignments defined by
+        one or more grouping column(s).
+
+        Usage
+        -----
+        >>> from rotifer.devel.beta import sequence as rdbs
+        >>> aln = rdbs.sequence("my.aln","fasta")
+        >>> aln.add_cluster(coverage=0, identity=0).view("groups", groupby="c0i0")
+
+        Parameters
+        ----------
+        groupby: string, default None
+          Choose a column to group sequences and show alignments
+          and annotations for that group in a separate block of
+          rows
+        min_group_size: int, default None
+          Size of the smallest clusters that will be shown as a
+          separate group.
+        sample: int, default None
+          Randomly select and display up to this number of 
+          sequences per group.
+
+          Note: You can set this number to 0 hide ALL sequences!
+
+        group_separator:
+           Character to add to the rows separating groups.
+           Set it to None to disable.
+        color : bool
+            Color sequence residues
+        scale : bool, default True
+            If set to False, no scale is shown
+        consensus : bool, default True
+            Whether to display consensus rows
+        separator : character
+            Single character to fill row separating the alignment
+            and the consensus sequence
+        interval : integer, default 10
+            Interval between position marks in the scale
+        columns : bool or list of strings, default is True
+            List of annotation columns to show
+            If set to False, only the default columns are shown
+            If set to True, all columns in the internal DataFrame are shown
+        pager: str, default 'less -SR'
+          External command to use as viewer.
+
+        Returns
+        -------
+          Nothing if pager is set.
+          When pager is set to None, the formatted dataframe is returned.
+
+        Returns
+        -------
+            None
+        """
+        # Add consensus for the full dataframe
+        df = []
+        if consensus:
+            df = self.view_sequence(color=False, scale=True, consensus=consensus, separator=separator, columns=columns, pager=None)
+            df = df.query('type != "sequence"').copy()
+            df.id = df.id.str.replace("Consensus",f'Full ')
+            df[groupby] = 'Full'
+            df = [ df ]
+            if pager and color:
+                header = pd.Series(df[0].columns, index=df[0].columns).to_frame().T.astype(str)
+                df = [ header ] + df
+            if group_separator:
+                empty = [[ group_separator * df[0][x].astype(str).str.len().max() for x in df[0].columns ]]
+                empty = pd.DataFrame(empty, columns=df[0].columns)
+                df.append(empty)
+
+        # Processing each group
+        small = []
+        blocks = self.df.groupby(groupby)
+        for group in blocks.size().sort_values(ascending=False).reset_index().values.tolist():
+            sz = group.pop()
+            if len(group) == 1:
+                group = group[0]
+
+            # Load sub-alignment
+            aln = self.copy()
+            aln.df = blocks.get_group(group)
+
+            # Isolate small groups
+            if sz < min_group_size:
+                small.append(aln.df)
+                continue
+
+            # Format and add to stack
+            aln = aln.view_sequence(color=False, scale=scale, consensus=consensus, separator=separator, interval=interval, columns=columns, sample=sample, pager=None)
+            aln[groupby] = group
+
+            # Add block to stack
+            df.append(aln)
+            if group_separator:
+                empty = pd.DataFrame([[ group_separator * aln[x].astype(str).str.len().max() for x in aln.columns ]], columns=aln.columns)
+                df.append(empty)
+
+        # Merge and process small groups
+        if small:
+            small = pd.concat(small, ignore_index=True)
+            aln = self.copy()
+            aln.df = small
+            aln = aln.view_sequence(color=False, scale=scale, consensus=consensus, separator=separator, interval=interval, columns=columns, sample=sample, pager=None)
+            aln[groupby] = "small"
+            df.append(aln)
+
+        # Merge all sub-alignments
+        df = pd.concat(df, ignore_index=True).fillna("")
+
+        # Choose coloring
+        if color:
+            df.sequence = rpf.to_color(df.sequence, padding='left')
+            out = df.to_string(header=False, index=False) + "\n"
+        else:
+            out = df.to_string(index=False) + "\n"
+
+        if pager:
+            page(out, pager_cmd=pager)
+        else:
+            return df
+
+    def view_sequence(self,
+            color=True,
+            scale=True,
+            consensus=True,
+            separator="=",
+            interval=10,
+            columns=True,
+            sample=None,
+            pager='less -SR',
+            *args, **kwargs):
+        """
+        See a colored version of the alignment with annotations.
 
         Parameters
         ----------
@@ -1175,37 +1365,74 @@ class sequence(rotifer.pipeline.Annotatable):
             List of annotation columns to show
             If set to False, only the default columns are shown
             If set to True, all columns in the internal DataFrame are shown
-        pager: string
-          Command line to be used for displaying the alignment.
+        sample: int, default None
+          Randomly select and display up to this number of 
+          sequences per group.
+
+          Note: You can set this number to 0 hide ALL sequences!
+        pager: str, default 'less -SR'
+          External command to use as viewer.
 
         Returns
         -------
-            None
+          Nothing if pager is set.
+          When pager is set to None, the formatted dataframe is returned.
         """
-        from IPython.core.page import page
         df = self.copy()
-        basic_columns = ['id', 'sequence','length','type',]
+
+        # Choose columns to display
         if isinstance(columns,bool):
             if not columns:
-                df.df = df.df[basic_columns]
+                df.df = df.df[self._reserved_columns]
         else:
             if isinstance(columns,list):
-                df.df = df.df[basic_columns + columns]
+                df.df = df.df[self._reserved_columns + columns]
             else :
                 logger.error('columns should be either a list or a bool')
 
         if consensus:
-            df = df.add_consensus(separator=separator)
+            if isinstance(consensus,bool):
+                kwargs = {}
+            elif isinstance(consensus,int):
+                kwargs = {'cutoffs': (consensus,)}
+            else:
+                kwargs = {'cutoffs': consensus}
+            df = df.add_consensus(separator=separator, **kwargs)
+
+        # Shift work to the internal dataframe, erasing the sequence object
+        df = df.df.copy().astype(str)
+
+        # Add scale bar rows
+        if scale:
+            scale = self._scale_bar(self.get_alignment_length(), interval=interval).astype(str)
+            df = pd.concat([ scale, df ]) 
+
+        # Select sequences
+        if sample != None:
+            seqs =  df.query('type == "sequence"')
+            if len(seqs) > sample:
+                seqs = seqs.sample(sample)
+                other = df.query('type != "sequence"')
+                df = pd.concat([ other, seqs ])
+
+        # Deal with coloring
+        header=True
         if color:
-            df = df.to_color(scale=scale, interval=interval)
-            page(df.to_string(header=False, index=False) + "\n", pager_cmd=pager)
+            if pager:
+                header = pd.Series(df.columns, index=df.columns).to_frame().T
+                df = pd.concat([ header, df ])
+                header = False
+            df.sequence = rpf.to_color(df.sequence, padding='left')
+
+        if pager:
+            df = df.to_string(index= False, header=header) + "\n"
+            page(df, pager_cmd=pager)
         else:
-            df = df.df.copy()
-            if scale:
-                scale = self._scale_bar(self.get_alignment_length(), interval=interval)
-                df = pd.concat([ scale, df ]) 
-                df.sequence = df.sequence.str.pad(df.sequence.str.len().max(), side="right")
-            page(df.to_string(index=False) + "\n", pager_cmd=pager)
+            return df
+
+    def view(self, mode="sequence", *args, **kwargs):
+        method = self.__getattribute__(f'view_{mode}')
+        return method(**kwargs)
 
     def hhblits(self, databases=config['databases'], database_path=config['databases_path'], view=True, cpu=18):
         """
@@ -1343,9 +1570,6 @@ class sequence(rotifer.pipeline.Annotatable):
         columns_to_keep = self.residue_frequencies.T.query('gap <= @max_perc_gaps').T.columns.to_list()
         result = self.copy()
         result.df['sequence'] = result.residues.loc[:, columns_to_keep].sum(axis=1)
-        #other = set(self.numerical.columns) - set(['type']) - set(list(range(1, self.get_alignment_length() + 1)))
-        #result.numerical = result.numerical[['type'] + columns_to_keep + list(other)]
-        #result.numerical.columns = ['type'] + list(range(1,len(columns_to_keep)+1)) + list(other)
         result._reset()
         return result
 
@@ -1931,6 +2155,39 @@ class sequence(rotifer.pipeline.Annotatable):
                        See Bio.SeqIO and/or Bio.AlignIO.
         '''
         return cls(input_file, input_format=input_format)
+
+# Class method
+def concat(alignments, axis=0, by='id'):
+    """
+    Concatenate data from one or more alignments.
+
+    Parameters
+    ----------
+    axis: {0/'rows', 1/'columns'}, default 0
+      Merge alignments by appending rows (axis == 1), or by
+      concatenating sequences sharing the same id (axis = 0).
+    """
+    if not isinstance(alignments,list):
+        logger.error("Expected a list of rotifer.sequence objects as first argument!")
+        return
+    aln = sequence()
+    if axis == 0 or axis == "rows":
+        aln.df = pd.concat([ x.df.eval(f'source_object = "{x.name}"') for x in alignments ])
+    else:
+        aln.name = " | ".join([ x.name for x in alignments[1:] ])
+        aln.df = alignments[0].df.copy()
+        aln.df.description = alignments[0].name
+        for y in alignments[1:]:
+            y = y.copy()
+            y.df.description = y.name
+            gap_x = "-" * aln.get_alignment_length()
+            gap_y = "-" * y.get_alignment_length()
+            aln.df = aln.df.merge(y.df, on=by, how="outer", suffixes=["",f"_{y.name}"])
+            aln.df.sequence = aln.df.sequence.fillna(gap_x) + aln.df[f"sequence_{y.name}"].fillna(gap_y)
+            aln.df.description = aln.df.description.fillna("") + "," + aln.df[f'description_{y.name}'].fillna("")
+            aln.df.drop([ x + f"_{y.name}" for x in y._reserved_columns if x != "id" ], axis=1, inplace=True)
+    aln._reset()
+    return aln
 
 __doc__ = """
 ========================

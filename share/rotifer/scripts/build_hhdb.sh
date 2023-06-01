@@ -1,31 +1,37 @@
 #!/bin/bash
+# Code by G.G.Nicastro
 
-set -e # Stop after first error
+# Input
+MSA_DIR=$1
+BASE=$2
 
-alndir=$1
-prefix=$3
+# REF: https://github.com/soedinglab/hh-suite/wiki#building-customized-databases
+# You need to have a directory with all alignments you want 1 dir up to local.
 
-# Build initial database
-ffindex_build -s $prefix.msa.ffdata $prefix.msa.ffindex $alndir/
+# indexing alinments
+cd ${MSA_DIR}/
+ffindex_build -s ../${BASE}_msa.ff{data,index} .
+cd ..
 
-# Add consensus
-ffindex_apply $prefix.msa.ffdata $prefix.msa.ffindex \
- -i $prefix.a3m.ffindex -d $prefix.a3m.ffdata \
- -- hhconsensus -M 50 -maxres 65535 -i soutdirin -oa3m soutdirout -v 0
+# create db
+ffindex_apply ${BASE}_msa.ff{data,index} \
+  -i ${BASE}_a3m.ffindex -d ${BASE}_a3m.ffdata \
+    -- hhconsensus -M 50 -maxres 65535 -i stdin -oa3m stdout -v 0
+rm ${BASE}_msa.ff{data,index}
 
-# Build HMM
-ffindex_apply $prefix.a3m.ffdata $prefix.a3m.ffindex \
- -i $prefix.hhm.ffindex -d $prefix.hhm.ffdata \
- -- hhmake -i soutdirin -o soutdirout -v 0
+# computing hhm
+ffindex_apply ${BASE}_a3m.ff{data,index} -i ${BASE}_hhm.ffindex -d ${BASE}_hhm.ffdata -- hhmake -i stdin -o stdout -v 0
 
-# Calculate statistics
-cstranslate -f -x 0.3 -c 4 -I a3m -i $prefix.a3m -o $prefix.cs219
+# compute contexts to prefiltering
+cstranslate -f -x 0.3 -c 4 -I a3m -i ${BASE}_a3m -o ${BASE}_cs219 
 
-# Reorder
-sort -k3 -n -r $prefix.cs219.ffindex | cut -f1 > $prefix.sorting.dat
-ffindex_order $prefix.sorting.dat $prefix.hhm.ffdata $prefix.hhm.ffindex \
- $prefix.hhm.ordered.ffdata $prefix.hhm.ordered.ffindex
-ffindex_order $prefix.sorting.dat $prefix.a3m.ffdata $prefix.a3m.ffindex \
- $prefix.a3m.ordered.ffdata $prefix.a3m.ordered.ffindex
+# Putting everything together
+sort -k3 -n -r ${BASE}_cs219.ffindex | cut -f1 > sorting.dat
 
-exit $?
+ffindex_order sorting.dat ${BASE}_hhm.ff{data,index} ${BASE}_hhm_ordered.ff{data,index}
+mv ${BASE}_hhm_ordered.ffindex ${BASE}_hhm.ffindex
+mv ${BASE}_hhm_ordered.ffdata ${BASE}_hhm.ffdata
+
+ffindex_order sorting.dat ${BASE}_a3m.ff{data,index} ${BASE}_a3m_ordered.ff{data,index}
+mv ${BASE}_a3m_ordered.ffindex ${BASE}_a3m.ffindex
+mv ${BASE}_a3m_ordered.ffdata ${BASE}_a3m.ffdata

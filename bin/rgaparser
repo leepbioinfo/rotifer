@@ -257,7 +257,7 @@ def main(args):
 
         # Print features
         if args.features:
-            df = rgutils.seqrecords_to_dataframe(s, exclude_type=args.exclude_type, codontable=args.codontable, autopid=args.autopid, block_id=block_id)
+            df = rgutils.seqrecords_to_dataframe(s, exclude_type=args.exclude_type, codontable=args.codontable, autopid=args.autopid)
             if not df.empty:
                 df.to_csv(args.features, mode=mode, index=False, header=header, sep=args.output_delimiter)
                 header = False

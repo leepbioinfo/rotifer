@@ -36,7 +36,7 @@ function mirror_genome() {
 	justecho=""
 	if [ "$runtest" != "" ]; then justecho="echo"; fi
 	bn=$(basename $path)
-	echo "=====> Updating target $db/$path"
+	simplelog "Updating target $db/$path"
 
 	# Download/update metadata
 	/usr/bin/rsync -arHv --no-motd --delete --prune-empty-dirs -L --safe-links --mkpath $runtest \
@@ -46,17 +46,17 @@ function mirror_genome() {
 	if [ -f "$db/$path/${bn}_assembly_report.txt" ]; then
 		taxid=$(perl -ne '/Taxid:\s+(\d+)/ && do { print "$1" }' $db/$path/${bn}_assembly_report.txt)
 		if [ "$taxid" != "" ]; then
-			#echo Fetching superkingdom of taxid $taxid for $db/$path
+			#simplelog Fetching superkingdom of taxid $taxid for $db/$path
 			kingdom=$(python3 -c "import rotifer.db.ncbi as ncbi;tc=ncbi.TaxonomyCursor();t=tc[$taxid];t=t.superkingdom.iloc[0] if len(t)>0 else 0; print(t)")
-			#echo Superkingdom of taxid $taxid is $kingdom for $db/$path
+			#simplelog Superkingdom of taxid $taxid is $kingdom for $db/$path
 			if [ $eukaryotes -eq 0 ]; then
 				if [ "$kingdom" == "" ] || [ "$kingdom" == "0" ]; then
-					echo "=====> Unknown taxonomy issue for $db/$path"
+					simplelog "=====> Unknown taxonomy issue for $db/$path"
 				elif [ "$kingdom" == "Eukaryota" ]; then
 					if [ -f $db/$path/${bn}_genomic.gbff.gz ]; then
 						$justecho rm -f $db/$path/${bn}_genomic.gbff.gz
 					fi
-					echo "=====> Skipped eukaryotic genome $db/$path"
+					simplelog "=====> Skipped eukaryotic genome $db/$path"
 					return 1
 				fi
 			fi
@@ -70,7 +70,7 @@ function mirror_genome() {
 			if [ -f $db/$path/${bn}_genomic.gbff.gz ]; then
 				$justecho rm -f $db/$path/${bn}_genomic.gbff.gz
 			fi
-			echo "=====> Skipped unannotated genome $db/$path"
+			simplelog "=====> Skipped unannotated genome $db/$path"
 			return 1
 		fi
 	fi
@@ -79,7 +79,7 @@ function mirror_genome() {
 	/usr/bin/rsync -arHv --no-motd --delete --prune-empty-dirs -L --safe-links --mkpath $runtest \
   	-f ". $mypath/etc/rotifer/rrsw/genome_mirror.rules" rsync://ftp.ncbi.nlm.nih.gov/$path/ $db/$path/
 
-	echo "=====> Target $db/$path updated!"
+	simplelog "=====> Target $db/$path updated!"
 }
 export -f mirror_genome
 
