@@ -970,34 +970,40 @@ def alnclu(info, c80e3="c80e3", c80i70="c80i70", i=3, local_database_path='', ba
         return None
 
     curr_dir = os.getcwd()
-    os.makedirs(f'{curr_dir}/clusters/hhmdb/aln')
+    if not os.path.exists(f'{curr_dir}/clusters/hhmdb/aln'):
+        os.makedirs(f'{curr_dir}/clusters/hhmdb/aln')
     if method == 'disk':
         for x in info.c80e3.unique():
             if info[info.c80e3 == x].c80i70.nunique() >= i:
-                os.mkdir(f'{curr_dir}/clusters/{x}')
+                if not os.path.exists(f'{curr_dir}/clusters/{x}'):
+                    os.mkdir(f'{curr_dir}/clusters/{x}')
                 os.chdir(f'{curr_dir}/clusters/{x}')
-                rdbs.sequence(info[info.c80e3 == x].c80i70.drop_duplicates().to_list(), local_database_path=local_database_path).align(method='linsi').to_file(f'{x}.{c80e3}.aln')
+                if not os.path.exists(f'{curr_dir}/clusters/{x}.{c80e3}.aln'):
+                    rdbs.sequence(info[info.c80e3 == x].c80i70.drop_duplicates().to_list(), local_database_path=local_database_path).align(method='linsi').to_a3m(file_path=f'{x}.{c80e3}.a3m')
             os.chdir(f'{curr_dir}')
     if method == 'memory':
         c = rdbs.sequence(info.pid.unique().tolist(), local_database_path=local_database_path)
         for x in info.c80e3.unique():
             if info[info.c80e3 == x].c80i70.nunique() >= i:
-                os.mkdir(f'{curr_dir}/clusters/{x}')
+                if not os.path.exists(f'{curr_dir}/clusters/{x}'):
+                    os.mkdir(f'{curr_dir}/clusters/{x}')
                 os.chdir(f'{curr_dir}/clusters/{x}')
-                k = info[info.c80e3 == x].c80i70.drop_duplicates().to_list()
-                j = rdbs.sequence()
-                j.df = c.df.query('id.isin(@k)')
-                j.align(method='linsi').to_file(f'{x}.{c80e3}.aln')
+                if not os.path.exists(f'{curr_dir}/clusters/{x}/{x}.{c80e3}.aln'):
+                    k = info[info.c80e3 == x].c80i70.drop_duplicates().to_list()
+                    j = rdbs.sequence()
+                    j.df = c.df.query('id.isin(@k)')
+                    j = j.align(method='linsi')
+                    j.to_a3m(file_path=f'{x}.{c80e3}.a3m')
             os.chdir(f'{curr_dir}')
                 
     os.chdir('clusters')
-    os.system('for x in */*.aln; do y=$(echo $x|cut -f1 -d"/"); echo \#$y|cat - $x > ./hhmdb/aln/$y.aln;done')
+    os.system('for x in */*.aln; do y=$(echo $x|cut -f1 -d"/"); echo \#$y|cat - $x > hhmdb/aln/$y.aln;done')
 
     os.chdir('hhmdb')
-    os.system(f'/home/leep/ggnicastro/bin/build_hhdb.sh ./aln ../../{base}')
+    os.system(f'/home/leep/ggnicastro/bin/build_hhdb.sh aln ../{base}')
 
     os.chdir('aln')
-    os.system(f'for x in *.aln; do hhsearch -i $x -d ../../../{base} -M 50;done')
+    os.system(f'for x in *.aln; do hhsearch -i $x -d ../../{base} -M 50;done')
     os.system(f'hhsuite2table *hhr > {base}.tsv')
     os.chdir(f'{curr_dir}')
     os.system(f'ln -s {curr_dir}/clusters/hhmdb/aln/{base}.tsv .')

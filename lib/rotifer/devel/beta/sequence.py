@@ -408,6 +408,9 @@ class sequence(rotifer.pipeline.Annotatable):
 
         # Cut slices
         sequence  = []
+        ids = []
+        pids = []
+        #numerical = []
         for pos in position:
             pos = [*pos]
             if len(pos) == 3:
@@ -416,9 +419,14 @@ class sequence(rotifer.pipeline.Annotatable):
                 pos[0:2] = (refseq.loc[pos[0]-1:pos[1]].mapped_position.agg(['min','max'])).tolist()
                 pos[0] += 1
             sequence.append(result.df.sequence.str.slice(pos[0]-1, pos[1]))
+            pids.append(result.df.id.str.split("/", expand=True)[0])
+            ids.append(result.df.id + "/" + str(pos[0]) + "-" + str(pos[1]))
+            #numerical.extend(list(range(pos[0],pos[1]+1)))
 
         # Rebuild sequence
         result.df['sequence'] = pd.concat(sequence, axis=1).sum(axis=1)
+        result.df['pid'] = pd.concat(pids, axis=1)
+        result.df['id'] = pd.concat(ids, axis=1)
 
         # Return new sequence object
         result._reset()
@@ -712,6 +720,8 @@ class sequence(rotifer.pipeline.Annotatable):
             Target chain identifier.
         pdb_file : string
             PDB file or URL of remote PDB file.
+            If pdb_file set to 'esm', sequence selected by pdb_id will be
+            forwarded to esmfold api, only applies to sequences with less than 400aa in length.
         pdb_dir : string
             Path to a local PDB mirror or a directory
             where PDB files are stored
