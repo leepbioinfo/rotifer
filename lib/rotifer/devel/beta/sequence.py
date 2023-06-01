@@ -1179,6 +1179,8 @@ class sequence(rotifer.pipeline.Annotatable):
             r1 = self.slice((1, region[0] - 1))
             r2 = self.slice((region[1] + 1, len(self.df.iloc[0,1])))
             result.df.sequence = r1.df.sequence + aligned.df.sequence + r2.df.sequence
+        else:
+            result = aligned
 
         if not inplace:
             return result
