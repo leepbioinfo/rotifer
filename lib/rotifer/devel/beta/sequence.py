@@ -898,7 +898,6 @@ class sequence(rotifer.pipeline.Annotatable):
                 result.df = pd.concat([pd.DataFrame([[pdbn,pdbss,len(pdbss),"residue_annotation",f'Secondary structure from {pdb_id}']], columns=self._reserved_columns),self.df])
             return result
 
->>>>>>> 962beff7acb0ac0557ceb5d07500cedc0875296f
     def add_seq(self, seq_to_add, cpu=12, fast=False, fetch=config["fetch"]):
         import tempfile
         import subprocess
