@@ -815,8 +815,6 @@ class sequence(rotifer.pipeline.Annotatable):
             result.df =  pd.concat([pd.DataFrame([[pdbn,pdbss,len(pdbss),"residue_annotation",f'Secondary structure from {pdb_id}']], columns=self._reserved_columns),self.df])
             return result
 
-<<<<<<< HEAD
-=======
         if isinstance(pdb_id,list):
             pdb_ids = pdb_id 
             for i in range(0, len(pdb_ids)):
