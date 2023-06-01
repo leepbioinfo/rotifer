@@ -408,12 +408,9 @@ class sequence(rotifer.pipeline.Annotatable):
 
         # Cut slices
         sequence  = []
-<<<<<<< HEAD
         ids = []
         pids = []
         #numerical = []
-=======
->>>>>>> 962beff7acb0ac0557ceb5d07500cedc0875296f
         for pos in position:
             pos = [*pos]
             if len(pos) == 3:
@@ -422,12 +419,9 @@ class sequence(rotifer.pipeline.Annotatable):
                 pos[0:2] = (refseq.loc[pos[0]-1:pos[1]].mapped_position.agg(['min','max'])).tolist()
                 pos[0] += 1
             sequence.append(result.df.sequence.str.slice(pos[0]-1, pos[1]))
-<<<<<<< HEAD
             pids.append(result.df.id.str.split("/", expand=True)[0])
             ids.append(result.df.id + "/" + str(pos[0]) + "-" + str(pos[1]))
             #numerical.extend(list(range(pos[0],pos[1]+1)))
-=======
->>>>>>> 962beff7acb0ac0557ceb5d07500cedc0875296f
 
         # Rebuild sequence
         result.df['sequence'] = pd.concat(sequence, axis=1).sum(axis=1)
