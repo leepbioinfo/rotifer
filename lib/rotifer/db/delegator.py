@@ -10,8 +10,8 @@ logger = rotifer.logging.getLogger(__name__)
 class DelegatorCursor(rotifer.db.core.BaseCursor):
     def __init__(self, readers=[], writers=[], progress=True, tries=None, batch_size=None, threads=None, *args, **kwargs):
         super().__init__(progress=progress, *args, **kwargs)
-        self.readers = readers
-        self.writers = writers
+        self.readers = readers.copy()
+        self.writers = writers.copy()
         self.tries = tries
         self.batch_size = batch_size
         self.threads = threads

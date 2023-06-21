@@ -194,7 +194,7 @@ class sequence(rotifer.pipeline.Annotatable):
                 elif hasattr(input_data.stream,"name"):
                     self.name = os.path.basename(input_data.stream.name)
             elif not self.df.empty:
-                self.name = self.df.id.loc[0]
+                self.name = self.df.id.iloc[0]
 
         # Make sure the new object is clean!
         self._reset()
@@ -744,26 +744,20 @@ class sequence(rotifer.pipeline.Annotatable):
                     if os.path.exists(os.path.join(pdb_dir,pdb_file)):
                         pdb_file = os.path.exists(os.path.join(pdb_dir,pdb_file))
                     else:
+                        import urllib
                         if pdb_file == 'esm':
                             # Sends first sequence to ESM-Fold API 
-                            import urllib
                             data = self.filter(keep=pdb_id).to_string(output_format='fasta-2line', remove_gaps=True).split('\n')[1].encode('utf-8')
                             req = urllib.request.Request(url="https://api.esmatlas.com/foldSequence/v1/pdb/", data=data, method='POST')
                             pdb_data = urllib.request.urlopen(req).read()
-                            pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "wb")
-                            pdb_file.write(pdb_data)
-                            pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "r")
-                            pdb_file.flush()
-                            pdb_file.seek(0)
                         else:
                             # Try using pdb_file as URL
-                            import urllib
                             pdb_data = urllib.request.urlopen(pdb_file).read()
-                            pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "wb")
-                            pdb_file.write(pdb_data)
-                            pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "r")
-                            pdb_file.flush()
-                            pdb_file.seek(0)
+                        pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "wb")
+                        pdb_file.write(pdb_data)
+                        pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "r")
+                        pdb_file.flush()
+                        pdb_file.seek(0)
 
             else:
                 # No file!
