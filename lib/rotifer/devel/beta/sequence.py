@@ -426,7 +426,7 @@ class sequence(rotifer.pipeline.Annotatable):
         # Rebuild sequence
         result.df['sequence'] = pd.concat(sequence, axis=1).sum(axis=1)
         #result.df['pid'] = pd.concat(pids, axis=1)
-        result.df['id'] = pd.concat(ids, axis=1)
+        #result.df['id'] = pd.concat(ids, axis=1)
 
         # Return new sequence object
         result._reset()
