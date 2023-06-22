@@ -5,6 +5,7 @@ import pandas as pd
 from glob import glob
 from rotifer.devel.beta import sequence as rdbs
 config = {
+        "pattern": "*.sto",
         "informat": {
             "*.sto": "stockholm",
             "*.fa": "fasta",
@@ -17,7 +18,8 @@ class SequenceCollection():
     def __init__(
             self,
             basedir = "/projects/salmonella/work/st/alndb",
-            pattern = "*.sto",
+            pattern = config["pattern"],
+            informat = config["informat"][config["pattern"]],
             other_files = {
                 "pdb": {
                     "basedir": "/projects/salmonella/work/st/colabfold",
@@ -49,7 +51,6 @@ class SequenceCollection():
 
                 # Load other paths
                 otherfiles = []
-                othernames = []
                 for colname, other in other_files.items():
                     files = glob(os.path.join(other["basedir"], basename + other["pattern"]))
                     if len(files) == 0:
@@ -57,13 +58,12 @@ class SequenceCollection():
                     elif len(files) == 1:
                         files = files[0]
                     otherfiles.append(files)
-                    othernames.append(colname)
 
                 # Add data to stack
-                alndb.append((basename, x, files))
+                alndb.append((basename, x, *otherfiles))
 
         # Create internal dataframe for paths
-        alndb = pd.DataFrame(alndb, columns=['name','path',*othernames])
+        alndb = pd.DataFrame(alndb, columns=['name','path'] + list(other_files.keys()))
         alndb.index = alndb.name.tolist()
 
         # Store data in object
@@ -80,8 +80,22 @@ class SequenceCollection():
     def keys(self):
         return self.df.index.tolist()
 
+    def view(self, model, *args, **kwargs):
+        aln = self[model].copy()
+
+        if "pdb_file" in kwargs:
+            pdb = kwargs.pop("pdb_file")
+        elif "pdb" in self.df.columns:
+            pdb = self.df.loc[model,"pdb"]
+            if isinstance(pdb,list):
+                pdb = pdb[0]
+        if pdb:
+            aln = aln.add_pdb(aln.df.iloc[0,0], pdb_file=pdb)
+
+        aln.view(*args, **kwargs)
+
     # Saving to HTML
-    def tohtml(self, model, filename=None, sample=50, consensus=90):
+    def to_html(self, model, filename=None, sample=50, consensus=90):
         aln = self[model].copy()
 
         keep = []

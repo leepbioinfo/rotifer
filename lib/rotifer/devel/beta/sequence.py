@@ -419,13 +419,13 @@ class sequence(rotifer.pipeline.Annotatable):
                 pos[0:2] = (refseq.loc[pos[0]-1:pos[1]].mapped_position.agg(['min','max'])).tolist()
                 pos[0] += 1
             sequence.append(result.df.sequence.str.slice(pos[0]-1, pos[1]))
-            pids.append(result.df.id.str.split("/", expand=True)[0])
-            ids.append(result.df.id + "/" + str(pos[0]) + "-" + str(pos[1]))
+            #pids.append(result.df.id.str.split("/", expand=True)[0])
+            #ids.append(result.df.id + "/" + str(pos[0]) + "-" + str(pos[1]))
             #numerical.extend(list(range(pos[0],pos[1]+1)))
 
         # Rebuild sequence
         result.df['sequence'] = pd.concat(sequence, axis=1).sum(axis=1)
-        result.df['pid'] = pd.concat(pids, axis=1)
+        #result.df['pid'] = pd.concat(pids, axis=1)
         result.df['id'] = pd.concat(ids, axis=1)
 
         # Return new sequence object
