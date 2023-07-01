@@ -562,7 +562,7 @@ class sequence(rotifer.pipeline.Annotatable):
         if not inplace:
             return result
 
-    def add_cluster(self, coverage=0.8, identity=0.7, name=None, inplace=False):
+    def add_cluster(self, coverage=0.8, identity=0.7, cascade=None, inplace=False):
         '''
         Add or update MMseqs2 clustering data for all sequences.
 
@@ -574,8 +574,13 @@ class sequence(rotifer.pipeline.Annotatable):
         identity : float
             Minimum percentage identity required for both sequences
             in each pairwise alignment.
-        name: string
-            Set the name of the annotation column for the clusters
+        cascade: (list of) tuples, default: None
+            Generate multiple hierarchically related clusterings
+            through cascading. The arguments must be pairs of 
+            coverage and identity values.
+
+            Note:
+             When using cascade, coverage and identity are ignored
         inplace: bool
             Add column inplace, without creating a copy of the MSA
             If set to True, this method return nothing.
@@ -596,28 +601,45 @@ class sequence(rotifer.pipeline.Annotatable):
         from subprocess import Popen, PIPE, STDOUT
 
         # Adjust parameters
-        if identity > 1:
-            identity /= 100
-        if coverage > 1:
-            coverage /= 100
-        if not name:
-            name = f'c{int(float(coverage)*100)}i{int(float(identity)*100)}'
+        if not cascade:
+            cascade = [tuple(coverage, identity)]
+        elif not isinstance(cascade,list):
+            cascade = [cascade]
+
+        if inplace:
+            result = self.copy()
+        else:
+            result = self
 
         path = os.getcwd()
-        result = None
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            os.chdir(tmpdirname)
-            self.to_file(f'{tmpdirname}/seqaln', remove_gaps=True)
-            Popen(f'mmseqs easy-cluster {tmpdirname}/seqaln nr --min-seq-id {identity} -c {coverage} tmp', stdout=PIPE,shell=True).communicate()
-            d = pd.read_csv(f'{tmpdirname}/nr_cluster.tsv', sep="\t", names=['cluster', 'pid']).set_index('pid').cluster.to_dict()
-            if inplace:
-                self.df[name] = self.df.id.replace(d)
-            else:
-                result = self.copy()
-                result.df[name] = result.df.id.replace(d)
-        os.chdir(path)
+        lastname = None
+        for coverage, identity in cascade:
+            if identity > 1:
+                identity /= 100
+            if coverage > 1:
+                coverage /= 100
+            name = f'c{int(float(coverage)*100)}i{int(float(identity)*100)}'
 
-        return result
+            with tempfile.TemporaryDirectory() as tmpdirname:
+                os.chdir(tmpdirname)
+                if lastname:
+                    result.filter(f'id == {lastname}').to_file(f'{tmpdirname}/seqaln', remove_gaps=True)
+                else:
+                    result.to_file(f'{tmpdirname}/seqaln', remove_gaps=True)
+                Popen(f'mmseqs easy-cluster {tmpdirname}/seqaln nr --min-seq-id {identity} -c {coverage} tmp', stdout=PIPE,shell=True).communicate()
+                d = pd.read_csv(f'{tmpdirname}/nr_cluster.tsv', sep="\t", names=['cluster', 'pid'])
+                d = d.set_index('pid').cluster.to_dict()
+                if lastname:
+                    result.df[name] = result.df[lastname].replace(d)
+                else:
+                    result.df[name] = result.df.id.replace(d)
+            os.chdir(path)
+            lastname = name
+
+        if inplace:
+            return result
+        else:
+            return None
 
     def add_consensus(self, cutoffs=(50, 60, 70, 80, 90), separator='='):
         """
