@@ -607,9 +607,9 @@ class sequence(rotifer.pipeline.Annotatable):
             cascade = [cascade]
 
         if inplace:
-            result = self.copy()
-        else:
             result = self
+        else:
+            result = self.copy()
 
         path = os.getcwd()
         lastname = None
