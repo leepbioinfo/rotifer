@@ -637,9 +637,9 @@ class sequence(rotifer.pipeline.Annotatable):
             lastname = name
 
         if inplace:
-            return result
-        else:
             return None
+        else:
+            return result
 
     def add_consensus(self, cutoffs=(50, 60, 70, 80, 90), separator='='):
         """
