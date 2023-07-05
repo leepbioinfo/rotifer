@@ -602,7 +602,7 @@ class sequence(rotifer.pipeline.Annotatable):
 
         # Adjust parameters
         if not cascade:
-            cascade = [tuple(coverage, identity)]
+            cascade = [(coverage, identity)]
         elif not isinstance(cascade,list):
             cascade = [cascade]
 
@@ -1429,10 +1429,10 @@ class sequence(rotifer.pipeline.Annotatable):
                 header = pd.Series(df.columns, index=df.columns).to_frame().T
                 df = pd.concat([ header, df ])
                 header = False
-            df.sequence = rpf.to_color(df.sequence, padding='left')
+            df.sequence = rpf.to_color(df.sequence, padding='right')
 
         if pager:
-            df = df.to_string(index= False, header=header) + "\n"
+            df = df.to_string(index=False, header=header) + "\n"
             page(df, pager_cmd=pager)
         else:
             return df
