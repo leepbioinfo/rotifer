@@ -979,7 +979,7 @@ def alnclu(info, c80e3="c80e3", c80i70="c80i70", i=3, local_database_path='', ba
                     os.mkdir(f'{curr_dir}/clusters/{x}')
                 os.chdir(f'{curr_dir}/clusters/{x}')
                 if not os.path.exists(f'{curr_dir}/clusters/{x}.{c80e3}.aln'):
-                    rdbs.sequence(info[info.c80e3 == x].c80i70.drop_duplicates().to_list(), local_database_path=local_database_path).align(method='linsi').to_a3m(file_path=f'{x}.{c80e3}.a3m')
+                    rdbs.sequence(info[info.c80e3 == x].c80i70.drop_duplicates().to_list(), local_database_path=local_database_path).align(method='linsi').to_file(file_path=f'{x}.{c80e3}.a3m', output_format='a3m')
             os.chdir(f'{curr_dir}')
     if method == 'memory':
         c = rdbs.sequence(info.pid.unique().tolist(), local_database_path=local_database_path)
@@ -993,24 +993,74 @@ def alnclu(info, c80e3="c80e3", c80i70="c80i70", i=3, local_database_path='', ba
                     j = rdbs.sequence()
                     j.df = c.df.query('id.isin(@k)')
                     j = j.align(method='linsi')
-                    j.to_a3m(file_path=f'{x}.{c80e3}.a3m')
+                    j.to_file(file_path=f'{x}.{c80e3}.a3m', output_format='a3m')
             os.chdir(f'{curr_dir}')
                 
     os.chdir('clusters')
-    os.system('for x in */*.aln; do y=$(echo $x|cut -f1 -d"/"); echo \#$y|cat - $x > hhmdb/aln/$y.aln;done')
+    os.system('for x in */*.a3m; do y=$(echo $x|cut -f1 -d"/"); ln $x hhmdb/aln/$y.aln;done')
 
     os.chdir('hhmdb')
     os.system(f'/home/leep/ggnicastro/bin/build_hhdb.sh aln ../{base}')
 
     os.chdir('aln')
-    os.system(f'for x in *.aln; do hhsearch -i $x -d ../../{base} -M 50;done')
+    os.system(f'for x in *.a3m; do hhsearch -i $x -d ../../{base} -M 50;done')
     os.system(f'hhsuite2table *hhr > {base}.tsv')
     os.chdir(f'{curr_dir}')
     os.system(f'ln -s {curr_dir}/clusters/hhmdb/aln/{base}.tsv .')
 
-def coordinates(seqobj, i=1, j=-1, model='None'):
-    t = seqobj.residues.apply(lambda x: (x != "-").cumsum() * np.where(x == "-", -1, 1), axis=1).loc[:,i:j]
-    t = pd.DataFrame(t.apply(lambda x: (x.min(),x.max()), axis=1).tolist(), columns=['start','end'])
-    t.insert(0,'ID',seqobj.df.id.tolist())
-    t.insert(1,'model',model)
+def coordinates(seqobj, start=1, end=None, model=None, hide_coord_df=True):
+    ''' Report coordinates for a fragment in a sequence object'''
+    import pandas as pd
+    import numpy as np
+    from rotifer.devel.beta import sequence as rdbs
+    if model:
+        if end:
+            t = pd.DataFrame(seqobj.residues.apply(lambda x: (x != "-").cumsum() * np.where(x == "-", -1, 1), axis=1).loc[:,start:end])
+            t['fragment'] = False
+            t['start'] = t[start]
+            t.loc[t.start > 0, 'start'] = t[start]
+            t.loc[t.start == 0, 'start'] = 1
+            t.loc[t.start < 0, 'fragment'] = True
+            t.loc[t.start < 0, 'start'] = t[start]*(-1)
+            t['end'] = t[end]
+            t.loc[t.end < 0, 'fragment'] = True
+            t.loc[t.end < 0, 'end'] = t[end]*(-1)
+            t.loc[t.end > 0, 'end'] = t[end]
+            t.insert(0,'ID',seqobj.df.id.tolist())
+            t = t.set_index('ID')  
+            t.insert(0,'model',model)
+            t = t.query('end != 0')
+            if hide_coord_df:
+                t = t.filter(['start','end','model','fragment'])
+        else:
+            end = seqobj.get_alignment_length()+1
+            t = pd.DataFrame(seqobj.residues.apply(lambda x: (x != "-").cumsum() * np.where(x == "-", -1, 1), axis=1).loc[:,start:end])
+            t['fragment'] = False
+            t['start'] = t[start]
+            t.loc[t.start > 0, 'start'] = t[start]
+            t.loc[t.start == 0, 'start'] = 1
+            t.loc[t.start < 0, 'fragment'] = True
+            t.loc[t.start < 0, 'start'] = t[start]*(-1)
+            t['end'] = t[end]
+            t.loc[t.end < 0, 'fragment'] = True
+            t.loc[t.end < 0, 'end'] = t[end]*(-1)
+            t.loc[t.end > 0, 'end'] = t[end]
+            t.insert(0,'ID',seqobj.df.id.tolist())
+            t = t.set_index('ID')  
+            t.insert(0,'model',model)
+            if hide_coord_df:
+                t = t.filter(['start','end','model','fragment'])
+        return(t)
+    else:
+        if end:
+            t = pd.DataFrame(seqobj.residues.apply(lambda x: (x != "-").cumsum() * np.where(x == "-", -1, 1), axis=1).loc[:,start:end])
+            t.insert(0,'ID',seqobj.df.id.tolist())
+            t = t.set_index('ID')  
+            t['end'] = t[end]
+            t = t.query('end != 0').drop('end', axis=1)
+        else:
+            end = seqobj.get_alignment_length()+1
+            t = pd.DataFrame(seqobj.residues.apply(lambda x: (x != "-").cumsum() * np.where(x == "-", -1, 1), axis=1).loc[:,start:end])
+            t.insert(0,'ID',seqobj.df.id.tolist())
+            t = t.set_index('ID')  
     return(t)
