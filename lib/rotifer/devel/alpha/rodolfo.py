@@ -1008,3 +1008,9 @@ def alnclu(info, c80e3="c80e3", c80i70="c80i70", i=3, local_database_path='', ba
     os.chdir(f'{curr_dir}')
     os.system(f'ln -s {curr_dir}/clusters/hhmdb/aln/{base}.tsv .')
 
+def coordinates(seqobj, i=1, j=-1, model='None'):
+    t = seqobj.residues.apply(lambda x: (x != "-").cumsum() * np.where(x == "-", -1, 1), axis=1).loc[:,i:j]
+    t = pd.DataFrame(t.apply(lambda x: (x.min(),x.max()), axis=1).tolist(), columns=['start','end'])
+    t.insert(0,'ID',seqobj.df.id.tolist())
+    t.insert(1,'model',model)
+    return(t)
