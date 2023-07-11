@@ -1008,59 +1008,31 @@ def alnclu(info, c80e3="c80e3", c80i70="c80i70", i=3, local_database_path='', ba
     os.chdir(f'{curr_dir}')
     os.system(f'ln -s {curr_dir}/clusters/hhmdb/aln/{base}.tsv .')
 
-def coordinates(seqobj, start=1, end=None, model=None, hide_coord_df=True):
+def columns_to_positions(seqobj, start=1, end=None, model=None, complete=False, evalue=-1):
     ''' Report coordinates for a fragment in a sequence object'''
     import pandas as pd
     import numpy as np
     from rotifer.devel.beta import sequence as rdbs
+    if not end:
+        end = seqobj.get_alignment_length() 
+    # Cummulative sum matrix of residues
+    t = coordinates(seqobj).filter([start,end]).astype(int)
+    t.columns = ['start','end']
+    t.insert(0,'ID',seqobj.df.id.tolist())
+    if not complete:
+        t = t.query('(start > 0 or end > 0) or (start != end)')
+        t['start'] = t.start.replace(0,1)
+        t['start'] = t.start.abs()
+        t['end'] = t.end.abs()
     if model:
-        if end:
-            t = pd.DataFrame(seqobj.residues.apply(lambda x: (x != "-").cumsum() * np.where(x == "-", -1, 1), axis=1).loc[:,start:end])
-            t['fragment'] = False
-            t['start'] = t[start]
-            t.loc[t.start > 0, 'start'] = t[start]
-            t.loc[t.start == 0, 'start'] = 1
-            t.loc[t.start < 0, 'fragment'] = True
-            t.loc[t.start < 0, 'start'] = t[start]*(-1)
-            t['end'] = t[end]
-            t.loc[t.end < 0, 'fragment'] = True
-            t.loc[t.end < 0, 'end'] = t[end]*(-1)
-            t.loc[t.end > 0, 'end'] = t[end]
-            t.insert(0,'ID',seqobj.df.id.tolist())
-            t = t.set_index('ID')  
-            t.insert(0,'model',model)
-            t = t.query('end != 0')
-            if hide_coord_df:
-                t = t.filter(['start','end','model','fragment'])
-        else:
-            end = seqobj.get_alignment_length()+1
-            t = pd.DataFrame(seqobj.residues.apply(lambda x: (x != "-").cumsum() * np.where(x == "-", -1, 1), axis=1).loc[:,start:end])
-            t['fragment'] = False
-            t['start'] = t[start]
-            t.loc[t.start > 0, 'start'] = t[start]
-            t.loc[t.start == 0, 'start'] = 1
-            t.loc[t.start < 0, 'fragment'] = True
-            t.loc[t.start < 0, 'start'] = t[start]*(-1)
-            t['end'] = t[end]
-            t.loc[t.end < 0, 'fragment'] = True
-            t.loc[t.end < 0, 'end'] = t[end]*(-1)
-            t.loc[t.end > 0, 'end'] = t[end]
-            t.insert(0,'ID',seqobj.df.id.tolist())
-            t = t.set_index('ID')  
-            t.insert(0,'model',model)
-            if hide_coord_df:
-                t = t.filter(['start','end','model','fragment'])
-        return(t)
-    else:
-        if end:
-            t = pd.DataFrame(seqobj.residues.apply(lambda x: (x != "-").cumsum() * np.where(x == "-", -1, 1), axis=1).loc[:,start:end])
-            t.insert(0,'ID',seqobj.df.id.tolist())
-            t = t.set_index('ID')  
-            t['end'] = t[end]
-            t = t.query('end != 0').drop('end', axis=1)
-        else:
-            end = seqobj.get_alignment_length()+1
-            t = pd.DataFrame(seqobj.residues.apply(lambda x: (x != "-").cumsum() * np.where(x == "-", -1, 1), axis=1).loc[:,start:end])
-            t.insert(0,'ID',seqobj.df.id.tolist())
-            t = t.set_index('ID')  
-    return(t)
+        t.insert(1,'model',model)
+        t['evalue'] = evalue
+    return t
+
+def coordinates(seqobj):
+    import pandas as pd
+    import numpy as np
+    from rotifer.devel.beta import sequence as rdbs
+    t = seqobj.residues
+    t = t.apply(lambda x: (x != "-").cumsum() * np.where(x == "-", -1, 1), axis=1)
+    return t
