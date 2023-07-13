@@ -1008,7 +1008,7 @@ def alnclu(info, c80e3="c80e3", c80i70="c80i70", i=3, local_database_path='', ba
     os.chdir(f'{curr_dir}')
     os.system(f'ln -s {curr_dir}/clusters/hhmdb/aln/{base}.tsv .')
 
-def columns_to_positions(seqobj, start=1, end=None, model=None, complete=False, evalue=-1):
+def columns_to_positions(seqobj, start=1, end=None, model=None, evalue=-1, complete=False, **kwargs):
     ''' Report coordinates for a fragment in a sequence object'''
     import pandas as pd
     import numpy as np
@@ -1018,7 +1018,7 @@ def columns_to_positions(seqobj, start=1, end=None, model=None, complete=False, 
     # Cummulative sum matrix of residues
     t = coordinates(seqobj).filter([start,end]).astype(int)
     t.columns = ['start','end']
-    t.insert(0,'ID',seqobj.df.id.tolist())
+    t.insert(0,'ID',seqobj.df.query('type == "sequence"').id.tolist())
     if not complete:
         t = t.query('(start > 0 or end > 0) or (start != end)')
         t['start'] = t.start.replace(0,1)
@@ -1027,6 +1027,9 @@ def columns_to_positions(seqobj, start=1, end=None, model=None, complete=False, 
     if model:
         t.insert(1,'model',model)
         t['evalue'] = evalue
+    if len(kwargs):
+        for colname, colvalue in kwargs.items():
+            t[colname] = colvalue
     return t
 
 def coordinates(seqobj):
@@ -1036,3 +1039,29 @@ def coordinates(seqobj):
     t = seqobj.residues
     t = t.apply(lambda x: (x != "-").cumsum() * np.where(x == "-", -1, 1), axis=1)
     return t
+
+def count_arch(
+        series,
+        normalize=False,
+        cut_off=False,
+        count='architecture',
+        );
+    flattened_list = []
+    if count == 'architecture':
+        s = series.dropna().value_counts(normalize=normalize)
+    else:
+        s = series.str.split('+').explode().dropna().value_counts(
+            normalize=normalize
+            )
+
+    if cut_off:
+        cut_off = cut_off/100
+        s = s.where(lambda x: x >= cut_off).dropna()
+    for y, z in s.iteritems():
+        if normalize:
+            flattened_list.append(f'{y}({100 * z:.2f}%)')
+        else:
+            flattened_list.append(f'{y}({z})')
+    return ', '.join(flattened_list)
+
+
