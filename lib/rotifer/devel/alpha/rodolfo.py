@@ -1045,7 +1045,7 @@ def count_arch(
         normalize=False,
         cut_off=False,
         count='architecture',
-        );
+        ):
     flattened_list = []
     if count == 'architecture':
         s = series.dropna().value_counts(normalize=normalize)
