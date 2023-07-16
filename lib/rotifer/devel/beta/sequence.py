@@ -365,8 +365,8 @@ class sequence(rotifer.pipeline.Annotatable):
 
         Parameters
         ----------
-        position: (list or tuple of) integers
-          The user may provide one or several positions
+        position: Pandas Series, list, tuple or integer
+          The user may provide one or several positions.
 
         reference: string
           Identifier of the sequence that must be used as reference
@@ -401,17 +401,22 @@ class sequence(rotifer.pipeline.Annotatable):
           >>> aln.position_to_column((10,80),"WP_003247817.1"))
 
         '''
-        if not (isinstance(position, list) or isinstance(position,tuple)):
+        if not (isinstance(position, int):
             position = [position]
         refseq = self.df.query(f'''id == "{reference}"''')
         if refseq.empty:
+            logger.error(f"Reference seuqence {reference} could not befound in this alignment.")
             return None
         refseq = pd.Series(list(refseq.sequence.values[0]))
         refseq.index = refseq.index + 1 # Adjust alignment coordinates to interval [1,length]
         refseq = refseq.where(lambda x: x != '-').dropna().reset_index().rename({'index':'mapped_position'}, axis=1)
         refseq.index = refseq.index + 1 # Adjust reference sequence coordinates
-        position = refseq.loc[refseq.index.isin(position)].mapped_position.tolist()
-        return position
+        missing = set(position) - set(refseq.index)
+        if missing:
+            logger.error(f"The following positions could not befound in {reference}: {missing}")
+            return None
+        else:
+            return refseq.loc[position].mapped_position.tolist()
 
     def slice(self, position):
         '''
