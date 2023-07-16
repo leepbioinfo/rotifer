@@ -401,7 +401,7 @@ class sequence(rotifer.pipeline.Annotatable):
           >>> aln.position_to_column((10,80),"WP_003247817.1"))
 
         '''
-        if not (isinstance(position, int):
+        if isinstance(position, int):
             position = [position]
         refseq = self.df.query(f'''id == "{reference}"''')
         if refseq.empty:
