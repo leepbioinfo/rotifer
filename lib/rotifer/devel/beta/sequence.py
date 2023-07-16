@@ -401,6 +401,8 @@ class sequence(rotifer.pipeline.Annotatable):
           >>> aln.position_to_column((10,80),"WP_003247817.1"))
 
         '''
+        if not (isinstance(position, list) or isinstance(position,tuple)):
+            position = [position]
         refseq = self.df.query(f'''id == "{reference}"''')
         if refseq.empty:
             return None
@@ -408,7 +410,7 @@ class sequence(rotifer.pipeline.Annotatable):
         refseq.index = refseq.index + 1 # Adjust alignment coordinates to interval [1,length]
         refseq = refseq.where(lambda x: x != '-').dropna().reset_index().rename({'index':'mapped_position'}, axis=1)
         refseq.index = refseq.index + 1 # Adjust reference sequence coordinates
-        position = refseq.loc[refseq.index.isin([position])].mapped_position.tolist()
+        position = refseq.loc[refseq.index.isin(position)].mapped_position.tolist()
         return position
 
     def slice(self, position):
