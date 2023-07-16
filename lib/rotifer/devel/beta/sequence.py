@@ -359,9 +359,22 @@ class sequence(rotifer.pipeline.Annotatable):
         seqs.df = seqs.df.sample(n=n, frac=frac, replace=replace)
         return concat([ other, seqs ])
 
-    def position_to_column(self, start, end, reference):
+    def position_to_column(self, position, reference):
         '''
         Map sequence coordinates to alignment columns
+
+        Parameters
+        ----------
+        position: (list or tuple of) integers
+          The user may provide one or several positions
+
+        reference: string
+          Identifier of the sequence that must be used as reference
+          for the sequence-based coordinate system.
+
+        Returns
+        -------
+          List of integers
 
         Coordinate systems
         ------------------
@@ -385,7 +398,7 @@ class sequence(rotifer.pipeline.Annotatable):
         - Locate the columns corresponding to residues 10 to 80 of
           the sequence WP_003247817.1
 
-          >>> aln.slice((10,80,"WP_003247817.1"))
+          >>> aln.position_to_column((10,80),"WP_003247817.1"))
 
         '''
         refseq = self.df.query(f'''id == "{reference}"''')
@@ -395,13 +408,16 @@ class sequence(rotifer.pipeline.Annotatable):
         refseq.index = refseq.index + 1 # Adjust alignment coordinates to interval [1,length]
         refseq = refseq.where(lambda x: x != '-').dropna().reset_index().rename({'index':'mapped_position'}, axis=1)
         refseq.index = refseq.index + 1 # Adjust reference sequence coordinates
-        start = refseq.loc[start,"mapped_position"]
-        end = refseq.loc[end,"mapped_position"]
-        return (start, end, reference)
+        position = refseq.loc[refseq.index.isin([position])].mapped_position.tolist()
+        return position
 
     def slice(self, position):
         '''
         Select and concatenate one or more sets of columns.
+
+        Parameters
+        ----------
+        position: (list of) tuple of two integers
 
         Coordinate systems
         ------------------
@@ -451,7 +467,7 @@ class sequence(rotifer.pipeline.Annotatable):
         for pos in position:
             pos = [*pos]
             if len(pos) == 3:
-                pos = self.position_to_column(*pos)
+                pos[0:2] = self.position_to_column(pos[0:2],reference=pos[2])
             sequence.append(result.df.sequence.str.slice(pos[0]-1, pos[1]))
 
         # Concatenate slices per row
