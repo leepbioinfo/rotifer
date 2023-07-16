@@ -359,7 +359,35 @@ class sequence(rotifer.pipeline.Annotatable):
         seqs.df = seqs.df.sample(n=n, frac=frac, replace=replace)
         return concat([ other, seqs ])
 
-    def position_to_column(start, end, reference):
+    def position_to_column(self, start, end, reference):
+        '''
+        Map sequence coordinates to alignment columns
+
+        Coordinate systems
+        ------------------
+        This method maps from a reference sequence-based coordinate
+        system to aligment-based coordinates, i.e. column positions.
+
+        * Alignment-based coordinates
+          Refer to the column indices in the original alignment
+
+        * Sequence-based coordinates
+          Refer to residues in a reference sequence, without gaps
+
+        All types of coordinates systems above are **one-based**
+        (residue-based) and closed on both ends, i.e. the first
+        column or residue position is 1 and the last column equals
+        the length of the alignment or sequence.
+
+        Examples
+        --------
+
+        - Locate the columns corresponding to residues 10 to 80 of
+          the sequence WP_003247817.1
+
+          >>> aln.slice((10,80,"WP_003247817.1"))
+
+        '''
         refseq = self.df.query(f'''id == "{reference}"''')
         if refseq.empty:
             return None
@@ -420,22 +448,16 @@ class sequence(rotifer.pipeline.Annotatable):
 
         # Cut slices
         sequence  = []
-        ids = []
-        pids = []
-        #numerical = []
         for pos in position:
             pos = [*pos]
             if len(pos) == 3:
                 pos = self.position_to_column(*pos)
             sequence.append(result.df.sequence.str.slice(pos[0]-1, pos[1]))
-            #pids.append(result.df.id.str.split("/", expand=True)[0])
-            #ids.append(result.df.id + "/" + str(pos[0]) + "-" + str(pos[1]))
-            #numerical.extend(list(range(pos[0],pos[1]+1)))
 
-        # Rebuild sequence
-        result.df['sequence'] = pd.concat(sequence, axis=1).sum(axis=1)
-        #result.df['pid'] = pd.concat(pids, axis=1)
-        #result.df['id'] = pd.concat(ids, axis=1)
+        # Concatenate slices per row
+        sequence = pd.concat(sequence, axis=1, ignore_index=True)
+        sequence = sequence.sum(axis=1).tolist()
+        result.df['sequence'] = sequence
 
         # Return new sequence object
         result._reset()
