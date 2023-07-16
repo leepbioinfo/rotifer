@@ -359,6 +359,18 @@ class sequence(rotifer.pipeline.Annotatable):
         seqs.df = seqs.df.sample(n=n, frac=frac, replace=replace)
         return concat([ other, seqs ])
 
+    def position_to_column(start, end, reference):
+        refseq = self.df.query(f'''id == "{reference}"''')
+        if refseq.empty:
+            return None
+        refseq = pd.Series(list(refseq.sequence.values[0]))
+        refseq.index = refseq.index + 1 # Adjust alignment coordinates to interval [1,length]
+        refseq = refseq.where(lambda x: x != '-').dropna().reset_index().rename({'index':'mapped_position'}, axis=1)
+        refseq.index = refseq.index + 1 # Adjust reference sequence coordinates
+        start = refseq.loc[start,"mapped_position"]
+        end = refseq.loc[end,"mapped_position"]
+        return (start, end, reference)
+
     def slice(self, position):
         '''
         Select and concatenate one or more sets of columns.
@@ -414,10 +426,7 @@ class sequence(rotifer.pipeline.Annotatable):
         for pos in position:
             pos = [*pos]
             if len(pos) == 3:
-                refseq = pd.Series(list(result.df.query(f'''id == "{pos[2]}"''').sequence.values[0]))
-                refseq = refseq.where(lambda x: x != '-').dropna().reset_index().rename({'index':'mapped_position'}, axis=1)
-                pos[0:2] = (refseq.loc[pos[0]-1:pos[1]].mapped_position.agg(['min','max'])).tolist()
-                pos[0] += 1
+                pos = self.position_to_column(*pos)
             sequence.append(result.df.sequence.str.slice(pos[0]-1, pos[1]))
             #pids.append(result.df.id.str.split("/", expand=True)[0])
             #ids.append(result.df.id + "/" + str(pos[0]) + "-" + str(pos[1]))
