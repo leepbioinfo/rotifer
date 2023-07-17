@@ -813,6 +813,7 @@ class sequence(rotifer.pipeline.Annotatable):
             pdbn = f'ss_from:{pdb_id}_{chain_id}'
             pdbss = ''.join(pd.Series(list(result.df.loc[pdb_index].sequence)).to_frame().join(to).fillna('-').structure.to_list())
             result.df =  pd.concat([pd.DataFrame([[pdbn,pdbss,len(pdbss),"residue_annotation",f'Secondary structure from {pdb_id}']], columns=self._reserved_columns),self.df])
+            result.df = result.df.reset_index(drop=True)
             return result
 
         if isinstance(pdb_id,list):
@@ -1621,7 +1622,7 @@ class sequence(rotifer.pipeline.Annotatable):
 
             return result
 
-    def _to_df_style(self, consensus, annotations=False, remove_gaps=False):
+    def _to_df_style(self, consensus, annotations=False, remove_gaps=False, adjust_coordinates = False):
         """TODO: Docstring for function.
 
         :consensus: The consensus threshold that should be used to color the aligment
@@ -1640,7 +1641,7 @@ class sequence(rotifer.pipeline.Annotatable):
         import numpy as np
         aln = self.copy()
         if remove_gaps:
-            gaps,gdf = aln.gaps_to_numbers(remove_gaps)
+            gaps,gdf = aln.gaps_to_numbers(remove_gaps, adjust_coordinates=adjust_coordinates)
             gdf.index = aln.df.query('type == "sequence"').id
 
         aromatic = ['F','Y', 'W', 'H']
@@ -1784,7 +1785,7 @@ class sequence(rotifer.pipeline.Annotatable):
         #if whant to send to latex, replace set_stick... to:to_latex(environment='longtable', convert_css=True)
         return df_style
 
-    def to_html(self, consensus,output_file, annotations=False, remove_gaps=False, fixed_index=True):
+    def to_html(self, consensus,output_file, annotations=False, remove_gaps=False, fixed_index=True, adjust_coordinates=False):
         """TODO: Docstring for function.
 
         :consensus: The consensus threshold that should be used to color the aligment
@@ -1800,6 +1801,7 @@ class sequence(rotifer.pipeline.Annotatable):
         html = self._to_df_style(
             consensus,
             annotations=annotations,
+            adjust_coordinates = adjust_coordinates,
             remove_gaps=remove_gaps
         )
         if fixed_index:
@@ -1810,7 +1812,7 @@ class sequence(rotifer.pipeline.Annotatable):
             return(f'{output_file} saved on the working path')
 
 
-    def gaps_to_numbers(self, smodel):
+    def gaps_to_numbers(self, smodel, adjust_coordinates=False):
         """: This function will retunr a tuple. The first element of the tuple is 
         a list containing the index of columns that contains gap on the model sequence.
         It should be used to drop the columns from the residues df.
@@ -1841,9 +1843,26 @@ class sequence(rotifer.pipeline.Annotatable):
             (self.residues[gaps.index] != '-').T
         ).groupby('grouper').sum().T
         num_gaps.columns = gap_df['first'].to_list()
+        if adjust_coordinates:
+            def add_cordinates_to_aln(seqobj):
+                from rotifer.devel.beta.sequence import sequence
+                c = seqobj.copy()
+                cx = sequence(c.df.id.tolist())
+                cx. df = cx.df.rename({'sequence':'full_sequence', 'length':'full_length'}, axis=1)
+                c.df = c.df.merge(cx.df[['id','full_sequence','full_length']], how='left')
+                c.df.full_sequence = c.df.full_sequence.fillna(c.df.sequence)
+                c.df.full_length = c.df.full_length.fillna(c.df['length'])
+                c.df['start'] = c.df.apply(lambda x : 1 + x.full_sequence.find(x.sequence.replace('-','')), axis=1)
+                c.df['end'] = c.df.start + c.df['length']
+                c.df['C_term'] = c.df['full_length'] - c.df['end']
+                c.df =  c.df.drop(['full_sequence'], axis=1)
+                return c
+            cord = add_cordinates_to_aln(self).df[['start', 'end', 'C_term']]
+            num_gaps.iloc[:,-1].update(cord.C_term)
+            num_gaps.iloc[:,0].update(cord.start)
         return (list(gaps.index),num_gaps)
 
-    def _to_df_styleTEX(self, consensus, annotations=False, remove_gaps=False):
+    def _to_df_styleTEX(self, consensus, annotations=False, remove_gaps=False, adjust_coordinates=False):
         """TODO: Docstring for function.
 
         :consensus: The consensus threshold that should be used to color the aligment
@@ -1861,7 +1880,7 @@ class sequence(rotifer.pipeline.Annotatable):
         import numpy as np
         aln = self.copy()
         if remove_gaps:
-            gaps,gdf = aln.gaps_to_numbers(remove_gaps)
+            gaps,gdf = aln.gaps_to_numbers(remove_gaps, adjust_coordinates=adjust_coordinates)
             gdf.index = aln.df.query('type == "sequence"').id
 
         aromatic = ['F','Y', 'W', 'H']

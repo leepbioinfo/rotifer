@@ -642,6 +642,12 @@ def psiblast(acc,
             ]
     if db.startswith('nr'):
         db = f'{os.environ["FADB"]}/nr/{db}.mmseqs.fa'
+    elif db.startswith('all'):
+        db = f'{os.environ["FADB"]}/allfa/{db}.mmseqs.fa'
+    elif db == "prok" :
+        db = f'{os.environ["FADB"]}/prok.fa '
+    elif db == "euk":
+        db = f'{os.environ["FADB"]}/euk.fa'
     else:
         db = f'{os.environ["FADB"]}/all.fa'
 
@@ -757,15 +763,19 @@ def full_annotate(seqobj,
     seqobj.ndf = gf.add_arch_to_df(gnc.fetchall(seqobj.df.id.to_list()),full=full)
     return seqobj
 
-def padding_df(df):
+def padding_df(df, how='right'):
     cdf = df.copy()
     c = df.columns
     pad_col_name=[]
     for x in c:
         cdf[x] = cdf[x].fillna('').astype(str)
         w = cdf[x].str.len().max()
-        cdf[x] = cdf[x].str.pad(width =w)
-        pad_col_name.append(x.rjust(w))
+        cdf[x] = cdf[x].str.pad(width =w, side=how)
+        if how == 'left':
+            pad_col_name.append(x.rjust(w))
+        else:
+            pad_col_name.append(x.ljust(w))
+
     cdf.columns = pad_col_name    
     return cdf
 
@@ -841,4 +851,30 @@ def remove_redundancy(seqobj, identity =80, coverage = 70):
     s = s.filter(keep=s.df[f'c{coverage}i{identity}'].drop_duplicates().to_list())
     return(s)
 
+def add_cordinates_to_aln(seqobj):
+    from rotifer.devel.beta.sequence import sequence as sequence
+    c = seqobj.copy()
+    cx = sequence(c.df.id.tolist())
+    cx. df = cx.df.rename({'sequence':'full_sequence', 'length':'full_length'}, axis=1)
+    c.df = c.df.merge(cx.df[['id','full_sequence','full_length']], how='left')
+    c.df['start'] = c.df.apply(lambda x : 1 + x.full_sequence.find(x.sequence.replace('-','')), axis=1)
+    c.df['end'] = c.df.start + c.df['length']
+    c.df['C_term'] = c.df['full_length'] - c.df['end']
+    c.df =  c.df.drop(['full_sequence'], axis=1)
+    return c
+
+def trim_unk_neigh(df, ann='profiledb'):
+    '''
+    Using a given column, it will trim the neighborhoood to do not have un annotated protein at the boarders.
+    ann paramether is the collumn to check the unknow limits
+    '''
+
+    def xxx (idf):
+        imin = idf.query(f'{ann} != "?"').index[0]
+        imax = idf.query(f'{ann} != "?"').index[-1]
+        return idf.loc[imin:imax]
+    int_df = df.groupby(['block_id']).apply(xxx).reset_index(drop=True)
+
+
+    return int_df
 
