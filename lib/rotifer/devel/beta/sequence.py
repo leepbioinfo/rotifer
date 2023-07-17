@@ -194,7 +194,7 @@ class sequence(rotifer.pipeline.Annotatable):
                 elif hasattr(input_data.stream,"name"):
                     self.name = os.path.basename(input_data.stream.name)
             elif not self.df.empty:
-                self.name = self.df.id.loc[0]
+                self.name = self.df.id.iloc[0]
 
         # Make sure the new object is clean!
         self._reset()
@@ -359,9 +359,72 @@ class sequence(rotifer.pipeline.Annotatable):
         seqs.df = seqs.df.sample(n=n, frac=frac, replace=replace)
         return concat([ other, seqs ])
 
+    def position_to_column(self, position, reference):
+        '''
+        Map sequence coordinates to alignment columns
+
+        Parameters
+        ----------
+        position: Pandas Series, list, tuple or integer
+          The user may provide one or several positions.
+
+        reference: string
+          Identifier of the sequence that must be used as reference
+          for the sequence-based coordinate system.
+
+        Returns
+        -------
+          List of integers
+
+        Coordinate systems
+        ------------------
+        This method maps from a reference sequence-based coordinate
+        system to aligment-based coordinates, i.e. column positions.
+
+        * Alignment-based coordinates
+          Refer to the column indices in the original alignment
+
+        * Sequence-based coordinates
+          Refer to residues in a reference sequence, without gaps
+
+        All types of coordinates systems above are **one-based**
+        (residue-based) and closed on both ends, i.e. the first
+        column or residue position is 1 and the last column equals
+        the length of the alignment or sequence.
+
+        Examples
+        --------
+
+        - Locate the columns corresponding to residues 10 to 80 of
+          the sequence WP_003247817.1
+
+          >>> aln.position_to_column((10,80),"WP_003247817.1"))
+
+        '''
+        if isinstance(position, int):
+            position = [position]
+        refseq = self.df.query(f'''id == "{reference}"''')
+        if refseq.empty:
+            logger.error(f"Reference seuqence {reference} could not befound in this alignment.")
+            return None
+        refseq = pd.Series(list(refseq.sequence.values[0]))
+        refseq.index = refseq.index + 1 # Adjust alignment coordinates to interval [1,length]
+        refseq = refseq.where(lambda x: x != '-').dropna().reset_index().rename({'index':'mapped_position'}, axis=1)
+        refseq.index = refseq.index + 1 # Adjust reference sequence coordinates
+        missing = set(position) - set(refseq.index)
+        if missing:
+            logger.error(f"The following positions could not befound in {reference}: {missing}")
+            return None
+        else:
+            return refseq.loc[position].mapped_position.tolist()
+
     def slice(self, position):
         '''
         Select and concatenate one or more sets of columns.
+
+        Parameters
+        ----------
+        position: (list of) tuple of two integers
 
         Coordinate systems
         ------------------
@@ -408,25 +471,16 @@ class sequence(rotifer.pipeline.Annotatable):
 
         # Cut slices
         sequence  = []
-        ids = []
-        pids = []
-        #numerical = []
         for pos in position:
             pos = [*pos]
             if len(pos) == 3:
-                refseq = pd.Series(list(result.df.query(f'''id == "{pos[2]}"''').sequence.values[0]))
-                refseq = refseq.where(lambda x: x != '-').dropna().reset_index().rename({'index':'mapped_position'}, axis=1)
-                pos[0:2] = (refseq.loc[pos[0]-1:pos[1]].mapped_position.agg(['min','max'])).tolist()
-                pos[0] += 1
+                pos[0:2] = self.position_to_column(pos[0:2],reference=pos[2])
             sequence.append(result.df.sequence.str.slice(pos[0]-1, pos[1]))
-            pids.append(result.df.id.str.split("/", expand=True)[0])
-            ids.append(result.df.id + "/" + str(pos[0]) + "-" + str(pos[1]))
-            #numerical.extend(list(range(pos[0],pos[1]+1)))
 
-        # Rebuild sequence
-        result.df['sequence'] = pd.concat(sequence, axis=1).sum(axis=1)
-        result.df['pid'] = pd.concat(pids, axis=1)
-        result.df['id'] = pd.concat(ids, axis=1)
+        # Concatenate slices per row
+        sequence = pd.concat(sequence, axis=1, ignore_index=True)
+        sequence = sequence.sum(axis=1).tolist()
+        result.df['sequence'] = sequence
 
         # Return new sequence object
         result._reset()
@@ -562,7 +616,7 @@ class sequence(rotifer.pipeline.Annotatable):
         if not inplace:
             return result
 
-    def add_cluster(self, coverage=0.8, identity=0.7, name=None, inplace=False):
+    def add_cluster(self, coverage=0.8, identity=0.7, cascade=None, inplace=False):
         '''
         Add or update MMseqs2 clustering data for all sequences.
 
@@ -574,8 +628,13 @@ class sequence(rotifer.pipeline.Annotatable):
         identity : float
             Minimum percentage identity required for both sequences
             in each pairwise alignment.
-        name: string
-            Set the name of the annotation column for the clusters
+        cascade: (list of) tuples, default: None
+            Generate multiple hierarchically related clusterings
+            through cascading. The arguments must be pairs of 
+            coverage and identity values.
+
+            Note:
+             When using cascade, coverage and identity are ignored
         inplace: bool
             Add column inplace, without creating a copy of the MSA
             If set to True, this method return nothing.
@@ -596,28 +655,45 @@ class sequence(rotifer.pipeline.Annotatable):
         from subprocess import Popen, PIPE, STDOUT
 
         # Adjust parameters
-        if identity > 1:
-            identity /= 100
-        if coverage > 1:
-            coverage /= 100
-        if not name:
-            name = f'c{int(float(coverage)*100)}i{int(float(identity)*100)}'
+        if not cascade:
+            cascade = [(coverage, identity)]
+        elif not isinstance(cascade,list):
+            cascade = [cascade]
+
+        if inplace:
+            result = self
+        else:
+            result = self.copy()
 
         path = os.getcwd()
-        result = None
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            os.chdir(tmpdirname)
-            self.to_file(f'{tmpdirname}/seqaln', remove_gaps=True)
-            Popen(f'mmseqs easy-cluster {tmpdirname}/seqaln nr --min-seq-id {identity} -c {coverage} tmp', stdout=PIPE,shell=True).communicate()
-            d = pd.read_csv(f'{tmpdirname}/nr_cluster.tsv', sep="\t", names=['cluster', 'pid']).set_index('pid').cluster.to_dict()
-            if inplace:
-                self.df[name] = self.df.id.replace(d)
-            else:
-                result = self.copy()
-                result.df[name] = result.df.id.replace(d)
-        os.chdir(path)
+        lastname = None
+        for coverage, identity in cascade:
+            if identity > 1:
+                identity /= 100
+            if coverage > 1:
+                coverage /= 100
+            name = f'c{int(float(coverage)*100)}i{int(float(identity)*100)}'
 
-        return result
+            with tempfile.TemporaryDirectory() as tmpdirname:
+                os.chdir(tmpdirname)
+                if lastname:
+                    result.filter(f'id == {lastname}').to_file(f'{tmpdirname}/seqaln', remove_gaps=True)
+                else:
+                    result.to_file(f'{tmpdirname}/seqaln', remove_gaps=True)
+                Popen(f'mmseqs easy-cluster {tmpdirname}/seqaln nr --min-seq-id {identity} -c {coverage} tmp', stdout=PIPE,shell=True).communicate()
+                d = pd.read_csv(f'{tmpdirname}/nr_cluster.tsv', sep="\t", names=['cluster', 'pid'])
+                d = d.set_index('pid').cluster.to_dict()
+                if lastname:
+                    result.df[name] = result.df[lastname].replace(d)
+                else:
+                    result.df[name] = result.df.id.replace(d)
+            os.chdir(path)
+            lastname = name
+
+        if inplace:
+            return None
+        else:
+            return result
 
     def add_consensus(self, cutoffs=(50, 60, 70, 80, 90), separator='='):
         """
@@ -744,26 +820,20 @@ class sequence(rotifer.pipeline.Annotatable):
                     if os.path.exists(os.path.join(pdb_dir,pdb_file)):
                         pdb_file = os.path.exists(os.path.join(pdb_dir,pdb_file))
                     else:
+                        import urllib
                         if pdb_file == 'esm':
                             # Sends first sequence to ESM-Fold API 
-                            import urllib
                             data = self.filter(keep=pdb_id).to_string(output_format='fasta-2line', remove_gaps=True).split('\n')[1].encode('utf-8')
                             req = urllib.request.Request(url="https://api.esmatlas.com/foldSequence/v1/pdb/", data=data, method='POST')
                             pdb_data = urllib.request.urlopen(req).read()
-                            pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "wb")
-                            pdb_file.write(pdb_data)
-                            pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "r")
-                            pdb_file.flush()
-                            pdb_file.seek(0)
                         else:
                             # Try using pdb_file as URL
-                            import urllib
                             pdb_data = urllib.request.urlopen(pdb_file).read()
-                            pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "wb")
-                            pdb_file.write(pdb_data)
-                            pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "r")
-                            pdb_file.flush()
-                            pdb_file.seek(0)
+                        pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "wb")
+                        pdb_file.write(pdb_data)
+                        pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "r")
+                        pdb_file.flush()
+                        pdb_file.seek(0)
 
             else:
                 # No file!
@@ -1414,10 +1484,10 @@ class sequence(rotifer.pipeline.Annotatable):
                 header = pd.Series(df.columns, index=df.columns).to_frame().T
                 df = pd.concat([ header, df ])
                 header = False
-            df.sequence = rpf.to_color(df.sequence, padding='left')
+            df.sequence = rpf.to_color(df.sequence, padding='right')
 
         if pager:
-            df = df.to_string(index= False, header=header) + "\n"
+            df = df.to_string(index=False, header=header) + "\n"
             page(df, pager_cmd=pager)
         else:
             return df

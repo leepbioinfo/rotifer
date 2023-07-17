@@ -211,8 +211,14 @@ def main(args):
     mode = "w"
 
     # Process input files
+    lastassembly = None
+    genome_order = 0
     block_id = -1
     for s in rgio.parse(args.files, args.informat, organism=args.organism, strain=args.strain, assembly=args.assembly, topology=args.topology, keywords=args.keywords):
+        if hasattr(s,'assembly') and s.assembly != lastassembly:
+            genome_order = 0
+            lastassembly = s.assembly
+
         # Dump DNA sequence
         if args.dna:
             SeqIO.write(s, dna, args.dna_format)
@@ -222,6 +228,7 @@ def main(args):
             if args.protein == 'stdout':
                 args.protein = sys.stdout
             for f in s.features:
+                genome_order += 1
                 if (f.type == 'CDS') and ('pseudo' not in f.qualifiers) and (len(f) % 3 == 0):
                     if 'translation' in f.qualifiers:
                         #from Bio.Alphabet import IUPAC

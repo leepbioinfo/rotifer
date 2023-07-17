@@ -199,7 +199,7 @@ class GenomeCursor(rotifer.db.methods.GenomeCursor, rotifer.db.delegator.Sequent
       Number of processes to run parallel downloads
     batch_size: int, default 1
       Number of accessions per batch
-    path: string
+    mirror: string
       Path to a local mirror of the NCBI's FTP genome repository
     cache: path-like string
       Where to place temporary files
@@ -215,13 +215,16 @@ class GenomeCursor(rotifer.db.methods.GenomeCursor, rotifer.db.delegator.Sequent
             batch_size=None,
             threads=None,
             timeout=10,
-            path = config["mirror"],
+            mirror = config["mirror"],
             cache=rotifer.config['cache'],
             *args, **kwargs):
         self._shared_attributes = ['progress','tries','sleep_between_tries','batch_size','threads','cache','path']
         self.sleep_between_tries = sleep_between_tries
         self.timeout = timeout
-        self.path = path
+        if 'path' in kwargs and mirror == None:
+            self.path = kwargs['path']
+        else:
+            self.path = mirror
         self.cache = cache
         super().__init__(readers=readers, writers=writers, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
 
@@ -424,8 +427,8 @@ class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, rotifer.
             progress = progress,
             *args, **kwargs
         )
-        self.readers = readers
-        self.writers = writers
+        self.readers = readers.copy()
+        self.writers = writers.copy()
         self.batch_size = batch_size
         self.threads = threads
         self.save = save
@@ -448,13 +451,16 @@ class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, rotifer.
         if mirror:
             from rotifer.db.ncbi import mirror as rdnm
             cursor = rdnm.GeneNeighborhoodCursor(path=mirror)
-            self.readers.insert(0,'mirror')
+            if 'mirror' not in self.readers:
+                self.readers.insert(0,'mirror')
             self.cursors['mirror'] = cursor
         if save:
             from rotifer.db.sql import sqlite3 as rdss
             cursor = rdss.GeneNeighborhoodCursor(save, replace=replace)
-            self.readers.insert(0,'sqlite3')
-            self.writers.insert(0,'sqlite3')
+            if 'sqlite3' not in self.readers:
+                self.readers.insert(0,'sqlite3')
+            if 'sqlite3' not in self.writers:
+                self.writers.insert(0,'sqlite3')
             self.cursors['sqlite3'] = cursor
 
         # Setup simple attributes
@@ -465,7 +471,7 @@ class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, rotifer.
         self.strand = strand
         self.fttype = fttype
         self.eukaryotes = eukaryotes
-        self.exclude_type = exclude_type
+        self.exclude_type = exclude_type.copy()
         self.autopid = autopid
         self.codontable = codontable
         self.progress = progress

@@ -12,7 +12,7 @@ import rotifer
 import rotifer.db.parallel
 import rotifer.db.methods
 from rotifer import GlobalConfig
-from rotifer.db.ncbi import NcbiConfig
+from rotifer.db.ncbi import config as NcbiConfig
 from rotifer.db.ncbi import utils as rdnu
 from rotifer.core.functions import loadConfig
 from rotifer.genome.utils import seqrecords_to_dataframe
@@ -21,7 +21,7 @@ logger = rotifer.logging.getLogger(__name__)
 # Configuration
 from rotifer.core.functions import loadConfig
 _defaults = {
-    "path": os.path.join(rotifer.config['data'],"genomes"),
+    "path": NcbiConfig['mirror'] or os.path.join(rotifer.config['data'],"genomes"),
     "batch_size": None,
     "threads": int(np.floor(os.cpu_count()/2)),
 }
@@ -38,8 +38,8 @@ class GenomeCursor(rotifer.db.methods.GenomeCursor, rotifer.db.parallel.SimplePa
     -----
     Load a random sample of genomes, except eukaryotes
     >>> from rotifer.db.ncbi import mirror
-    >>> gc = mirror.GenomeCursor(g)
-    >>> genomes = gc.fetchall()
+    >>> gc = mirror.GenomeCursor()
+    >>> genomes = gc.fetchall(accessions)
 
     Parameters
     ----------
