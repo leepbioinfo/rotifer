@@ -1,69 +1,86 @@
 # IPython log file
 
 import os
+import pathlib
 import pandas as pd
 from glob import glob
+import rotifer
 from rotifer.devel.beta import sequence as rdbs
+logger = rotifer.logging.getLogger(__name__)
 config = {
-        "pattern": "*.sto",
-        "informat": {
-            "*.sto": "stockholm",
-            "*.fa": "fasta",
-            "*.fasta": "fasta",
-        }
+    "basedir": "/projects/salmonella/work/st/alndb",
+    "pattern": "*.sto",
+    "informat": "stockholm",
+    "recursive": True,
+    "ignore": [],
+    "kwargs": {
+        "pdb": {
+            "basedir": "/projects/salmonella/work/st/colabfold",
+            "pattern": "*_rank_001_*.pdb",
+        },
+    },
 }
 
 # Loading our alignments
 class SequenceCollection():
     def __init__(
             self,
-            basedir = "/projects/salmonella/work/st/alndb",
-            pattern = config["pattern"],
-            informat = config["informat"][config["pattern"]],
-            other_files = {
-                "pdb": {
-                    "basedir": "/projects/salmonella/work/st/colabfold",
-                    "pattern": "/*_rank_001_*.pdb",
-                }
-            }
+            basedir   = config["basedir"],
+            pattern   = config["pattern"],
+            informat  = config["informat"],
+            recursive = config["recursive"],
+            ignore    = config["ignore"],
+            **kwargs
         ):
+        if "kwargs" in config and config["kwargs"]:
+            kwargs = { **config["kwargs"], **kwargs }
         if isinstance(pattern,str):
             pattern = [pattern]
+        basedir = pathlib.Path(basedir)
+        if not basedir.exists():
+            logger.error(f'No directory named {basedir.name}')
+            return None
 
         # Find alignments
         alndb = []
         alignments = dict()
         for extension in pattern:
-            if "/**/" in extension:
-                recursive = True
-            else:
-                recursive = False
-
             # Load data
-            for x in glob(f'{basedir}/{extension}', recursive=recursive):
-                # Cleanup target name
+            if recursive:
+                it = basedir.rglob(extension)
+            else:
+                it = basedir.glob(extension)
+            for x in it:
                 if extension[0] == "*":
                     suffix = extension[1:]
                 else:
                     suffix = extension
-                basename = os.path.basename(x).replace(f"{suffix}","")
-                alignments[basename] = rdbs.sequence(x,config["informat"][extension])
+                basename = x.name.replace(f"{suffix}","")
+                if basename in ignore:
+                    continue
+                logger.info(f'Loading {informat} file at {x.name}')
+                alignments[basename] = rdbs.sequence(x.as_posix(),informat)
 
                 # Load other paths
                 otherfiles = []
-                for colname, other in other_files.items():
-                    files = glob(os.path.join(other["basedir"], basename + other["pattern"]))
+                for colname, other in kwargs.items():
+                    patt = os.path.join(basename, other["pattern"])
+                    if recursive:
+                        files = list(pathlib.Path(other["basedir"]).rglob(patt))
+                    else:
+                        files = list(pathlib.Path(other["basedir"]).glob(patt))
+                    files = [ y.as_posix() for y in files ]
                     if len(files) == 0:
-                        files=None
+                        files = None
                     elif len(files) == 1:
                         files = files[0]
                     otherfiles.append(files)
 
                 # Add data to stack
-                alndb.append((basename, x, *otherfiles))
+                alndb.append((basename, x.as_posix(), *otherfiles))
 
         # Create internal dataframe for paths
-        alndb = pd.DataFrame(alndb, columns=['name','path'] + list(other_files.keys()))
+        alndb = pd.DataFrame(alndb, columns=['name','path'] + list(kwargs.keys()))
         alndb.index = alndb.name.tolist()
 
         # Store data in object

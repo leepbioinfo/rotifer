@@ -229,7 +229,7 @@ def count_series(
     if cut_off:
         cut_off = cut_off/100
         s = s.where(lambda x: x >= cut_off).dropna()
-    for y, z in s.iteritems():
+    for y, z in s.items():
         if normalize:
             flattened_list.append(f'{y}({100 * z:.2f}%)')
         else:
