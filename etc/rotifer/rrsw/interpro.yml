@@ -15,4 +15,5 @@ include:
  - "[a-z].*"
 exclude:
  - protein2ipr.dat.gz.*
+ - extra.xml.gz
  - ".*match.*"
