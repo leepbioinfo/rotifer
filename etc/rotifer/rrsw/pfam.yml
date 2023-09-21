@@ -11,5 +11,17 @@
 # excluded patterns take precedence over included ones
 # 
 ---
+include:
+ - \.hmm\.gz$
+ - Pfam-.\.gz$
+ - Pfam-A.seed.gz
+ - Pfam-B.tgz
+ - \.txt$
+ - Pfam-A.clans.tsv.gz
+ - Pfam-A.seed.gz
+ - Pfam.version.gz
+ - active_site.dat.gz
+
 exclude:
- - *match*
+ - proteomes
+ - database_files
