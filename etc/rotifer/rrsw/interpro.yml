@@ -11,5 +11,8 @@
 # excluded patterns take precedence over included ones
 # 
 ---
+include:
+ - "[a-z].*"
 exclude:
- - *match*
+ - protein2ipr.dat.gz.*
+ - ".*match.*"
