@@ -4,9 +4,54 @@ import sys
 import pandas as pd
 import numpy as np
 from collections import OrderedDict
-_criteria = OrderedDict({'sum_probs':False, 'probability':False, 'score':False, 'region_length':False})
 
-def architecture(df, reference=['query'], collapse='hit', start='qstart', end='qend', maximum_overlap=0.1, criteria=_criteria):
+import rotifer
+from rotifer.core.functions import loadConfig
+from rotifer.devel.beta import sequence as rdbs
+logger = rotifer.logging.getLogger(__name__)
+config = loadConfig(__name__, defaults = {
+    'default': {
+        'reference': ['query'],
+        'collapse': 'hit',
+        'start': 'qstart',
+        'end': 'qend',
+        'maximum_overlap': 0.4,
+        'criteria': OrderedDict({'sum_probs':False, 'probability':False, 'score':False, 'region_length':False}),
+    },
+    'archtsv': {
+        'reference': ['ID'],
+        'collapse': 'domain',
+        'start': 'start',
+        'end': 'end',
+        'maximum_overlap': 0.4,
+        'criteria': OrderedDict({'evalue':True, 'region_length':False}),
+    },
+    'hhsuite': {
+        'reference': ['query'],
+        'collapse': 'hit',
+        'start': 'qstart',
+        'end': 'qend',
+        'maximum_overlap': 0.4,
+        'criteria': OrderedDict({'sum_probs':False, 'probability':False, 'score':False, 'region_length':False}),
+    },
+    'hmmer': {
+        'reference': ['sequence'],
+        'collapse': 'model',
+        'start': 'estart',
+        'end': 'eend',
+        'maximum_overlap': 0.4,
+        'criteria': OrderedDict({'evalue':True, 'region_length':False}),
+    },
+})
+
+def architecture(df,
+        reference       = config['default']['reference'],
+        collapse        = config['default']['collapse'],
+        start           = config['default']['start'],
+        end             = config['default']['end'],
+        maximum_overlap = config['default']['maximum_overlap'],
+        criteria        = config['default']['criteria'],
+    ):
     '''
     This function builds a compact representation of all non-overlapping
     regions for a given reference column.
@@ -58,7 +103,14 @@ def architecture(df, reference=['query'], collapse='hit', start='qstart', end='q
     arch = arch.groupby(reference).agg(architecture=(collapse,lambda x: "+".join([ str(y) for y in x ]))).reset_index()
     return arch
 
-def filter_nonoverlapping_regions(df, reference=['sequence'], start='estart', end='eend', maximum_overlap=0.1, criteria = OrderedDict({'evalue':True, 'region_length':False})):
+def filter_nonoverlapping_regions(df,
+        reference       = config['default']['reference'],
+        start           = config['default']['start'],
+        end             = config['default']['end'],
+        maximum_overlap = config['default']['maximum_overlap'],
+        criteria        = config['default']['criteria'],
+        *args, **kwargs
+    ):
     '''
     This function selects the best set of non-overlapping intervals.
 
@@ -105,6 +157,7 @@ def filter_nonoverlapping_regions(df, reference=['sequence'], start='estart', en
     >>> c = {'probability':False, 'region_length':False}
     >>> dfc = filter_overlapping_regions(df, start='qstart', end='qend', criteria=c)
     '''
+    from copy import deepcopy
 
     # Process arguments and select columns for analysis
     if not isinstance(criteria,OrderedDict):
@@ -115,31 +168,34 @@ def filter_nonoverlapping_regions(df, reference=['sequence'], start='estart', en
     # Copy and sort the dataframe
     # Sort row priority: best rows must appear first
     crit = list(criteria.keys())
-    clean = df.copy()
-    if 'region_length' in clean.columns:
-        remove_region_length = False
-    else:
-        remove_region_length = True
+    clean = deepcopy(df)
+    remove = False
+    if 'region_length' in crit and 'region_length' not in clean.columns:
         clean['region_length'] = clean[end] - clean[start] + 1
+        remove = True
     clean.sort_values(reference + crit, ascending=len(reference)*[True] + [ criteria[x] for x in crit ], inplace=True)
+    clean.reset_index(drop=True, inplace=True)
 
     # Remove non-optimal layers
-    keep = []
-    while len(clean) > len(keep):
-        s = clean.loc[clean.index.drop(keep)].drop_duplicates(reference)
-        keep.extend(s.index.tolist())
-        s = clean.loc[clean.index.drop(keep)].reset_index().rename({'index':'_oid'}, axis=1).merge(s, on=reference, how='inner')
-        overlap  = np.where(s[f'{end}_x'] < s[f'{end}_y'], s[f'{end}_x'], s[f'{end}_y'])
-        overlap -= np.where(s[f'{start}_x'] > s[f'{start}_y'], s[f'{start}_x'], s[f'{start}_y'])
+    keep = pd.Series([ np.NaN ] * len(clean), index=clean.index.copy())
+    while keep.isna().any():
+        logger.info(f'Running next layer with {keep.notna().sum()} processed rows out of {len(clean)} rows')
+        best = clean.loc[keep.isna()].drop_duplicates(reference)
+        keep.loc[best.index] = True
+        worst = clean.loc[keep.isna()].reset_index(drop=False).rename({'index':'_oid'}, axis=1)
+        worst = best.merge(worst, on=reference, how='inner')
+        overlap  = np.minimum(worst[f'{end}_x'],   worst[f'{end}_y'])
+        overlap -= np.maximum(worst[f'{start}_x'], worst[f'{start}_y'])
         overlap += 1
         maxoverlap = maximum_overlap
         if maxoverlap < 1:
-            maxoverlap = np.floor(maxoverlap * np.where(s.region_length_x < s.region_length_y, s.region_length_x, s.region_length_y))
-        s = s[overlap > maxoverlap]._oid.unique().tolist()
-        clean.drop(s, inplace=True)
+            maxoverlap = np.floor(maxoverlap * np.minimum(worst.region_length_x, worst.region_length_y))
+        worst = worst[overlap > maxoverlap]._oid.unique().tolist()
+        keep.loc[worst] = False
 
     # Remove region_length and return
-    if remove_region_length:
-        clean.drop(['region_length'], axis=1, inplace=True)
+    if remove:
+        clean.drop('region_length', axis=1, inplace=True)
+    clean = clean.loc[keep].copy()
     clean.sort_values(reference + [start,end], ascending=(len(reference)+2)*[True], inplace=True)
     return clean
