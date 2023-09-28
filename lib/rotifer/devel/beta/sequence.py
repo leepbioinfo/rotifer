@@ -9,6 +9,7 @@ from copy import deepcopy
 from io import StringIO
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
+from rotifer.core import functions as rcf
 import pandas as pd
 import numpy as np
 import os
@@ -22,6 +23,7 @@ config = loadConfig(__name__, defaults = {
     'databases': ['pdb70','pfam'],
     'databases_path': os.path.join(rotifer.config['data'],"hhsuite"),
     'local_database_path': [ os.path.join(rotifer.config['data'],"fadb","nr","nr") ],
+    'html_colors': rcf.findDataFiles(":colors/aminoacids_HEX.yml"), 
 })
 
 class sequence(rotifer.pipeline.Annotatable):
@@ -1855,14 +1857,12 @@ class sequence(rotifer.pipeline.Annotatable):
         #if whant to send to latex, replace set_stick... to:to_latex(environment='longtable', convert_css=True)
         return df_style
 
-    def _to_df_style_simple(self, consensus=[50,60,70,80,90,100], annotations=False, remove_gaps=False,consensus_position='top', adjust_coordinates = False, background='black'):
+    def _to_df_style_simple(self, consensus=[50,60,70,80,90,100], annotations=False, remove_gaps=False,consensus_position='top', adjust_coordinates = False, background='black', colors=config['html_colors']):
         from rotifer.core import functions as rcf
         # Defaults
-        config = rcf.loadConfig(__name__, defaults = {'colors': rcf.findDataFiles(":colors/aminoacids_HEX.yml"), })
-
-
         import yaml
-        colors = yaml.load(open('/home/nicastrogg/git/rotifer/share/rotifer/colors/aminoacids_HEX.yml'), Loader=yaml.Loader)
+        colors = yaml.load(open(colors), Loader=yaml.Loader)
+
 
         def col_fun(df_c):
             df_c = df_c.copy()
