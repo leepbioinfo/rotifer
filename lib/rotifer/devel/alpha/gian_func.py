@@ -678,7 +678,7 @@ def psiblast(acc,
 
 
 
-def search2aln(df, coverage=50, evalue=1e-3, arch=None):
+def search2aln(df, coverage=50, evalue=1e-3, id_with_coord = False, arch=None):
     import os
     import tempfile
     import subprocess
@@ -702,14 +702,24 @@ def search2aln(df, coverage=50, evalue=1e-3, arch=None):
 
     seqobj.df = seqobj.df.merge(df[['hit','evalue','hitstart','hitend']].rename({'hit':'id'},axis=1), how='left')
     seqobj.df.sequence = seqobj.df.apply(lambda x: x.sequence[x.hitstart:x.hitend], axis=1)
+    seqobj.df.id = seqobj.df.apply(lambda x: f'{x.id}/{x.hitstart}-{x.hitend}', axis=1)
+    evalues = seqobj.df.copy()[['id', 'evalue']]
     seqobj = seqobj.align()
-    seqobj.df = seqobj.df.merge(df[['hit','evalue','hitstart','hitend']].rename({'hit':'id'},axis=1), how='left')
+    seqobj.df = seqobj.df.merge(evalues,on=['id'], how='left')
     seqobj = seqobj.sort(['evalue'])
     if arch:
+        # We should fix the arch with coordinates similar to the evalue strategy
+        print('arch option may contains bug!i')
         seqobj.df = seqobj.df.merge(archdf, how='left')
 
     #seqobj.df.id = seqobj.df.apply(lambda x: f'{x.id}/{x.hitstart}-{x.hitend}', axis=1)
 
+    if id_with_coord:
+        seqobj.df = seqobj.df.drop_duplicates(['id']).reset_index(drop=True)
+        return seqobj
+    seqobj.df[['hit_start', 'hit_end']] = seqobj.df.id.str.split('/', expand=True)[1].str.split('-', expand=True)
+    seqobj.df.id = seqobj.df.id.str.split('/', expand=True)[0]
+    seqobj.df = seqobj.df.drop_duplicates(['id', 'hit_start', 'hit_end']).reset_index(drop=True)
     return seqobj
 
 
@@ -847,6 +857,9 @@ def remove_redundancy(seqobj, identity =80, coverage = 70):
     from rotifer.devel.beta.sequence import sequence as sequence
     import pandas as pd
     s = seqobj.copy()
+    if len(s.df.id.value_counts().value_counts()) >1:
+        print('multiples sequences with same name, using index to remove redundancy')
+
     s.add_cluster(coverage=coverage, identity=identity, inplace=True)
     s = s.filter(keep=s.df[f'c{coverage}i{identity}'].drop_duplicates().to_list())
     return(s)
