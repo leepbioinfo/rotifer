@@ -1956,6 +1956,14 @@ class sequence(rotifer.pipeline.Annotatable):
             <!DOCTYPE html>
             <html>
             <head>
+            <script type="text/javascript">
+                function openPopup() {{
+                    var popup = window.open('', 'Rotifer HTML viewer', 'width=800,height=600');
+                    popup.document.write('{html.render()}');
+                    popup.document.close();
+                }}
+                openPopup();
+            </script>
                 <style>
                     body {{
                         background-color: {bck_color};
