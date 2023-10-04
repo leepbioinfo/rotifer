@@ -1937,7 +1937,7 @@ class sequence(rotifer.pipeline.Annotatable):
                 fg_color = 'black'
             headers = {
                 'selector': 'th:not(.index_name)',
-                'props': f'''font-size: 12px;
+                'props': f'''font-size: 8px;
                 text-align: left;
                 color:{fg_color};
                 background-color:{bck_color}'''
