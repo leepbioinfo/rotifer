@@ -1911,7 +1911,7 @@ class sequence(rotifer.pipeline.Annotatable):
             "text-align": "center",
             "background-color": bck_color,
             "color": fg_color}
-        ).apply(col_fun).hide_columns()
+        ).apply(col_fun).hide(axis='columns')
         return df_style    
 
     def to_html(self, output_file, consensus=[50, 60,70,80,90,100],simple=True ,background='black',consensus_position='top', annotations=False, remove_gaps=False, fixed_index=True, adjust_coordinates=False):
@@ -1956,14 +1956,6 @@ class sequence(rotifer.pipeline.Annotatable):
             <!DOCTYPE html>
             <html>
             <head>
-            <script type="text/javascript">
-                function openPopup() {{
-                    var popup = window.open('', 'Rotifer HTML viewer', 'width=800,height=600');
-                    popup.document.write('{html.render()}');
-                    popup.document.close();
-                }}
-                openPopup();
-            </script>
                 <style>
                     body {{
                         background-color: {bck_color};
@@ -1972,7 +1964,7 @@ class sequence(rotifer.pipeline.Annotatable):
                 </style>
             </head>
             <body>
-                {html.render()}
+                {html.to_html()}
             </body>
             </html>
             '''
