@@ -65,10 +65,11 @@ class SequenceCollection():
                 otherfiles = []
                 for colname, other in kwargs.items():
                     patt = os.path.join(basename, other["pattern"])
+                    basepath = pathlib.Path(other["basedir"]) if "basedir" in other else basedir
                     if recursive:
-                        files = list(pathlib.Path(other["basedir"]).rglob(patt))
+                        files = list(basepath.rglob(patt))
                     else:
-                        files = list(pathlib.Path(other["basedir"]).glob(patt))
+                        files = list(basepath.glob(patt))
                     files = [ y.as_posix() for y in files ]
                     if len(files) == 0:
                         files = None
