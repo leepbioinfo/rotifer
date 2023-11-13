@@ -183,14 +183,17 @@ def get_data_frame_from_tsv_results(tsv_results):
 # Test Run with few acc:
 # Usage
 
-def genbank_to_uniprot(from_db="EMBL-GenBank-DDBJ_CDS", to_db="UniProtKB", ids=["BAE76179.1"]):
+def genbank_to_uniprot(from_db="EMBL-GenBank-DDBJ_CDS", to_db="UniProtKB", ids=["BAE76179.1"], af=True):
     job_id = submit_id_mapping(
         from_db=from_db,
         to_db=to_db,
         ids=ids)
     if check_id_mapping_results_ready(job_id):
         link = get_id_mapping_results_link(job_id)
-        results = get_id_mapping_results_stream(link+"?compressed=true&fields=accession%2Cxref_pdb%2Cxref_alphafolddb%2C&format=tsv")
+        if af:
+            results = get_id_mapping_results_stream(link+"?compressed=true&fields=accession%2Cxref_pdb%2Cxref_alphafolddb%2C&format=tsv")
+        else:
+            results = get_id_mapping_results_stream(link+"?format=tsv")
     r = get_data_frame_from_tsv_results(results)
     #if r.AlphaFold:
     #    r['urlAF'] = [ "https://alphafold.ebi.ac.uk/files/AF-" + x + "-F1-model_v4.pdb" for x in r.loc[r.AlphaFoldDB.str.split(';', expand=True)[0] == r.Entry].Entry ]
@@ -204,7 +207,7 @@ def AF_link(id_list=None):
     r.loc[r.urlAF == "https://alphafold.ebi.ac.uk/files/AF--F1-model_v4.pdb", 'urlAF'] = None
     r['urlPDB'] = "https://files.rcsb.org/download/" + r['PDB'].str.split(';', expand=True)[0 ]+ ".pdb"
     r.loc[r.urlPDB == "https://files.rcsb.org/download/.pdb", 'urlPDB'] = None
-    r = r[r.urlAF.notnull()].reset_index()
+    r = r[r.urlAF.notnull()].reset_index().drop('index', axis=0)
     return r
 
 def af_to_seq(seqobj):

@@ -688,7 +688,7 @@ def add_arch_to_seqobj(seqobj, db='profiledb', cpu=8):
     return seqobj
 
 
-def add_arch_to_df(df):
+def add_arch_to_df(df, db='/databases/fadb/nr/nr50'):
     '''
     Add architecture and clusters info to a NeighborHooddf
     '''
@@ -705,8 +705,8 @@ def add_arch_to_df(df):
         sequence(
                 df.query(
                     'type =="CDS"'
-                    ).pid.dropna().drop_duplicates().to_list()
-                ).to_file(f'{tmpdirname}/seqfile')
+                    ).pid.dropna().drop_duplicates().to_list(),
+                local_database_path=db).to_file(f'{tmpdirname}/seqfile')
 
         os.chdir(tmpdirname)
         os.makedirs('tmpd')

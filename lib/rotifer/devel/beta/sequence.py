@@ -820,12 +820,13 @@ class sequence(rotifer.pipeline.Annotatable):
                     if os.path.exists(os.path.join(pdb_dir,pdb_file)):
                         pdb_file = os.path.exists(os.path.join(pdb_dir,pdb_file))
                     else:
+                        import requests
                         import urllib
                         if pdb_file == 'esm':
                             # Sends first sequence to ESM-Fold API 
-                            data = self.filter(keep=pdb_id).to_string(output_format='fasta-2line', remove_gaps=True).split('\n')[1].encode('utf-8')
-                            req = urllib.request.Request(url="https://api.esmatlas.com/foldSequence/v1/pdb/", data=data, method='POST')
-                            pdb_data = urllib.request.urlopen(req).read()
+                            data = self.filter(keep=pdb_id).to_string(output_format='fasta-2line', remove_gaps=True).split('\n')[1].encode()
+                            req = requests.post(url="https://api.esmatlas.com/foldSequence/v1/pdb/", data=data)
+                            pdb_data = req.content
                         else:
                             # Try using pdb_file as URL
                             pdb_data = urllib.request.urlopen(pdb_file).read()
