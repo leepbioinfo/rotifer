@@ -9,6 +9,7 @@ from copy import deepcopy
 from io import StringIO
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
+from rotifer.core import functions as rcf
 import pandas as pd
 import numpy as np
 import os
@@ -22,6 +23,7 @@ config = loadConfig(__name__, defaults = {
     'databases': ['pdb70','pfam'],
     'databases_path': os.path.join(rotifer.config['data'],"hhsuite"),
     'local_database_path': [ os.path.join(rotifer.config['data'],"fadb","nr","nr") ],
+    'html_colors': rcf.findDataFiles(":colors/aminoacids_HEX.yml"), 
 })
 
 class sequence(rotifer.pipeline.Annotatable):
@@ -1856,31 +1858,136 @@ class sequence(rotifer.pipeline.Annotatable):
         #if whant to send to latex, replace set_stick... to:to_latex(environment='longtable', convert_css=True)
         return df_style
 
-    def to_html(self, consensus,output_file, annotations=False, remove_gaps=False, fixed_index=True, adjust_coordinates=False):
+    def _to_df_style_simple(self, consensus=[50,60,70,80,90,100], annotations=False, remove_gaps=False,consensus_position='top', adjust_coordinates = False, background='black', colors=config['html_colors']):
+        from rotifer.core import functions as rcf
+        # Defaults
+        import yaml
+        colors = yaml.load(open(colors), Loader=yaml.Loader)
+
+
+        def col_fun(df_c):
+            df_c = df_c.copy()
+            df_c = df_c.map(colors).fillna('').radd("color:")
+            return df_c
+
+        if background == 'black':
+            bck_color = 'black'
+            fg_color = 'white'
+        else:
+            bck_color = 'white'
+            fg_color = 'black'
+
+        aln = self.copy()
+        aln_r = aln.residues
+        if remove_gaps:
+            gaps,gdf = aln.gaps_to_numbers(remove_gaps, adjust_coordinates=adjust_coordinates)
+            gdf.index = aln.df.query('type == "sequence"').id
+
+        aln_r = aln_r.set_index(aln.df.query('type == "sequence"').id)
+        for x in consensus:
+            con = pd.Series(list(aln.consensus(x)))
+            con.index +=1
+            if consensus_position =='top':
+                aln_r = pd.concat([con.rename(f'consensus_{x}%').to_frame().T, aln_r], axis=0)
+            else:
+                aln_r = pd.concat([aln_r, con.rename(f'consensus_{x}%').to_frame().T], axis=0)
+        if annotations:
+            if isinstance(annotations, str):
+                ann = pd.Series(list(aln.df.query('id ==@annotations').sequence.iloc[0]))
+                ann.index +=1
+                aln_r = pd.concat([ann.rename(annotations).to_frame().T,aln_r])
+            else:
+                for x in annotations:
+                    ann = pd.Series(list(aln.df.query('id ==@x').sequence.iloc[0]))
+                    ann.index +=1
+                    aln_r = pd.concat([ann.rename(x).to_frame().T,aln_r])
+
+        if remove_gaps:
+            aln_r =  aln_r.drop(gaps,axis=1).join(gdf).sort_index(axis=1).fillna(0).astype(int, errors='ignore').astype(str).replace('0','  ')
+                    
+
+        df_style = aln_r.style.set_properties(**{
+            'font-size': '12px',
+            'font-family':'"Lucida Console", Monaco,monospace',
+            "text-align": "center",
+            "background-color": bck_color,
+            "color": fg_color}
+        ).apply(col_fun).hide(axis='columns')
+        return df_style    
+
+    def to_html(self, output_file, consensus=[50, 60,70,80,90,100],simple=True ,background='black',consensus_position='top', annotations=False, remove_gaps=False, fixed_index=True, adjust_coordinates=False):
         """TODO: Docstring for function.
 
-        :consensus: The consensus threshold that should be used to color the aligment
+        :consensus: The consensus threshold that should be used to color the aligment, if simple=False the consensus cannot be a list
         :output_file: output file name
         :annotation: List of annotations rows that should be keept in the  html file
         The annotation label should be the same as in the id seq object df columm
         :remove_gaps: Query sequence to use as model to remove the gaps, 
+        :Simple: Create a simple html visualization withou fancy highlights etc, 
         it will add numbers of aminoacid suppressed in the sequence that contain the insertions.
         :fixed_index, It makes the index fixed on the html page 
         :returns: TODO
 
         """
-        html = self._to_df_style(
-            consensus,
-            annotations=annotations,
-            adjust_coordinates = adjust_coordinates,
-            remove_gaps=remove_gaps
+        if simple:
+            if background == 'black':
+                bck_color = 'black'
+                fg_color = 'white'
+            else:
+                bck_color = 'white'
+                fg_color = 'black'
+            headers = {
+                'selector': 'th:not(.index_name)',
+                'props': f'''font-size: 8px;
+                text-align: left;
+                color:{fg_color};
+                background-color:{bck_color}'''
+            }
+            html = self._to_df_style_simple(
+                consensus=consensus,
+                annotations=annotations,
+                adjust_coordinates = adjust_coordinates,
+                remove_gaps=remove_gaps,
+                background=background,
+                consensus_position=consensus_position
+            ).set_table_styles(
+            [headers]
         )
+            html_template = f'''
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body {{
+                        background-color: {bck_color};
+                        color: {fg_color};
+                    }}
+                </style>
+            </head>
+            <body>
+                {html.to_html()}
+            </body>
+            </html>
+            '''
+
+        else:
+            html = self._to_df_style(
+                consensus=consensus,
+                annotations=annotations,
+                adjust_coordinates = adjust_coordinates,
+                remove_gaps=remove_gaps,
+            )
+
         if fixed_index:
             html = html.set_sticky(axis="index")
-            
-        with open(output_file, 'w') as f:
-            f.write(html.render(table_attributes='cellspacing=0, cellpadding=0'))
-            return(f'{output_file} saved on the working path')
+        if simple:
+            with open(f'{output_file}', 'w') as f:
+                f.write(html_template)
+                return(f'{output_file} saved on the working path')
+        else:        
+            with open(output_file, 'w') as f:
+                f.write(html.render(table_attributes='cellspacing=0, cellpadding=0'))
+                return(f'{output_file} saved on the working path')
 
 
     def gaps_to_numbers(self, smodel, adjust_coordinates=False):

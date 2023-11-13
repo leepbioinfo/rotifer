@@ -30,11 +30,11 @@ def _setup_config(logger):
     auto = [ 'cache', 'user', 'userConfig' ]
     for target in sorted([ config[x] for x in auto ]):
         if not os.path.exists(target):
+            logger.warning(f'Creating directory {target} ...')
             try:
-                logger.error(f'Creating directory {target} ...', file=sys.stderr)
                 os.makedirs(target)
             except:
-                logger.error(f'Unable to create cache directory at {target}', file=sys.stderr)
+                logger.warning(f'Unable to create cache directory at {target}')
 
     # Return main configuration
     return config
