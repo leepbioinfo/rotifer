@@ -543,17 +543,26 @@ def add_arch_to_df(seqobj, full=False, inplace=False, raw=False):
                         skiprows=[0]
                         ),
                     how="left")
+            info = info.merge(
+                    pd.read_csv(
+                        'tmp.query.both.rps.arch',
+                        sep='\t',
+                        names=['c100i100', 'arch'],
+                        usecols=[0, 1],
+                        skiprows=[0]
+                        ),
+                    how="left")
         if inplace:
             seqobj.ndf = df.merge(info, how='left')
             seqobj.profiledb = pd.read_csv(
                     'tmp.query.profiledb.rps.dom.tsv',
-                    sep='\t')
+                    sep='\t', names=['pid', 'model', 'star', 'end'])
             with open('tmp.profiledb.rps.query.out') as f:
                 seqobj.profiledbout = ''.join(f.readlines())
             if full:
                 seqobj.pfam = pd.read_csv(
                         'tmp.query.pfam.rps.dom.tsv',
-                        sep='\t')
+                        sep='\t', names=['pid', 'model', 'start', 'end'])
                 with open('tmp.pfam.rps.query.out') as f:
                     seqobj.pfamout = ''.join(f.readlines())
             os.chdir(cwd)
@@ -890,4 +899,19 @@ def trim_unk_neigh(df, ann='profiledb'):
 
 
     return int_df
+
+def extend_aln(seqobj, n_terminal=50, c_terminal=50):
+    from rotifer.devel.beta import sequence as rdbs
+    from rotifer.devel.alpha import gian_func as rdagf
+    """
+    Extend the N and/or C termianl parts of a given sequence alignment
+    """
+    tm = rdagf.add_cordinates_to_aln(seqobj)
+    tm2 = rdbs.sequence(seqobj.df.id.tolist())
+    tm2.df = tm2.df.merge(tm.df[['id', 'full_length', 'start', 'end', 'C_term']], how='left')
+    tm2.df.end = np.where(tm2.df.end + c_terminal <= tm2.df.full_length, tm2.df.end + c_terminal, tm2.df.full_length)
+    tm2.df.start = np.where(tm2.df.start - n_terminal > 0, tm2.df.start - n_terminal, 1)
+    tm2.df.sequence = tm2.df.apply(lambda x : x.sequence[x.start: x.end], axis=1)
+    return tm2.align()
+
 
