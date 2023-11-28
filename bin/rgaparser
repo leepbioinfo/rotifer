@@ -229,7 +229,7 @@ def main(args):
                 args.protein = sys.stdout
             for f in s.features:
                 genome_order += 1
-                if (f.type == 'CDS') and ('pseudo' not in f.qualifiers) and (len(f) % 3 == 0):
+                if (f.type == 'CDS') and ('pseudo' not in f.qualifiers):
                     if 'translation' in f.qualifiers:
                         #from Bio.Alphabet import IUPAC
                         from Bio.Seq import Seq
@@ -237,6 +237,8 @@ def main(args):
                         #p = SeqRecord(Seq(f.qualifiers['translation'][0], IUPAC.protein))
                         p = SeqRecord(Seq(f.qualifiers['translation'][0]))
                     else:
+                        if (len(f) % 3 == 0):
+                            s = s[0:3*int(len(f)/3)]
                         p = f.translate(s, table=args.codontable)
 
                     # Set protein accession
