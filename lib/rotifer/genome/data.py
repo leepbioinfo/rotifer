@@ -527,7 +527,8 @@ class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
         else:
             _1 = self.group_strand().copy()
         return _1.groupby(group).apply(main_cnei).reset_index(drop = True).set_index('block_id')
-
+    #Alias for compact neighborhood
+    compact = compact_neighborhood
     def full_neighborhood(self, column='cluster', value='value', stats=False, new_query=True):
         """
         Function that filter a given value in a collumn and fetch
