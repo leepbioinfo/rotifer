@@ -469,7 +469,7 @@ def hhr_to_aln(seqobj, hhr, database=False):
     return hhr_nolr
 
 
-def add_arch_to_df(seqobj, full=False, inplace=False, raw=False):
+def add_arch_to_df(seqobj, full=False, inplace=True):
     '''
     Add architecture and clusters info to a neighborhood df
     '''
@@ -533,48 +533,46 @@ def add_arch_to_df(seqobj, full=False, inplace=False, raw=False):
                     skiprows=[0]
                     ),
                 how="left")
-        if full:
-            info = info.merge(
-                    pd.read_csv(
-                        'tmp.query.pfam.rps.arch',
-                        sep='\t',
-                        names=['c100i100', 'pfam'],
-                        usecols=[0, 1],
-                        skiprows=[0]
-                        ),
-                    how="left")
-            info = info.merge(
-                    pd.read_csv(
-                        'tmp.query.both.rps.arch',
-                        sep='\t',
-                        names=['c100i100', 'arch'],
-                        usecols=[0, 1],
-                        skiprows=[0]
-                        ),
-                    how="left")
+        info = info.merge(
+                pd.read_csv(
+                    'tmp.query.pfam.rps.arch',
+                    sep='\t',
+                    names=['c100i100', 'pfam'],
+                    usecols=[0, 1],
+                    skiprows=[0]
+                    ),
+                how="left")
+        info = info.merge(
+                pd.read_csv(
+                    'tmp.query.both.rps.arch',
+                    sep='\t',
+                    names=['c100i100', 'arch'],
+                    usecols=[0, 1],
+                    skiprows=[0]
+                    ),
+                how="left")
         if inplace:
             seqobj.ndf = df.merge(info, how='left')
+            seqobj.ndf = seqobj.ndf.drop_duplicates().reset_index(drop=True)
             seqobj.profiledb = pd.read_csv(
                     'tmp.query.profiledb.rps.dom.tsv',
                     sep='\t', names=['pid', 'model', 'star', 'end'])
             with open('tmp.profiledb.rps.query.out') as f:
                 seqobj.profiledbout = ''.join(f.readlines())
-            if full:
-                seqobj.pfam = pd.read_csv(
-                        'tmp.query.pfam.rps.dom.tsv',
-                        sep='\t', names=['pid', 'model', 'start', 'end'])
-                with open('tmp.pfam.rps.query.out') as f:
-                    seqobj.pfamout = ''.join(f.readlines())
+            seqobj.pfam = pd.read_csv(
+                    'tmp.query.pfam.rps.dom.tsv',
+                    sep='\t', names=['pid', 'model', 'start', 'end'])
+            with open('tmp.pfam.rps.query.out') as f:
+                seqobj.pfamout = ''.join(f.readlines())
             os.chdir(cwd)
             return 'architecuture add to seqobj'
 
-        if full:
-            with open('tmp.pfam.rps.query.out') as f:
-                seqobjc.pfamout = ''.join(f.readlines())
+        with open('tmp.pfam.rps.query.out') as f:
+            seqobjc.pfamout = ''.join(f.readlines())
 
-            seqobjc.pfam = pd.read_csv(
-                    'tmp.query.pfam.rps.dom.tsv',
-                    sep='\t')
+        seqobjc.pfam = pd.read_csv(
+                'tmp.query.pfam.rps.dom.tsv',
+                sep='\t')
 
         seqobjc.profiledb = pd.read_csv(
                 'tmp.query.profiledb.rps.dom.tsv',
@@ -582,36 +580,40 @@ def add_arch_to_df(seqobj, full=False, inplace=False, raw=False):
         with open('tmp.profiledb.rps.query.out') as f:
             seqobjc.profiledbout = ''.join(f.readlines())
         seqobjc.ndf = df.merge(info, how='left')
+        seqobjc.ndf = seqobj.ndf.drop_duplicates().reset_index(drop=True)
         os.chdir(cwd)
         
     return seqobjc
 
 
 def annotate_seqobj(seqobj,
-                    df,
-                    cnt='profiledb',
-                    full=True
+                    ndf = False,
+                    cnt='arch',
+                    selected_collumns=False
                     ):
     '''
     Add annotation to seqobject tax,clusters,compact_neighborhood
     '''
-    df = df.copy()
+
+    import pandas as pd
+
+    if isinstance(ndf, pd.DataFrame):
+        df = ndf.copy()
+    else:
+        df = seqobj.ndf.copy()
     seqobj = seqobj.copy()
     accs = seqobj.df.id.to_list()
     cn = df[
             df.block_id.isin(df.query('pid in @accs').block_id)
             ].compact_neighborhood(cnt)
-    if full:
-        selected_collumns = ['pid',
-         'block_id',
-         'profiledb',
-         'pfam',
-         'c80e3',
-         'c80i70']
+    if selected_collumns:
+        selected_collumns = selected_collumns
     else:
         selected_collumns = ['pid',
          'block_id',
          'profiledb',
+         'pfam',
+         'arch',                    
          'c80e3',
          'c80i70']
 
