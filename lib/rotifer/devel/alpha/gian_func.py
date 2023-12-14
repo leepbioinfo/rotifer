@@ -881,7 +881,7 @@ def add_cordinates_to_aln(seqobj):
     cx = sequence(c.df.id.tolist())
     cx. df = cx.df.rename({'sequence':'full_sequence', 'length':'full_length'}, axis=1)
     c.df = c.df.merge(cx.df[['id','full_sequence','full_length']], how='left')
-    c.df['start'] = c.df.apply(lambda x : 1 + x.full_sequence.find(x.sequence.replace('-','')), axis=1)
+    c.df['start'] = c.df.apply(lambda x : 0 + x.full_sequence.find(x.sequence.replace('-','')), axis=1)
     c.df['end'] = c.df.start + c.df['length']
     c.df['C_term'] = c.df['full_length'] - c.df['end']
     c.df =  c.df.drop(['full_sequence'], axis=1)
@@ -905,6 +905,7 @@ def trim_unk_neigh(df, ann='profiledb'):
 def extend_aln(seqobj, n_terminal=50, c_terminal=50):
     from rotifer.devel.beta import sequence as rdbs
     from rotifer.devel.alpha import gian_func as rdagf
+    import numpy as np
     """
     Extend the N and/or C termianl parts of a given sequence alignment
     """
