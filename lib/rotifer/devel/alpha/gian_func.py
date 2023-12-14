@@ -554,6 +554,7 @@ def add_arch_to_df(seqobj, full=False, inplace=False, raw=False):
                     how="left")
         if inplace:
             seqobj.ndf = df.merge(info, how='left')
+            seqobj.ndf = seqobj.ndf.drop_duplicates().reset_index(drop=True)
             seqobj.profiledb = pd.read_csv(
                     'tmp.query.profiledb.rps.dom.tsv',
                     sep='\t', names=['pid', 'model', 'star', 'end'])
@@ -582,6 +583,7 @@ def add_arch_to_df(seqobj, full=False, inplace=False, raw=False):
         with open('tmp.profiledb.rps.query.out') as f:
             seqobjc.profiledbout = ''.join(f.readlines())
         seqobjc.ndf = df.merge(info, how='left')
+        seqobjc.ndf = seqobj.ndf.drop_duplicates().reset_index(drop=True)
         os.chdir(cwd)
         
     return seqobjc
