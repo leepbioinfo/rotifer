@@ -50,7 +50,7 @@ foreach my $file (@ARGV) {
 	/^\s+\d+\s+[\?\!]\s+/ && do {
 		s/^\s+//;
 		my @row = split(/\s+/);
-		next if (defined $CONFIG->evalue && $row[4] > $CONFIG->evalue);
+		next if (defined $CONFIG->evalue && $row[5] > $CONFIG->evalue);
 		warn "Unexpected number of columns at $_\n" unless (scalar(@row) == 16);
 
 		# Load ids
@@ -78,7 +78,7 @@ foreach my $file (@ARGV) {
 		# Calculate alignment length and store data
 		my $tali_len = $row[10] - $row[9];
 		my @out = map { $ids{$_} } qw(hit query);
-		push(@out, $row[9], $row[10], $row[4], $qcov, $row[6], $row[7], $iteration, $row[2], $tali_len, $qlen, $row[12], $row[13], $prog);
+		push(@out, $row[9], $row[10], $row[5], $qcov, $row[6], $row[7], $iteration, $row[2], $tali_len, $qlen, $row[12], $row[13], $prog);
 		print join("\t",@out),"\n"; 
 	};
     } # while (<HMMER>)
@@ -234,7 +234,7 @@ and has the following columns:
  2  : model     : model identifier
  3  : start     : first aligned residue in the sequence
  4  : end       : last aligned residue in the sequence
- 5  : evalue    : domain alignement's (HSP) *corrected* expected value (see HMMER3's manual)
+ 5  : evalue    : domain alignment's (HSP) *indepedent* expected value (see HMMER3's manual)
  6  : cov       : coverage of the alignment in the query (sequence if jackhmmer and hmmscan, domain if hmmsearch)
  7  : qstart    : first state aligned in the model
  8  : qend      : last state aligned in the model
