@@ -35,6 +35,9 @@ foreach my $file (@ARGV) {
     while (<HMMER>) {
 	chomp;
 
+	# Foot
+	/^\/\/$/ && do { $iteration = 1; next }; # End of a report, restart for next one
+
 	# Headers
 	/^#\s(\w+)\s+\:\:/               && do { $prog = $1; next } ;
 	/\@\@\s+Round:\s+(\d+)/          && do { $iteration = $1; next };

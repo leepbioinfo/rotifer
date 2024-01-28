@@ -815,28 +815,39 @@ class sequence(rotifer.pipeline.Annotatable):
         import Bio.PDB.PDBList as PDBList
         result = self.copy()
 
-        if isinstance(pdb_id,str):
+        if not isinstance(pdb_id,list):
+            pdb_ids = [ pdb_id ]
+        else:
+            pdb_ids = pdb_id
+
+        for i in range(0, len(pdb_ids)):
+            pdb_id = pdb_ids[i]
             # Find local file or download and then open it!
             if pdb_file:
                 if not os.path.exists(pdb_file):
                     if os.path.exists(os.path.join(pdb_dir,pdb_file)):
                         pdb_file = os.path.exists(os.path.join(pdb_dir,pdb_file))
                     else:
-                        import requests
-                        import urllib
                         if pdb_file == 'esm':
                             # Sends first sequence to ESM-Fold API 
-                            data = self.filter(keep=pdb_id).to_string(output_format='fasta-2line', remove_gaps=True).split('\n')[1].encode()
-                            req = requests.post(url="https://api.esmatlas.com/foldSequence/v1/pdb/", data=data)
-                            pdb_data = req.content
+                            import urllib
+                            data = self.filter(keep=pdb_id).to_string(output_format='fasta-2line', remove_gaps=True).split('\n')[1].encode('utf-8')
+                            req = urllib.request.Request(url="https://api.esmatlas.com/foldSequence/v1/pdb/", data=data, method='POST')
+                            pdb_data = urllib.request.urlopen(req).read()
+                            pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "wb")
+                            pdb_file.write(pdb_data)
+                            pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "r")
+                            pdb_file.flush()
+                            pdb_file.seek(0)
                         else:
                             # Try using pdb_file as URL
-                            pdb_data = urllib.request.urlopen(pdb_file).read()
-                        pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "wb")
-                        pdb_file.write(pdb_data)
-                        pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "r")
-                        pdb_file.flush()
-                        pdb_file.seek(0)
+                            import urllib
+                            pdb_data = urllib.request.urlopen(pdb_file).read().decode()
+                            pdb_file = open(rotifer.config['cache']+ "/" + pdb_id + ".pdb", "wt")
+                            pdb_file.write(pdb_data)
+                            pdb_file = open(rotifer.config['cache']+ "/" + pdb_id + ".pdb", "r")
+                            pdb_file.flush()
+                            pdb_file.seek(0)
 
             else:
                 # No file!
@@ -845,6 +856,7 @@ class sequence(rotifer.pipeline.Annotatable):
                     pdb_file = os.path.join(pdb_dir, pdb_id[1:3].lower(), "pdb"+pdb_id.lower()+".ent.gz")
                 else:
                     pdb_file = PDBList(verbose=False).retrieve_pdb_file(pdb_id.lower(), file_format='pdb', pdir=rotifer.config['cache'])
+
             if isinstance(pdb_file,str) and os.path.exists(pdb_file):
                 if pdb_file[-3:] == '.gz':
                     import gzip
@@ -885,90 +897,9 @@ class sequence(rotifer.pipeline.Annotatable):
             to['structure'] = pdb_df.structure.to_list()
             pdbn = f'ss_from:{pdb_id}_{chain_id}'
             pdbss = ''.join(pd.Series(list(result.df.loc[pdb_index].sequence)).to_frame().join(to).fillna('-').structure.to_list())
-            result.df =  pd.concat([pd.DataFrame([[pdbn,pdbss,len(pdbss),"residue_annotation",f'Secondary structure from {pdb_id}']], columns=self._reserved_columns),self.df])
-            result.df = result.df.reset_index(drop=True)
-            return result
+            result.df = pd.concat([pd.DataFrame([[pdbn,pdbss,len(pdbss),"residue_annotation",f'Secondary structure from {pdb_id}']], columns=self._reserved_columns),self.df])
 
-        if isinstance(pdb_id,list):
-            pdb_ids = pdb_id 
-            for i in range(0, len(pdb_ids)):
-                pdb_id = pdb_ids[i]
-                # Find local file or download and then open it!
-                if pdb_file:
-                    if not os.path.exists(pdb_file):
-                        if os.path.exists(os.path.join(pdb_dir,pdb_file)):
-                            pdb_file = os.path.exists(os.path.join(pdb_dir,pdb_file))
-                        else:
-                            if pdb_file == 'esm':
-                                # Sends first sequence to ESM-Fold API 
-                                import urllib
-                                data = self.filter(keep=pdb_id).to_string(output_format='fasta-2line', remove_gaps=True).split('\n')[1].encode('utf-8')
-                                req = urllib.request.Request(url="https://api.esmatlas.com/foldSequence/v1/pdb/", data=data, method='POST')
-                                pdb_data = urllib.request.urlopen(req).read()
-                                pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "wb")
-                                pdb_file.write(pdb_data)
-                                pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "r")
-                                pdb_file.flush()
-                                pdb_file.seek(0)
-                            else:
-                                # Try using pdb_file as URL
-                                import urllib
-                                pdb_data = urllib.request.urlopen(pdb_file).read()
-                                pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "wb")
-                                pdb_file.write(pdb_data)
-                                pdb_file = open(rotifer.config['cache']+"/"+pdb_id[0]+".pdb", "r")
-                                pdb_file.flush()
-                                pdb_file.seek(0)
-
-                else:
-                    # No file!
-                    if os.path.exists(os.path.join(pdb_dir,pdb_id[1:3].lower(),"pdb"+pdb_id.lower()+".ent.gz")):
-                        # Search PDB code in local PDB mirror
-                        pdb_file = os.path.join(pdb_dir, pdb_id[1:3].lower(), "pdb"+pdb_id.lower()+".ent.gz")
-                    else:
-                        pdb_file = PDBList(verbose=False).retrieve_pdb_file(pdb_id.lower(), file_format='pdb', pdir=rotifer.config['cache'])
-                if isinstance(pdb_file,str) and os.path.exists(pdb_file):
-                    if pdb_file[-3:] == '.gz':
-                        import gzip
-                        orig = gzip.open(pdb_file,"rt")
-                        pdb_file = tempfile.NamedTemporaryFile(suffix=".pdb", delete=True, mode="r+t")
-                        pdb_file.write(orig.read())
-                        pdb_file.flush()
-                        pdb_file.seek(0)
-                        orig.close()
-                    else:
-                        pdb_file = open(pdb_file,"rt")
-
-                # Parse PDB file to a Pandas DataFrame
-                dssp_columns  = ['pdb_id','chain','c1','c2','c3','idx','aa','secstr','rASA','phi','psi']
-                dssp_columns += ['NH_O_1_relidx','NH_O_1_energy','O_NH_1_relidx','O_NH_1_energy']
-                dssp_columns += ['NH_O_2_relidx','NH_O_2_energy','O_NH_2_relidx','O_NH_2_energy']
-                dssp = PDBParser().get_structure(pdb_id, pdb_file)
-                dssp = DSSP(dssp[0], pdb_file.name, file_type="PDB")
-                dssp = pd.DataFrame([ (pdb_id,x[0],*x[1],*dssp[x]) for x in dssp.keys() ], columns=dssp_columns)
-                dssp_to_ehc = {"I":"C","S":"C","H":"H","E":"E","G":"C","B":"E","T":"C","C":"C"}
-                dssp.secstr = dssp.secstr.map(dssp_to_ehc).fillna('-')
-                dssp = dssp.query('chain == @chain_id')
-                pdb_file.close()
-                if os.path.exists(pdb_file.name) and pdb_file.name[0:len(rotifer.config['cache'])] == rotifer.config['cache']:
-                    os.remove(pdb_file.name)
-
-                # Search for pdb sequence in the aligment
-                pdb_from_pdb = ''.join(dssp.aa.to_list())
-                pdb_index = result.df[result.df.id.str.contains(pdb_id, case=False)]
-                pdb_index = pdb_index[~pdb_index.id.str.contains('ss_from')] #Avoids annotating itself
-                pdb_index = pdb_index.index[0]
-                pdb_in_aln = result.df.loc[pdb_index].sequence.replace('-', '')
-                ali = pairwise2.align.localxx(pdb_in_aln, pdb_from_pdb)[0]
-                ss = pd.Series(list(ali.seqB)).where(lambda x : x != '-').dropna().to_frame()
-                ss['structure'] = dssp.secstr.to_list()
-                pdb_df = pd.Series(list(ali.seqA)).rename('seq').to_frame().join(ss['structure']).fillna('-').query(' seq != "-"')
-                to = pd.Series(list(result.df.loc[pdb_index].sequence)).where(lambda x: x !='-').dropna().rename('ung').to_frame()
-                to['structure'] = pdb_df.structure.to_list()
-                pdbn = f'ss_from:{pdb_id}_{chain_id}'
-                pdbss = ''.join(pd.Series(list(result.df.loc[pdb_index].sequence)).to_frame().join(to).fillna('-').structure.to_list())
-                result.df = pd.concat([pd.DataFrame([[pdbn,pdbss,len(pdbss),"residue_annotation",f'Secondary structure from {pdb_id}']], columns=self._reserved_columns),self.df])
-            return result
+        return result
 
     def add_seq(self, seq_to_add, cpu=12, fast=False, fetch=config["fetch"]):
         import tempfile
