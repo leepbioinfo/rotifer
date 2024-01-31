@@ -407,7 +407,7 @@ class sequence(rotifer.pipeline.Annotatable):
             position = [position]
         refseq = self.df.query(f'''id == "{reference}"''')
         if refseq.empty:
-            logger.error(f"Reference seuqence {reference} could not befound in this alignment.")
+            logger.error(f"Reference sequence {reference} could not befound in this alignment.")
             return None
         refseq = pd.Series(list(refseq.sequence.values[0]))
         refseq.index = refseq.index + 1 # Adjust alignment coordinates to interval [1,length]
