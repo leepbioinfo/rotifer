@@ -13,6 +13,58 @@ Rotifer core functions
 
 __version__ = 0.15
 
+def who_is_calling(obj):
+    return str(type(obj)).replace("<class '","").replace("'>","")
+
+def get_some_info():
+    import inspect
+    # get the call frame of the calling method
+    frame = inspect.currentframe().f_back
+    try:
+        # find the name of the first variable in the calling
+        # function - which is hopefully the "self"
+        codeobj = frame.f_code
+        try:
+            self_name = codeobj.co_varnames[0]
+        except IndexError:
+            return None
+
+        # try to access the caller's "self"
+        try:
+            self_obj = frame.f_locals[self_name]
+        except KeyError:
+            return None
+
+        # check if the calling function is really a method
+        self_type = type(self_obj)
+        func_name = codeobj.co_name
+
+        # iterate through all classes in the MRO
+        for cls in self_type.__mro__:
+            # see if this class has a method with the name
+            # we're looking for
+            try:
+                method = vars(cls)[func_name]
+            except KeyError:
+                continue
+
+            # unwrap the method just in case there are any decorators
+            try:
+                method = inspect.unwrap(method)
+            except ValueError:
+                pass
+
+            # see if this is the method that called us
+            if getattr(method, '__code__', None) is codeobj:
+                return self_type.__name__
+
+        # if we didn't find a matching method, return None
+        return None
+
+    finally:
+        # make sure to clean up the frame at the end to avoid ref cycles
+        del frame
+
 def open_compressed(filename, mode='r', encoding='utf8'):
     """
     Open a bzip2 or a gzip file as if it was uncompressed.

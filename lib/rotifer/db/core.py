@@ -4,6 +4,7 @@ import pandas as pd
 
 # Rotifer
 import rotifer
+import rotifer.core.functions as rcf
 logger = rotifer.logging.getLogger(__name__)
 
 class BaseCursor:
@@ -109,7 +110,7 @@ class BaseCursor:
                         if x in error:
                             retry = False
                             break
-            err = [error, self.__name__, retry]
+            err = [error, rcf.who_is_calling(self), retry]
             targets = self.parse_ids(accessions)
             for x in targets:
                 if error == None:

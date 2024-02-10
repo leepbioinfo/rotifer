@@ -197,7 +197,7 @@ runhmmscan() {
 		echo ${tsv}
 		return
 	fi
-	cut -f1 -d " " ${input} | parallel --pipe -N1 -j36 --recstart '>' ${program} --cpu 1 ${database} - > ${out} 2> ${err}
+	cut -f1 -d " " ${input} | parallel --pipe -N1 -j${THREADS:-36} --recstart '>' ${program} --cpu 1 ${database} - > ${out} 2> ${err}
 	hmmer2table ${out} > ${tsv}
 	echo ${tsv}
 }
@@ -216,8 +216,27 @@ runrpsblast() {
 		echo ${tsv}
 		return
 	fi
-	cut -f1 -d " " ${input} | parallel -N1 -j36 --pipe --recstart '>' ${program} -db ${database} > ${out} 2> ${err}
+	cut -f1 -d " " ${input} | parallel -N1 -j${THREADS:-36} --pipe --recstart '>' ${program} -db ${database} > ${out} 2> ${err}
 	cat ${out} | parallel -N1 -j36 --pipe --recstart RPSBLAST blast2table -s > ${tsv}
+	echo ${tsv}
+}
+
+runpsiblast() {
+	local target="$1"
+	local name=$2
+	local input="$3"
+	local program=psiblast
+	local out=${target}.${name}.${program}.out
+	local err=${target}.${name}.${program}.err
+	local tsv=${target}.${name}.${program}.tsv 
+	if [ -f ${tsv} ]; then
+		echo "WARNING: using previously saved results for target ${target} and program ${program}." 1>&2
+		echo ${tsv}
+		return
+	fi
+	${program} -db ${database} -query ${input} -out ${out} -num_alignments ${RESULTS} -num_descriptions ${RESULTS} \
+	 -inclusion_ethresh ${THRESHOLD} -num_threads ${THREADS:-8} -parse_deflines -seg no -matrix BLOSUM62 -comp_based_stats 2
+	cat ${out} | parallel -N1 -j36 --pipe --recstart PSIBLAST blast2table > ${tsv}
 	echo ${tsv}
 }
 

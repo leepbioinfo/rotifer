@@ -54,7 +54,7 @@ class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
         update_lineage = kwargs.pop('update_lineage',False)
         preferred_taxa = kwargs.pop('preferred_taxa',None)
         if len(args) == 0 and 'columns' not in kwargs:
-            kwargs['columns'] = NDFProperties["columns"]
+            kwargs['columns'] = __class__.NDFProperties["columns"]
 
         # Call super().__init__()
         super(NeighborhoodDF, self).__init__(*args, **kwargs)

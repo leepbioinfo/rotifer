@@ -368,7 +368,12 @@ class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, rotifer.
     eukaryotes : boolean, default False
       If set to True, neighborhood data for eukaryotic genomes
     save : string, default None
-      If set, save processed batches to the path given
+      If set, the full genome annotation will be saved to a
+      local SQLite3 database for later use.
+
+      Note: currently, save won't write data but it can be
+            used to access previously loaded databases
+
     replace : boolean, default True
       When save is set, whether to replace that file
     mirror : path
@@ -459,8 +464,8 @@ class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, rotifer.
             cursor = rdss.GeneNeighborhoodCursor(save, replace=replace)
             if 'sqlite3' not in self.readers:
                 self.readers.insert(0,'sqlite3')
-            if 'sqlite3' not in self.writers:
-                self.writers.insert(0,'sqlite3')
+            #if 'sqlite3' not in self.writers:
+            #   self.writers.insert(0,'sqlite3')
             self.cursors['sqlite3'] = cursor
 
         # Setup simple attributes
@@ -531,11 +536,11 @@ class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, rotifer.
             if not isinstance(result,types.NoneType) and len(result) > 0:
                 for otherReader in tried:
                     self.cursors[otherReader].remove_missing(targets)
-                if self.save:
-                    for writer in self.writers:
-                        if writer not in self.cursors:
-                            continue
-                        self.cursors[writer].insert(result)
+                #if self.save:
+                #   for writer in self.writers:
+                #       if writer not in self.cursors:
+                #           continue
+                #       self.cursors[writer].insert(result)
                 break
         return result
 

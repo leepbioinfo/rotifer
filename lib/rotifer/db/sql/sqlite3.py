@@ -6,31 +6,27 @@ Rotifer connections to SQL databases
 # Dependencies
 import re
 import os
+import sys
+import uuid
 import types
 import typing
 import sqlite3
-import subprocess
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from Bio import SeqIO
-from io import StringIO
 
 # Rotifer
 import rotifer
-import rotifer.db.core as rdc
+import rotifer.db.core
+import rotifer.db.methods
 import rotifer.db.ncbi.utils as rdnu
 import rotifer.devel.beta.sequence as rdbs
-from rotifer import GlobalConfig
 from rotifer.core.functions import loadConfig
 from rotifer.genome.data import NeighborhoodDF
-from rotifer.genome.utils import seqrecords_to_dataframe
 logger = rotifer.logging.getLogger(__name__)
-config = loadConfig(__name__.replace('rotifer.',':'), defaults = {
-    'local_database_path': os.path.join(GlobalConfig['data'],"fadb","nr","nr"),
-})
+config = loadConfig(__name__, defaults = {})
 
-class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
+class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, rotifer.db.core.BaseCursor):
     """
     Fetch gene neighborhoods from SQLite3 database
     ==============================================
@@ -47,7 +43,7 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
     neighborhood around the gene encoding a target protein:
 
     >>> from rotifer.db.sql import sqlite3 as rdss
-    >>> gnc = rdss.GeneNeighborhoodCursor("neighbors.sqlite3")
+    >>> gnc = rdss.GeneNeighborhoodCursor("genomes.sqlite3")
     >>> df = gnc["EEE9598493.1"]
 
     Fetch all gene neighborhoods for a sample of proteins:
@@ -69,7 +65,7 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
     behaviour.
 
     path: string
-      Path to the localstorage
+      Path to a SQLite3 database file
     format : string, default ```tsv```
       Format of the local storage.
       Should match one of following the supported backends:
@@ -152,10 +148,14 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
             tries=3,
             batch_size=None,
             threads=15,
-            cache=GlobalConfig['cache'],
+            cache=rotifer.config['cache'],
+            *args, **kwargs
         ):
-        self.path = path
-        self.replace = replace
+
+        super().__init__(progress = progress, *args, **kwargs)
+        self.tries = tries
+        self.batch_size = batch_size
+        self.threads = threads
         self.column = column
         self.before = before
         self.after = after
@@ -166,87 +166,86 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
         self.exclude_type = exclude_type
         self.autopid = autopid
         self.codontable = codontable
-        self.progress = progress
-        self.tries = tries
-        self.batch_size = batch_size
-        self.threads = threads
+        self.path = path
+        self.replace = replace
         self.cache = cache
-        self.missing = pd.DataFrame(columns=["noipgs","eukaryote","assembly","error",'class'])
         if os.path.exists(self.path) and self.replace:
             os.remove(self.path)
         self._dbconn = sqlite3.connect(self.path)
-        self._dbconn.execute('CREATE TEMPORARY TABLE IF NOT EXISTS queries (id)')
-
-    def __setattr__(self,name,value):
-        super().__setattr__(name,value)
-        if name == "column":
-            if isinstance(value,str) or not isinstance(value, typing.Iterable):
-                super().__setattr__(name,[value])
-            if "pid" in self.column and "replaced" not in self.column:
-                self.column.append("replaced")
-            if "replaced" in self.column and "pid" not in self.column:
-                self.column.append("pid")
-
-    def _has_table(self, name):
-        sql = self._dbconn.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{name}'").fetchall()
-        return len(sql) > 0
-
-    def _fetch_from_sql(self, accessions):
-        if not self._has_table("neighborhoods"):
-            return seqrecords_to_dataframe([])
-        cursor = self._dbconn.cursor()
-        cursor.executemany("INSERT INTO queries VALUES (?)",[ (x,) for x in list(accessions) ])
-        self._dbconn.commit()
-        sql = []
-        for col in self.column:
-            sql.append(f'SELECT n2.* FROM queries as q inner join neighborhoods as n on (q.id = n.{col}) inner join neighborhoods as n2 using (block_id)')
-        sql = " UNION ".join(sql)
-        df = NeighborhoodDF(pd.read_sql(sql, self._dbconn))
-        self._dbconn.execute(f'DELETE FROM queries')
-        return df
+        self.uuid = str(uuid.uuid4())
 
     def __getitem__(self, accession, ipgs=None):
         """
         Dictionary-like access to gene neighbors.
         """
+        if not self.has_table('features'):
+            return NeighborhoodDF()
         if not isinstance(accession, typing.Iterable) or isinstance(accession,str):
             accession = [accession]
-        accession = set(accession)
 
-        # Load stored data
-        stored = self._fetch_from_sql(self.getids(accession, ipgs=ipgs))
-        if len(stored) == 0:
-            self.update_missing(accession,np.NaN,"Not found in storage")
-            return seqrecords_to_dataframe([])
-        found = self.getids(stored, ipgs=ipgs)
-        self.missing.drop(found, inplace=True, axis=0, errors="ignore")
+        # Register queries in the database and search neighborhoods
+        self.submit(accession)
+        sqlquery = f"""
+            SELECT f3.nucleotide, f3.start, f3.end, f3.strand, t.block_id,
+                   CASE WHEN t.ids LIKE "%" || f3.pid || "%" THEN 1 ELSE 0 END as query,
+                   f3.pid, f3.type, f3.plen, f3.locus, f3.seq_type, f3.assembly, gene, f3.origin,
+                   f3.topology, f3.product, f3.organism, f3.lineage, f3.classification,
+                   f3.feature_order, f3.internal_id, f3.pid as replaced
+            FROM (
+                SELECT assembly, nucleotide, type, block_id, min(idup) as idup, max(iddown) as iddown, group_concat(id,char(1)) as ids
+                FROM (
+                    SELECT *, SUM(nooverlap) OVER (ORDER BY assembly, nucleotide, idup, iddown) as block_id
+                    FROM (
+                        SELECT *,
+                               CASE WHEN 
+                                 nucleotide = LAG(nucleotide) OVER (ORDER BY assembly, nucleotide, idup, iddown)
+                                 and idup - LAG(iddown) OVER (ORDER BY assembly, nucleotide, idup, iddown) <= {self.min_block_distance}
+                                THEN 0
+                                ELSE 1
+                               END AS nooverlap
+                        FROM (
+                            SELECT q.id, f1.assembly, f1.nucleotide, f1.type,
+                                   f1.feature_order - {self.before} as foup, f1.feature_order + {self.after} as fodown,
+                                   min(f2.internal_id) as idup, max(f2.internal_id) as iddown
+                            FROM queries as q
+                             inner join features as f1 on (q.id = f1.{self.column})
+                             inner join features as f2 on (
+                                f1.assembly = f2.assembly
+                                and f1.nucleotide = f2.nucleotide
+                                and f1.type == f2.type
+                                and f2.feature_order >= foup
+                                and f2.feature_order <= fodown
+                             )
+                            WHERE q.uuid = '{self.uuid}'
+                            GROUP BY q.id, f1.assembly, f1.nucleotide, f1.type, foup, fodown
+                            ORDER BY f1.assembly, f1.nucleotide, idup, iddown
+                        ) as v
+                    ) as w
+                ) as z
+                GROUP BY assembly, nucleotide, type, block_id
+            ) as t
+            inner join features as f3 on (
+               t.assembly = f3.assembly 
+               and t.nucleotide = f3.nucleotide
+               and f3.internal_id >= idup 
+               and f3.internal_id <= iddown
+            )
+            WHERE f3.type NOT IN ('{"','".join(self.exclude_type)}')
+            ORDER BY f3.assembly, f3.nucleotide, f3.block_id, f3.start, f3.end
+        """
+        df = pd.read_sql(sqlquery, self._dbconn)
+        self.cleanup()
 
-        # Annotate missing entries
-        missing = accession - found
-        if len(missing) > 0:
-            mipgs = dict()
-            if not isinstance(ipgs,types.NoneType):
-                notinipgs = missing - self.getids(ipgs)
-                if len(notinipgs) > 0:
-                    self.update_missing(notinipgs,np.NaN,"No IPG and not in database")
-                    missing = missing - notinipgs
-                mipgs = ipgs[ipgs.pid.isin(missing) | ipgs.representative.isin(missing)].id
-                mipgs = ipgs[ipgs.id.isin(mipgs)]
-                mipgs = mipgs[mipgs.assembly.notna() | mipgs.nucleotide.notna()]
-                notinipgs = missing - self.getids(mipgs)
-                if len(notinipgs) > 0:
-                    self.update_missing(notinipgs,np.NaN,"IPG lists no nucleotide source")
-                    missing -= notinipgs
-                mipgs['dna'] = mipgs.id.map(rdnu.best_ipgs(mipgs).set_index('id').assembly.to_dict())
-                mipgs.assembly = np.where(mipgs.assembly.notna(), mipgs.assembly, mipgs.nucleotide)
-                mipgs = mipgs.melt(id_vars=["dna"], value_vars=['pid','representative'], var_name='type', value_name='pid')
-                mipgs = mipgs.drop('type', axis=1).drop_duplicates().set_index('pid').dna.to_dict()
-            for lost in missing:
-                assembly = mipgs[lost] if lost in mipgs else np.NaN
-                self.update_missing(lost, assembly, 'Not found in source database')
+        # Restrict results to nucleotides found in the IPG reports
+        if not (isinstance(ipgs,type(None)) or ipgs.empty):
+            df = df[df.nucleotide.isin(ipgs.nucleotide)]
 
-        # Return
-        return stored
+        # Find missing entries, if any
+        missing = set(accession).difference(self.getids(df, ipgs=ipgs))
+        if len(missing):
+            self.update_missing(missing, error=f'Entry not found in SQLite3 database {self.path}', retry=True)
+
+        return NeighborhoodDF(df)
 
     def fetchone(self, proteins, ipgs=None):
         """
@@ -260,12 +259,10 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
           This parameter may be used to avoid downloading IPGs
           from NCBI several times. Example:
 
-          >>> from rotifer.db.ncbi import entrez
-          >>> from rotifer.db.ncbi import ftp
-          >>> ic = ncbi.IPGCursor(batch_size=1)
-          >>> gnc = ftp.GeneNeighborhoodCursor(progress=True)
-          >>> i = ic.fetchall(['WP_063732599.1'])
-          >>> n = gnc.fetchall(['WP_063732599.1'], ipgs=i)
+          >>> from rotifer.db.sql import sqlite3 as dns
+          >>> gnc = rdss.GeneNeighborhoodCursor(progress=True)
+          >>> for n in gnc.fetchone(['WP_063732599.1']):
+                print(n.groupby('nucleotide').block_id.nunique())
 
         Returns
         -------
@@ -273,7 +270,6 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
         """
         if not isinstance(proteins,typing.Iterable) or isinstance(proteins,str):
             proteins = [proteins]
-        proteins = set(proteins)
         if self.progress:
             logger.warn(f'Searching {len(proteins)} protein(s) in SQLite3 database at {self.path}')
             p = tqdm(total=len(proteins), initial=0)
@@ -285,72 +281,116 @@ class GeneNeighborhoodCursor(rdc.BaseGeneNeighborhoodCursor):
                 p.update(len(done))
             yield block.copy()
 
-    def fetchall(self, proteins, ipgs=None):
+    def fetchall(self, ids, ipgs=None):
         """
-        Fetch all gene neighborhoods in a single dataframe.
+        Fetch all gene neighborhoods at once.
 
         Parameters
         ----------
         proteins: list of strings
           Database identifiers.
         ipgs : Pandas dataframe
-          This parameter may be used to identify identical
-          sequences using NCBI's IPG reports. Example:
+          This parameter may be used to avoid downloading IPGs
+          from NCBI several times. Example:
 
-          >>> from rotifer.db.ncbi import entrez
-          >>> from rotifer.db.sql import sqlite3
-          >>> ic = ncbi.IPGCursor(batch_size=1)
-          >>> gnc = sqlite3.GeneNeighborhoodCursor("mydb.db")
-          >>> i = ic.fetchall(['WP_063732599.1'])
-          >>> n = gnc.fetchall(['WP_063732599.1'], ipgs=i)
+          >>> from rotifer.db.sql import sqlite3 as rdss
+          >>> gnc = rdss.GeneNeighborhoodCursor()
+          >>> n = gnc.fetchall(['WP_063732599.1'])
 
         Returns
         -------
         rotifer.genome.data.NeighborhoodDF
         """
-        from rotifer.genome.utils import seqrecords_to_dataframe
-        df = []
-        for block in self.fetchone(proteins, ipgs=ipgs):
-            df.append(block)
-        if len(df) > 0:
-            df = pd.concat(df)
-        else:
-            df = seqrecords_to_dataframe([])
-        return df
+        return self.__getitem__(ids, ipgs=ipgs)
 
-    def stored(self, block):
+    def insert(self, data):
         """
-        Identify gene neighborhoods present in the SQLite3 storage.
-
-        The block_id column is used to identify gene neighborhoods
-        and exact matches in the SQL database are reported as True.
+        Store genome annotation data in the SQLite3 database.
 
         Parameters
         ----------
-        block: rotifer.genome.data.NeighborhoodDF
-          Gene neighborhoods to check for presence in the database.
+        data: rotifer.genome.data.NeighborhoodDF
+          Gene neighborhood dataframe
+        """
+        data = data[~self.stored(data)]
+        if len(data) > 0:
+            data.to_sql("features", self._dbconn, if_exists = 'append', index=False)
+
+    def stored(self, data, column='block_id', table='features'):
+        """
+        Verify if data is stored in the SQLite3 database.
+
+        Parameters
+        ----------
+        data: string, list, pandas series, dataframe or derived
+              classes such as rotifer.genome.data.NeighborhoodDF
+        column: (list of) string
+          Column(s) to search.
+        table: string
+          Name of the table to search for matches.
 
         Returns
         -------
         Pandas Series
 
-        The Series elements are booleans: True if found in the
-        storage, False otherwise.
+        The Series elements are booleans, i.e. True if found in the
+        storage, False otherwise. 
         """
-        sql = []
-        if self._has_table("neighborhoods"):
-            sql = pd.read_sql("SELECT DISTINCT block_id from neighborhoods", self._dbconn).block_id
-        return block.block_id.isin(sql)
+        ret = pd.Series([ False for x in range(1,len(data)) ])
+        if not self.has_table(table):
+            return ret
+        if isinstance(data, str):
+            data = [data]
+        if isinstance(data, list):
+            data = pd.Series(data, name='input')
+        for col in column:
+            inStore = pd.read_sql(f"""SELECT DISTINCT {col} from {table}""", self._dbconn)[col]
+            if isinstance(data, pd.DataFrame):
+                ret = ret | data[col].isin(inStore)
+            else:
+                ret = ret | data.isin(inStore)
+        return ret
 
-    def insert(self, block):
+    def has_table(self, name):
         """
-        Add one or more new gene neighborhoods to the local storage.
+        Find whether a table exists in the database.
+        """
+        sql = self._dbconn.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{name}'").fetchall()
+        return len(sql) > 0
+
+    def schema(self):
+        """
+        Show table definitions.
+
+        Returns
+        -------
+        String
+        """
+        return self._dbconn.execute("""SELECT sql FROM sqlite_schema;""").fetchall()[0][0]
+
+    def submit(self, accessions):
+        """
+        Send data to temporary tables for use in subsequent searches.
+        
+        Note
+        ----
+        Submitted data will be overwritten in the next submit() call.
 
         Parameters
         ----------
-        block: rotifer.genome.data.NeighborhoodDF
-          Gene neighborhood dataframe
+        accessions:
+         Any sqlite3 supported values, such as strings, integers or float.
         """
-        block = block[~self.stored(block)]
-        if len(block) > 0:
-            block.to_sql("neighborhoods", self._dbconn, if_exists = 'append', index=False)
+        ids = set(accessions)
+        cursor = self._dbconn.cursor()
+        cursor.execute('CREATE TEMPORARY TABLE IF NOT EXISTS queries (id, uuid)')
+        self.cleanup()
+        cursor.executemany("INSERT INTO queries VALUES (?,?)",[ (x,self.uuid) for x in ids ])
+        self._dbconn.commit()
+
+    def cleanup(self):
+        """
+        Remove data from temporary tables.
+        """
+        self._dbconn.execute(f"DELETE FROM queries WHERE uuid = '{self.uuid}'")
+        self._dbconn.commit()

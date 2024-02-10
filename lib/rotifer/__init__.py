@@ -16,7 +16,7 @@ import logging as logging
 from rotifer.core import logger as rcl
 
 def _setup_config(logger):
-    from rotifer.core import config as CoreConfig
+    from rotifer.core import config as CoreConfig 
     from rotifer.core.functions import loadConfig
 
     # Reset configuration using environment variables

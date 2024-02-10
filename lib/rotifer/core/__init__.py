@@ -5,12 +5,8 @@ __doc__ = '''Rotifer's core configuration and setup'''
 import os
 import sys
 
-# Load default modules
-#from . import cli
-#from . import functions
-
 # Core configuration
-def _setup_config():
+def _get_core_config():
     from os.path import expanduser, dirname, realpath
 
     # Base directories
@@ -34,4 +30,4 @@ def _setup_config():
 
     return config
 
-config = _setup_config()
+config = _get_core_config()
