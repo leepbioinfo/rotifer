@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
-from datetime import datetime as dt
 import os
 import sys
+from copy import deepcopy
+from datetime import datetime as dt
 from rotifer.core import config as CoreConfig
 from rotifer.core import logger as rcl
 logger = rcl.get_logger(__name__)
@@ -445,6 +446,10 @@ def findDataFiles(load, all=False):
 
     files = []
     for f in load:
+        # Rename if needed
+        if f[0:8] == "rotifer.":
+            f = f.replace("rotifer.",":",1)
+
         # Standard files
         if f[0] != ":" and os.path.exists(f):
                 files.append(f)
@@ -457,7 +462,7 @@ def findDataFiles(load, all=False):
         else:
             f = f.split('.')
             if len(f) > 1:
-                g = f
+                g = deepcopy(f)
                 g[-2] = g[-2] + '.' + g[-1]
                 del(g[-1])
 

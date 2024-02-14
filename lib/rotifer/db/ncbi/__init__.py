@@ -69,14 +69,14 @@ class SequenceCursor(rotifer.db.methods.SequenceCursor, rotifer.db.delegator.Seq
     Usage
     -----
     Fetch a protein sequence
-    >>> from rotifer.db.ncbi import ncbi
+    >>> from rotifer.db import ncbi
     >>> sc = ncbi.SequenceCursor(database="protein")
     >>> seqrec = sc.fetchall("YP_009724395.1")
 
     Fetch several nucleotide entries
     >>> import sys
     >>> from Bio import SeqIO
-    >>> from rotifer.db.ncbi import ncbi
+    >>> from rotifer.db import ncbi
     >>> sc = ncbi.SequenceCursor(database="nucleotide")
     >>> query = ['CP084314.1', 'NC_019757.1', 'AAHROG010000026.1']
     >>> for seqrec in sc.fetchone(query):
@@ -128,7 +128,7 @@ class FastaCursor(rotifer.db.methods.SequenceCursor, rotifer.db.delegator.Sequen
 
     Usage
     -----
-    >>> from rotifer.db.ncbi import ncbi
+    >>> from rotifer.db import ncbi
     >>> sc = ncbi.FastaCursor(database="protein")
     >>> seqrec = sc.fetchall("YP_009724395.1")
 
@@ -172,6 +172,53 @@ class FastaCursor(rotifer.db.methods.SequenceCursor, rotifer.db.delegator.Sequen
         self.database = entrez_database
         super().__init__(readers=readers, writers=writers, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
 
+class IPGCursor(rotifer.db.methods.SequenceCursor, rotifer.db.delegator.SequentialDelegatorCursor):
+    """
+    Fetch identical proteins (IPG) reports.
+
+    Usage
+    -----
+    >>> from rotifer.db import ncbi
+    >>> ic = ncbi.IPGCursor(database="protein")
+    >>> df = ic.fetchall("YP_009724395.1")
+
+    Parameters
+    ----------
+    readers: list of strings, default ['entrez']
+      List of backend reader modules
+    writers: list of strings, default []
+      List of backend writer modules
+    local_database_path: list of strings
+        Path to local SQLite3 database
+    progress: boolean, deafult False
+      Whether to print a progress bar
+    tries: int, default 3
+      Number of attempts to download data
+    sleep_between_tries: int, default 1
+      Number of seconds to wait between download attempts
+    batch_size: int, default 1
+      Number of accessions per batch
+    threads: integer, default 3
+      Number of simultaneous threads to run
+
+    """
+    def __init__(
+            self,
+            readers=['sqlite3','entrez'],
+            writers=[],
+            local_database_path=config["local_database_path"],
+            progress=True,
+            tries=3,
+            sleep_between_tries=1,
+            batch_size=None,
+            threads=None,
+            *args, **kwargs):
+        self._shared_attributes = ['progress','tries','sleep_between_tries','batch_size','threads','database','path']
+        self.sleep_between_tries = sleep_between_tries
+        self.path = local_database_path
+        self.database = entrez_database
+        super().__init__(readers=readers, writers=writers, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
+
 class GenomeCursor(rotifer.db.methods.GenomeCursor, rotifer.db.delegator.SequentialDelegatorCursor):
     """
     Fetch annotated genome sequences.
@@ -181,7 +228,7 @@ class GenomeCursor(rotifer.db.methods.GenomeCursor, rotifer.db.delegator.Sequent
     Load a sample of genomes
 
     >>> q = ['GCA_018744545.1', 'GCA_901308185.1']
-    >>> from rotifer.db.ncbi as ncbi
+    >>> from rotifer.db as ncbi
     >>> gfc = ncbi.GenomeCursor(progress=True)
     >>> g = gfc.fetchall(q)
 
@@ -237,7 +284,7 @@ class GenomeFeaturesCursor(rotifer.db.methods.GenomeFeaturesCursor, rotifer.db.d
     Load a random sample of genomes
 
     >>> g = ['GCA_018744545.1', 'GCA_901308185.1']
-    >>> from rotifer.db.ncbi as ncbi
+    >>> from rotifer.db as ncbi
     >>> gfc = ncbi.GenomeFeaturesCursor(progress=True)
     >>> df = gfc.fetchall(g)
 
@@ -315,7 +362,7 @@ class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, rotifer.
     Using the dictionary-like interface, fetch the gene
     neighborhood around the gene encoding a target protein:
 
-    >>> import rotifer.db.ncbi a ncbi
+    >>> import rotifer.db a ncbi
     >>> gnc = ncbi.GeneNeighborhoodCursor()
     >>> df = gnc["EEE9598493.1"]
 
@@ -500,7 +547,7 @@ class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, rotifer.
 
         Usage
         -----
-        >>> import rotifer.db.ncbi as ncbi
+        >>> import rotifer.db as ncbi
         >>> gnc = ncbi.GeneNeighborhoodCursor(progress=True)
         >>> n = gnc["WP_063732599.1"]
 
@@ -512,9 +559,8 @@ class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, rotifer.
           This parameter may be used to avoid downloading IPGs
           from NCBI several times. Example:
 
-          >>> from rotifer.db.ncbi import entrez
-          >>> import rotifer.db.ncbi as ncbi
-          >>> ic = entrez.IPGCursor(batch_size=1)
+          >>> from rotifer.db as ncbi
+          >>> ic = ncbi.IPGCursor(batch_size=1)
           >>> gnc = ncbi.GeneNeighborhoodCursor(progress=True)
           >>> i = ic.fetchall(['WP_063732599.1'])
           >>> n = gnc.__getitem__(['WP_063732599.1'], ipgs=i)
@@ -556,9 +602,8 @@ class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, rotifer.
           This parameter may be used to avoid downloading IPGs
           from NCBI several times. Example:
 
-          >>> from rotifer.db.ncbi import entrez
-          >>> import rotifer.db.ncbi as ncbi
-          >>> ic = entrez.IPGCursor(batch_size=1)
+          >>> from rotifer.db as ncbi
+          >>> ic = ncbi.IPGCursor(batch_size=1)
           >>> gnc = ncbi.GeneNeighborhoodCursor(progress=True)
           >>> i = ic.fetchall(['WP_063732599.1'])
           >>> for x in gnc.fetchone(['WP_063732599.1'], ipgs=i):
@@ -627,9 +672,8 @@ class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, rotifer.
           This parameter may be used to avoid downloading IPGs
           from NCBI several times. Example:
 
-          >>> from rotifer.db.ncbi import entrez
-          >>> import rotifer.db.ncbi as ncbi
-          >>> ic = entrez.IPGCursor(batch_size=1)
+          >>> from rotifer.db as ncbi
+          >>> ic = ncbi.IPGCursor(batch_size=1)
           >>> gnc = ncbi.GeneNeighborhoodCursor(progress=True)
           >>> i = ic.fetchall(['WP_063732599.1'])
           >>> n = gnc.fetchall(['WP_063732599.1'], ipgs=i)
@@ -672,7 +716,7 @@ class TaxonomyCursor(rotifer.db.delegator.SequentialDelegatorCursor):
 
         Usage
         -----
-        >>> import rotifer.db.ncbi as ncbi
+        >>> from rotifer.db import ncbi
         >>> tc = ncbi.TaxonomyCursor(progress=True)
         >>> t = tc[2599]
 
@@ -727,7 +771,7 @@ def assemblies(baseurl=f'ftp://{config["ftpserver"]}/genomes/ASSEMBLY_REPORTS', 
     -----
     Download from NCBI's FTP site
 
-    >>> import rotifer.db.ncbi as ncbi
+    >>> from rotifer.db import ncbi
     >>> a = ncbi.assembly_reports()
 
     Load local files at /db/ncbi

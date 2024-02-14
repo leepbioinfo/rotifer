@@ -170,7 +170,8 @@ class FastaCursor(SequenceCursor):
         self._format = 'fasta'
 
 class IPGCursor(SequenceCursor):
-    def __init__(self, progress=True,
+    def __init__(self,
+            progress=True,
             tries=3,
             sleep_between_tries=1,
             batch_size=config['batch_size'],

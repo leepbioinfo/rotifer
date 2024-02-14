@@ -21,21 +21,148 @@ import rotifer.db.core
 import rotifer.db.methods
 import rotifer.db.ncbi.utils as rdnu
 import rotifer.devel.beta.sequence as rdbs
-from rotifer.core.functions import loadConfig
+from rotifer.core import functions as rcf
 from rotifer.genome.data import NeighborhoodDF
 logger = rotifer.logging.getLogger(__name__)
-config = loadConfig(__name__, defaults = {})
+config = rcf.loadConfig(__name__, defaults = {})
 
-class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, rotifer.db.core.BaseCursor):
+class BaseSQLite3Cursor(rotifer.db.core.BaseCursor):
+    """
+    Shared SQLite3 methods and initialization routines
+    ==================================================
+
+    This class is not expected to be used directly
+    but as a parent class for all SQLite3 cursors.
+
+    Usage
+    -----
+    Dictionary-like interface
+
+    >>> from rotifer.db.sql import sqlite3 as rdss
+    >>> gnc = rdss.GeneNeighborhoodCursor("genomes.sqlite3")
+    >>> df = gnc["EEE9598493.1"]
+
+    Parameters
+    ----------
+    path: string
+      Path to a SQLite3 database file
+
+    Internal state attributes
+    -------------------------
+    Objects of this class modify the following attributes
+    when fetch methods are called:
+
+    * missing
+      A Pandas DataFrame describing errors and messages for
+      failed attempts to download gene neighborhoods.
+
+    """
+    def __init__(
+            self,
+            path,
+            replace = False,
+            *args, **kwargs
+        ):
+
+        super().__init__(*args, **kwargs)
+        self.path = path
+        self.replace = replace
+        if os.path.exists(self.path) and self.replace:
+            os.remove(self.path)
+        self._dbconn = sqlite3.connect(self.path)
+        self.uuid = str(uuid.uuid4())
+
+    def stored(self, data, column='block_id', table='features'):
+        """
+        Find which part of the input data is stored in the
+        object's SQLite3 database.
+
+        Parameters
+        ----------
+        data: string, list, pandas series or dataframe
+          Input data to scan for entries in the database
+        column: (list of) string
+          What column(s) to use while searching.
+        table: string
+          Name of the table to search for matches.
+
+        Returns
+        -------
+        Pandas Series of boolean values
+        The Series elements are True if the corresponding
+        data is found in the storage. 
+        """
+        ret = pd.Series([ False for x in range(1,len(data)) ])
+        if not self.has_table(table):
+            return ret
+        if isinstance(data, str):
+            data = [data]
+        if isinstance(data, list):
+            data = pd.Series(data, name='input')
+        for col in column:
+            inStore = pd.read_sql(f"""SELECT DISTINCT {col} from {table}""", self._dbconn)[col]
+            if isinstance(data, pd.DataFrame):
+                ret = ret | data[col].isin(inStore)
+            else:
+                ret = ret | data.isin(inStore)
+        return ret
+
+    def has_table(self, name):
+        """
+        Find whether a table exists in the database.
+        """
+        sql = self._dbconn.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{name}'").fetchall()
+        return len(sql) > 0
+
+    @property
+    def schema(self):
+        """
+        Show table definitions.
+
+        Returns
+        -------
+        String
+        """
+        return self._dbconn.execute("""SELECT sql FROM sqlite_schema;""").fetchall()[0][0]
+
+    def submit(self, accessions):
+        """
+        Send data to temporary tables for use in subsequent searches.
+        
+        Note
+        ----
+        Submitted data will be overwritten in the next submit() call.
+
+        Parameters
+        ----------
+        accessions:
+         Any sqlite3 supported values, such as strings, integers or float.
+        """
+        if isinstance(accessions,str) or not isinstance(accessions,typing.Iterable):
+            ids = set([accessions])
+        else:
+            ids = set(accessions)
+        cursor = self._dbconn.cursor()
+        cursor.execute('CREATE TEMPORARY TABLE IF NOT EXISTS queries (id TEXT, uuid TEXT)')
+        self.cleanup()
+        cursor.executemany("INSERT INTO queries VALUES (?,?)",[ (x,self.uuid) for x in ids ])
+        cursor.execute("CREATE INDEX IF NOT EXISTS uidx ON queries (uuid)")
+        self._dbconn.commit()
+
+    def cleanup(self):
+        """
+        Remove data from temporary tables.
+        """
+        self._dbconn.execute(f"DELETE FROM queries WHERE uuid = '{self.uuid}'")
+        self._dbconn.commit()
+
+class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, BaseSQLite3Cursor):
     """
     Fetch gene neighborhoods from SQLite3 database
     ==============================================
 
-    This class implements storage of fully defined
-    gene neighborhoods in a local SQLite3 database
-
-    Input data should be gene neighborhoods returned
-    by remote providers, such as NCBI.
+    This class implements methods for retrieval of
+    gene neighborhoods from a local SQLite3 database.
 
     Usage
     -----
@@ -66,10 +193,8 @@ class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, rotifer.
 
     path: string
       Path to a SQLite3 database file
-    format : string, default ```tsv```
-      Format of the local storage.
-      Should match one of following the supported backends:
-      * tsv: TAB-separated text tables
+    replace : boolean, default False
+      If set to true, overwrite the database file
     column : string
       Name of the column to scan for matches to the accessions
       See rotifer.genome.data.NeighborhoodDF
@@ -102,8 +227,6 @@ class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, rotifer.
       If set to True, neighborhood data for eukaryotic genomes
     save : string, default None
       If set, save processed batches to the path given
-    replace : boolean, default False
-      When save is set, whether to replace that file
     exclude_type: list of strings
       List of names for the features that must be ignored
     autopid: boolean
@@ -134,6 +257,8 @@ class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, rotifer.
             self,
             path,
             replace = False,
+            identical = None,
+            identical_column = 'c100i100',
             column = 'pid',
             before = 7,
             after = 7,
@@ -145,17 +270,10 @@ class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, rotifer.
             autopid=False,
             codontable='Bacterial',
             progress=False,
-            tries=3,
-            batch_size=None,
-            threads=15,
-            cache=rotifer.config['cache'],
             *args, **kwargs
         ):
 
-        super().__init__(progress = progress, *args, **kwargs)
-        self.tries = tries
-        self.batch_size = batch_size
-        self.threads = threads
+        super().__init__(path=path, replace=replace, progress=progress, *args, **kwargs)
         self.column = column
         self.before = before
         self.after = after
@@ -166,13 +284,6 @@ class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, rotifer.
         self.exclude_type = exclude_type
         self.autopid = autopid
         self.codontable = codontable
-        self.path = path
-        self.replace = replace
-        self.cache = cache
-        if os.path.exists(self.path) and self.replace:
-            os.remove(self.path)
-        self._dbconn = sqlite3.connect(self.path)
-        self.uuid = str(uuid.uuid4())
 
     def __getitem__(self, accession, ipgs=None):
         """
@@ -316,81 +427,56 @@ class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, rotifer.
         if len(data) > 0:
             data.to_sql("features", self._dbconn, if_exists = 'append', index=False)
 
-    def stored(self, data, column='block_id', table='features'):
-        """
-        Verify if data is stored in the SQLite3 database.
+class IPGCursor(rotifer.db.methods.SequenceCursor, BaseSQLite3Cursor):
+    """
+    Fetch identical proteins reports (IPG).
 
-        Parameters
-        ----------
-        data: string, list, pandas series, dataframe or derived
-              classes such as rotifer.genome.data.NeighborhoodDF
-        column: (list of) string
-          Column(s) to search.
-        table: string
-          Name of the table to search for matches.
+    Usage
+    -----
+    >>> from rotifer.db.sql import sqlite3 as rdss
+    >>> ic = rdss.IPGCursor(database="protein")
+    >>> df = ic.fetchall("YP_009724395.1")
 
-        Returns
-        -------
-        Pandas Series
+    Parameters
+    ----------
+    path: list of strings
+        Path to local SQLite3 database
+    replace : boolean, default False
+      If set to true, overwrite the database file
 
-        The Series elements are booleans, i.e. True if found in the
-        storage, False otherwise. 
-        """
-        ret = pd.Series([ False for x in range(1,len(data)) ])
-        if not self.has_table(table):
-            return ret
-        if isinstance(data, str):
-            data = [data]
-        if isinstance(data, list):
-            data = pd.Series(data, name='input')
-        for col in column:
-            inStore = pd.read_sql(f"""SELECT DISTINCT {col} from {table}""", self._dbconn)[col]
-            if isinstance(data, pd.DataFrame):
-                ret = ret | data[col].isin(inStore)
-            else:
-                ret = ret | data.isin(inStore)
-        return ret
+    """
+    def __init__(
+            self,
+            path,
+            replace=False,
+            identical='c100',
+            identical_column='c100i100',
+            *args, **kwargs):
+        self._columns = ['id','ipg_source','nucleotide','start','stop','strand','pid','description','ipg_organism','strain','assembly']
+        self._added_columns = ['order','is_query','representative']
+        super().__init__(path=path, replace=replace, *args, **kwargs)
+        self.identical = identical
+        self.identical_column = identical_column
 
-    def has_table(self, name):
+    # Fetch identical sequences and merge
+    def __getitem__(self, accessions):
         """
-        Find whether a table exists in the database.
+        Identical protein report dictionary-like interface.
         """
-        sql = self._dbconn.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{name}'").fetchall()
-        return len(sql) > 0
-
-    def schema(self):
-        """
-        Show table definitions.
-
-        Returns
-        -------
-        String
-        """
-        return self._dbconn.execute("""SELECT sql FROM sqlite_schema;""").fetchall()[0][0]
-
-    def submit(self, accessions):
-        """
-        Send data to temporary tables for use in subsequent searches.
-        
-        Note
-        ----
-        Submitted data will be overwritten in the next submit() call.
-
-        Parameters
-        ----------
-        accessions:
-         Any sqlite3 supported values, such as strings, integers or float.
-        """
-        ids = set(accessions)
-        cursor = self._dbconn.cursor()
-        cursor.execute('CREATE TEMPORARY TABLE IF NOT EXISTS queries (id, uuid)')
+        self.submit(accessions)
+        if self.identical == None:
+            sql = "ipgs_from_features.sql"
+        else:
+            sql = "ipgs_from_nr.sql"
+        sqlfile = rcf.findDataFiles(__name__ + "." + sql)
+        if not len(sqlfile):
+            logger.error(f"Could not load SQL file {sql}")
+            return pd.DataFrame([], columns=self._columns + self._added_columns)
+        sql = " ".join(open(sqlfile,"rt").readlines())
+        sql = sql.format(uuid=self.uuid, path=self.path, identical=self.identical, identical_column=self.identical_column)
+        result = pd.read_sql(sql, self._dbconn)
         self.cleanup()
-        cursor.executemany("INSERT INTO queries VALUES (?,?)",[ (x,self.uuid) for x in ids ])
-        self._dbconn.commit()
+        return result
 
-    def cleanup(self):
-        """
-        Remove data from temporary tables.
-        """
-        self._dbconn.execute(f"DELETE FROM queries WHERE uuid = '{self.uuid}'")
-        self._dbconn.commit()
+    def fetchall(self, accessions):
+        return self.__getitem__(accessions)
