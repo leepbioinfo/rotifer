@@ -266,7 +266,7 @@ runphobius() {
 target=$1
 input=$2
 if [ "$target" == "" ] || [ "$input" == "" ] || [ ! -f "$input" ]; then
-	&usage
+	usage
 fi
 
 # Clustering
