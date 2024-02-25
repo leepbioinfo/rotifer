@@ -1,16 +1,27 @@
--- Local variables
-local myfn  = myFileName()
-local mymfn = myModuleFullName()
-local mydir = myfn:gsub(mymfn .. ".lua",""):gsub("/etc/lmod/modules/","")
+-- Rotifer's shell configuration
+
+-- Libraries
+local lfs = require("lfs")
+
+-- Local variables: adjust manually
+-- local installdir = "/home/linuxbrew"
+local datadir = "/databases"
+local ext = {bash = ".sh",zsh = ".zsh",tcsh = ".csh",csh = ".csh",sh = ".sh",fish = ".fish"}
 local myshell = "bash" -- set this value to your default shell
 if (os.getenv("SHELL") ~= nil) then
 	myshell = os.getenv("SHELL"):gsub("(.*/)(.*)", "%2")
 end
-local ext = {bash = ".sh",zsh = ".zsh",tcsh = ".csh",csh = ".csh",sh = ".sh",fish = ".fish"}
+
+-- Local variables
+local myfn  = myFileName()
+local mymfn = myModuleFullName()
+local mydir = myfn:gsub(mymfn .. ".lua",""):gsub("/etc/lmod/modules/","")
 
 -- Whatis
-whatis("Name: " .. mymfn)
-whatis("Path: " .. myfn)
+whatis("Module: " .. mymfn)
+whatis("Filename: " .. myfn)
+whatis("Directory: " .. mydir)
+whatis("Shell: " .. myshell)
 whatis("Version: 0.1 ")
 whatis("Category: data analysis ")
 whatis("Description: Rotifer's shell setup.")
@@ -23,10 +34,10 @@ load("leep")
 prepend_path("PYTHONPATH", mydir .. "/lib")
 prepend_path("PERL5LIB", mydir .. "/perl/lib")
 if (os.getenv("ROTIFER_DATA") == nil) then
-	setenv("ROTIFER_DATA","/databases")
+	setenv("ROTIFER_DATA",datadir)
 end
 if (os.getenv("DATABASES") == nil) then
-	setenv("DATABASES","/databases")
+	setenv("DATABASES",datadir)
 end
 
 -- PATH
