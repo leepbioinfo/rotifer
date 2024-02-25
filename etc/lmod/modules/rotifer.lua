@@ -45,7 +45,6 @@ prepend_path("PATH", mydir .. "/bin")
 
 -- Load shell functions
 if (ext[myshell] ~= nil) then
-	require "lfs"
 	for script in lfs.dir(pathJoin(mydir,"etc","profile.d")) do
 		if (script:sub(script:len() - ext[myshell]:len() + 1) == ext[myshell]) then
 			local name = script:gsub(ext[myshell],"")
