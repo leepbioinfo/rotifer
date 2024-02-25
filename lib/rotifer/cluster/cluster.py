@@ -12,9 +12,18 @@ from multiprocessing import Pool, Process
 import itertools
 import shutil
 class cluster_neighbor:
-    def __init__(self, df, blockid = '', cluster = ''):
+    def __init__(
+            self, 
+            df: pd.DataFrame, 
+            blockid: str = '',
+            cluster: str = ''
+    ) -> None:
         '''
         You can access the data count using .matrix
+
+        :param df: pandas dataframe object with cluster data
+        :param blockid: The name of the column that contains the block id information in your dataframe.
+        :param cluster: The name of the column that contains the cluster information in your dataframe.
         '''
         self.gb = df.groupby(blockid)[cluster].apply(lambda x: x.tolist()).to_dict()
         self.threads = 3
@@ -31,7 +40,7 @@ class cluster_neighbor:
             else: pass
 
         print(self.combinations)
-    def _sub_matrix(self, args):
+    def _sub_matrix(self, args) -> None:
         '''
         Build a square matrix
         '''
@@ -56,12 +65,16 @@ class cluster_neighbor:
             self.matrix = self.matrix.join(_tmpload, how='outer', on = _tmpload.columns.tolist())
             print(self.matrix)
         return self.matrix
-    def clustering(self):
+    def clustering(self, method: str = 'average') -> hc:
         '''
-        Get linkage
+        Get linkage 
+
+        :param method: The method to use for clustering.
+
+        :return: The linkage object.
         '''
         correlation_array = np.asarray(self.matrix)
-        self.linkage = hc.linkage(correlation_array, method = 'average')
+        self.linkage = hc.linkage(correlation_array, method = method)
 #        self.linkage = hc.linkage(sp.distance.squareform(correlation_array), method = 'average')
         return self.linkage
     def plt(self):
