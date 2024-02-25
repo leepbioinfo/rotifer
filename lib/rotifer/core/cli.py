@@ -15,6 +15,7 @@ from termcolor import colored
 from collections import defaultdict
 from os.path import expanduser
 import warnings
+from typing import List, Dict
 
 #########
 ### This is a hack we should think carefully about it
@@ -27,9 +28,14 @@ __version__ = 0.20
 __authors__ = 'Gilberto Kaihami; Robson Souza'
 
 ### Add arguments ###
-def check_args(dc):
+def check_args(dc: Dict[str, str]) -> Dict[str, str]:
     '''
     Check if a argument is present or not in a config dict
+
+    :param dc: A dictionary containing the arguments
+
+    :return: A dictionary containing the arguments with their values
+             If an argument is missing its value will be None
     '''
     ls_args = ['long_arg', 'short_arg', 'dest',
                'nargs', 'const','default',
@@ -795,23 +801,23 @@ class action:
 
 
 ## Ok
-def version(program = '',
-            description = '',
-            version = '',
-            tags = '',
-            authors = '',
-            program_attrs = {'color': 'red',
+def version(program: str = '',
+            description: str = '',
+            version: str = '',
+            tags: str = '',
+            authors: str = '',
+            program_attrs: Dict[str, str] = {'color': 'red',
                              'attrs': ['bold']
             },
-            description_attrs = {'color': 'green',
+            description_attrs: Dict[str, str] = {'color': 'green',
                              'attrs': []
             },
-            version_attrs = {'color': 'cyan',
+            version_attrs: Dict[str, str] = {'color': 'cyan',
                              'attrs': []
             },
-            tag_attrs = {'color': 'cyan',
+            tag_attrs: Dict[str, str] = {'color': 'cyan',
                          'attrs': []},
-            authors_attrs = {'color': 'cyan',
+            authors_attrs: Dict[str, str] = {'color': 'cyan',
                              'attrs': []
             }):
     '''
@@ -896,7 +902,16 @@ class dotdict(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
-def extend_yaml(args):
+def extend_yaml(args: List[str]) -> Dict[str, str]:
+    '''
+    Extend the argparse namespace with yaml files parsed into key-values in a dictionary.
+    
+    Args:   
+      args (list of strings): command line arguments
+      
+    Returns: 
+      dict: extended argparse namespace as a dictionary
+    '''
     final_dc = defaultdict(list)
     for arg in args:
         data = yaml.load(open(arg))
