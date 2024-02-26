@@ -204,7 +204,7 @@ class IPGCursor(rotifer.db.methods.SequenceCursor, rotifer.db.delegator.Sequenti
     """
     def __init__(
             self,
-            readers=['sqlite3','entrez'],
+            readers=['entrez'],
             writers=[],
             entrez_database="ipg",
             local_database_path=None,
@@ -217,6 +217,9 @@ class IPGCursor(rotifer.db.methods.SequenceCursor, rotifer.db.delegator.Sequenti
         self._shared_attributes = ['progress','tries','sleep_between_tries','batch_size','threads','database','path']
         self.sleep_between_tries = sleep_between_tries
         self.path = local_database_path
+        if self.path != None and os.path.exists(self.path):
+            readers.append("sqlite3")
+            kwargs['path'] = self.path
         self.database = entrez_database
         super().__init__(readers=readers, writers=writers, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
 
