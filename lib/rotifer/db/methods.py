@@ -20,6 +20,20 @@ class SequenceCursor:
         else:
             return {obj.id}
 
+class IPGCursor:
+    @property
+    def columns(self):
+        return self._columns + self._added_columns
+
+    def getids(self,obj):
+        if not isinstance(obj,list):
+            obj = [obj]
+        ids = set()
+        for o in obj:
+            ids.update(set(o.pid))
+            ids.update(set(o.representative))
+        return ids
+
 class GenomeCursor:
     def getids(self,obj):
         if isinstance(obj,types.NoneType):

@@ -172,7 +172,7 @@ class FastaCursor(rotifer.db.methods.SequenceCursor, rotifer.db.delegator.Sequen
         self.database = entrez_database
         super().__init__(readers=readers, writers=writers, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
 
-class IPGCursor(rotifer.db.methods.SequenceCursor, rotifer.db.delegator.SequentialDelegatorCursor):
+class IPGCursor(rotifer.db.methods.IPGCursor, rotifer.db.delegator.SequentialDelegatorCursor):
     """
     Fetch identical proteins (IPG) reports.
 
