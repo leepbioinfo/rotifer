@@ -206,7 +206,6 @@ class IPGCursor(rotifer.db.methods.SequenceCursor, rotifer.db.delegator.Sequenti
             self,
             readers=['entrez'],
             writers=[],
-            entrez_database="ipg",
             local_database_path=None,
             progress=True,
             tries=3,
@@ -214,13 +213,12 @@ class IPGCursor(rotifer.db.methods.SequenceCursor, rotifer.db.delegator.Sequenti
             batch_size=None,
             threads=None,
             *args, **kwargs):
-        self._shared_attributes = ['progress','tries','sleep_between_tries','batch_size','threads','database','path']
+        self._shared_attributes = ['progress','tries','sleep_between_tries','batch_size','threads','path']
         self.sleep_between_tries = sleep_between_tries
         self.path = local_database_path
         if self.path != None and os.path.exists(self.path):
             readers.append("sqlite3")
             kwargs['path'] = self.path
-        self.database = entrez_database
         super().__init__(readers=readers, writers=writers, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
 
 class GenomeCursor(rotifer.db.methods.GenomeCursor, rotifer.db.delegator.SequentialDelegatorCursor):
