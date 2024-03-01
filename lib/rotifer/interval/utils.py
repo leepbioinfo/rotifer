@@ -200,7 +200,7 @@ def filter_nonoverlapping_regions(df,
     clean.sort_values(reference + [start,end], ascending=(len(reference)+2)*[True], inplace=True)
     return clean
 
-def complement(df, include=True, values=False):
+def complement(df, include=True, exclude=False, values=False):
     
     ''' Given a reference id, start and end position, it fills the input table
         with uncovered regions.
@@ -211,10 +211,10 @@ def complement(df, include=True, values=False):
     import pandas as pd
     import numpy as np
 
-    regions = df.copy()
+    regions = df.sort_values(['ID','start','end'])
     if 'length' not in regions.columns:
         regions['length'] = regions.ID.map(regions.set_index('ID').end.to_dict())
-
+        regions.loc[regions.length.isna(), 'length'] = regions.loc[regions.length.isna(), 'end']
     first = pd.DataFrame({
         'ID':     regions.ID.tolist(),
         'start':  np.where(regions.ID != regions.ID.shift(1),1,regions.end.shift(1) + 1).tolist(),
@@ -226,15 +226,15 @@ def complement(df, include=True, values=False):
     uncovered = uncovered.query('end < length')
     uncovered = uncovered.rename({'end':'start'}, axis=1)
     uncovered = uncovered.eval('end = length').eval('length = end - start + 1')
-    uncovered.sort_values(['ID','start','end'], inplace=True)
-    uncovered = pd.concat([ first, uncovered ]).drop('length', axis=1)
+    uncovered = pd.concat([ first, uncovered ]).sort_values(['ID','start','end'])
 
     if isinstance(include, list):
         uncovered = uncovered.filter(include).reindex(df.columns, axis=1)
     elif include:
         uncovered = uncovered.reindex(df.columns, axis=1)
-    
+
     if isinstance(values, dict):
         for colname, colvalue in values.items():
             t[colname] = colvalue
     return uncovered
+
