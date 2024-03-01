@@ -233,8 +233,12 @@ def complement(df, include=True, exclude=False, values=False):
     elif include:
         uncovered = uncovered.reindex(df.columns, axis=1)
 
+    if isinstance(exclude, list):
+        uncovered = uncovered.drop(exclude, axis=1)
+
     if isinstance(values, dict):
-        for colname, colvalue in values.items():
-            uncovered[colname] = colvalue
+        for keys in values.keys():
+            uncovered[keys] = values[keys]
+
     return uncovered
 
