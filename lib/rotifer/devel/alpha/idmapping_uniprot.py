@@ -191,7 +191,7 @@ def genbank_to_uniprot(from_db="EMBL-GenBank-DDBJ_CDS", to_db="UniProtKB", ids=[
     if check_id_mapping_results_ready(job_id):
         link = get_id_mapping_results_link(job_id)
         if af:
-            results = get_id_mapping_results_stream(link+"?compressed=true&fields=accession%2Cxref_pdb%2Cxref_alphafolddb%2C&format=tsv")
+            results = get_id_mapping_results_stream(link+"?compressed=true&fields=accession%2Cxref_alphafolddb%2C&format=tsv")
         else:
             results = get_id_mapping_results_stream(link+"?format=tsv")
     r = get_data_frame_from_tsv_results(results)
@@ -205,9 +205,7 @@ def AF_link(id_list=None):
     r = genbank_to_uniprot(ids=id_list)
     r['urlAF'] = "https://alphafold.ebi.ac.uk/files/AF-" + r['AlphaFoldDB'].str.split(';', expand=True)[0] + "-F1-model_v4.pdb"
     r.loc[r.urlAF == "https://alphafold.ebi.ac.uk/files/AF--F1-model_v4.pdb", 'urlAF'] = None
-    r['urlPDB'] = "https://files.rcsb.org/download/" + r['PDB'].str.split(';', expand=True)[0 ]+ ".pdb"
-    r.loc[r.urlPDB == "https://files.rcsb.org/download/.pdb", 'urlPDB'] = None
-    r = r[r.urlAF.notnull()].reset_index().drop('index', axis=0)
+    r = r[r.urlAF.notnull()].reset_index().drop('index', axis=1)
     return r
 
 def af_to_seq(seqobj):

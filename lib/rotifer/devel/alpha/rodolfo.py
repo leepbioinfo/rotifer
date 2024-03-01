@@ -56,8 +56,9 @@ def build_hhsuite_database(
     members="c80i70",
     output_directory="hhmdb",
     alignment_method='famsa',
-    minimum_group_size=3,
+    minimum_group_size=5,
     threads=8,
+    allxall=False,
 ):
     '''
     Build a HH-suite database for all protein groups.
@@ -77,7 +78,7 @@ def build_hhsuite_database(
       minimum_group_size: integer, default 3
         Size of the smallest cluster that must be added
         to the database
-      threads: integer, default 10
+      threads: integer, default 8
         Number os CPUs to use while building alignments
     '''
     import os
@@ -90,34 +91,46 @@ def build_hhsuite_database(
         os.makedirs(f'{output_directory}/aln')
 
     # Build MSAs
+    # pd.Series([ os.stat(x).st_size == 0 for x in glob(f'{output_directory}/aln/*')]).sum() == 0
     for group_cluster in df[group].unique():
         g = df.loc[df[group] == group_cluster,members].drop_duplicates().dropna()
         if g.nunique() >= minimum_group_size:
-            aln = sequence(g.tolist(),"accession", name=group_cluster, local_database_path=sequences)
-            aln = aln.align(method="famsa")
-            aln.to_file(f'{output_directory}/aln/{group_cluster}.a3m','a3m')
+            if not os.path.exists(f'{output_directory}/aln/{group_cluster}.a3m'):
+                aln = sequence(g.tolist(),"accession", name=group_cluster, local_database_path=sequences)
+                aln = aln.align(method="famsa", cpu="threads")
+                aln.to_file(f'{output_directory}/aln/{group_cluster}.a3m','a3m')
 
     # Build hh-suite database
-    with tempfile.TemporaryDirectory() as td:
-        cmd = rotifer.GlobalConfig['base'] + f'/share/rotifer/scripts/build_hhdb.sh'
-        Popen(f'{cmd} {td}/{output_directory} {output_directory}/aln').communicate()
-        for orig in ['cs219','a3m.ordered','hhm.ordered']:
-            dest = orig.replace(".ordered","")
-            os.rename(f'{td}/{output_directory}.{orig}.ffdata',f'./{output_directory}/{output_directory}_{dest}.ffdata')
-            os.rename(f'{td}/{output_directory}.{orig}.ffindex',f'./{output_directory}/{output_directory}_{dest}.ffindex')
+    cmd = rotifer.GlobalConfig['base'] + f'/share/rotifer/scripts/build_hhdb.sh'
+    Popen(f'{cmd} {output_directory}/aln {output_directory}' ).communicate()
+    for orig in ['cs219','a3m.ordered','hhm.ordered']:
+        dest = orig.replace(".ordered","")
+        os.rename(f'{output_directory}.{orig}.ffdata',f'./{output_directory}/{output_directory}_{dest}.ffdata')
+        os.rename(f'{output_directory}.{orig}.ffindex',f'./{output_directory}/{output_directory}_{dest}.ffindex')
+    if allxall:
+        from rotifer.devel.alpha.rodolfo import hhblits_all
+        hhblits_all(input_directory=f'{output_directory}',cpu=f'{threads}')
 
-def hhblits_all(input_directory, output_directory=None, input_suffix="a3m", output_suffix="hhr"):
+def hhblits_all(input_directory='hhmdb', output_directory=None, input_suffix="a3m", output_suffix="hhr", cpu=8):
     """
     Run all alignments in a directory against a HH-suite database.
+    Beware that the input directory must have an aln directory containing 
+    all alignments be to be compared to the database in the directory above.
+
+    Example:
+        ```hhmdb directory contains results from a build_hhsuite_database function```
+
     """
+    import os
     from glob import glob
+    from subprocess import Popen, PIPE, STDOUT
     if not output_directory:
         output_directory = f'{input_directory}/{output_suffix}'
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
-    for aln in glob(f'{input_directory}/*.{input_suffix}'):
+    for aln in glob(f'{input_directory}/aln/*.{input_suffix}'):
         y = os.path.basename(aln).replace(".{input_suffix}","")
-        cmd = f'hhsearch --cpu {cpu} -i {aln} -d {input_directory}/{input_directory} -o {output_directory}/{y}.{output_suffix}'
+        cmd = f'hhsearch -cpu {cpu} -i {aln} -d {input_directory}/{input_directory} -o {output_directory}/{y}.{output_suffix}'
         Popen(cmd, stdout=PIPE, shell=True).communicate()
 
 def hmmer2aln(hmmout, df, threads, folder):
@@ -558,9 +571,9 @@ def annotate_seqobj(seqobj,
 
 def psiblast(acc,
              db='/databases/fadb/nr/nr50',
-             cpu=18,
+             cpu=54,
              aln = True,
-             num_aln = 500):
+             num_aln = 1000):
     '''
     Psiblast search of a seqobj against nr50 (default),
 
@@ -610,8 +623,7 @@ def psiblast(acc,
                   shell=True).communicate()
             t = pd.read_csv(f'{tmpdirname}/out.tsv', sep='\t', names=cols)
             with open(f'{tmpdirname}/out') as f:
-                    blast_r = f.read()
-        
+                blast_r = f.read()
     return (t, blast_r) 
 
 
