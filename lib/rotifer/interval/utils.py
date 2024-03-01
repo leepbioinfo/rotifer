@@ -235,6 +235,6 @@ def complement(df, include=True, exclude=False, values=False):
 
     if isinstance(values, dict):
         for colname, colvalue in values.items():
-            t[colname] = colvalue
+            uncovered[colname] = colvalue
     return uncovered
 
