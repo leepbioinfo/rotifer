@@ -203,10 +203,14 @@ def genbank_to_uniprot(from_db="EMBL-GenBank-DDBJ_CDS", to_db="UniProtKB", ids=[
 
 def AF_link(id_list=None):
     r = genbank_to_uniprot(ids=id_list)
-    r['urlAF'] = "https://alphafold.ebi.ac.uk/files/AF-" + r['AlphaFoldDB'].str.split(';', expand=True)[0] + "-F1-model_v4.pdb"
-    r.loc[r.urlAF == "https://alphafold.ebi.ac.uk/files/AF--F1-model_v4.pdb", 'urlAF'] = None
-    r = r[r.urlAF.notnull()].reset_index().drop('index', axis=1)
-    return r
+    if 'AlphaFoldDB' in r.columns:
+        r['urlAF'] = "https://alphafold.ebi.ac.uk/files/AF-" + r['AlphaFoldDB'].str.split(';', expand=True)[0] + "-F1-model_v4.pdb"
+        r.loc[r.urlAF == "https://alphafold.ebi.ac.uk/files/AF--F1-model_v4.pdb", 'urlAF'] = None
+        r = r[r.urlAF.notnull()].reset_index().drop('index', axis=1)
+        return r
+    else:
+        r['urlAF'] = ''
+        return r
 
 def af_to_seq(seqobj):
     r = seqobj.copy()
