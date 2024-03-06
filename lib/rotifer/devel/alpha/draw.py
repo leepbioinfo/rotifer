@@ -66,7 +66,7 @@ def arch_2_svg(domain_table='', rdbs=True):
     a['domain'] = a.arch.str.split('+')
 
 
-    a = pd.read_csv(f'{domain_table}', sep="\t")  
+    a = domain_table.copy() 
     if rdbs:
         import rotifer.devel.beta.sequence as rdbs
         a['length'] = a.ID.map(rdbs.sequence(a.ID.drop_duplicates().tolist()).df.set_index('id').length.to_dict())

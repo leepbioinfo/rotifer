@@ -700,7 +700,7 @@ def add_arch_to_seqobj(seqobj, db='profiledb', cpu=8):
     return seqobj
 
 
-def add_arch_to_df(df, db='/databases/fadb/nr/nr50'):
+def add_arch_to_df(df, db='/databases/fadb/nr/nr'):
     '''
     Add architecture and clusters info to a NeighborHooddf
     '''
@@ -708,6 +708,7 @@ def add_arch_to_df(df, db='/databases/fadb/nr/nr50'):
     import tempfile
     from subprocess import Popen, PIPE
     from rotifer.devel.beta.sequence import sequence as sequence
+    from rotifer.devel.alpha.rodolfo import load_seq_scan
     import os
     import pandas as pd
     df = df.copy()
@@ -727,42 +728,7 @@ def add_arch_to_df(df, db='/databases/fadb/nr/nr50'):
                 stdout=PIPE,
                 shell=True
                 ).communicate()
-        info = pd.read_csv(
-                'tmp1.c100i100.tsv',
-                sep='\t',
-                names=['c100i100', 'pid']
-                )
-        info = info.merge(
-                pd.read_csv(
-                    'tmp1.c80i70.tsv',
-                    sep='\t',
-                    names=['c80i70', 'c100i100']
-                    ),
-                how="left")
-        info = info.merge(
-                pd.read_csv(
-                    'tmp1.c80e3.tsv',
-                    sep='\t',
-                    names=['c80e3', 'c80i70']),
-                how="left")
-        info = info.merge(
-                pd.read_csv(
-                    'tmp1.aravind.scan.arch',
-                    sep='\t',
-                    names=['c100i100', 'profiledb'],
-                    usecols=[0, 1],
-                    skiprows=[0]
-                    ),
-                how="left")
-        info = info.merge(
-                pd.read_csv(
-                    'tmp1.pfam.scan.arch',
-                    sep='\t',
-                    names=['c100i100', 'pfam'],
-                    usecols=[0, 1],
-                    skiprows=[0]
-                    ),
-                how="left")
+        info = load_seq_scan(load_seq_scan('tmp1', '.', haldane=True)
         df = df.merge(info, how='left')
         os.chdir(cwd)
 
@@ -773,8 +739,8 @@ def full_annotate(seqobj,
                   batch_size=8,
                   mirror=["/am/ftp-genomes","/databases/genomes"],
                   threads=8,
-                  after=5,
-                  before=5,
+                  after=7,
+                  before=7,
                   eukaryotes=False):
     '''
     Annotate a seqobj with its own genome neighborhood.
