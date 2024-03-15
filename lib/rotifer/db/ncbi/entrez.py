@@ -169,7 +169,7 @@ class FastaCursor(SequenceCursor):
         self._rettype = "fasta"
         self._format = 'fasta'
 
-class IPGCursor(SequenceCursor):
+class IPGCursor(rotifer.db.methods.IPGCursor, SequenceCursor):
     def __init__(self,
             progress=True,
             tries=3,
@@ -183,19 +183,6 @@ class IPGCursor(SequenceCursor):
         self._columns = ['id','ipg_source','nucleotide','start','stop','strand','pid','description','ipg_organism','strain','assembly']
         self._added_columns = ['order','is_query','representative']
         self.giveup.update(["no IPG","No IPG"])
-
-    @property
-    def columns(self):
-        return self._columns + self._added_columns
-
-    def getids(self,obj):
-        if not isinstance(obj,list):
-            obj = [obj]
-        ids = set()
-        for o in obj:
-            ids.update(set(o.pid))
-            ids.update(set(o.representative))
-        return ids
 
     def _seqrecords_to_ipg(self, seqrecords):
         ipg = dict()
@@ -271,7 +258,8 @@ class IPGCursor(SequenceCursor):
             ipg['representative'] = list(targets)[0]
 
         # Register all accessions found and return sliced DataFrame
-        return [ x[1].copy() for x in ipg.groupby('id') ]
+        #return [ x[1].copy() for x in ipg.groupby('id') ]
+        return ipg
 
     def fetchone(self,accessions):
         seen = set()

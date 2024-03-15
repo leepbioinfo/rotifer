@@ -728,7 +728,7 @@ def add_arch_to_df(df, db='/databases/fadb/nr/nr'):
                 stdout=PIPE,
                 shell=True
                 ).communicate()
-        info = load_seq_scan(load_seq_scan('tmp1', '.', haldane=True)
+        info = load_seq_scan('tmp1', '.', haldane=True)
         df = df.merge(info, how='left')
         os.chdir(cwd)
 

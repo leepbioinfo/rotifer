@@ -200,21 +200,37 @@ def filter_nonoverlapping_regions(df,
     clean.sort_values(reference + [start,end], ascending=(len(reference)+2)*[True], inplace=True)
     return clean
 
-def complement(df, include=True, exclude=False, values=False):
+def complement(df, include=True, exclude=False, values=False, reference='ID', start='start', end='end'):
     
-    ''' Given a reference id, start and end position, it fills the input table
-        with uncovered regions.
-        It uses length information when available, otherwise considers 
-        end coordinate, per id, as final region. 
     '''
+    Given a DataFrame describing regions in one-dimensional
+    reference systems, return a similar DataFrame describing
+    the set of regions required to fully cover all the length
+    of the references.
 
-    import pandas as pd
-    import numpy as np
+    The input table is expected to include one or more columns
+    describing the reference object and a pair of integer columns
+    corresponding to the start and end positions of each region.
 
-    regions = df.sort_values(['ID','start','end'])
+    Parameters
+    ----------
+    df : Pandas dataframe
+       The dataframe must have at least a reference column and coordinates
+    reference : (list of) strings, default ['sequence']
+        Name of the column(s) storing sequence identifiers
+    start : string, default estart
+        Name of the column with the first coordinate of each interval
+    end : string, default eend
+        Name of the column with the last coordinate of each interval
+    '''
+    if isinstance(reference, str):
+        reference = [ reference ]
+
+    regions = df.sort_values([*reference, start, end])
     if 'length' not in regions.columns:
-        regions['length'] = regions.ID.map(regions.set_index('ID').end.to_dict())
+        regions['length'] = regions.ID.map(regions.set_index(reference).end.to_dict())
         regions.loc[regions.length.isna(), 'length'] = regions.loc[regions.length.isna(), 'end']
+
     first = pd.DataFrame({
         'ID':     regions.ID.tolist(),
         'start':  np.where(regions.ID != regions.ID.shift(1),1,regions.end.shift(1) + 1).tolist(),

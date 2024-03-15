@@ -1,20 +1,16 @@
-def arch_2_svg(domain_table='', rdbs=True):
-    import pygraphviz as pgv
-    from pygraphviz.agraph import re
+def arch_2_svg(df, length=False, font_size=8):
     import yaml
     import numpy as np
     import seaborn as sns
-    import yaml
     import pandas as pd
+    import pygraphviz as pgv
+    from pygraphviz.agraph import re
     import rotifer.interval.utils as riu
     from rotifer.devel.alpha.sequence import complete
-
-
 
     #loading the domain dict to select the domains that shoul be kept and rename it (if nescssary)
     #with open('../network/laks_domains.yaml', 'r') as f:
     #    domain_dict = yaml.load(f, Loader=yaml.SafeLoader)
-        
 
     # As reference Nature's standard figure sizes are 89 mm (3.50 inches) wide (single column) and 183 mm (7.20472 inches) wide (double column) 
     # If a protein with 5000 aminoacids would fit a whole line of doublw colum figure, each aa would then use 0.001440944 inches.
@@ -24,13 +20,10 @@ def arch_2_svg(domain_table='', rdbs=True):
     # [size of shape]/(font_point * [character point numeber])
     # Using the full_space_character one can easyly check 
 
-
     # Size in inches of each point in font size, to calculate how much fit n the shapes:
     font_point = float(0.013837)
     full_space_character = '━'
     aa_scale = float(0.001440944) # This scale would be enough for a protein of 5000 aa on a double column figure (seems better to scalonate *4)
-
-
 
     colors = sns.color_palette("pastel").as_hex() +sns.color_palette("deep").as_hex()  + sns.color_palette('muted').as_hex() + sns.color_palette('colorblind')
     shapes = ['box',
@@ -41,38 +34,14 @@ def arch_2_svg(domain_table='', rdbs=True):
               'diamond',
               'doubleoctagon',
               'tripleoctagon']
-
     color_code = pd.DataFrame(shapes, columns=['shapes']).join(pd.DataFrame(colors, columns=['colors']), how='cross')
 
-
-    # Load architecture files
-    with open('/home/leep/rodolfoar/projects/lic11920/work/20240229/gian/selected_arch_operon.yaml', 'r') as f:
-        
-        ttt = yaml.load(f, Loader=yaml.SafeLoader)
-        
-    a = pd.DataFrame()
-    for x in ttt['Architectures'].keys():
-        a1 = pd.DataFrame()
-        for y in ttt['Architectures'][x].keys():
-            a2 =  pd.DataFrame(ttt['Architectures'][x][y]).T
-            a2['y'] = y
-            a2['x'] = x
-            a1 = pd.concat([a1,a2])    
-        a = pd.concat([a, a1])
-        
-    a.reset_index(inplace=True)
-    a.columns =['ID', 'assembly', 'arch', 't1','t2']
-
-    a['domain'] = a.arch.str.split('+')
-
-
-    a = domain_table.copy() 
-    if rdbs:
+    a = df.copy() 
+    if add_length and 'length' not in df.columns:
         import rotifer.devel.beta.sequence as rdbs
         a['length'] = a.ID.map(rdbs.sequence(a.ID.drop_duplicates().tolist()).df.set_index('id').length.to_dict())
 
 
-    font_size= 8
     a = complete.complete(a, values={'domain':'unk'})
     d = complete.complete(a, values={'domain':'unk'})
 
@@ -110,14 +79,13 @@ def arch_2_svg(domain_table='', rdbs=True):
         
     for x in range(len(li)):
         A.add_subgraph(li[x], rank="same")
-        
+
     # v = list(m)
     v = [li[x][0] for x in range(len(li))]
     [A.add_edge(v.pop(0), v[0], penwidth = 0) for x in range(len(v)-1)]
     A.graph_attr.update(nodesep= 0.02)
     A.graph_attr.update(ranksep= 0.05)
     A.draw("subgraph7.svg", prog="dot")
-
 
     d = d.query('domain !="unk"')
     d['size']  = d.end - d.start
@@ -132,8 +100,6 @@ def arch_2_svg(domain_table='', rdbs=True):
     d = d.reset_index(drop=True).reset_index()
     #if size_median:
     #     d['esc'] = d.groupby('domain').esc.transform('median')
-
-
 
     gb = d.groupby('pid_order')
     li =[]
