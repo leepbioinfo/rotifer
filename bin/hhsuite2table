@@ -103,10 +103,6 @@ class HHRFormatError(Exception):
     def __str__(self):
         return repr(self.value)
 
-def get_sequence_name(header):
-    name = header.replace(">", "").split()[0]
-    return name
-
 def parse_result(lines):
     results = []
     hhr_alignment = namedtuple('hhr_alignment', ['query_id', 'query_length', 'query_neff',

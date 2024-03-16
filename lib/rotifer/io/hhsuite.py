@@ -29,13 +29,13 @@ def read_hhr(indir, suffix=".hhr"):
     Returns
     -------
       A Pandas dataframe
-    
+
     Examples
     --------
-    Parsing all files at once
+    Parsing all *.hhr files at once
 
-    >>> from rotifer.devel.alpha.io import read_hhr
-    >>> df = read_hhr(hhrdir)
+    >>> from rotifer.io import hhsuite
+    >>> df = hhsuite.read_hhr(hhrdir)
     '''
     if not isinstance(indir,list):
         if os.path.exists(indir) and os.path.isdir(indir):
@@ -62,9 +62,9 @@ def parse_hhr(indir, suffix=".hhr"):
     --------
     Iterating over each file
 
-    >>> from rotifer.devel.alpha.io import parse_hhr
-    >>> for hhr in parse_hhr(hhrdir):
-    >>>    hhr.to_csv(hhr.replace("hhr","tsv"), sep="\t", index=False)
+    >>> from rotifer.io import hhsuite
+    >>> for hhr in hhsuite.parse_hhr(hhrdir):
+    >>>    hhr.to_csv("hhr.tsv", sep="\t", index=False)
     '''
     if not isinstance(indir,list):
         if os.path.exists(indir) and os.path.isdir(indir):
