@@ -110,7 +110,6 @@ def parse_result(lines):
                                                  'template_neff', 'query_ali', 'template_ali',
                                                  'start', 'end', 'probability', 'evalue', 'score',
                                                  'aligned_cols', 'identity', 'similarity', 'sum_probs','pvalue'])
-
     query_id = None
     query_length = None
     query_neff = None
