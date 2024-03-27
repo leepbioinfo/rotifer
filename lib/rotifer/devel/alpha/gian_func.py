@@ -781,7 +781,8 @@ def full_annotate(seqobj,
             after=after,
             before=before,
             eukaryotes=eukaryotes)
-    seqobj.ndf = gf.add_arch_to_df(gnc.fetchall(seqobj.df.id.to_list()),full=full)
+    seqobj.ndf = gnc.fetchall(seqobj.df.id.to_list())
+    gf.add_arch_to_df(seqobj, full=full)
     return seqobj
 
 def padding_df(df, how='right'):
