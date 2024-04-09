@@ -918,4 +918,19 @@ def extend_aln(seqobj, n_terminal=50, c_terminal=50):
     tm2.df.sequence = tm2.df.apply(lambda x : x.sequence[x.start: x.end], axis=1)
     return tm2.align()
 
+def get_correspondent_position(seqobj_source,seqobj_target, pid, position):
+    """ Get the correspondent amminoacid position from one aligment/single sequence (rotifer seqobj) in a different sequence aligment
+    seqobj_source: Sequence object where the user knows the desired position
+    seqobt_target: Sequence object where the user need to find the correspondent position
+    pid: Sequence used as anchor to find the correspondent position, it should be present in both source and target sequence object
+    position: The postion in the pid wherethe user wants to find the correspondet position in the target sequence objct
+    """
+   source =  seqobj_source.df.query('id == @pid').sequence.iloc[0].replace('-', '')
+   target =  seqobj_target.df.query('id == @pid').sequence.iloc[0].replace('-','')
+   aln = pairwise2.align.globalxx(source, target)[0]
+   source = aln[0]
+   target = aln[1]
+   d = {'seq': list(source), 'trimmed' :list(target)}
+   aln_df = pd.DataFrame(data=d).reset_index().rename({'index': 'pos'}, axis=1).query('trimmed != "-"').reset_index(drop=True)
+   return int(aln_df.query('pos ==@position -1').index[0]) +1
 
