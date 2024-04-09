@@ -919,6 +919,7 @@ def extend_aln(seqobj, n_terminal=50, c_terminal=50):
     return tm2.align()
 
 def get_correspondent_position(seqobj_source,seqobj_target, pid, position):
+    from Bio import pairwise2
     """ Get the correspondent amminoacid position from one aligment/single sequence (rotifer seqobj) in a different sequence aligment
     seqobj_source: Sequence object where the user knows the desired position
     seqobt_target: Sequence object where the user need to find the correspondent position
