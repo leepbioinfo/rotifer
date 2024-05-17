@@ -927,6 +927,7 @@ def get_correspondent_position(seqobj_source,seqobj_target, pid, position):
     """
     from Bio import pairwise2
     import pandas as pd
+
     source =  seqobj_source.df.query('id == @pid').sequence.iloc[0].replace('-', '')
     target =  seqobj_target.df.query('id == @pid').sequence.iloc[0].replace('-','')
     aln = pairwise2.align.globalxx(source, target)[0]

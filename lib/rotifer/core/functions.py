@@ -14,6 +14,11 @@ Rotifer core functions
 
 __version__ = 0.15
 
+def chunks(list_to_chunk, chunk_size):
+    """Yield successive n-sized chunks from l."""
+    for i in range(0, len(list_to_chunk), chunk_size):
+        yield list_to_chunk[i:i + chunk_size]
+
 def who_is_calling(obj):
     return str(type(obj)).replace("<class '","").replace("'>","")
 
