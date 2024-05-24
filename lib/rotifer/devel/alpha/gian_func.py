@@ -651,6 +651,7 @@ def psiblast(acc,
             'bitscore',
             'length'
             ]
+    print(db)
     if db.startswith('nr'):
         db = f'{os.environ["FADB"]}/nr/{db}.mmseqs.fa'
     elif db.startswith('all'):
@@ -979,4 +980,19 @@ def read_predicted_topologies(file):
     aln.con = aln.add_consensus().df.iloc[0:4,0:2].rename({'sequence': 'aln_top'}, axis=1)
     aln.topology = pd.concat([aln.con,aln.df[['id', 'aln_top']]]).reset_index(drop=True)
     return aln
+def uniref50_add_info(seqobj):
+    seqobj = seqobj.copy()
+    from rotifer.db.local import ete3
+    dd = sequence(seqobj.df.id.tolist())
+    dd.add_cluster(coverage=0, identity=0, inplace=True)
+    seqobj.df = seqobj.df.merge( dd.df[['id', 'length', 'c0i0']].rename({'length': 'plen'},axis=1))
+    xx = ete3.TaxonomyCursor()
+    seqobj.df[['description', 'cluster_size', 'Tax', 'TaxID', 'RepID']] = seqobj.df.description.str.split("n=|Tax=|TaxID=|RepID=", expand=True)
+    seqobj = gf.add_cordinates_to_aln(seqobj)
+    tid = xx.fetchall(seqobj.df.TaxID.drop_duplicates().tolist())
+    tid.taxid = tid.taxid.astype(int)
+    tid.rename({'taxid':'TaxID'}, axis=1, inplace=True)
+    seqobj.df.TaxID = seqobj.df.TaxID.astype(int)
+    seqobj.df = seqobj.df.merge(tid, how='left')
+    return seqobj
 
