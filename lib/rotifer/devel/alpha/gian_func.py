@@ -659,6 +659,8 @@ def psiblast(acc,
         db = f'{os.environ["FADB"]}/prok.fa '
     elif db == "euk":
         db = f'{os.environ["FADB"]}/euk.fa'
+    elif db == "af":
+        db = f'{os.environ["FADB"]}/uniref50.fa'
     else:
         db = f'{os.environ["FADB"]}/all.fa'
 
@@ -847,14 +849,27 @@ def split_by_model(seqobj, model):
     from rotifer.devel.beta.sequence import sequence as sequence
     import os
     import pandas as pd
+    import rotifer
+    from rotifer.core import loadpath
     
+    hmmer2table_from_rotifer = f'{loadpath.path().globalpath}rotifer/bin/hmmer2table'
+
     nseqobj =seqobj.copy()
     with tempfile.TemporaryDirectory() as tmpdirname:
-        seqobj.to_file(f'{tmpdirname}/seqfile') 
+        nseqobj.df.sequence = nseqobj.df.sequence.str.replace('-','')
+        nseqobj.to_file(f'{tmpdirname}/seqfile') 
+
+        if isinstance(model, rotifer.devel.beta.sequence.sequence):
+            model.to_file(f'{tmpdirname}/model')
+            Popen(f'hmmbuild {tmpdirname}/model.hmm {tmpdirname}/model',
+                  stdout=PIPE,
+                  shell=True).communicate()
+            model = f'{tmpdirname}/model.hmm'
+
         Popen(f'hmmsearch {model} {tmpdirname}/seqfile > {tmpdirname}/hhsearch_r',
               stdout=PIPE,
               shell=True).communicate()
-        Popen(f'hmmer2table {tmpdirname}/hhsearch_r |domain2architecture |architecture2table > {tmpdirname}/hhsearch_table',
+        Popen(f'{hmmer2table_from_rotifer} {tmpdirname}/hhsearch_r |domain2architecture |architecture2table > {tmpdirname}/hhsearch_table',
               stdout=PIPE,
               shell=True).communicate()
         t = pd.read_csv(f'{tmpdirname}/hhsearch_table', sep="\t")
@@ -863,6 +878,7 @@ def split_by_model(seqobj, model):
     nseqobj.df.end = nseqobj.df.end.fillna(nseqobj.df.length)
     nseqobj.df.start = nseqobj.df.start.fillna(1)
     nseqobj.df.sequence = nseqobj.df.apply(lambda x: x.sequence[int(x.start):int(x.end)], axis=1)
+    nseqobj = nseqobj.filter('domain =="model"').align()
     return (nseqobj)
 
 def remove_redundancy(seqobj, identity =80, coverage = 70):
