@@ -480,19 +480,22 @@ def add_arch_to_df(seqobj, full=False, inplace=True):
     import os
     import pandas as pd
     seqobjc = seqobj.copy()
-    if hasattr(seqobjc, 'ndf'):
-        df = seqobjc.ndf
-    else:
-        print('Seq object do not have neighborhood df, please ren fetch neighbors first')
-        return seqobj
     cwd = os.getcwd()
     with tempfile.TemporaryDirectory() as tmpdirname:
+        if hasattr(seqobjc, 'ndf'):
+            df = seqobjc.ndf
         # temporary save fasta sequence file
-        sequence(
-                df.query(
-                    'type =="CDS"'
-                    ).pid.dropna().drop_duplicates().to_list()
-                ).to_file(f'{tmpdirname}/seqfile')
+            sequence(
+                    df.query(
+                        'type =="CDS"'
+                        ).pid.dropna().drop_duplicates().to_list()
+                    ).to_file(f'{tmpdirname}/seqfile')
+        else:
+            print('Seq object do not have neighborhood df, running annotation on aligment sequences')
+            df = seqobjc.df
+            sequence(
+                    df.id.dropna().drop_duplicates().to_list()
+                    ).to_file(f'{tmpdirname}/seqfile')
 
         os.chdir(tmpdirname)
         os.makedirs('tmpd')
@@ -552,8 +555,13 @@ def add_arch_to_df(seqobj, full=False, inplace=True):
                     ),
                 how="left")
         if inplace:
-            seqobj.ndf = df.merge(info, how='left')
-            seqobj.ndf = seqobj.ndf.drop_duplicates().reset_index(drop=True)
+            if hasattr(seqobjc, 'ndf'):
+                seqobj.ndf = df.merge(info, how='left')
+                seqobj.ndf = seqobj.ndf.drop_duplicates().reset_index(drop=True)
+            else:
+                info = info.rename({'pid':'id'}, axis=1)
+                seqobj.df = df.merge(info, how='left')
+
             seqobj.profiledb = pd.read_csv(
                     'tmp.query.profiledb.rps.dom.tsv',
                     sep='\t', names=['pid', 'model', 'star', 'end'])
@@ -567,6 +575,7 @@ def add_arch_to_df(seqobj, full=False, inplace=True):
             os.chdir(cwd)
             return 'architecuture add to seqobj'
 
+        ### The annotation of arch on sequence objct is not working if not inplace ########
         with open('tmp.pfam.rps.query.out') as f:
             seqobjc.pfamout = ''.join(f.readlines())
 
@@ -982,7 +991,9 @@ def read_predicted_topologies(file):
     return aln
 def uniref50_add_info(seqobj):
     seqobj = seqobj.copy()
+    from rotifer.devel.beta.sequence import sequence
     from rotifer.db.local import ete3
+    from rotifer.devel.alpha import gian_func as gf
     dd = sequence(seqobj.df.id.tolist())
     dd.add_cluster(coverage=0, identity=0, inplace=True)
     seqobj.df = seqobj.df.merge( dd.df[['id', 'length', 'c0i0']].rename({'length': 'plen'},axis=1))
