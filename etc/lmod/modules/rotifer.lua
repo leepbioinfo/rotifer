@@ -28,7 +28,7 @@ whatis("Description: Rotifer's shell setup.")
 whatis("URL: https://github.com/robsonfsouza/rotifer ")
 
 -- Dependencies
-load("leep")
+-- load("leep")
 
 -- Environment variables
 prepend_path("PYTHONPATH", mydir .. "/lib")

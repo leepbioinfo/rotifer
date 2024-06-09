@@ -219,6 +219,22 @@ def af_to_seq(seqobj):
         r = r.add_pdb(pdb_id=u.From[x], pdb_file=u.urlAF[x])
     return r
 
+def uniprot_to_ncbi(uniprot_id):
+    url = f"https://rest.uniprot.org/uniprotkb/{uniprot_id}.json"
+    response = requests.get(url)
+
+    if response.status_code != 200:
+        print(f"Failed to retrieve data for UniProt ID {uniprot_id}")
+        return None
+
+    data = response.json()
+
+    for db_reference in data.get('uniProtKBCrossReferences', []):
+        if db_reference['database'] == 'RefSeq':  # NCBI cross-references are of type 'RefSeq'
+            return db_reference['id']
+
+    print(f"No NCBI accession found for UniProt ID {uniprot_id}")
+    return None
 
 '''
 job_id = submit_id_mapping(

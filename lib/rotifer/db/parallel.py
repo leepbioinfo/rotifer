@@ -173,7 +173,7 @@ class SimpleParallelProcessCursor(rotifer.db.core.BaseCursor):
         This method is called by fetchone() to define the datasets
         processed by worker() in each parallel batch.
         """
-        from rotifer.devel.alpha.gian_func import chunks
+        from rotifer.core.functions import chunks
         size = self.batch_size
         if size == None or size == 0:
             size = max(int(len(accessions) / self.threads),1)

@@ -480,19 +480,22 @@ def add_arch_to_df(seqobj, full=False, inplace=True):
     import os
     import pandas as pd
     seqobjc = seqobj.copy()
-    if hasattr(seqobjc, 'ndf'):
-        df = seqobjc.ndf
-    else:
-        print('Seq object do not have neighborhood df, please ren fetch neighbors first')
-        return seqobj
     cwd = os.getcwd()
     with tempfile.TemporaryDirectory() as tmpdirname:
+        if hasattr(seqobjc, 'ndf'):
+            df = seqobjc.ndf
         # temporary save fasta sequence file
-        sequence(
-                df.query(
-                    'type =="CDS"'
-                    ).pid.dropna().drop_duplicates().to_list()
-                ).to_file(f'{tmpdirname}/seqfile')
+            sequence(
+                    df.query(
+                        'type =="CDS"'
+                        ).pid.dropna().drop_duplicates().to_list()
+                    ).to_file(f'{tmpdirname}/seqfile')
+        else:
+            print('Seq object do not have neighborhood df, running annotation on aligment sequences')
+            df = seqobjc.df
+            sequence(
+                    df.id.dropna().drop_duplicates().to_list()
+                    ).to_file(f'{tmpdirname}/seqfile')
 
         os.chdir(tmpdirname)
         os.makedirs('tmpd')
@@ -552,8 +555,13 @@ def add_arch_to_df(seqobj, full=False, inplace=True):
                     ),
                 how="left")
         if inplace:
-            seqobj.ndf = df.merge(info, how='left')
-            seqobj.ndf = seqobj.ndf.drop_duplicates().reset_index(drop=True)
+            if hasattr(seqobjc, 'ndf'):
+                seqobj.ndf = df.merge(info, how='left')
+                seqobj.ndf = seqobj.ndf.drop_duplicates().reset_index(drop=True)
+            else:
+                info = info.rename({'pid':'id'}, axis=1)
+                seqobj.df = df.merge(info, how='left')
+
             seqobj.profiledb = pd.read_csv(
                     'tmp.query.profiledb.rps.dom.tsv',
                     sep='\t', names=['pid', 'model', 'star', 'end'])
@@ -567,6 +575,7 @@ def add_arch_to_df(seqobj, full=False, inplace=True):
             os.chdir(cwd)
             return 'architecuture add to seqobj'
 
+        ### The annotation of arch on sequence objct is not working if not inplace ########
         with open('tmp.pfam.rps.query.out') as f:
             seqobjc.pfamout = ''.join(f.readlines())
 
@@ -651,6 +660,7 @@ def psiblast(acc,
             'bitscore',
             'length'
             ]
+    print(db)
     if db.startswith('nr'):
         db = f'{os.environ["FADB"]}/nr/{db}.mmseqs.fa'
     elif db.startswith('all'):
@@ -659,6 +669,8 @@ def psiblast(acc,
         db = f'{os.environ["FADB"]}/prok.fa '
     elif db == "euk":
         db = f'{os.environ["FADB"]}/euk.fa'
+    elif db == "af":
+        db = f'{os.environ["FADB"]}/uniref50.fa'
     else:
         db = f'{os.environ["FADB"]}/all.fa'
 
@@ -781,7 +793,8 @@ def full_annotate(seqobj,
             after=after,
             before=before,
             eukaryotes=eukaryotes)
-    seqobj.ndf = gf.add_arch_to_df(gnc.fetchall(seqobj.df.id.to_list()),full=full)
+    seqobj.ndf = gnc.fetchall(seqobj.df.id.to_list())
+    gf.add_arch_to_df(seqobj, full=full)
     return seqobj
 
 def padding_df(df, how='right'):
@@ -846,14 +859,27 @@ def split_by_model(seqobj, model):
     from rotifer.devel.beta.sequence import sequence as sequence
     import os
     import pandas as pd
+    import rotifer
+    from rotifer.core import loadpath
     
+    hmmer2table_from_rotifer = f'{loadpath.path().globalpath}rotifer/bin/hmmer2table'
+
     nseqobj =seqobj.copy()
     with tempfile.TemporaryDirectory() as tmpdirname:
-        seqobj.to_file(f'{tmpdirname}/seqfile') 
+        nseqobj.df.sequence = nseqobj.df.sequence.str.replace('-','')
+        nseqobj.to_file(f'{tmpdirname}/seqfile') 
+
+        if isinstance(model, rotifer.devel.beta.sequence.sequence):
+            model.to_file(f'{tmpdirname}/model')
+            Popen(f'hmmbuild {tmpdirname}/model.hmm {tmpdirname}/model',
+                  stdout=PIPE,
+                  shell=True).communicate()
+            model = f'{tmpdirname}/model.hmm'
+
         Popen(f'hmmsearch {model} {tmpdirname}/seqfile > {tmpdirname}/hhsearch_r',
               stdout=PIPE,
               shell=True).communicate()
-        Popen(f'hmmer2table {tmpdirname}/hhsearch_r |domain2architecture |architecture2table > {tmpdirname}/hhsearch_table',
+        Popen(f'{hmmer2table_from_rotifer} {tmpdirname}/hhsearch_r |domain2architecture |architecture2table > {tmpdirname}/hhsearch_table',
               stdout=PIPE,
               shell=True).communicate()
         t = pd.read_csv(f'{tmpdirname}/hhsearch_table', sep="\t")
@@ -862,6 +888,7 @@ def split_by_model(seqobj, model):
     nseqobj.df.end = nseqobj.df.end.fillna(nseqobj.df.length)
     nseqobj.df.start = nseqobj.df.start.fillna(1)
     nseqobj.df.sequence = nseqobj.df.apply(lambda x: x.sequence[int(x.start):int(x.end)], axis=1)
+    nseqobj = nseqobj.filter('domain =="model"').align()
     return (nseqobj)
 
 def remove_redundancy(seqobj, identity =80, coverage = 70):
@@ -917,4 +944,66 @@ def extend_aln(seqobj, n_terminal=50, c_terminal=50):
     tm2.df.sequence = tm2.df.apply(lambda x : x.sequence[x.start: x.end], axis=1)
     return tm2.align()
 
+def get_correspondent_position(seqobj_source,seqobj_target, pid, position):
+    """ Get the correspondent amminoacid position from one aligment/single sequence (rotifer seqobj) in a different sequence aligment
+    seqobj_source: Sequence object where the user knows the desired position
+    seqobt_target: Sequence object where the user need to find the correspondent position
+    pid: Sequence used as anchor to find the correspondent position, it should be present in both source and target sequence object
+    position: The postion in the pid wherethe user wants to find the correspondet position in the target sequence objct
+    """
+    from Bio import pairwise2
+    import pandas as pd
+
+    source =  seqobj_source.df.query('id == @pid').sequence.iloc[0].replace('-', '')
+    target =  seqobj_target.df.query('id == @pid').sequence.iloc[0].replace('-','')
+    aln = pairwise2.align.globalxx(source, target)[0]
+    source = aln[0]
+    target = aln[1]
+    d = {'seq': list(source), 'trimmed' :list(target)}
+    aln_df = pd.DataFrame(data=d).reset_index().rename({'index': 'pos'}, axis=1).query('trimmed != "-"').reset_index(drop=True)
+    return int(aln_df.query('pos ==@position -1').index[0]) +1
+
+
+def read_predicted_topologies(file):
+    from rotifer.devel.beta import sequence as rdbs
+    import pandas as pd
+    import numpy as np
+    def g (s):
+        tomap = pd.Series(list(s.sequence))
+        o = tomap.where(lambda x: x!="-").dropna().rename('aln').to_frame()
+        o['top'] = list(s.topology)
+        od = o.top.to_dict()
+        tomap.update(od)
+        return "".join(tomap.tolist())
+
+    a = np.array(['header', 'sequence', 'topology'])
+    df = pd.read_csv(file, names=['data'])
+    df['data_type'] = np.resize(a, len(df))
+    h = df.query('data_type =="header"').data.str.strip('>').rename("id").reset_index(drop=True)
+    s = df.query('data_type =="sequence"').data.rename("sequence").reset_index(drop=True)
+    t = df.query('data_type =="topology"').data.rename("topology").reset_index(drop=True)
+    df2 = pd.concat([h,s,t], axis=1)
+    aln = rdbs.sequence(df2[['id', 'sequence']]).align()
+    aln.df['topology'] = df2.topology
+    aln.df['aln_top'] = aln.df.apply(g, axis=1)
+    aln.con = aln.add_consensus().df.iloc[0:4,0:2].rename({'sequence': 'aln_top'}, axis=1)
+    aln.topology = pd.concat([aln.con,aln.df[['id', 'aln_top']]]).reset_index(drop=True)
+    return aln
+def uniref50_add_info(seqobj):
+    seqobj = seqobj.copy()
+    from rotifer.devel.beta.sequence import sequence
+    from rotifer.db.local import ete3
+    from rotifer.devel.alpha import gian_func as gf
+    dd = sequence(seqobj.df.id.tolist())
+    dd.add_cluster(coverage=0, identity=0, inplace=True)
+    seqobj.df = seqobj.df.merge( dd.df[['id', 'length', 'c0i0']].rename({'length': 'plen'},axis=1))
+    xx = ete3.TaxonomyCursor()
+    seqobj.df[['description', 'cluster_size', 'Tax', 'TaxID', 'RepID']] = seqobj.df.description.str.split("n=|Tax=|TaxID=|RepID=", expand=True)
+    seqobj = gf.add_cordinates_to_aln(seqobj)
+    tid = xx.fetchall(seqobj.df.TaxID.drop_duplicates().tolist())
+    tid.taxid = tid.taxid.astype(int)
+    tid.rename({'taxid':'TaxID'}, axis=1, inplace=True)
+    seqobj.df.TaxID = seqobj.df.TaxID.astype(int)
+    seqobj.df = seqobj.df.merge(tid, how='left')
+    return seqobj
 

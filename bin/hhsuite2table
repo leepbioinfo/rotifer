@@ -25,7 +25,7 @@ Parse HH-suite program's output and dump data as a table
 
 # Internal data
 __default_columns = ['query','hit','qstart','qend','evalue','qcov','hstart','hend','aligned_cols','score',
-                'qalilen','qlen','hlen','probability','identity','similarity','sum_probs','hcov']
+                'qalilen','qlen','hlen','probability','identity','similarity','sum_probs','hcov','pvalue']
 
 # Command line parser
 def parse_cli():
@@ -103,18 +103,13 @@ class HHRFormatError(Exception):
     def __str__(self):
         return repr(self.value)
 
-def get_sequence_name(header):
-    name = header.replace(">", "").split()[0]
-    return name
-
 def parse_result(lines):
     results = []
     hhr_alignment = namedtuple('hhr_alignment', ['query_id', 'query_length', 'query_neff',
                                                  'template_id', 'template_length', 'template_info',
                                                  'template_neff', 'query_ali', 'template_ali',
                                                  'start', 'end', 'probability', 'evalue', 'score',
-                                                 'aligned_cols', 'identity', 'similarity', 'sum_probs'])
-
+                                                 'aligned_cols', 'identity', 'similarity', 'sum_probs','pvalue'])
     query_id = None
     query_length = None
     query_neff = None
@@ -129,6 +124,8 @@ def parse_result(lines):
     template_end = None
     probability = None
     evalue = None
+    pvalue = None
+    pvalueDict = dict()
     score = None
     identity = None
     similarity = None
@@ -139,8 +136,24 @@ def parse_result(lines):
     skipped_ali_tags = ["ss_dssp", "ss_pred", "Consensus"]
 
     is_alignment_section = False
+    is_hit_table = False
 
     for line in lines:
+        if "P-value" in line:
+            is_hit_table = True
+            continue
+        if is_hit_table:
+            if line == "\n" or len(line) == 0:
+                is_hit_table = False
+                continue
+            tokens = line.split()
+            hitID = int(tokens[0])
+            pvalue = float(line[49:56].strip())
+            pvalueDict[hitID] = pvalue
+        if line.startswith("No") and ("P-value" not in line):
+            tokens = line.split()
+            hitID = int(tokens[1])
+
         if(line.startswith("Query")):
             query_id = line.split()[1]
         elif(line.startswith("Match_columns")):
@@ -149,11 +162,12 @@ def parse_result(lines):
             query_neff = float(line.split()[1])
         elif(is_alignment_section and (line.startswith("No") or line.startswith("Done!"))):
             if query_start is not None:
+                pvalue = pvalueDict[hitID-1]
                 result = hhr_alignment(query_id, query_length, query_neff,
                                        template_id, template_length, template_info, template_neff,
                                        query_seq, template_seq, (query_start, template_start),
                                        (query_end, template_end), probability, evalue, score,
-                                       aligned_cols, identity, similarity, sum_probs)
+                                       aligned_cols, identity, similarity, sum_probs, pvalue)
                 results.append(result)
             template_id = None
             template_info = None
@@ -180,6 +194,7 @@ def parse_result(lines):
             is_alignment_section = True
             template_id = line[1:].split()[0]
             template_info = line
+            is_hit_table = False
         elif(line.startswith("Q")):
             tokens = line.split()
             if (tokens[1] != 'Consensus'):
@@ -247,13 +262,13 @@ def parse_result(lines):
                                       "in template alignment").format(tokens[5]))
             template_length = token_5
 
-
     if(template_id is not None and query_start is not None):
+        pvalue = pvalueDict[hitID]
         result = hhr_alignment(query_id, query_length, query_neff,
                                template_id, template_length, template_info, template_neff,
                                "".join(query_seq), "".join(template_seq), (query_start, template_start),
                                (query_end, template_end), probability, evalue, score,
-                               aligned_cols, identity, similarity, sum_probs)
+                               aligned_cols, identity, similarity, sum_probs, pvalue)
         results.append(result)
 
     return results

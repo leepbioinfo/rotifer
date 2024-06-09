@@ -14,39 +14,45 @@ from rotifer.core.functions import import_path
 hhr = import_path(os.path.realpath(__file__).split("rotifer")[0] + "rotifer/bin/hhsuite2table")
 
 # Parse output tables
-def read_hhr(indir):
+def read_hhr(indir, suffix=".hhr"):
     '''
     Parse **all** HH-suite (*.hhr) output files located in a
     directory or, alternatively, a list of .hhr files
 
     Parameters
     ----------
-    indir : a directory with .hhr files or a list of .hhr files
-    
+    indir : string
+      A HH-suite results file, a list of files or a directory with results
+    suffix: string, default .hhr
+      The suffix, a.k.a extension, for the HH-suite results in indir
+
     Returns
     -------
       A Pandas dataframe
-    
+
     Examples
     --------
-    Parsing all files at once
+    Parsing all *.hhr files at once
 
-    >>> from rotifer.devel.alpha.io import read_hhr
-    >>> df = read_hhr(hhrdir)
+    >>> from rotifer.io import hhsuite
+    >>> df = hhsuite.read_hhr(hhrdir)
     '''
     if not isinstance(indir,list):
         if os.path.exists(indir) and os.path.isdir(indir):
             indir = os.path.realpath(indir)
-            indir = glob(f'{indir}/*.hhr')
+            indir = glob(f'{indir}/*{suffix}')
     return hhr.hhsuite2pandas(indir)
 
-def parse_hhr(indir):
+def parse_hhr(indir, suffix=".hhr"):
     '''
     Parse HH-suite (*.hhr) output files.
 
     Parameters
     ----------
-    indir : a directory with .hhr files or a list of .hhr files
+    indir : string
+      A HH-suite results file, a list of files or a directory with results
+    suffix: string, default .hhr
+      The suffix, a.k.a extension, for the HH-suite results in indir
 
     Returns
     -------
@@ -56,13 +62,13 @@ def parse_hhr(indir):
     --------
     Iterating over each file
 
-    >>> from rotifer.devel.alpha.io import parse_hhr
-    >>> for hhr in parse_hhr(hhrdir):
-    >>>    hhr.to_csv(hhr.replace("hhr","tsv"), sep="\t", index=False)
+    >>> from rotifer.io import hhsuite
+    >>> for hhr in hhsuite.parse_hhr(hhrdir):
+    >>>    hhr.to_csv("hhr.tsv", sep="\t", index=False)
     '''
     if not isinstance(indir,list):
         if os.path.exists(indir) and os.path.isdir(indir):
             indir = os.path.realpath(indir)
-            indir = glob(f'{indir}/*.hhr')
+            indir = glob(f'{indir}/*{suffix}')
     for infile in indir:
         yield hhr.hhsuite2pandas(infile)
