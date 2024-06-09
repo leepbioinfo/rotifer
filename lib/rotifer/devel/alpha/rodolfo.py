@@ -728,7 +728,7 @@ def add_arch_to_df(df, db='/databases/fadb/nr/nr'):
                 stdout=PIPE,
                 shell=True
                 ).communicate()
-        info = load_seq_scan(load_seq_scan('tmp1', '.', haldane=True)
+        info = load_seq_scan('tmp1', '.', haldane=True)
         df = df.merge(info, how='left')
         os.chdir(cwd)
 
@@ -1035,7 +1035,7 @@ def count_arch(
     if cut_off:
         cut_off = cut_off/100
         s = s.where(lambda x: x >= cut_off).dropna()
-    for y, z in s.iteritems():
+    for y, z in s.items():
         if normalize:
             flattened_list.append(f'{y}({100 * z:.2f}%)')
         else:
