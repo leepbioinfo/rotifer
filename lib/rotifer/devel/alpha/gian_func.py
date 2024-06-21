@@ -989,6 +989,7 @@ def read_predicted_topologies(file):
     aln.con = aln.add_consensus().df.iloc[0:4,0:2].rename({'sequence': 'aln_top'}, axis=1)
     aln.topology = pd.concat([aln.con,aln.df[['id', 'aln_top']]]).reset_index(drop=True)
     return aln
+
 def uniref50_add_info(seqobj):
     seqobj = seqobj.copy()
     from rotifer.devel.beta.sequence import sequence
@@ -1006,4 +1007,133 @@ def uniref50_add_info(seqobj):
     seqobj.df.TaxID = seqobj.df.TaxID.astype(int)
     seqobj.df = seqobj.df.merge(tid, how='left')
     return seqobj
+
+
+def uniref50_to_ncbi(uniref50_strings):
+     import pandas as pd
+     import sqlite3
+    # Connect to the SQLite database
+     conn = sqlite3.connect('/netmnt/vast01/cbb01/proteinworld/People/gian/data/idmapping_uniref50.new.db')
+     cursor = conn.cursor()
+     pids = [uniprotid.split('_')[1] for uniprotid in uniref50_strings]
+
+     placeholders = ', '.join(['?' for _ in pids])
+     sql_query = f"""
+         SELECT *
+         FROM EMBL
+         WHERE uniprotid IN ({placeholders});
+     """
+     uniref50DF = pd.read_sql_query(sql_query, conn, params=pids)
+     uniref50DF['Uniref50'] = 'UniRef50_' + uniref50DF.uniprotid
+     # Close the cursor and connection
+     cursor.close()
+     conn.close()
+
+     # Return the result as a pandas Series
+     return uniref50DF
+
+def uniref50_to_clusters(uniref50_strings):
+     import pandas as pd
+     import sqlite3
+    # Connect to the SQLite database
+     conn = sqlite3.connect('/netmnt/vast01/cbb01/proteinworld/People/gian/data/idmapping_uniref50.new.db')
+     cursor = conn.cursor()
+
+     placeholders = ', '.join(['?' for _ in uniref50_strings])
+     sql_query = f"""
+         SELECT *
+         FROM uniref50
+         WHERE uniref50 IN ({placeholders});
+     """
+     uniref50DF = pd.read_sql_query(sql_query, conn, params=uniref50_strings)
+     uniprotid = uniref50DF.uniprotid.unique().tolist() 
+
+     placeholders2 = ', '.join(['?' for _ in uniprotid])
+     # Construct the SQL query
+     sql_query2 = f"""
+     SELECT *
+     FROM "EMBL"
+     WHERE uniprotid IN ({placeholders2});
+     """
+
+     # Execute the SQL query
+     finalDF = pd.read_sql_query(sql_query2, conn, params=uniprotid)
+     finalDF = finalDF.merge(uniref50DF, how='outer').drop_duplicates()
+
+
+     # Close the cursor and connection
+     cursor.close()
+     conn.close()
+
+     # Return the result as a pandas Series
+     return finalDF
+
+def pid2uniref50(pids):
+     import pandas as pd
+     import sqlite3
+     from rotifer.db import ncbi
+
+     i = ncbi.IPGCursor()
+     i = i.fetchall(pids)
+     i = pd.concat(i)
+
+    # Connect to the SQLite database
+     conn = sqlite3.connect('/netmnt/vast01/cbb01/proteinworld/People/gian/data/idmapping_uniref50.new.db')
+     cursor = conn.cursor()
+     pids = i.pid.tolist()
+
+     placeholders = ', '.join(['?' for _ in pids])
+     sql_query = f"""
+         SELECT *
+         FROM EMBL
+         WHERE [EMBL-CDS] IN ({placeholders});
+     """
+     uniref50DF = pd.read_sql_query(sql_query, conn, params=pids)
+     uniref50DF['Uniref50'] = 'UniRef50_' + uniref50DF.uniprotid
+     # Close the cursor and connection
+     cursor.close()
+     conn.close()
+
+     # Return the result as a pandas Series
+     return uniref50DF
+
+
+
+
+def mview(seqobj,output='sequence.html', background='black', consensus = [100,90,80,70,60], organism=False, find=False):
+    '''
+    Using Mview to create a HTML file of the sequence algiment. 
+    Need to add rule for replace the sequence object description column for organism name when organims is True
+    '''
+
+    import tempfile
+    import subprocess
+    from subprocess import Popen, PIPE, STDOUT
+    from rotifer.devel.beta.sequence import sequence as sequence
+    import os
+    import pandas as pd
+    cwd = os.getcwd()
+    consensus = ','.join(map(str,consensus))
+    f = ''
+    if find:
+        f = f'-find {find}'
+    l2 = '-label2'
+    if organism:
+        l2 = ''
+    if background =='black':
+        b = 'black'
+        t = 'white'
+    else:
+        b='white'
+        t='black'
+
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        # temporary save fasta sequence file
+        seqobj.to_file(f'{tmpdirname}/seqfile') 
+        Popen(f'mview -in fasta -html head -consensus on -con_threshold {consensus} -label0 {l2} -label4 -label5 -pagecolor {b} -labcolor {t} -textcolor {t} -alncolor {b} -coloring any -con_coloring any {tmpdirname}/seqfile -css off -colormap CLUSTAL -bold -con_colormap CLUSTAL {f} > {cwd}/{output}',
+              stdout=PIPE,
+              shell=True
+              ).communicate()
+        
+    return f'Consensus file saved on {cwd}/{output}' 
 
