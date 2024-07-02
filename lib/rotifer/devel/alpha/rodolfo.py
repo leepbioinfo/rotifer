@@ -173,7 +173,7 @@ def load_seq_scan(name, folder, haldane=False):
                 how="left")
         info = info.merge(
                 pd.read_csv(
-                    f'{pre}.pfam.hmmscan.arch',
+                    f'{pre}.pfam.scan.arch',
                     sep='\t',
                     names=['c100i100', 'pfam'],
                     usecols=[0, 1],
