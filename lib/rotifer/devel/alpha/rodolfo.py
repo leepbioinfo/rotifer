@@ -650,7 +650,7 @@ def search2aln(df, coverage=50, evalue=1e-3, id_with_coord = False, arch=None, l
     From a search tabular file, filter by cov, and evalue to make a aln object
     '''
     df = df.query(f'evalue <= {evalue} and querycoverage > {coverage}')
-    seqobj = sequence(df.hit.drop_duplicates().to_list())
+    seqobj = sequence(df.hit.drop_duplicates().to_list(), local_database_path=local_database_path)
     if arch == 'profiledb':
         arch = ' '
     if arch:
