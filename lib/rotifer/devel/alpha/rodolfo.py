@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 import rotifer
-from rotifer import GlobalConfig
+from rotifer.core.functions import loadConfig
 logger = rotifer.logging.getLogger(__name__)
+
+config = loadConfig(__name__, defaults = {
+    'local_database_path': [ os.path.join(rotifer.config['data'],"fadb","nr","nr") ],
+})
 
 def annotate_community(df, column='community', reference='query', ):
     '''
@@ -101,7 +105,7 @@ def build_hhsuite_database(
                 aln.to_file(f'{output_directory}/aln/{group_cluster}.a3m','a3m')
 
     # Build hh-suite database
-    cmd = rotifer.GlobalConfig['base'] + f'/share/rotifer/scripts/build_hhdb.sh'
+    cmd = rotifer.config['base'] + f'/share/rotifer/scripts/build_hhdb.sh'
     Popen(f'{cmd} {output_directory}/aln {output_directory}' ).communicate()
     for orig in ['cs219','a3m.ordered','hhm.ordered']:
         dest = orig.replace(".ordered","")
@@ -627,8 +631,7 @@ def psiblast(acc,
     return (t, blast_r) 
 
 
-
-def search2aln(df, coverage=50, evalue=1e-3, arch=None):
+def search2aln(df, coverage=50, evalue=1e-3, id_with_coord = False, arch=None, local_database_path=config['local_database_path']):
     import os
     import tempfile
     import subprocess
@@ -638,11 +641,7 @@ def search2aln(df, coverage=50, evalue=1e-3, arch=None):
     if coverage > 1:
         coverage = coverage/100
     '''
-    From a search tabular file, filter by coverage, and evalue to make a aligned seqobj.
-
-    Dependencies:
-        splishrps
-        rps2arch
+    From a search tabular file, filter by cov, and evalue to make a aln object
     '''
     df = df.query(f'evalue <= {evalue} and querycoverage > {coverage}')
     seqobj = sequence(df.hit.drop_duplicates().to_list())
@@ -654,19 +653,27 @@ def search2aln(df, coverage=50, evalue=1e-3, arch=None):
             Popen(f'cat {tmpdirname}/fasta|splishrps {arch}|rps2arch -pcut 0.001 -overlap 0.03 > {tmpdirname}/arch', stdout=PIPE,shell=True).communicate()
             archdf = pd.read_csv(f'{tmpdirname}/arch',sep="\t", names=['id', 'arch', 'position'])
 
-            
-
     seqobj.df = seqobj.df.merge(df[['hit','evalue','hitstart','hitend']].rename({'hit':'id'},axis=1), how='left')
     seqobj.df.sequence = seqobj.df.apply(lambda x: x.sequence[x.hitstart:x.hitend], axis=1)
+    seqobj.df.id = seqobj.df.apply(lambda x: f'{x.id}/{x.hitstart}-{x.hitend}', axis=1)
+    evalues = seqobj.df.copy()[['id', 'evalue']]
     seqobj = seqobj.align()
-    seqobj.df = seqobj.df.merge(df[['hit','evalue','hitstart','hitend']].rename({'hit':'id'},axis=1), how='left')
+    seqobj.df = seqobj.df.merge(evalues,on=['id'], how='left')
     seqobj = seqobj.sort(['evalue'])
     if arch:
+        # We should fix the arch with coordinates similar to the evalue strategy
+        print('arch option may contains bug!i')
         seqobj.df = seqobj.df.merge(archdf, how='left')
 
     #seqobj.df.id = seqobj.df.apply(lambda x: f'{x.id}/{x.hitstart}-{x.hitend}', axis=1)
-    return seqobj
 
+    if id_with_coord:
+        seqobj.df = seqobj.df.drop_duplicates(['id']).reset_index(drop=True)
+        return seqobj
+    seqobj.df[['hit_start', 'hit_end']] = seqobj.df.id.str.split('/', expand=True)[1].str.split('-', expand=True)
+    seqobj.df.id = seqobj.df.id.str.split('/', expand=True)[0]
+    seqobj.df = seqobj.df.drop_duplicates(['id', 'hit_start', 'hit_end']).reset_index(drop=True)
+    return seqobj
 
 def add_arch_to_seqobj(seqobj, db='profiledb', cpu=8):
     '''
