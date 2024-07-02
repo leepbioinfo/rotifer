@@ -177,7 +177,7 @@ def load_seq_scan(name, folder, haldane=False):
                 how="left")
         info = info.merge(
                 pd.read_csv(
-                    f'{pre}.pfam.hmmscan.arch',
+                    f'{pre}.pfam.scan.arch',
                     sep='\t',
                     names=['c100i100', 'pfam'],
                     usecols=[0, 1],
@@ -1042,7 +1042,7 @@ def count_arch(
     if cut_off:
         cut_off = cut_off/100
         s = s.where(lambda x: x >= cut_off).dropna()
-    for y, z in s.iteritems():
+    for y, z in s.items():
         if normalize:
             flattened_list.append(f'{y}({100 * z:.2f}%)')
         else:
