@@ -1066,12 +1066,22 @@ class sequence(rotifer.pipeline.Annotatable):
         return MultipleSeqAlignment(self.to_seqrecords())
 
     def to_file(self, file_path=None, output_format='fasta', annotations=None, remove_gaps=False):
+        file_type_dict = {'pkl':'pickle', 'a3m':'a3m'}
+        file_type = file_path.rsplit('.', maxsplit=1)[1] 
+        if file_type in file_type_dict:
+            output_format = file_type_dict[file_type]
+
         if output_format == "a3m":
             fh = open(file_path,"wt")
             fh.write(self.to_a3m())
             fh.flush()
             fh.close()
             return len(self)
+        elif output_format == "pickle":
+            import pickle
+            with open(file_path,"wb") as fh:
+                pickle.dump(self,fh)
+            return f'{file_path} pickle file saved'
         else:
             return SeqIO.write(self.to_seqrecords(annotations=annotations, remove_gaps=remove_gaps), file_path, output_format)
 
@@ -1530,6 +1540,7 @@ class sequence(rotifer.pipeline.Annotatable):
         import networkx as nx
         import numpy as np
 
+        x = self.copy()
         with tempfile.TemporaryDirectory() as tmpdirname:
             self.to_file(f'{tmpdirname}/tt', remove_gaps=True)
             os.system(f'mmseqs easy-search {tmpdirname}/tt {tmpdirname}/tt {tmpdirname}/tt.m8 {tmpdirname}/tmp')
@@ -1542,7 +1553,8 @@ class sequence(rotifer.pipeline.Annotatable):
             partition = community.best_partition(G,weight='weight')
             c = pd.DataFrame.from_dict(partition,orient='index').reset_index().rename(
                 {'index': 'id', 0: 'community'}, axis=1)
-        return c
+            x.df = x.df.merge(c)
+        return x 
 
     def trim(self, max_perc_gaps=80, minimum_length=1):
         '''
