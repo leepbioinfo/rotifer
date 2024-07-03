@@ -1066,10 +1066,12 @@ class sequence(rotifer.pipeline.Annotatable):
         return MultipleSeqAlignment(self.to_seqrecords())
 
     def to_file(self, file_path=None, output_format='fasta', annotations=None, remove_gaps=False):
-        file_type_dict = {'pkl':'pickle', 'a3m':'a3m'}
-        file_type = file_path.rsplit('.', maxsplit=1)[1] 
-        if file_type in file_type_dict:
-            output_format = file_type_dict[file_type]
+        file_ext_dict = {'pkl':'pickle', 'a3m':'a3m'}
+        file_ext = file_path.rsplit('.', maxsplit=1)
+        if len(file_ext) == 2:
+            file_ext = file_ext[1]
+        elif file_ext in file_ext_dict:
+            output_format = file_ext_dict[file_ext]
 
         if output_format == "a3m":
             fh = open(file_path,"wt")
