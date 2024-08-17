@@ -1069,7 +1069,7 @@ class sequence(rotifer.pipeline.Annotatable):
         file_ext_dict = {'pkl':'pickle', 'a3m':'a3m'}
         file_ext = file_path.rsplit('.', maxsplit=1)
         if len(file_ext) == 2 and file_ext[1] in file_ext_dict:
-            output_format = file_ext_dict[file_exti[1]]
+            output_format = file_ext_dict[file_ext[1]]
 
         if output_format == "a3m":
             fh = open(file_path,"wt")
