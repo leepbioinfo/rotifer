@@ -953,7 +953,8 @@ class sequence(rotifer.pipeline.Annotatable):
         '''
 
         # Ranking of amino acid categories
-        aa_type_dict =  {'a': 6,
+        aa_type_dict =  {
+            'a':6,
             'l':4,
             'h':8,
             '+':3,
@@ -965,8 +966,8 @@ class sequence(rotifer.pipeline.Annotatable):
             's':9,
             'b':11,
             '_':12,
-            '.':13,
-            'gap':14
+            consensus_gap: 13,
+            'gap':14,
         }
 
         # Copying frequency table and building consensus
@@ -975,7 +976,7 @@ class sequence(rotifer.pipeline.Annotatable):
         else:
             result = self.residue_frequencies
         result.rename({'gap':consensus_gap}, inplace=True)
-        result = pd.concat([result, pd.DataFrame(columns=result.columns, index=['.']).fillna(cutoff+100)])
+        result = pd.concat([result, pd.DataFrame(columns=result.columns, index=[consensus_gap]).fillna(cutoff+100)])
         result = result.melt(ignore_index=False).reset_index().rename({'index':'aa', 'variable':'position', 'value':'freq'}, axis=1)
         result['ranking'] = result.aa.map(aa_type_dict)
         result = result.query(f'freq >= {cutoff}').sort_values(['position','ranking'], na_position='first').drop_duplicates(subset='position')
@@ -1200,15 +1201,6 @@ class sequence(rotifer.pipeline.Annotatable):
         if not inplace:
             return result
 
-    def _view_consensus(self, groupby = None, *args, **kwargs):
-        kwargs['sample'] = 0
-        if groupby:
-            kwargs['scale'] = False
-            kwargs['separator'] = None
-            return self._view_groups(groupby=groupby, *args, **kwargs)
-        else:
-            return self._view_sequence(*args, **kwargs)
-
     def _view_groups(self,
             groupby=None,
             min_group_size=2,
@@ -1425,7 +1417,10 @@ class sequence(rotifer.pipeline.Annotatable):
         method = "_view_sequence"
         if sample == 0:
             method = '_view_consensus'
-        elif groupby:
+        if groupby:
+            if sample == 0: # Consensus only
+                scale = False
+                separator = None
             method = '_view_groups'
         method = self.__getattribute__(method)
         return method(groupby=groupby,
