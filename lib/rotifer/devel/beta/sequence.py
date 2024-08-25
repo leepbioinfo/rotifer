@@ -1415,8 +1415,6 @@ class sequence(rotifer.pipeline.Annotatable):
           When pager is set to None, the formatted dataframe is returned.
         """
         method = "_view_sequence"
-        if sample == 0:
-            method = '_view_consensus'
         if groupby:
             if sample == 0: # Consensus only
                 scale = False
