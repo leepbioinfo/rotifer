@@ -697,7 +697,7 @@ class sequence(rotifer.pipeline.Annotatable):
         else:
             return result
 
-    def add_consensus(self, cutoffs=(50, 60, 70, 80, 90), separator='='):
+    def add_consensus(self, cutoffs=(50, 60, 70, 80, 90), separator='=', consensus_gap="."):
         """
         Add consensus rows to the MSA object.
 
@@ -719,7 +719,7 @@ class sequence(rotifer.pipeline.Annotatable):
         cx = []
         frequencies = result.residue_frequencies
         for cutoff in reversed(sorted(cutoffs)):
-            consensus = self.consensus(cutoff, frequencies=frequencies)
+            consensus = self.consensus(cutoff, frequencies=frequencies, consensus_gap=consensus_gap)
             cx.append([ f'Consensus {cutoff}%', consensus, len(consensus.replace('.','')), "consensus", f'Consensus {cutoff}%' ])
         if separator:
             cx.append([ 'separator', "".join([ separator for x in range(0,self.get_alignment_length()) ]), self.get_alignment_length(), "view", "separator" ])
@@ -935,7 +935,7 @@ class sequence(rotifer.pipeline.Annotatable):
         result.file_path = 'from add_seq function'
         return result
 
-    def consensus(self, cutoff=50, frequencies=None):
+    def consensus(self, cutoff=50, frequencies=None, consensus_gap="."):
         '''
         Generate consensus strings for the alignment object
 
@@ -974,7 +974,7 @@ class sequence(rotifer.pipeline.Annotatable):
             result = frequencies
         else:
             result = self.residue_frequencies
-        result.rename({'gap':'.'}, inplace=True)
+        result.rename({'gap':consensus_gap}, inplace=True)
         result = pd.concat([result, pd.DataFrame(columns=result.columns, index=['.']).fillna(cutoff+100)])
         result = result.melt(ignore_index=False).reset_index().rename({'index':'aa', 'variable':'position', 'value':'freq'}, axis=1)
         result['ranking'] = result.aa.map(aa_type_dict)
@@ -1200,84 +1200,28 @@ class sequence(rotifer.pipeline.Annotatable):
         if not inplace:
             return result
 
-    def view_consensus(self, groupby = None, *args, **kwargs):
+    def _view_consensus(self, groupby = None, *args, **kwargs):
+        kwargs['sample'] = 0
         if groupby:
-            return self.view_groups(groupby=groupby, *args, **kwargs, sample=0, scale=False, separator=None, group_separator=None)
+            kwargs['scale'] = False
+            kwargs['separator'] = None
+            return self._view_groups(groupby=groupby, *args, **kwargs)
         else:
-            return self.view_sequence(*args, **kwargs, sample=0)
+            return self._view_sequence(*args, **kwargs)
 
-    def view_groups(self,
+    def _view_groups(self,
             groupby=None,
             min_group_size=2,
-            sample=None,
             group_separator=np.NaN,
             color=True,
             scale=True,
-            consensus=True,
-            separator="=",
-            interval=10,
-            columns=True,
             pager='less -SR',
             *args, **kwargs):
-        """
-        See colored versions of all sub-alignments defined by
-        one or more grouping column(s).
-
-        Usage
-        -----
-        >>> from rotifer.devel.beta import sequence as rdbs
-        >>> aln = rdbs.sequence("my.aln","fasta")
-        >>> aln.add_cluster(coverage=0, identity=0).view("groups", groupby="c0i0")
-
-        Parameters
-        ----------
-        groupby: string, default None
-          Choose a column to group sequences and show alignments
-          and annotations for that group in a separate block of
-          rows
-        min_group_size: int, default None
-          Size of the smallest clusters that will be shown as a
-          separate group.
-        sample: int, default None
-          Randomly select and display up to this number of 
-          sequences per group.
-
-          Note: You can set this number to 0 hide ALL sequences!
-
-        group_separator:
-           Character to add to the rows separating groups.
-           Set it to None to disable.
-        color : bool
-            Color sequence residues
-        scale : bool, default True
-            If set to False, no scale is shown
-        consensus : bool, default True
-            Whether to display consensus rows
-        separator : character
-            Single character to fill row separating the alignment
-            and the consensus sequence
-        interval : integer, default 10
-            Interval between position marks in the scale
-        columns : bool or list of strings, default is True
-            List of annotation columns to show
-            If set to False, only the default columns are shown
-            If set to True, all columns in the internal DataFrame are shown
-        pager: str, default 'less -SR'
-          External command to use as viewer.
-
-        Returns
-        -------
-          Nothing if pager is set.
-          When pager is set to None, the formatted dataframe is returned.
-
-        Returns
-        -------
-            None
-        """
-        # Add consensus for the full dataframe
         df = []
-        if consensus:
-            df = self.view_sequence(color=False, scale=True, consensus=consensus, separator=separator, columns=columns, pager=None)
+
+        # Add consensus for the full dataframe
+        if 'consensus' in kwargs and kwargs['consensus']:
+            df = self._view_sequence(color=False, scale=True, pager=None, *args, **kwargs)
             df = df.query('type != "sequence"').copy()
             df.id = df.id.str.replace("Consensus",f'Full ')
             df[groupby] = 'Full'
@@ -1308,7 +1252,7 @@ class sequence(rotifer.pipeline.Annotatable):
                 continue
 
             # Format and add to stack
-            aln = aln.view_sequence(color=False, scale=scale, consensus=consensus, separator=separator, interval=interval, columns=columns, sample=sample, pager=None)
+            aln = aln._view_sequence(color=False, scale=scale, pager=None, *args, **kwargs)
             aln[groupby] = group
 
             # Add block to stack
@@ -1322,7 +1266,7 @@ class sequence(rotifer.pipeline.Annotatable):
             small = pd.concat(small, ignore_index=True)
             aln = self.copy()
             aln.df = small
-            aln = aln.view_sequence(color=False, scale=scale, consensus=consensus, separator=separator, interval=interval, columns=columns, sample=sample, pager=None)
+            aln = aln._view_sequence(color=False, scale=scale, pager=None, *args, **kwargs)
             aln[groupby] = "small"
             df.append(aln)
 
@@ -1341,49 +1285,17 @@ class sequence(rotifer.pipeline.Annotatable):
         else:
             return df
 
-    def view_sequence(self,
+    def _view_sequence(self,
             color=True,
             scale=True,
             consensus=True,
+            consensus_gap='.',
             separator="=",
             interval=10,
             columns=True,
             sample=None,
             pager='less -SR',
             *args, **kwargs):
-        """
-        See a colored version of the alignment with annotations.
-
-        Parameters
-        ----------
-        color : bool
-            Color sequence residues
-        scale : bool, default True
-            If set to False, no scale is shown
-        consensus : bool, default True
-            Whether to display consensus rows
-        separator : character
-            Single character to fill row separating the alignment
-            and the consensus sequence
-        interval : integer, default 10
-            Interval between position marks in the scale
-        columns : bool or list of strings, default is True
-            List of annotation columns to show
-            If set to False, only the default columns are shown
-            If set to True, all columns in the internal DataFrame are shown
-        sample: int, default None
-          Randomly select and display up to this number of 
-          sequences per group.
-
-          Note: You can set this number to 0 hide ALL sequences!
-        pager: str, default 'less -SR'
-          External command to use as viewer.
-
-        Returns
-        -------
-          Nothing if pager is set.
-          When pager is set to None, the formatted dataframe is returned.
-        """
         df = self.copy()
 
         # Choose columns to display
@@ -1403,7 +1315,7 @@ class sequence(rotifer.pipeline.Annotatable):
                 kwargs = {'cutoffs': (consensus,)}
             else:
                 kwargs = {'cutoffs': consensus}
-            df = df.add_consensus(separator=separator, **kwargs)
+            df = df.add_consensus(separator=separator, consensus_gap=consensus_gap, **kwargs)
 
         # Shift work to the internal dataframe, erasing the sequence object
         df = df.df.copy().astype(str)
@@ -1436,9 +1348,99 @@ class sequence(rotifer.pipeline.Annotatable):
         else:
             return df
 
-    def view(self, mode="sequence", *args, **kwargs):
-        method = self.__getattribute__(f'view_{mode}')
-        return method(**kwargs)
+    def view(self,
+             groupby=None,
+             min_group_size=2,
+             group_separator=np.NaN,
+             color=True,
+             scale=True,
+             consensus=True,
+             consensus_gap=".",
+             separator="=",
+             interval=10,
+             columns=True,
+             sample=None,
+             pager='less -SR',
+             *args, **kwargs):
+        """
+        See a colored version of the alignment with annotations.
+
+        Parameters
+        ----------
+
+        Usage
+        -----
+        >>> from rotifer.devel.beta import sequence as rdbs
+        >>> aln = rdbs.sequence("my.aln","fasta")
+        >>> aln.add_cluster(coverage=0, identity=0).view(groupby="c0i0")
+
+        Parameters
+        ----------
+        groupby: string, default None
+            See colored versions of all sub-alignments.
+            Choose a column to group sequences and show alignments
+            and annotations for each group.
+        min_group_size: int, default None
+            Size of the smallest groups to be shown as a block.
+        group_separator:
+            Character to add to the rows separating groups.
+            Set it to None to disable.
+        groupby: string, default None
+            Choose a column for grouping rows. A separate
+            alignment view will be created for each group.
+        min_group_size: integer, default 2
+            Minimum number of sequences in groups that will
+            be displayed in their own separate view.
+        color: bool
+            Color sequence residues
+        scale: bool, default True
+            If set to False, no scale is shown
+        consensus: bool, default True
+            Whether to display consensus rows
+        consensus_gap: string, default '.'
+            Character to represent (mostly) gapped columns in the
+            consensus string(s).
+        separator: character
+            Single character to fill row separating the alignment
+            and the consensus sequence
+        interval: integer, default 10
+            Interval between position marks in the scale
+        columns: bool or list of strings, default is True
+            List of annotation columns to show
+            If set to False, only the default columns are shown
+            If set to True, all columns in the internal DataFrame are shown
+        sample: int, default None
+          Randomly select and display up to this number of 
+          sequences per group.
+
+          Note: You can set this number to 0 hide ALL sequences!
+        pager: str, default 'less -SR'
+          External command to use as viewer.
+
+        Returns
+        -------
+          Nothing if pager is set.
+          When pager is set to None, the formatted dataframe is returned.
+        """
+        method = "_view_sequence"
+        if sample == 0:
+            method = '_view_consensus'
+        elif groupby:
+            method = '_view_groups'
+        method = self.__getattribute__(method)
+        return method(groupby=groupby,
+                      min_group_size=min_group_size,
+                      group_separator=group_separator,
+                      color=color,
+                      scale=scale,
+                      consensus=consensus,
+                      consensus_gap=consensus_gap,
+                      separator=separator,
+                      interval=interval,
+                      columns=columns,
+                      sample=sample,
+                      pager=pager,
+                      *args, **kwargs)
 
     def hhblits(self, databases=config['databases'], database_path=config['databases_path'], view=True, cpu=18):
         """
@@ -2130,33 +2132,25 @@ class sequence(rotifer.pipeline.Annotatable):
 
     def edit(self, consensus=True, scale=True):
         """
-        Search the alignment against a HMM databases using hhsearch.
+        Edit the alignment using VIM.
 
         Parameters
         ----------
-        databases : list of strings, default ['pfam','pdb70']
-            List of HMM databases to include in the search
-        database_path : string, default is ROTIFER_DATA/hhsuite
-            Path to the directory where the HMM databases are stored
-        view : bool, default True
+        consensus: bool, deafult True
+            Add the default consensus rows
+        scale: bool, default True
+            Add a scale bar
 
         Returns
         -------
-            A tuple of two elements:
-            - The HHsearch output as a string
-            - HHsearch output as a Pandas DataFrame
-              See rotifer.io.hhsuite
-
-        See also
-        --------
-            rotifer environment configuration
+        rotifer.devel.beta.sequece
 
         Examples
         --------
-        Load alignment in multi-FASTA format and compare it to Pfam
+        Load alignment in multi-FASTA format and edit
 
         >>> aln = sequence("myaln.aln")
-        >>> (hhout,hhdf) = aln.hhsearch(databases=['pfam'])
+        >>> aln2 = aln.edit()
         """
         import tempfile
         from subprocess import Popen, PIPE, STDOUT
@@ -2168,7 +2162,6 @@ class sequence(rotifer.pipeline.Annotatable):
         if consensus:
             aln = aln.add_consensus(separator='=')
 
-
         alndf = aln.df.fillna('X')
         cols = list(alndf.dtypes.where(lambda x: x=='object').dropna().index) 
         if scale:
@@ -2179,7 +2172,7 @@ class sequence(rotifer.pipeline.Annotatable):
             alndf[x] = alndf[x].str.pad(alndf[x].str.len().max(), side="right")
         with tempfile.TemporaryDirectory() as tmpdirname:
             alndf.to_csv(f'{tmpdirname}/seqdf.fa',index=False, sep="\t")
-            print ("Open VMI to edit your file.")
+            print ("Open NVIM to edit your file.")
             if os.system(f'nvim -u {gc["base"]}/etc/vim/init.vim {tmpdirname}/seqdf.fa') != 0:
                         raise TryNext()
             tmpdf = pd.read_csv(f'{tmpdirname}/seqdf.fa', sep="\t")
