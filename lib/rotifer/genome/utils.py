@@ -150,6 +150,8 @@ def seqrecords_to_dataframe(seqrecs=None, exclude_type=[], autopid=False, assemb
                 if feature_type == 'CDS':
                     if 'protein_id' in qualifiers:
                         pid = qualifiers['protein_id'][0]
+                    elif 'ID' in qualifiers:
+                        pid = qualifiers['ID'][0]
                     elif autopid == 'auto':
                         pid = f'{locus}.p{feature_order["CDS"]:0{digits}}'
                     elif autopid == 'copy':
