@@ -636,7 +636,8 @@ def annotate_seqobj(seqobj,
 def psiblast(acc,
              db='nr.50',
              cpu=96,
-             aln=True):
+             aln=True,
+             max_out = 5000):
     '''
     Psiblast it can accept sequence object. 
     '''
@@ -681,12 +682,12 @@ def psiblast(acc,
         if isinstance (acc, sequence):
             acc.to_file(f'{tmpdirname}/seqfile') 
             if aln:
-                Popen(f'splishpsi -a {cpu} -in_msa {tmpdirname}/seqfile -d {db} > {tmpdirname}/out',
+                Popen(f'splishpsi -a {cpu} -in_msa {tmpdirname}/seqfile -d {db} -num_alignments {max_out} -num_descriptions {max_out} > {tmpdirname}/out',
                       stdout=PIPE,
                       shell=True
                       ).communicate()
             else:
-                Popen(f'splishpsi -a {cpu} -i {tmpdirname}/seqfile -d {db} > {tmpdirname}/out',
+                Popen(f'splishpsi -a {cpu} -i {tmpdirname}/seqfile -d {db} -num_alignments {max_out} -num_descriptions {max_out} > {tmpdirname}/out',
                       stdout=PIPE,
                       shell=True
                       ).communicate()
