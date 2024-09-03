@@ -44,12 +44,12 @@
 - [ biosample  , rsync  , rsync.ncbi.nlm.nih.gov , biosample                            , unpack         ,                                                                                         ]
 - [ edirect    , rsync  , rsync.ncbi.nlm.nih.gov , entrez/entrezdirect/versions/current , unpack_edirect , { rsync: [ -arHv, --delete, --delete-excluded, --prune-empty-dirs, -L, --copy-links ] } ]
 # EBI
-# [ NAME   , METHOD , SERVER           , PATH                               , PROCESS     ]
-- [ interpro , ftp    , ftp.ebi.ac.uk    , pub/databases/interpro/releases/96.0 ,             ]
-- [ pfam     , ftp    , ftp.ebi.ac.uk    , pub/databases/Pfam/current_release   , unpack_pfam ]
-- [ rfam     , ftp    , ftp.ebi.ac.uk    , pub/databases/Rfam/CURRENT           , unpack      ]
-- [ chebi    , ftp    , ftp.ebi.ac.uk    , pub/databases/chebi                  ,             ]
-- [ chembl   , ftp    , ftp.ebi.ac.uk    , pub/databases/chembl                 ,             ]
+# [ NAME   , METHOD , SERVER           , PATH                                     , PROCESS     ]
+- [ interpro , ftp    , ftp.ebi.ac.uk    , pub/databases/interpro/current_release ,             ]
+- [ pfam     , ftp    , ftp.ebi.ac.uk    , pub/databases/Pfam/current_release     , unpack_pfam ]
+- [ rfam     , ftp    , ftp.ebi.ac.uk    , pub/databases/Rfam/CURRENT             , unpack      ]
+- [ chebi    , ftp    , ftp.ebi.ac.uk    , pub/databases/chebi                    ,             ]
+- [ chembl   , ftp    , ftp.ebi.ac.uk    , pub/databases/chembl                   ,             ]
 
 # Protein Ontology
 # [ NAME , METHOD , SERVER                 , PATH               , PROCESS ]

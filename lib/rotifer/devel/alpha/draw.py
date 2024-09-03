@@ -71,7 +71,7 @@ def arch_2_svg(df, length=False, font_size=8):
     for x  in gb:
         l=[]
         for y,z in x[1].iterrows():
-            A.add_node(z['index'],  label=z.domain, shape=sc[z['domain']], style=sc[z['domain']],  color='lightgray', fillcolor=cc[z['domain']])
+            A.add_node(z['index'],  label=z.domain, shape=sc[z['domain']], style='round,filled',  color='lightgray', fillcolor=cc[z['domain']])
             l.append(z['index'])    
         li.append(l)
         li.append(x[1].ID.drop_duplicates().tolist())
