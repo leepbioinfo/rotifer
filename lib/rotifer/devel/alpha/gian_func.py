@@ -1168,7 +1168,7 @@ def psiblast2table(psiblast_output):
     xx = l.groupby(['ID', 'domain', 'evalue']).agg({'hit_start':'min', 'hit_end':'max', 'start':'min', 'end':'max'}).reset_index()
     return xx
 
-def phobius2table(phobius_output):
+def phobius2table(phobius_output, short=True):
     '''
     Function to read a raw string with a psi blast output and parse it to a table
     ''' 
@@ -1181,8 +1181,13 @@ def phobius2table(phobius_output):
     l.loc[l.text.str.startswith("ID"), 'ID'] = l.query('text.str.startswith("ID")').text.str.split(expand=True)[1]
     l.ID = l.ID.ffill()
     l[['phobius', 'start', 'end','prediction']] = l.query('text.str.startswith("FT")').text.str.strip().str.split(expand=True)[[1,2,3,4]]
-    return l.query('text.str.startswith("FT")').iloc[:, 1:6]
-
+    l = l.query('text.str.startswith("FT")').iloc[:, 1:6]
+    if short:
+        l.phobius = l.phobius.replace({"SIGNAL": "SP", "TRANSMEM":"TM"})
+        l.prediction = l['prediction'].fillna(l['phobius']).replace({"CYTOPLASMIC.":"IN", "NON":"OUT"})
+        l = l.query('prediction in ["TM", "IN","OUT","SP"]')
+        l = l[['ID','prediction','start', 'end']].rename({'prediction': 'phobius'}, axis=1)
+    return l
 def TMprediction(seqobj,
              predictior='phobius',
              cpu=96):
