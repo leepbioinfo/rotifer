@@ -572,6 +572,9 @@ def add_arch_to_df(seqobj, full=False, inplace=True):
                     sep='\t', names=['pid', 'model', 'start', 'end'])
             with open('tmp.pfam.rps.query.out') as f:
                 seqobj.pfamout = ''.join(f.readlines())
+            seqobj.arch = pd.read_csv(
+                    'tmp.query.both.rps.dom.tsv',
+                    sep='\t', names=['pid', 'model', 'start', 'end'])
             os.chdir(cwd)
             return 'architecuture add to seqobj'
 
@@ -581,6 +584,10 @@ def add_arch_to_df(seqobj, full=False, inplace=True):
 
         seqobjc.pfam = pd.read_csv(
                 'tmp.query.pfam.rps.dom.tsv',
+                sep='\t')
+
+        seqobjc.arch = pd.read_csv(
+                'tmp.query.both.rps.dom.tsv',
                 sep='\t')
 
         seqobjc.profiledb = pd.read_csv(
@@ -1137,4 +1144,70 @@ def mview(seqobj,output='sequence.html', background='black', consensus = [100,90
               ).communicate()
         
     return f'Consensus file saved on {cwd}/{output}' 
+
+def psiblast2table(psiblast_output):
+    '''
+    Function to read a raw string with a psi blast output and parse it to a table
+    ''' 
+    import pandas as pd
+    l = pd.Series(psiblast_output.splitlines())
+    f = l.str.startswith(('Query', 'Sbjct', ' Score','>', 'Query='))
+    l = l.loc[f].to_frame()
+    l.columns = ['text']
+    l.loc[l.text.str.startswith("Query="), 'ID'] = l.query('text.str.startswith("Query=")').text.str.split(expand=True)[1]
+    l.loc[l.text.str.startswith(">"), 'domain'] = l.query('text.str.startswith(">") == True').text.str.split(expand=True)[0].str.strip('>')
+    l.loc[l.text.str.startswith(" Score"), 'evalue'] =  pd.to_numeric(l.query('text.str.startswith(" Score") == True').text.str.split(',',expand=True)[1].str.split('=', expand=True)[1], errors='coerce')
+    l.loc[l.text.str.startswith("Query "), 'start'] = pd.to_numeric(l.query('text.str.startswith("Query ") == True').text.str.split(expand=True)[1], errors='coerce')
+    l.loc[l.text.str.startswith("Query "), 'end'] = pd.to_numeric(l.query('text.str.startswith("Query ") == True').text.str.rsplit(expand=True, n=1)[1], errors='coerce')
+    l.loc[l.text.str.startswith("Sbjct "), 'hit_start'] = pd.to_numeric(l.query('text.str.startswith("Sbjct ") == True').text.str.split(expand=True)[1], errors='coerce')
+    l.loc[l.text.str.startswith("Sbjct "), 'hit_end'] = pd.to_numeric(l.query('text.str.startswith("Sbjct ") == True').text.str.rsplit(expand=True, n=1)[1], errors='coerce')
+    l.evalue = l.evalue.ffill()
+    l.domain = l.domain.ffill()
+    l.ID = l.ID.ffill()
+    l = l.query('text.str.startswith("Query ") or text.str.startswith("Sbjct ")')
+    xx = l.groupby(['ID', 'domain', 'evalue']).agg({'hit_start':'min', 'hit_end':'max', 'start':'min', 'end':'max'}).reset_index()
+    return xx
+
+def phobius2table(phobius_output):
+    '''
+    Function to read a raw string with a psi blast output and parse it to a table
+    ''' 
+    import pandas as pd
+    l = pd.Series(phobius_output.splitlines())
+    l = pd.Series(l)
+    f = l.str.startswith(('FT', 'ID'))
+    l = l.loc[f].to_frame()
+    l.columns = ['text']
+    l.loc[l.text.str.startswith("ID"), 'ID'] = l.query('text.str.startswith("ID")').text.str.split(expand=True)[1]
+    l.ID = l.ID.ffill()
+    l[['phobius', 'start', 'end','prediction']] = l.query('text.str.startswith("FT")').text.str.strip().str.split(expand=True)[[1,2,3,4]]
+    return l.query('text.str.startswith("FT")').iloc[:, 1:6]
+
+def TMprediction(seqobj,
+             predictior='phobius',
+             cpu=96):
+    '''
+    Transmembrane predictor it accepts sequence object.
+    Only working with phobius, more predictior to be added
+    '''
+
+    import tempfile
+    from subprocess import Popen, PIPE
+    from rotifer.devel.beta.sequence import sequence as sequence
+    seqobj = seqobj.copy()
+
+    # Shoul I remove gaps here??
+    if predictior == 'phobius':
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            # temporary save fasta sequence file
+            if isinstance (seqobj, sequence):
+                seqobj.to_file(f'{tmpdirname}/seqfile') 
+                Popen(f'cat {tmpdirname}/seqfile | parallel -j {cpu} --pipe --recstart ">" phobius > {tmpdirname}/out 2> err',
+                      stdout=PIPE,
+                      shell=True
+                      ).communicate()
+            with open(f'{tmpdirname}/out') as f:
+                    phobius_result = f.read()
+        
+    return (phobius_result) 
 
