@@ -151,7 +151,10 @@ def gff(path, seqid=None, organism=None, strain=None, description=None, topology
     from io import StringIO
     from tempfile import NamedTemporaryFile as TempFile
     from collections import OrderedDict
-    date = datetime.datetime.fromtimestamp(os.path.getmtime(path)).strftime("%d-%b-%Y").upper()
+    if path == sys.stdin or not os.path.exists(path):
+        date = datetime.date.today().strftime("%d-%b-%Y").upper()
+    else:
+        date = datetime.datetime.fromtimestamp(os.path.getmtime(path)).strftime("%d-%b-%Y").upper()
 
     # Loading taxonomy
     if organism:
