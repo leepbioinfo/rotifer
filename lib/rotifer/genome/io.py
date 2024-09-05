@@ -163,9 +163,15 @@ def gff(path, seqid=None, organism=None, strain=None, description=None, topology
         organism = ncbiobj.read("taxonomy", ete3=ete3)
 
     # Parsing GFF
-    h = open(path)
+    from io import TextIOWrapper
+    if isinstance(path, TextIOWrapper):
+        h = path
+    else:
+        h = open(path)
     l = h.readlines()
     h.close()
+    if len(l) == 0: # Input is empty
+        return []
     n = [ x for x in range(0,len(l)) if l[x] == "##FASTA\n" ][0]
     sio = SeqIO.parse(StringIO("".join(l[n+1:])),"fasta")
     seqrecords = OrderedDict({ x.id: x for x in sio })
