@@ -1276,3 +1276,252 @@ def rpsblast(seqobj,
 
         return blast_r 
 
+def get_plen(pidlist):
+    import pandas as pd
+    import rotifer.devel.beta.sequence as rdbs
+    if isinstance(pidlist, pd.Series):
+        pidlist = pidlist.drop_duplicates().tolist()
+    results = rdbs.sequence(pidlist).df[['id','length']].rename({'id':'ID', 'length': 'full_length'}, axis=1)
+    return results
+def domtable(dom_table):
+    import pandas as pd
+    import numpy as np
+    from rotifer.devel.alpha import gian_func as gf
+    copy = dom_table.copy()
+    dom_table = dom_table.merge(gf.get_plen(dom_table.ID.unique().tolist()))
+    dom_table = dom_table[['ID', 'domain', 'start', 'end', 'evalue', 'full_length']].sort_values(['ID', 'start', 'end'])
+    dom_table['region'] = np.where(dom_table.ID.shift(+1) == dom_table.ID, dom_table.start - dom_table.end.shift(+1),0)
+    dom_table['region2'] =  (dom_table.start - dom_table.region) +1
+    dom_table['region3'] =  (dom_table.start - dom_table.region2)
+   # unk_central_dom = dom_table.query('region3 >=5')
+   # unk_n_term_dom = dom_table.query('region3 ==-1 and region2 >=5')
+    dom_table['region4'] = np.where(dom_table.ID.shift(-1) == dom_table.ID,0, dom_table.full_length - dom_table.end)
+    dom_table['region5'] = dom_table.start.shift(-1)-1
+    dom_table['region5'],dom_table['region6'] = np.where(dom_table.region4 > 0 ,[dom_table.end, dom_table.full_length], [ dom_table.end, dom_table.region5])
+    dom_table['region7'] = dom_table.region6 - dom_table.region5
+    dom_n = dom_table.drop_duplicates('ID')
+    dom_n.end = dom_n.start
+    dom_n.start = 1
+    dom_n = dom_n[['ID', 'start', 'end']]
+    dom_table = dom_table[['ID', 'region5' ,'region6', 'region7']]
+    dom_table.columns = ['ID', 'start', 'end', 'rlen']
+    dom_n['rlen'] = dom_n.end - dom_n.start
+    dom_table = pd.concat([dom_table, dom_n]).sort_values(['ID', 'start', 'end'])
+    xx = dom_table.query('rlen >=2')
+    xx.domain =['unk']
+    dom_file = copy[['ID', 'domain', 'start', 'end']]
+    xx['domain'] = 'unk'
+    final = pd.concat([dom_file,xx]).sort_values(['ID', 'start','end'])[['ID','domain', 'start','end']]
+
+    return (final)
+
+def draw_architecture(id_list, file):
+
+    import pygraphviz as pgv
+    from pygraphviz.agraph import re
+    import yaml
+    import numpy as np
+    import seaborn as sns
+    import yaml
+    import pandas as pd
+    from rotifer.devel.beta.sequence import sequence
+    import rotifer.devel.alpha.gian_func as gf
+    from rotifer.interval import utils as riu
+
+    # As reference Nature's standard figure sizes are 89 mm (3.50 inches) wide (single column) and 183 mm (7.20472 inches) wide (double column)
+    # If a protein with 5000 aminoacids would fit a whole line of double colum figure, each aa would then use 0.001440944 inches.
+    # If I use a PDF with 8 inches and 0.5 margin I would have 7 inches available
+    # Therefor we could use this number as conversion factor to draw the domains shapes and rouglth estimate the size to write within it.
+    #The font size is typically measured in points. One point is equal to 1/72 of an inch
+
+    # Example : a domain of 300 aa would have a shape of 300 *0.001440944 = 0.4322832 inches
+    # If I use font of size 5, each character would 
+    # Font size (in inches)= 72/5 ≈0.069 inches
+    #For proportional fonts like Arial, the average width of a character is typically about 0.6 times the font size.
+    #Average character width (in inches)=0.069×0.6≈0.041 inches
+
+    #Therefore to use calculate the number of characters that fits 300 aa domain:
+    # 0.4322832/0.041 == ~10
+
+
+    # Figure to scale (reccomended to keep 1 to produce final figure in adobe (best scale for publication, but needs to be proper adjusted the names)
+    ##### To create PDF, the 4 works preatty good
+    rep = ['ANKs',  'β-Ps','HEATs',  'LRRs',  'Pps'  'Sel1',  'TPRs']
+
+    seqobj = sequence(id_list)
+    seqobj.arch = gf.rpsblast(seqobj)
+    tsv =  gf.rpsblast2table(seqobj.arch)
+    tsv = tsv.query('evalue <= 0.1')
+    seqobj.phobius = gf.TMprediction(seqobj)
+    pt = gf.phobius2table(seqobj.phobius).rename({"phobius":"domain"}, axis=1)
+    tt = pd.concat([tsv,pt])
+    tt.start = tt.start.astype(int)
+    tt.end = tt.end.astype(int)
+    no = riu.filter_nonoverlapping_regions(tt.query('domain not in ["IN", "OUT"]') ,**{**riu.config['archtsv'], 'maximum_overlap':0.4})
+
+
+
+
+    scale_figure = 2
+    domain_height = scale_figure/10
+    size_median = True
+    font_point = float(0.013837) * 0.6  # 1/72 (size of one point character in inches) * actual size (avg 0.6 the real size)
+    aa_scale = float(0.001440944) 
+    colors = sns.color_palette("pastel").as_hex() +sns.color_palette("deep").as_hex()  + sns.color_palette('muted').as_hex() + sns.color_palette('colorblind').as_hex()
+    shapes = ['box',
+              'octagon',
+    #          'circle',
+              'hexagon',
+              'ellipse',
+              'diamond']
+    #          'doubleoctagon',
+    #          'tripleoctagon']
+
+
+    shapes = pd.DataFrame(shapes, columns=['shapes']).reset_index().rename({'index':'shape_rank'}, axis=1)
+    colors = pd.DataFrame(colors, columns=['colors']).reset_index().rename({'index':'color_rank'}, axis=1)
+    color_code = shapes.join(colors, how='cross').join(pd.DataFrame(['rounded,filled', 'filled']), how='cross').rename({0:'rounded'}, axis=1).sort_values(['rounded','shape_rank','color_rank'], ascending=[False, True, True]).reset_index(drop=True)
+    color_code = color_code.query('~(shapes =="ellipse" and rounded =="rounded,filled")')
+
+    #color_code = pd.DataFrame(shapes, columns=['shapes']).join(pd.DataFrame(colors, columns=['colors']), how='cross')
+
+
+    font_size= 4
+    d = gf.domtable(no)
+    d = d.rename({"ID":'pid'}, axis=1)
+
+    d['size']  = d.end - d.start
+    d['esc'] = d['size'] * (aa_scale*scale_figure)
+    #d.domain = d.domain.replace(domain_dict['Domain'])
+    d['dl'] = d.domain.str.len()
+    d['f_space']= round(d.esc/(font_point*font_size))
+    d = d[d.f_space >= 1]
+    d.f_space = d.f_space.astype(int)
+    #d.loc[d.domain =='unk', 'domain'] = d.loc[d.domain =='unk', 'f_space'].apply(lambda x: x * full_space_character)
+    d['pid_order'] = d.pid.map(d.pid.drop_duplicates().reset_index(drop=True).reset_index().set_index('pid')['index'].to_dict())
+    d = d.reset_index(drop=True).reset_index()
+
+    if size_median:
+        d.loc[d.domain !='unk', 'esc'] = d.loc[d.domain !='unk'].groupby('domain').esc.transform('median')
+    #   d['esc'] = d.groupby('domain').esc.transform('median')
+
+    # Adding custoum color and shape for TMs
+    ################################################
+    ll = d[~d.domain.isin(['unk', 'TM'])].domain.value_counts().reset_index()
+    #ll2 = color_code.sample(frac = 1).reset_index(drop=True)
+    ll2 = color_code
+    #ll2 = ll2.join(pd.DataFrame(['rounded,filled', 'filled']), how='cross').rename({0:'rounded'}, axis=1)
+    #Removinv rounded elips (circles)
+    #ll2 = ll2.query('~(shapes =="ellipse" and rounded =="rounded,filled")')
+
+    oo = ll.join(ll2)
+    oo = pd.concat([pd.DataFrame(['TM', 0, 1, 'box', 0, '#FF912B', 'rounded,filled'], index=oo.columns).T, oo])
+    oo.colors = oo.colors.fillna("#808080")
+    oo.shapes = oo.shapes.fillna("ellipse")
+    oo.rounded = oo.rounded.fillna("filled")
+    sd = oo[['index', 'shapes']].set_index('index').shapes.to_dict()
+    cd = oo[['index', 'colors']].set_index('index').colors.to_dict()
+    rd = oo[['index', 'rounded']].set_index('index').rounded.to_dict()
+
+    ######################################
+    #Setting font size based on the shapes
+    d['font_size'] = font_size
+    d['domain_char'] = d.domain.str.len()
+    d['write_size'] = d.domain_char * font_point * font_size
+    d['over_write'] = d.esc / d['write_size']
+    d.loc[d.over_write < 1, 'font_size'] =   d.loc[d.over_write < 1].font_size * d.loc[d.over_write < 1].over_write
+    fsd = d.drop_duplicates('domain').set_index('domain').font_size.to_dict()
+
+
+    draw_scale=True
+    scale_size = 100 * (aa_scale*scale_figure)
+
+
+    gb = d.groupby('pid_order')
+    li =[]
+    A = pgv.AGraph()
+    #Setting the size of output, based in the number of proteins:
+    A.graph_attr['size'] = f'8,{d.pid.nunique()}'
+    A.graph_attr['margin'] = '0.5'
+    if draw_scale:
+        l =['scale_text', 'scale']
+        A.add_node('scale_text',
+                   label='scale',
+                   shape='none',
+                   fontsize=font_size +1,
+                   fontname='Arial')
+        A.add_node('scale',
+                   label='100',
+                   width=scale_size,
+                   fixedsize='true',
+                   nodesep=0,
+                   fontsize=font_size,
+                   shape='box',
+                   style = 'filled',
+                   height='0.00001',
+                   fillcolor='black',
+                   penwidth=1,
+                   labelloc='t',
+                   color='white',
+                   labeldistance=1.5)
+        li.append(l)
+
+    for x in gb:
+        l =[]
+        for y,z in x[1].iterrows():
+            if len(l) < 1:
+                l.append(z['pid'])
+                A.add_node(z['pid'],
+                           label=x[1].pid.unique()[0],
+                           shape='none',
+                           fontsize=font_size +1,
+                           fontname='Arial')
+
+            if z.domain =='unk':
+                A.add_node(z['index'],
+                           label='',
+                           width=z['esc'],
+                           fixedsize='true',
+                           nodesep=0,
+                           shape='box',
+                           style = 'filled',
+                           height='0.00001',
+                           fillcolor='black',
+                           penwidth=0.5,
+                           color='white')
+                l.append(z['index'])
+           # elif z.domain =='RDD':
+           #     A.add_node(z['index'],
+           #                label=z.domain,
+           #                width=z['esc'],
+           #                fixedsize='true',
+           #                nodesep=0,
+           #                image="./TPR.svg",
+           #                fontsize=4,
+           #                height='domain_height',
+           #                penwidth=0)
+           #     l.append(z['index'])
+            else:
+                A.add_node(z['index'],
+                           label=z.domain,
+                           style=rd[z['domain']],
+                           width=z['esc'],
+                           fixedsize='true',
+                           height=domain_height,
+                           color=cd[z['domain']],
+                           fontsize=fsd[z['domain']],
+                           fillcolor=cd[z['domain']],
+                           shape=sd[z['domain']],
+                           nodesep=0,
+                           penwidth=1,
+                           fontname='Arial')
+                l.append(z['index'])
+        li.append(l)
+    for x in range(len(li)):
+        A.add_subgraph(li[x], rank="same")
+
+    v = [li[x][0] for x in range(len(li))]
+    [A.add_edge(v.pop(0), v[0], penwidth = 0) for x in range(len(v)-1)]
+    A.graph_attr.update(nodesep= 0)
+    A.graph_attr.update(ranksep= 0)
+    A.draw(file, prog="dot")
