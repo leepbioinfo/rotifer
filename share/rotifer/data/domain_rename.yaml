@@ -1,0 +1,264 @@
+2H: 
+  - AKAP7_NLS
+  - 2_5_RNA_ligase2
+  - tRNA_lig_CPD
+ABC-ATPase: 
+  - AAA_21
+ABhydrolase: 
+  - DUF900
+  - DUF2235
+  - ABHYDROLASE_DUF2235.1
+  - Tox-ABHYDROLASE_DUF2235
+AP-ATPase: 
+  - APATPase
+  - NB-ARC
+AP-GTPase: 
+  - Roc
+ARG: 
+  - ADP_ribosyl_GH
+ART-EvpP: 
+  - EvpP
+ASH-Ig: 
+  - ASH-IG
+Acetylase: 
+  - ACET
+  - Acetyltransf_1
+  - Acetyltransf_2
+  - Acetyltransf_3
+ArsR-HTH: 
+  - ARSR-HTH
+ANKs:
+  - ANK
+  - Ank_1
+  - Ank_2
+  - Ank_3
+  - Ank_4
+  - Ank_5
+
+Band-7: 
+  - Band_7
+Bps:
+  - DUF5050
+  - BetaPropeller
+Beta-Roll: 
+  - HemolysinCabind
+CCCH: 
+  - zf-CCCH
+Calcineurin: 
+  - Metallophos
+  - Calcineurin-conf
+Caspase: 
+  - CASPASE
+  - Peptidase_C14
+  - Peptidase_C50
+CitB: 
+  - CITB-HTH
+Deaminase: 
+  - DEAM
+DeoR-HTH: 
+  - DEOR-HTH
+Discoidin: 
+  - F5_F8_type_C
+DnaJ: 
+  - DNAJ
+DrHyd: 
+  - drhyd
+  - Nuc_deoxyrib_tr
+DtxR-HTH: 
+  - DTXR-HTH
+FGS: 
+  - FGE-sulfatase
+Fis-HTH: 
+  - FIS-HTH
+FringeGT: 
+  - BACTERIALFRINGE
+Fur-HTH: 
+  - FURR-HTH
+GntR-HTH: 
+  - GNTR-HTH
+GYF: 
+  - GYF_2
+HEATs: 
+  - Imm-HEAT
+  - HEAT_2
+  - TCAD10
+HerA-FtsK: 
+  - DUF87
+HKD: 
+  - PhospholipaseD
+  - PLDc_2
+  - PLDc
+Helicase-SF1: 
+  - RNA-Helicase_SFI.2
+His-Kinase: 
+  - HATPase_c_2
+  - HATPase_c
+  - HISKIN
+LRRs: 
+  - LRR
+  - LRR_1
+  - LRR_2
+  - LRR_3
+  - LRR_4
+  - LRR_5
+  - LRR_6
+  - LRR_7
+  - LRR_8
+  - LRR_9
+  - LRR_10
+  - Imm-LRR
+LamininG: 
+  - Laminin_G
+  - Laminin_G_3
+Lrp-HTH: 
+  - LRP-HTH
+MJ1316: 
+  - DUF504
+MNS-STAND: 
+  - AAA_35
+  - MNS
+  - MNS-Npun2340
+Macro: 
+  - MACRODOMAIN
+  - ThsA_Macro
+McrB-NTD: 
+  - DUF3578
+McrB-NTDL: 
+  - G6PD_bact
+  - DUF1054
+MetJArc-HTH: 
+  - MetJarc-HTH
+Metallopeptidase: 
+  - ASTACIN
+MoxR-AAA: 
+  - AAA_5
+N-OB: 
+  - tRNA_anti-codon
+NtrC-AAA: 
+  - Sigma54_activat
+PNPase: 
+  - PNP_UDP_1
+PadR-HTH: 
+  - PADR-HTH
+ParB: 
+  - DUF262
+ParA-Soj-NTPase: 
+  - ParA-Soj-PloopNTPase
+  - AAA_31
+Pps:
+  - Pentapeptide
+  - Pentapeptide_1
+  - Pentapeptide_2
+  - Pentapeptide_3
+  - Pentapeptide_4
+PIN: 
+  - PIN_1
+  - PIN_2
+  - PIN_3
+  - PIN_4
+  - PIN_5
+  - PIN_6
+  - PIN_7
+  - PIN_8
+  - PIN_9
+  - PIN_10
+  - PIN_11
+  - PIN_12
+PolyA-Pol: 
+  - PAP_central
+PspA: 
+  - PspA_IM30
+REase: 
+  - HSDR_N
+  - DUF2887
+RNaseH-CATRA+Caspase: 
+  - CHAT
+Receiver: 
+  - REC
+  - Response_reg
+Rib-S17: 
+  - Ribosomal_S17
+SIMIBI-ParA: 
+  - ParA-Soj-PloopNTPase
+SLATT: 
+  - DUF4231
+STY-kinase: 
+  - STYKIN
+  - Pkinase
+  - CR-Kinase
+Sigma-HTH: 
+  - SIGMA-HTH
+Sirtuin: 
+  - Sir2
+  - SIR2_2
+  - SIR2
+STING: 
+  - TMEM173
+Synaptojanin: 
+  - Exo_endo_phos
+TIR: 
+  - HET
+  - TIR_2
+  - SEFIR
+  - DUF1863
+  - ThsB_TIR
+  - CAP12-PCTIR_TIR
+TPRs: 
+  - TPR
+  - TPR_1
+  - TPR_2
+  - TPR_3
+  - TPR_4
+  - TPR_5
+  - TPR_6
+  - TPR_7
+  - TPR_8
+  - TPR_9
+  - TPR_10
+  - TPR_11
+  - TPR_12
+  - TPR_13
+  - TPR_14
+  - TPR_15
+  - TPR_16
+  - TPR_17
+  - TPR_18
+  - TPR_19
+  - TPR_20
+  - TPR_21
+  - TPR_22
+  - DUF3856
+  - ANAPC3
+  - Rapsyn_N
+  - PPTA
+  - SNAP
+Trypsin: 
+  - Trypsin_2
+YggU: 
+  - DUF167
+ZnKnu: 
+  - ZNKNUCK
+ZnR: 
+  - ZNR
+  - zinc_ribbon_2
+  - DZR
+  - zf-ribbon_3
+  - OrfB_Zn_ribbon
+  - zf-NADH-PPase
+  - zinc_ribbon_4
+cHTH: 
+  - CHTH
+cNMP-cyclase: 
+  - ACYC
+cNMPBD: 
+  - CNMP
+  - cNMP_binding
+GTPase: 
+  - sGTP 
+SMODS-polBeta: 
+  - SMODS
+  - DncV-like_NTFase
+S-2TMBeta: 
+  - S_2TMBeta
+WG:
+  - WG_beta_rep

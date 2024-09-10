@@ -1277,18 +1277,32 @@ def rpsblast(seqobj,
         return blast_r 
 
 def get_plen(pidlist):
+    """
+    small function to get plen of proteins, can receive list, pd.Series or a sequence objct
+    """
     import pandas as pd
     import rotifer.devel.beta.sequence as rdbs
     if isinstance(pidlist, pd.Series):
         pidlist = pidlist.drop_duplicates().tolist()
-    results = rdbs.sequence(pidlist).df[['id','length']].rename({'id':'ID', 'length': 'full_length'}, axis=1)
+        
+    if isinstance(pidlist, rdbs.sequence):
+        results = pidlist
+    else:
+        results = rdbs.sequence(pidlist)
+    
+    results = results.df[['id','length']].rename({'id':'ID', 'length': 'full_length'}, axis=1)
     return results
-def domtable(dom_table):
+
+def domtable(dom_table, seqobj=False):
     import pandas as pd
     import numpy as np
     from rotifer.devel.alpha import gian_func as gf
     copy = dom_table.copy()
-    dom_table = dom_table.merge(gf.get_plen(dom_table.ID.unique().tolist()))
+    if seqobj:
+        dom_table = dom_table.merge(gf.get_plen(seqobj))
+    else:    
+        dom_table = dom_table.merge(gf.get_plen(dom_table.ID.unique().tolist()))
+
     dom_table = dom_table[['ID', 'domain', 'start', 'end', 'evalue', 'full_length']].sort_values(['ID', 'start', 'end'])
     dom_table['region'] = np.where(dom_table.ID.shift(+1) == dom_table.ID, dom_table.start - dom_table.end.shift(+1),0)
     dom_table['region2'] =  (dom_table.start - dom_table.region) +1
@@ -1315,7 +1329,7 @@ def domtable(dom_table):
 
     return (final)
 
-def draw_architecture(id_list, file):
+def draw_architecture(id_list, file, size_median=True, domain_rename=True):
 
     import pygraphviz as pgv
     from pygraphviz.agraph import re
@@ -1327,7 +1341,19 @@ def draw_architecture(id_list, file):
     from rotifer.devel.beta.sequence import sequence
     import rotifer.devel.alpha.gian_func as gf
     from rotifer.interval import utils as riu
+    from rotifer.core import functions as rcf
 
+    svg_dict = {'line_svg' : rcf.findDataFiles(":templates/line.svg"),
+                'ANKs' : rcf.findDataFiles(":templates/Ank.svg"),
+                'Bps' : rcf.findDataFiles(":templates/Bet_propelers.svg"),
+                'HEATs' : rcf.findDataFiles(":templates/HEAT.svg"),
+                'LRRs' : rcf.findDataFiles(":templates/LRR.svg"),
+                'Pps' : rcf.findDataFiles(":templates/Pps.svg"),
+                'Sel1' : rcf.findDataFiles(":templates/Sel1.svg"),
+                'TPRs' : rcf.findDataFiles(":templates/TPR.svg")
+                }
+
+    #repeats = ['ANKs',  'Bps','HEATs',  'LRRs',  'Pps'  'Sel1',  'TPRs']
     # As reference Nature's standard figure sizes are 89 mm (3.50 inches) wide (single column) and 183 mm (7.20472 inches) wide (double column)
     # If a protein with 5000 aminoacids would fit a whole line of double colum figure, each aa would then use 0.001440944 inches.
     # If I use a PDF with 8 inches and 0.5 margin I would have 7 inches available
@@ -1346,7 +1372,6 @@ def draw_architecture(id_list, file):
 
     # Figure to scale (reccomended to keep 1 to produce final figure in adobe (best scale for publication, but needs to be proper adjusted the names)
     ##### To create PDF, the 4 works preatty good
-    rep = ['ANKs',  'β-Ps','HEATs',  'LRRs',  'Pps'  'Sel1',  'TPRs']
 
     seqobj = sequence(id_list)
     seqobj.arch = gf.rpsblast(seqobj)
@@ -1358,13 +1383,16 @@ def draw_architecture(id_list, file):
     tt.start = tt.start.astype(int)
     tt.end = tt.end.astype(int)
     no = riu.filter_nonoverlapping_regions(tt.query('domain not in ["IN", "OUT"]') ,**{**riu.config['archtsv'], 'maximum_overlap':0.4})
+    
+    # get the organism name from the fasta description:
+    seqobj.df['organism'] = seqobj.df.description.apply(gf.extract_organism_from_description)
+    organism_dict = seqobj.df.set_index("id").organism.to_dict()
 
 
 
 
     scale_figure = 2
     domain_height = scale_figure/10
-    size_median = True
     font_point = float(0.013837) * 0.6  # 1/72 (size of one point character in inches) * actual size (avg 0.6 the real size)
     aa_scale = float(0.001440944) 
     colors = sns.color_palette("pastel").as_hex() +sns.color_palette("deep").as_hex()  + sns.color_palette('muted').as_hex() + sns.color_palette('colorblind').as_hex()
@@ -1383,13 +1411,18 @@ def draw_architecture(id_list, file):
     color_code = shapes.join(colors, how='cross').join(pd.DataFrame(['rounded,filled', 'filled']), how='cross').rename({0:'rounded'}, axis=1).sort_values(['rounded','shape_rank','color_rank'], ascending=[False, True, True]).reset_index(drop=True)
     color_code = color_code.query('~(shapes =="ellipse" and rounded =="rounded,filled")')
 
-    #color_code = pd.DataFrame(shapes, columns=['shapes']).join(pd.DataFrame(colors, columns=['colors']), how='cross')
 
 
     font_size= 4
-    d = gf.domtable(no)
+    d = gf.domtable(no, seqobj=seqobj)
     d = d.rename({"ID":'pid'}, axis=1)
 
+    if domain_rename:
+        domain_dict = rcf.loadConfig(rcf.findDataFiles(":data/domain_rename.yaml"))
+        domain_dict =  {v:k for k in domain_dict.keys() for v in domain_dict[k] }
+        d['domain'] = d['domain'].replace(domain_dict)
+    #due Some strange behaivour I will strip the columns domain:
+    d['domain'] = d['domain'].str.strip()
     d['size']  = d.end - d.start
     d['esc'] = d['size'] * (aa_scale*scale_figure)
     #d.domain = d.domain.replace(domain_dict['Domain'])
@@ -1397,25 +1430,21 @@ def draw_architecture(id_list, file):
     d['f_space']= round(d.esc/(font_point*font_size))
     d = d[d.f_space >= 1]
     d.f_space = d.f_space.astype(int)
-    #d.loc[d.domain =='unk', 'domain'] = d.loc[d.domain =='unk', 'f_space'].apply(lambda x: x * full_space_character)
     d['pid_order'] = d.pid.map(d.pid.drop_duplicates().reset_index(drop=True).reset_index().set_index('pid')['index'].to_dict())
     d = d.reset_index(drop=True).reset_index()
 
     if size_median:
         d.loc[d.domain !='unk', 'esc'] = d.loc[d.domain !='unk'].groupby('domain').esc.transform('median')
-    #   d['esc'] = d.groupby('domain').esc.transform('median')
 
     # Adding custoum color and shape for TMs
     ################################################
-    ll = d[~d.domain.isin(['unk', 'TM'])].domain.value_counts().reset_index()
-    #ll2 = color_code.sample(frac = 1).reset_index(drop=True)
-    ll2 = color_code
-    #ll2 = ll2.join(pd.DataFrame(['rounded,filled', 'filled']), how='cross').rename({0:'rounded'}, axis=1)
-    #Removinv rounded elips (circles)
-    #ll2 = ll2.query('~(shapes =="ellipse" and rounded =="rounded,filled")')
-
-    oo = ll.join(ll2)
+    ll = d[~d.domain.isin(['unk', 'TM'])]
+    ll = ll[~ll.domain.isin(svg_dict.keys())].domain.value_counts().reset_index()
+    
+    oo = ll.join(color_code)
+    ## Adding the TM color and shape
     oo = pd.concat([pd.DataFrame(['TM', 0, 1, 'box', 0, '#FF912B', 'rounded,filled'], index=oo.columns).T, oo])
+    ## fillling color and shape for domains not much represented on the ds
     oo.colors = oo.colors.fillna("#808080")
     oo.shapes = oo.shapes.fillna("ellipse")
     oo.rounded = oo.rounded.fillna("filled")
@@ -1436,12 +1465,11 @@ def draw_architecture(id_list, file):
     draw_scale=True
     scale_size = 100 * (aa_scale*scale_figure)
 
-
     gb = d.groupby('pid_order')
     li =[]
     A = pgv.AGraph()
     #Setting the size of output, based in the number of proteins:
-    A.graph_attr['size'] = f'8,{d.pid.nunique()}'
+    A.graph_attr['size'] = f'12,{d.pid.nunique()}'
     A.graph_attr['margin'] = '0.5'
     if draw_scale:
         l =['scale_text', 'scale']
@@ -1456,13 +1484,14 @@ def draw_architecture(id_list, file):
                    fixedsize='true',
                    nodesep=0,
                    fontsize=font_size,
-                   shape='box',
-                   style = 'filled',
+                   #shape='box',
+                   image=svg_dict['line_svg'],
+                   #style = 'filled',
                    height='0.00001',
-                   fillcolor='black',
-                   penwidth=1,
+                   #fillcolor='black',
+                   penwidth=0,
                    labelloc='t',
-                   color='white',
+                   #color='white',
                    labeldistance=1.5)
         li.append(l)
 
@@ -1472,7 +1501,13 @@ def draw_architecture(id_list, file):
             if len(l) < 1:
                 l.append(z['pid'])
                 A.add_node(z['pid'],
-                           label=x[1].pid.unique()[0],
+                           label=(
+                               f'<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="0" CELLSPACING="0">'
+                               f'<TR><TD HEIGHT="5"></TD></TR>'
+                               f'<TR><TD HEIGHT="5"></TD></TR>'
+                               f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial" POINT-SIZE="5">{x[1].pid.unique()[0]}</FONT></TD></TR>'
+                               f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial italic" POINT-SIZE="4">{organism_dict[x[1].pid.unique()[0]]}</FONT></TD></TR>'
+                               '</TABLE>>'),
                            shape='none',
                            fontsize=font_size +1,
                            fontname='Arial')
@@ -1483,24 +1518,23 @@ def draw_architecture(id_list, file):
                            width=z['esc'],
                            fixedsize='true',
                            nodesep=0,
-                           shape='box',
-                           style = 'filled',
-                           height='0.00001',
-                           fillcolor='black',
-                           penwidth=0.5,
-                           color='white')
+#                           shape='box',
+                           image=svg_dict['line_svg'],
+                           height='domain_height',
+                           penwidth=0)
                 l.append(z['index'])
-           # elif z.domain =='RDD':
-           #     A.add_node(z['index'],
-           #                label=z.domain,
-           #                width=z['esc'],
-           #                fixedsize='true',
-           #                nodesep=0,
-           #                image="./TPR.svg",
-           #                fontsize=4,
-           #                height='domain_height',
-           #                penwidth=0)
-           #     l.append(z['index'])
+            elif z.domain in svg_dict.keys():
+                A.add_node(z['index'],
+                           label=z.domain,
+                           width=z['esc'],
+                           fixedsize='true',
+                           nodesep=0,
+                           image=svg_dict[z.domain],
+                           fontsize=fsd[z['domain']],
+                           height='domain_height',
+                           penwidth=0,
+                           fontname='Arial')
+                l.append(z['index'])
             else:
                 A.add_node(z['index'],
                            label=z.domain,
@@ -1525,3 +1559,15 @@ def draw_architecture(id_list, file):
     A.graph_attr.update(nodesep= 0)
     A.graph_attr.update(ranksep= 0)
     A.draw(file, prog="dot")
+
+
+def extract_organism_from_description(text):
+    import re
+    match = re.search(r'\[(.*?)\]', text)
+    if match:
+        content = match.group(1)
+        words = content.split()
+        return ' '.join(words[:2])
+    return None
+
+    
