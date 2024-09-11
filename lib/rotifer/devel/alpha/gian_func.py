@@ -1556,8 +1556,8 @@ def draw_architecture(id_list, file, size_median=True, domain_rename=True):
 
     v = [li[x][0] for x in range(len(li))]
     [A.add_edge(v.pop(0), v[0], penwidth = 0) for x in range(len(v)-1)]
-    A.graph_attr.update(nodesep= 0)
-    A.graph_attr.update(ranksep= 0)
+    A.graph_attr.update(nodesep= 0.02)
+    A.graph_attr.update(ranksep= 0.02)
     A.draw(file, prog="dot")
 
 
@@ -1570,4 +1570,166 @@ def extract_organism_from_description(text):
         return ' '.join(words[:2])
     return None
 
+
+def insert_na_rows_at_indexes(df, indexes):
+    import pandas as pd
+    import numpy as np
+    """
+    Inserts rows with NaN values into the DataFrame at specified indexes.
     
+    Parameters:
+    df (pd.DataFrame): The original DataFrame.
+    indexes (list of int): A list of indexes at which to insert new rows with NaN values.
+    
+    Returns:
+    pd.DataFrame: A new DataFrame with the NaN rows inserted.
+    """
+    # Ensure indexes are sorted in descending order to handle multiple insertions
+    sorted_indexes = sorted(indexes, reverse=True)
+
+    # Create a DataFrame for the NaN row
+    na_row_df = pd.DataFrame([{col: np.nan for col in df.columns}], columns=df.columns)
+
+    # Convert DataFrame to a list of dictionaries for easier manipulation
+    df_list = df.to_dict(orient='records')
+
+    for index in sorted_indexes:
+        # Insert NaN row into the list at the given index
+        df_list.insert(index, na_row_df.iloc[0].to_dict())
+
+    # Convert the list of dictionaries back to DataFrame
+    new_df = pd.DataFrame(df_list)
+
+    return new_df
+
+
+
+
+def operon_fig2(df, domain_dict=False,output_file='operon_fig_out.pdf', domain_column='arch', height=0.28, f=2, fontsize=4):
+    import pygraphviz as pgv
+    from pygraphviz.agraph import re
+    import yaml
+    import numpy as np
+    import pandas as pd
+    from rotifer.devel.alpha import gian_func as gf
+
+
+
+    def split_domain(df, column=domain_column,fill ='?', domain_dict=domain_dict, strand=False, after=10, before=10, remove_tm=False):
+        '''
+        It will use the query as anchor to delect the given number of after and before genes to
+        create a dataframe of domains.
+        One can use a dcitionary of domain to select the ones that would be kept and rename it
+        '''
+        def reverse_domains(pid):
+            def fix_direction(df):
+                df = df.copy()
+                q = df.query('query ==1').query('strand ==-1').block_id
+                df.strand = np.where(df.block_id.isin(q), df.strand * -1, df.strand)
+                return df
+            pid = fix_direction(pid)
+            strand = pid.strand.unique()[0]
+            if strand == -1:
+                pid.domp = pid.domp.iloc[::-1].to_list()
+            return pid.reset_index(drop=True)
+
+        domdf = df.reset_index(drop=True).select_neighbors(strand=strand, after=after, before=before).copy().reset_index(drop=True).query('type == "CDS"')
+        domdf['dom'] = domdf[column].str.split('+')
+        domdf = domdf.explode('dom')
+        domdf['domp'] = pd.Series(np.where(domdf.pid == domdf.pid.shift(1), 1,0))
+        domdf.domp = domdf.groupby(['pid','block_id'])['domp'].cumsum()
+
+        if fill:
+            domdf.dom = domdf.dom.fillna(fill)
+
+        # removing tm sig
+        if remove_tm:
+            domdf['tmc'] = np.where(domdf.dom.isin(["TM","SIG"]),0,1)
+            only_tm_sig = list(domdf.groupby('pid').tmc.sum().where(lambda x : x==0).dropna().index)
+            domdf.dom = np.where(domdf.pid.isin(only_tm_sig), fill, domdf.dom)
+            domdf = domdf.query('dom no in ["TM", "SIG"]')
+
+        domdf = domdf.groupby('pid').apply(
+                reverse_domains
+                ).reset_index(
+                        drop=True
+                        ).sort_values([
+            'nucleotide',
+            'block_id',
+            'start',
+            'end',
+            'domp'])
+
+        if not domain_dict:
+            return domdf
+            
+        #domdf = domdf[domdf.dom.isin(list(domain_dict.keys()))]
+        domdf.dom = domdf.dom.replace(domain_dict)
+
+
+        return domdf
+
+    te = df.query('type =="CDS"').copy()
+    te = split_domain(te)
+    te['shape'] = 'rectangle'
+    # Removing duplicates sequencial domain in same protein
+    te = te.loc[~((te.pid.shift() == te.pid) & (te.dom.shift() == te.dom))].reset_index(drop=True)
+
+    l = te.drop_duplicates(['block_id','pid'], keep='first').query('strand ==-1').index
+    r = te.drop_duplicates(['block_id','pid'], keep='last').query('strand ==1').index
+    te.loc[r,'shape'] = 'rarrow'
+    te.loc[l,'shape'] = 'larrow'
+    te['height'] = np.where(te['shape'].isin(['larrow', 'rarrow']),  height, height/f)
+    te['style'] = 'filled' 
+    add_rows = te[(te.strand > te.strand.shift(1) )& (te.block_id == te.block_id.shift(1))].index.tolist()
+    te = gf.insert_na_rows_at_indexes(te, add_rows)
+    te.pid = te.pid.fillna(te.pid.reset_index()['index'])
+    te.block_id = te.block_id.fillna(method='ffill')
+    te.loc[te.nucleotide.isna(),['dom','domp','shape','style', 'height', 'width']] = ['|', 0, 'point','', 0, 2] 
+    te = te.reset_index(drop=True).reset_index()
+
+    gb = te.groupby('block_id')
+    li=[]
+    A = pgv.AGraph()
+   # return gb
+    for x in gb:
+        l =[]
+        for y,z in x[1].iterrows():
+            if len(l) < 1:
+                l.append(z['block_id'])
+                A.add_node(z['block_id'],
+                           label=(
+                               f'<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="0" CELLSPACING="0">'
+                               f'<TR><TD HEIGHT="4"></TD></TR>'
+                               f'<TR><TD HEIGHT="4"></TD></TR>'
+                               f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial" POINT-SIZE="4">{x[1].block_id.unique()[0]}</FONT></TD></TR>'
+                               f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial italic" POINT-SIZE="4">{x[1].organism.unique()[0]}</FONT></TD></TR>'
+                               '</TABLE>>'),
+                           shape='none',
+                           fontsize=fontsize,
+                           fontname='Arial')
+
+            A.add_node(z['index'],
+                       label=z.dom,
+                       shape=z['shape'],
+                       width=(len(z['dom'])/10) - 0.05,
+                       style=z['style'],
+                       height=z['height'],
+                       color='lightgray',
+                       fillcolor='lightgray',
+                       fontsize=fontsize)
+            l.append(z['index'])
+
+        li.append(l)
+    for x in range(len(li)):
+        A.add_subgraph(li[x], rank="same")
+
+
+    v = [li[x][0] for x in range(len(li))]
+    [A.add_edge(v.pop(0), v[0], penwidth = 0) for x in range(len(v)-1)]
+    A.graph_attr.update(nodesep= 0.02)
+    A.graph_attr.update(ranksep= 0.02)
+    A.draw(output_file, prog="dot")
+    return te
+
+
