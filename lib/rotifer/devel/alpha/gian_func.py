@@ -1395,7 +1395,7 @@ def draw_architecture(id_list, file, size_median=True, domain_rename=True):
     domain_height = scale_figure/10
     font_point = float(0.013837) * 0.6  # 1/72 (size of one point character in inches) * actual size (avg 0.6 the real size)
     aa_scale = float(0.001440944) 
-    colors = sns.color_palette("pastel").as_hex() +sns.color_palette("deep").as_hex()  + sns.color_palette('muted').as_hex() + sns.color_palette('colorblind').as_hex()
+
     shapes = ['box',
               'octagon',
     #          'circle',
@@ -1404,9 +1404,8 @@ def draw_architecture(id_list, file, size_median=True, domain_rename=True):
               'diamond']
     #          'doubleoctagon',
     #          'tripleoctagon']
-
-
     shapes = pd.DataFrame(shapes, columns=['shapes']).reset_index().rename({'index':'shape_rank'}, axis=1)
+    colors = sns.color_palette("pastel").as_hex() +sns.color_palette("deep").as_hex()  + sns.color_palette('muted').as_hex() + sns.color_palette('colorblind').as_hex()
     colors = pd.DataFrame(colors, columns=['colors']).reset_index().rename({'index':'color_rank'}, axis=1)
     color_code = shapes.join(colors, how='cross').join(pd.DataFrame(['rounded,filled', 'filled']), how='cross').rename({0:'rounded'}, axis=1).sort_values(['rounded','shape_rank','color_rank'], ascending=[False, True, True]).reset_index(drop=True)
     color_code = color_code.query('~(shapes =="ellipse" and rounded =="rounded,filled")')
@@ -1605,42 +1604,59 @@ def insert_na_rows_at_indexes(df, indexes):
 
 
 
-def operon_fig2(df, domain_dict=False,output_file='operon_fig_out.pdf', domain_column='arch', height=0.28, f=2, fontsize=4):
+def operon_fig2(df,
+                domain_rename=True,
+                output_file='operon_fig_out.pdf',
+                domain_column='arch',
+                top_domains=10,
+                height=0.28,
+                f=2,
+                fontsize=4):
+
     import pygraphviz as pgv
     from pygraphviz.agraph import re
     import yaml
     import numpy as np
     import pandas as pd
     from rotifer.devel.alpha import gian_func as gf
+    from rotifer.core import functions as rcf
+    import seaborn as sns
 
+    colors = sns.color_palette("pastel").as_hex() +sns.color_palette("deep").as_hex()  + sns.color_palette('muted').as_hex() + sns.color_palette('colorblind').as_hex()
+    colors = pd.DataFrame(colors, columns=['colors']).reset_index().rename({'index':'rank'}, axis=1)
 
-
-    def split_domain(df, column=domain_column,fill ='?', domain_dict=domain_dict, strand=False, after=10, before=10, remove_tm=False):
+    def split_domain(df, column=domain_column,fill ='?', domain_rename=domain_rename, strand=False, after=10, before=10, remove_tm=False):
         '''
         It will use the query as anchor to delect the given number of after and before genes to
         create a dataframe of domains.
         One can use a dcitionary of domain to select the ones that would be kept and rename it
         '''
-        def reverse_domains(pid):
+
+        def reverse_query(pid):
             def fix_direction(df):
                 df = df.copy()
                 q = df.query('query ==1').query('strand ==-1').block_id
                 df.strand = np.where(df.block_id.isin(q), df.strand * -1, df.strand)
                 return df
             pid = fix_direction(pid)
-            strand = pid.strand.unique()[0]
-            if strand == -1:
-                pid.domp = pid.domp.iloc[::-1].to_list()
             return pid.reset_index(drop=True)
 
-        domdf = df.reset_index(drop=True).select_neighbors(strand=strand, after=after, before=before).copy().reset_index(drop=True).query('type == "CDS"')
+        # Asuring to not have duplicated protein in the input DF:
+        domdf = df.drop_duplicates(['nucleotide','start','end']).reset_index(drop=True).query('type == "CDS"').copy()
         domdf['dom'] = domdf[column].str.split('+')
+        domdf.loc[domdf.strand  == -1, 'dom'] = domdf.loc[(domdf.strand  == -1)].dom.apply(lambda x: x[::-1])
         domdf = domdf.explode('dom')
         domdf['domp'] = pd.Series(np.where(domdf.pid == domdf.pid.shift(1), 1,0))
         domdf.domp = domdf.groupby(['pid','block_id'])['domp'].cumsum()
 
         if fill:
             domdf.dom = domdf.dom.fillna(fill)
+
+        if domain_rename:
+            domain_dict = rcf.loadConfig(rcf.findDataFiles(":data/domain_rename.yaml"))
+            domain_dict =  {v:k for k in domain_dict.keys() for v in domain_dict[k] }
+            domdf['dom'] = domdf['dom'].replace(domain_dict)
+
 
         # removing tm sig
         if remove_tm:
@@ -1650,7 +1666,7 @@ def operon_fig2(df, domain_dict=False,output_file='operon_fig_out.pdf', domain_c
             domdf = domdf.query('dom no in ["TM", "SIG"]')
 
         domdf = domdf.groupby('pid').apply(
-                reverse_domains
+                reverse_query
                 ).reset_index(
                         drop=True
                         ).sort_values([
@@ -1660,17 +1676,13 @@ def operon_fig2(df, domain_dict=False,output_file='operon_fig_out.pdf', domain_c
             'end',
             'domp'])
 
-        if not domain_dict:
-            return domdf
-            
-        #domdf = domdf[domdf.dom.isin(list(domain_dict.keys()))]
-        domdf.dom = domdf.dom.replace(domain_dict)
 
 
         return domdf
 
     te = df.query('type =="CDS"').copy()
     te = split_domain(te)
+
     te['shape'] = 'rectangle'
     # Removing duplicates sequencial domain in same protein
     te = te.loc[~((te.pid.shift() == te.pid) & (te.dom.shift() == te.dom))].reset_index(drop=True)
@@ -1679,6 +1691,7 @@ def operon_fig2(df, domain_dict=False,output_file='operon_fig_out.pdf', domain_c
     r = te.drop_duplicates(['block_id','pid'], keep='last').query('strand ==1').index
     te.loc[r,'shape'] = 'rarrow'
     te.loc[l,'shape'] = 'larrow'
+
     te['height'] = np.where(te['shape'].isin(['larrow', 'rarrow']),  height, height/f)
     te['style'] = 'filled' 
     add_rows = te[(te.strand > te.strand.shift(1) )& (te.block_id == te.block_id.shift(1))].index.tolist()
@@ -1687,6 +1700,21 @@ def operon_fig2(df, domain_dict=False,output_file='operon_fig_out.pdf', domain_c
     te.block_id = te.block_id.fillna(method='ffill')
     te.loc[te.nucleotide.isna(),['dom','domp','shape','style', 'height', 'width']] = ['|', 0, 'point','', 0, 2] 
     te = te.reset_index(drop=True).reset_index()
+
+    domain_rank = te.dom.value_counts().reset_index().rename({'index':'domain'}, axis=1).reset_index().query('domain not in ["-", "?", "|"]').rename({'index':'rank'}, axis=1)[['rank', 'domain']]
+    domain_rank = domain_rank.merge(colors, how='left')
+
+    domain_rank['colors'] = domain_rank['colors'].apply(lambda x: x if not pd.isna(x) else domain_rank['colors'].dropna().sample(1).values[0])
+    if top_domains:
+        domain_rank.loc[top_domains:, 'colors'] = "#D3D3D3"
+    color_dict = domain_rank.merge(colors, how='left').set_index('domain').colors.to_dict()
+    color_dict = {**color_dict,
+                  "|" :"white",
+                  "-" :"#D3D3D3",
+                  "s" :"#FF0000",
+                  "TM" :"#FF6600",
+                  "LIPO":"#FF6600",
+                  "?":"#D3D3D3"}
 
     gb = te.groupby('block_id')
     li=[]
@@ -1712,11 +1740,11 @@ def operon_fig2(df, domain_dict=False,output_file='operon_fig_out.pdf', domain_c
             A.add_node(z['index'],
                        label=z.dom,
                        shape=z['shape'],
-                       width=(len(z['dom'])/10) - 0.05,
+                       width=(len(z['dom'])/40),
                        style=z['style'],
                        height=z['height'],
-                       color='lightgray',
-                       fillcolor='lightgray',
+                       color=color_dict[z.dom],
+                       fillcolor=color_dict[z.dom],
                        fontsize=fontsize)
             l.append(z['index'])
 
