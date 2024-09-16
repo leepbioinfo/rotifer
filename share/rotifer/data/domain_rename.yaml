@@ -81,6 +81,7 @@ GYF:
   - GYF_2
 HEATs: 
   - Imm-HEAT
+  - LARP1_HEAT
   - HEAT_2
   - TCAD10
 HerA-FtsK: 
@@ -95,6 +96,7 @@ His-Kinase:
   - HATPase_c_2
   - HATPase_c
   - HISKIN
+  - HisKA
 LRRs: 
   - LRR
   - LRR_1
@@ -146,6 +148,16 @@ ParB:
 ParA-Soj-NTPase: 
   - ParA-Soj-PloopNTPase
   - AAA_31
+PAS:
+  - PAS_1
+  - PAS_2
+  - PAS_3
+  - PAS_4
+  - PAS_5
+  - PAS_6
+  - PAS_7
+  - PAS_8
+  - PAS_9
 Pps:
   - Pentapeptide
   - Pentapeptide_1

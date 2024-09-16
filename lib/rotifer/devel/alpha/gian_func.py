@@ -1643,6 +1643,17 @@ def operon_fig2(df,
 
         # Asuring to not have duplicated protein in the input DF:
         domdf = df.drop_duplicates(['nucleotide','start','end']).reset_index(drop=True).query('type == "CDS"').copy()
+        # making all queries on the same direction:
+        domdf = domdf.groupby('pid').apply(
+                reverse_query
+                ).reset_index(
+                        drop=True
+                        ).sort_values([
+            'nucleotide',
+            'block_id',
+            'start',
+            'end'])
+
         domdf['dom'] = domdf[column].str.split('+')
         domdf.loc[domdf.strand  == -1, 'dom'] = domdf.loc[(domdf.strand  == -1)].dom.apply(lambda x: x[::-1])
         domdf = domdf.explode('dom')
@@ -1665,16 +1676,6 @@ def operon_fig2(df,
             domdf.dom = np.where(domdf.pid.isin(only_tm_sig), fill, domdf.dom)
             domdf = domdf.query('dom no in ["TM", "SIG"]')
 
-        domdf = domdf.groupby('pid').apply(
-                reverse_query
-                ).reset_index(
-                        drop=True
-                        ).sort_values([
-            'nucleotide',
-            'block_id',
-            'start',
-            'end',
-            'domp'])
 
 
 
