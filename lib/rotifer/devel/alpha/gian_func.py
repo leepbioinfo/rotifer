@@ -1303,7 +1303,7 @@ def domtable(dom_table, seqobj=False):
     else:    
         dom_table = dom_table.merge(gf.get_plen(dom_table.ID.unique().tolist()))
 
-    dom_table = dom_table[['ID', 'domain', 'start', 'end', 'evalue', 'full_length']].sort_values(['ID', 'start', 'end'])
+    dom_table = dom_table.sort_values(['ID', 'start', 'end'])
     dom_table['region'] = np.where(dom_table.ID.shift(+1) == dom_table.ID, dom_table.start - dom_table.end.shift(+1),0)
     dom_table['region2'] =  (dom_table.start - dom_table.region) +1
     dom_table['region3'] =  (dom_table.start - dom_table.region2)
@@ -1329,7 +1329,7 @@ def domtable(dom_table, seqobj=False):
 
     return (final)
 
-def draw_architecture(id_list, file, size_median=True, domain_rename=True):
+def draw_architecture(input_file, file, id_list=True, size_median=True, domain_rename=True):
 
     import pygraphviz as pgv
     from pygraphviz.agraph import re
@@ -1342,6 +1342,7 @@ def draw_architecture(id_list, file, size_median=True, domain_rename=True):
     import rotifer.devel.alpha.gian_func as gf
     from rotifer.interval import utils as riu
     from rotifer.core import functions as rcf
+    from io import StringIO
 
     svg_dict = {'line_svg' : rcf.findDataFiles(":templates/line.svg"),
                 'ANKs' : rcf.findDataFiles(":templates/Ank.svg"),
@@ -1372,18 +1373,34 @@ def draw_architecture(id_list, file, size_median=True, domain_rename=True):
 
     # Figure to scale (reccomended to keep 1 to produce final figure in adobe (best scale for publication, but needs to be proper adjusted the names)
     ##### To create PDF, the 4 works preatty good
-
-    seqobj = sequence(id_list)
-    seqobj.arch = gf.rpsblast(seqobj)
-    tsv =  gf.rpsblast2table(seqobj.arch)
-    tsv = tsv.query('evalue <= 0.1')
-    seqobj.phobius = gf.TMprediction(seqobj)
-    pt = gf.phobius2table(seqobj.phobius).rename({"phobius":"domain"}, axis=1)
-    tt = pd.concat([tsv,pt])
-    tt.start = tt.start.astype(int)
-    tt.end = tt.end.astype(int)
-    no = riu.filter_nonoverlapping_regions(tt.query('domain not in ["IN", "OUT"]') ,**{**riu.config['archtsv'], 'maximum_overlap':0.4})
-    
+    if id_list:
+        id_list=input_file
+        seqobj = sequence(id_list)
+        seqobj.arch = gf.rpsblast(seqobj)
+        tsv =  gf.rpsblast2table(seqobj.arch)
+        tsv = tsv.query('evalue <= 0.1')
+        seqobj.phobius = gf.TMprediction(seqobj)
+        pt = gf.phobius2table(seqobj.phobius).rename({"phobius":"domain"}, axis=1)
+        tt = pd.concat([tsv,pt])
+        tt.start = tt.start.astype(int)
+        tt.end = tt.end.astype(int)
+        no = riu.filter_nonoverlapping_regions(tt.query('domain not in ["IN", "OUT"]') ,**{**riu.config['archtsv'], 'maximum_overlap':0.4})
+    else:
+        if isinstance(input_file,pd.DataFrame):
+            dt = input_file
+        else:    
+            dt = pd.read_csv(input_file, sep="\t", names=['ID','arch','dinfo'])
+        dt.dinfo = dt.dinfo.str.split(',')
+        dt = dt.explode('dinfo')
+        dt[['start', 'end', 'domain']] = dt.dinfo.str.split('\.\.|\&', expand=True)
+        dt = dt.sort_values(['ID', 'start', 'end'])
+        dt.end = dt.end.astype(int)
+        dt.start = dt.start.astype(int)
+        no = dt
+        seqobj = sequence(dt.ID.unique().tolist())
+        id_list=False
+ 
+        
     # get the organism name from the fasta description:
     seqobj.df['organism'] = seqobj.df.description.apply(gf.extract_organism_from_description)
     organism_dict = seqobj.df.set_index("id").organism.to_dict()
