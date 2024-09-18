@@ -202,6 +202,25 @@ runhmmscan() {
 	echo ${tsv}
 }
 
+runhmmsearch() {
+	local target=$1
+	local name=$2
+	local input=$3
+	local database=$4
+	local program=hmmsearch
+	local out=${target}.${name}.${program}.out
+	local err=${target}.${name}.${program}.err
+	local tsv=${target}.${name}.${program}.tsv 
+	if [ -f ${tsv} ]; then
+		echo "WARNING: using previously saved results for target ${target}, program ${program} and database ${database}." 1>&2
+		echo ${tsv}
+		return
+	fi
+	cat ${database} | parallel --pipe -N1 -j${THREADS:-36} --recstart '^HMMER' ${program} --cpu 4 - ${input} > ${out} 2> ${err}
+	hmmer2table ${out} > ${tsv}
+	echo ${tsv}
+}
+
 runrpsblast() {
 	local target=$1
 	local name=$2
