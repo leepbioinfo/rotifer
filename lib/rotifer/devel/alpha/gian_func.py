@@ -1595,37 +1595,6 @@ def extract_organism_from_description(text):
     return None
 
 
-#def insert_na_rows_at_indexes(df, indexes):
-#    import pandas as pd
-#    import numpy as np
-#    """
-#    Inserts rows with NaN values into the DataFrame at specified indexes.
-#    
-#    Parameters:
-#    df (pd.DataFrame): The original DataFrame.
-#    indexes (list of int): A list of indexes at which to insert new rows with NaN values.
-#    
-#    Returns:
-#    pd.DataFrame: A new DataFrame with the NaN rows inserted.
-#    """
-#    # Ensure indexes are sorted in descending order to handle multiple insertions
-#    sorted_indexes = sorted(indexes, reverse=True)
-#
-#    # Create a DataFrame for the NaN row
-#    na_row_df = pd.DataFrame([{col: np.nan for col in df.columns}], columns=df.columns)
-#
-#    # Convert DataFrame to a list of dictionaries for easier manipulation
-#    df_list = df.to_dict(orient='records')
-#
-#    for index in sorted_indexes:
-#        # Insert NaN row into the list at the given index
-#        df_list.insert(index, na_row_df.iloc[0].to_dict())
-#
-#    # Convert the list of dictionaries back to DataFrame
-#    new_df = pd.DataFrame(df_list)
-#
-#    return new_df
-
 
 def insert_na_rows_at_indexes(df, indexes, columns_to_fill=None, fill_direction=None, insert_position='upstream'):
 
@@ -1679,6 +1648,28 @@ def insert_na_rows_at_indexes(df, indexes, columns_to_fill=None, fill_direction=
                 new_df[col] = new_df[col].fillna(method='bfill')
 
     return new_df
+
+def pick_colors(df,column='dom',top_domains=20, pallets = ['pastel','deep','muted','colorblind'], own_dict=False):
+    import seaborn as sns
+    import pandas as pd
+    df = df.copy()
+    ### Creating a pd.Series with  hex colors from sns pallet function:
+    colors = []
+    for pallet in pallets:
+        colors = colors +  sns.color_palette(pallet).as_hex() 
+    colors = pd.DataFrame(colors, columns=['colors']).reset_index().rename({'index':'rank'}, axis=1)
+    ### Using the dataframe to rank the most commons domains to be colored
+    domain_rank = df[column].value_counts().reset_index().rename({'index':'domain'}, axis=1).reset_index().query('domain not in ["-", "?", "|", "", " "]').rename({'index':'rank'}, axis=1)[['rank', 'domain']]
+    domain_rank = domain_rank.merge(colors, how='left')
+    domain_rank['colors'] = domain_rank['colors'].apply(lambda x: x if not pd.isna(x) else domain_rank['colors'].dropna().sample(1).values[0])
+    if top_domains:
+        domain_rank.loc[top_domains:, 'colors'] = "#D3D3D3"
+    #Creating the color_dict:
+    domain_rank = domain_rank.merge(colors, how='left')
+    color_dict = domain_rank.set_index('domain').colors.to_dict()
+    if own_dict:
+        color_dict = {**color_dict, **own_dict}
+    return color_dict
 
 
 
@@ -1864,25 +1855,11 @@ def operon_fig2(df,
     #Replacing the - or ? marker for empty spaces to decrease the noise on the figure.
     te.dom = te.dom.replace({'?':' ', '-':' '})
     te.loc[te.dom == "", ['height']] = 0.185
-    
+    ####Creating a column with the pid of the query seed to later be used in given a header of the figure.
+    te['query_pid'] = te.groupby('block_id')['pid'].transform(lambda x: x[te['query'] == 1].iloc[0] if any(te['query'] == 1) else np.nan)   
+    ##### Reseting the index to use the new index as name of each node in the figure
     del te['index']
     te = te.reset_index()
-
-##### Fixing number of TMs on the edge
-#    ra = te.loc[(te.dom==' ') & (te['shape'].isin(['rarrow']))].index
-#    rr = ra -2
-#    rc = ra -1
-#    cr =  te.loc[rr].color.copy().tolist()
-#    sr =  te.loc[rr]['shape'].copy().tolist()
-#    te.loc[rc, ['color']] = cr
-#    te.loc[rc, ['shape']] = sr
-#    te['domp'] = pd.Series(np.where(te.pid == te.pid.shift(1), 1,0))
-#    te.domp = te.groupby(['pid','block_id'])['domp'].cumsum()
-
-
-
-
-
 
     gb = te.groupby('block_id')
     li=[]
@@ -1898,6 +1875,7 @@ def operon_fig2(df,
                                f'<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="0" CELLSPACING="0">'
                                f'<TR><TD HEIGHT="4"></TD></TR>'
                                f'<TR><TD HEIGHT="4"></TD></TR>'
+                               f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial" POINT-SIZE="4">{x[1].query_pid.unique()[0]}</FONT></TD></TR>'
                                f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial" POINT-SIZE="4">{x[1].block_id.unique()[0]}</FONT></TD></TR>'
                                f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial italic" POINT-SIZE="4">{x[1].organism.unique()[0]}</FONT></TD></TR>'
                                '</TABLE>>'),
