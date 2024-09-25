@@ -1649,17 +1649,25 @@ def insert_na_rows_at_indexes(df, indexes, columns_to_fill=None, fill_direction=
 
     return new_df
 
-def pick_colors(df,column='dom',top_domains=20, pallets = ['pastel','deep','muted','colorblind'], own_dict=False):
+def pick_colors(df,column='dom',top_domains=20, pallets = ['pastel','deep','muted','colorblind'], own_dict=False, domain_rename=True):
     import seaborn as sns
     import pandas as pd
+    from rotifer.core import functions as rcf
     df = df.copy()
     ### Creating a pd.Series with  hex colors from sns pallet function:
     colors = []
     for pallet in pallets:
         colors = colors +  sns.color_palette(pallet).as_hex() 
     colors = pd.DataFrame(colors, columns=['colors']).reset_index().rename({'index':'rank'}, axis=1)
+
+
+    if domain_rename:
+        domain_dict = rcf.loadConfig(rcf.findDataFiles(":data/domain_rename.yaml"))
+        domain_dict =  {v:k for k in domain_dict.keys() for v in domain_dict[k] }
+        df[column] = df[column].replace(domain_dict)
+
     ### Using the dataframe to rank the most commons domains to be colored
-    domain_rank = df[column].value_counts().reset_index().rename({'index':'domain'}, axis=1).reset_index().query('domain not in ["-", "?", "|", "", " "]').rename({'index':'rank'}, axis=1)[['rank', 'domain']]
+    domain_rank = df[column].value_counts().reset_index().rename({'index':'domain'}, axis=1).reset_index().query( 'domain not in [ "-", "?", "|", "", " ", "LIPO", "TM", "SIG", "SP"]').rename({'index':'rank'}, axis=1)[['rank', 'domain']]
     domain_rank = domain_rank.merge(colors, how='left')
     domain_rank['colors'] = domain_rank['colors'].apply(lambda x: x if not pd.isna(x) else domain_rank['colors'].dropna().sample(1).values[0])
     if top_domains:
@@ -1678,6 +1686,7 @@ def operon_fig2(df,
                 domain_rename=True,
                 output_file='operon_fig_out.pdf',
                 domain_column='arch',
+                color_dict=None,
                 top_domains=10,
                 height=0.28,
                 f=2,
@@ -1691,9 +1700,6 @@ def operon_fig2(df,
     from rotifer.devel.alpha import gian_func as gf
     from rotifer.core import functions as rcf
     import seaborn as sns
-
-    colors = sns.color_palette("pastel").as_hex() +sns.color_palette("deep").as_hex()  + sns.color_palette('muted').as_hex() + sns.color_palette('colorblind').as_hex()
-    colors = pd.DataFrame(colors, columns=['colors']).reset_index().rename({'index':'rank'}, axis=1)
 
     def split_domain(df, column=domain_column,fill ='?', domain_rename=domain_rename, strand=False, after=10, before=10, remove_tm=False):
         '''
@@ -1746,9 +1752,6 @@ def operon_fig2(df,
             domdf.dom = np.where(domdf.pid.isin(only_tm_sig), fill, domdf.dom)
             domdf = domdf.query('dom no in ["TM", "SIG"]')
 
-
-
-
         return domdf
 
     te = df.query('type =="CDS"').copy()
@@ -1772,25 +1775,19 @@ def operon_fig2(df,
     te.block_id = te.block_id.fillna(method='ffill')
     te.loc[te.nucleotide.isna(),['dom','domp','shape','style', 'height', 'width']] = ['', 0, 'rectangle','', 0.2, 2] 
     te = te.reset_index(drop=True).reset_index()
+    if color_dict == None:
+        color_dict = gf.pick_colors(te, column = 'dom', top_domains=top_domains)
 
-    domain_rank = te.dom.value_counts().reset_index().rename({'index':'domain'}, axis=1).reset_index().query('domain not in ["-", "?", "|"]').rename({'index':'rank'}, axis=1)[['rank', 'domain']]
-    domain_rank = domain_rank.merge(colors, how='left')
-
-    domain_rank['colors'] = domain_rank['colors'].apply(lambda x: x if not pd.isna(x) else domain_rank['colors'].dropna().sample(1).values[0])
-    if top_domains:
-        domain_rank.loc[top_domains:, 'colors'] = "#D3D3D3"
-    color_dict = domain_rank.merge(colors, how='left').set_index('domain').colors.to_dict()
     color_dict = {**color_dict,
                   '' :"white",
                   "-" :"#D3D3D3",
                   " " :"#D3D3D3",
-                  "s" :"#FF0000",
+                  "?":"#D3D3D3",
                   "TM" :"#FF6600",
                   "LIPO":"Blue",
                   "SP":"Red",
-                  "SIG":"Red",
-                  "?":"#D3D3D3"}
-
+                  "SIG":"Red"}
+    
     te['color'] = te.dom.replace(color_dict)
     te.dom = te.dom.replace({'TM':'', 'LIPO':'', 'SIG':'', 'SP': ''})
     te.loc[(te.dom=='') & (te['shape'].isin(['larrow','rarrow'])), 'dom'] = ' '
@@ -1882,18 +1879,6 @@ def operon_fig2(df,
                            shape='none',
                            fontsize=fontsize,
                            fontname='Arial')
-    #        if z.dom in ['TM', 'SP', 'LIPO']:
-    #            A.add_node(z['index'],
-    #                       label='',
-    #                       shape=z['shape'],
-    #                       width=(1/40),
-    #                       style=z['style'],
-    #                       height=z['height'],
-    #                       color=color_dict[z.dom],
-    #                       fillcolor=color_dict[z.dom],
-    #                       fontsize=fontsize)
-    #            l.append(z['index'])
-    #        else:
             A.add_node(z['index'],
                            label=z.dom,
                            shape=z['shape'],
