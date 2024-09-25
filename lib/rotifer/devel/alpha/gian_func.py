@@ -1779,7 +1779,7 @@ def operon_fig2(df,
     te = gf.insert_na_rows_at_indexes(te, add_rows)
     te.pid = te.pid.fillna(te.pid.reset_index()['index'])
     te.block_id = te.block_id.fillna(method='ffill')
-    te.loc[te.nucleotide.isna(),['dom','domp','shape','style', 'height', 'width']] = ['', 0, 'rectangle','', 0, 2] 
+    te.loc[te.nucleotide.isna(),['dom','domp','shape','style', 'height', 'width']] = ['', 0, 'rectangle','', 0.2, 2] 
     te = te.reset_index(drop=True).reset_index()
 
     domain_rank = te.dom.value_counts().reset_index().rename({'index':'domain'}, axis=1).reset_index().query('domain not in ["-", "?", "|"]').rename({'index':'rank'}, axis=1)[['rank', 'domain']]
@@ -1863,6 +1863,8 @@ def operon_fig2(df,
     te.loc[la2,['color']] = '#D3D3D3'
     #Replacing the - or ? marker for empty spaces to decrease the noise on the figure.
     te.dom = te.dom.replace({'?':' ', '-':' '})
+    te.loc[te.dom == "", ['height']] = 0.185
+    
     del te['index']
     te = te.reset_index()
 
