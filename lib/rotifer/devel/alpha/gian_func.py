@@ -1246,12 +1246,16 @@ def rpsblast(seqobj,
     import os
     import pandas as pd
     import os
-
+    if db == 'gian': #### Improvisation ################
+        db =['/panfs/pan1/proteinworld/People/gian/projects/my_db/tmp/allprofiles', 'pwld_new_pfam']
     if isinstance(db,list):
         dbpath = f'{os.getenv("DATABASES")}/rpsdb/'
         with tempfile.TemporaryDirectory() as tmpdirname:
             for x in db:
-                dbx = f'{dbpath}{x}'
+                if "/" in x:
+                    dbx = x
+                else:    
+                    dbx = f'{dbpath}{x}'
                 # temporary save fasta sequence file
                 if isinstance (seqobj, sequence):
                     seqobj =seqobj.copy()
@@ -1329,7 +1333,11 @@ def domtable(dom_table, seqobj=False):
 
     return (final)
 
-def draw_architecture(input_file, file, id_list=True, size_median=True, domain_rename=True):
+def draw_architecture(input_file,
+                      file, id_list=True,
+                      size_median=True,
+                      domain_rename=True,
+                      db=['allprofiles', 'pwld_new_pfam']):
 
     import pygraphviz as pgv
     from pygraphviz.agraph import re
@@ -1376,7 +1384,7 @@ def draw_architecture(input_file, file, id_list=True, size_median=True, domain_r
     if id_list:
         id_list=input_file
         seqobj = sequence(id_list)
-        seqobj.arch = gf.rpsblast(seqobj)
+        seqobj.arch = gf.rpsblast(seqobj, db=db)
         tsv =  gf.rpsblast2table(seqobj.arch)
         tsv = tsv.query('evalue <= 0.1')
         seqobj.phobius = gf.TMprediction(seqobj)
@@ -1587,20 +1595,60 @@ def extract_organism_from_description(text):
     return None
 
 
-def insert_na_rows_at_indexes(df, indexes):
+#def insert_na_rows_at_indexes(df, indexes):
+#    import pandas as pd
+#    import numpy as np
+#    """
+#    Inserts rows with NaN values into the DataFrame at specified indexes.
+#    
+#    Parameters:
+#    df (pd.DataFrame): The original DataFrame.
+#    indexes (list of int): A list of indexes at which to insert new rows with NaN values.
+#    
+#    Returns:
+#    pd.DataFrame: A new DataFrame with the NaN rows inserted.
+#    """
+#    # Ensure indexes are sorted in descending order to handle multiple insertions
+#    sorted_indexes = sorted(indexes, reverse=True)
+#
+#    # Create a DataFrame for the NaN row
+#    na_row_df = pd.DataFrame([{col: np.nan for col in df.columns}], columns=df.columns)
+#
+#    # Convert DataFrame to a list of dictionaries for easier manipulation
+#    df_list = df.to_dict(orient='records')
+#
+#    for index in sorted_indexes:
+#        # Insert NaN row into the list at the given index
+#        df_list.insert(index, na_row_df.iloc[0].to_dict())
+#
+#    # Convert the list of dictionaries back to DataFrame
+#    new_df = pd.DataFrame(df_list)
+#
+#    return new_df
+
+
+def insert_na_rows_at_indexes(df, indexes, columns_to_fill=None, fill_direction=None, insert_position='upstream'):
+
     import pandas as pd
     import numpy as np
+
     """
-    Inserts rows with NaN values into the DataFrame at specified indexes.
-    
+    Inserts rows with NaN values into the DataFrame at specified indexes and fills NaN values 
+    based on the given columns and directions.
+
     Parameters:
     df (pd.DataFrame): The original DataFrame.
     indexes (list of int): A list of indexes at which to insert new rows with NaN values.
-    
+    columns_to_fill (list of str): List of columns where NaN values should be filled.
+    fill_direction (list of str): List of directions ('backward' or 'forward') for each column 
+                                  in 'columns_to_fill'. Determines how to fill NaN values.
+    insert_position (str): Specifies where to insert the NaN row ('upstream' for before the index,
+                           'downstream' for after the index).
+
     Returns:
-    pd.DataFrame: A new DataFrame with the NaN rows inserted.
+    pd.DataFrame: A new DataFrame with the NaN rows inserted and optionally filled.
     """
-    # Ensure indexes are sorted in descending order to handle multiple insertions
+    # Ensure indexes are sorted in descending order to handle multiple insertions correctly
     sorted_indexes = sorted(indexes, reverse=True)
 
     # Create a DataFrame for the NaN row
@@ -1610,11 +1658,25 @@ def insert_na_rows_at_indexes(df, indexes):
     df_list = df.to_dict(orient='records')
 
     for index in sorted_indexes:
-        # Insert NaN row into the list at the given index
+        # Adjust index based on the 'insert_position'
+        if insert_position == 'downstream':
+            index += 1  # Insert after the index
+
+        # Insert NaN row into the list at the adjusted index
         df_list.insert(index, na_row_df.iloc[0].to_dict())
 
     # Convert the list of dictionaries back to DataFrame
     new_df = pd.DataFrame(df_list)
+
+    # If columns to fill and directions are provided
+    if columns_to_fill and fill_direction:
+        for col, direction in zip(columns_to_fill, fill_direction):
+            if direction == 'forward':
+                # Fill NaN with the value from the previous row (shift forward)
+                new_df[col] = new_df[col].fillna(method='ffill')
+            elif direction == 'backward':
+                # Fill NaN with the value from the next row (shift backward)
+                new_df[col] = new_df[col].fillna(method='bfill')
 
     return new_df
 
@@ -1703,7 +1765,8 @@ def operon_fig2(df,
 
     te['shape'] = 'rectangle'
     # Removing duplicates sequencial domain in same protein
-    te = te.loc[~((te.pid.shift() == te.pid) & (te.dom.shift() == te.dom))].reset_index(drop=True)
+    #te = te.loc[~((te.pid.shift() == te.pid) & (te.dom.shift() == te.dom))].reset_index(drop=True)
+    te = te.reset_index(drop=True)
 
     l = te.drop_duplicates(['block_id','pid'], keep='first').query('strand ==-1').index
     r = te.drop_duplicates(['block_id','pid'], keep='last').query('strand ==1').index
@@ -1716,7 +1779,7 @@ def operon_fig2(df,
     te = gf.insert_na_rows_at_indexes(te, add_rows)
     te.pid = te.pid.fillna(te.pid.reset_index()['index'])
     te.block_id = te.block_id.fillna(method='ffill')
-    te.loc[te.nucleotide.isna(),['dom','domp','shape','style', 'height', 'width']] = ['|', 0, 'point','', 0, 2] 
+    te.loc[te.nucleotide.isna(),['dom','domp','shape','style', 'height', 'width']] = ['', 0, 'rectangle','', 0, 2] 
     te = te.reset_index(drop=True).reset_index()
 
     domain_rank = te.dom.value_counts().reset_index().rename({'index':'domain'}, axis=1).reset_index().query('domain not in ["-", "?", "|"]').rename({'index':'rank'}, axis=1)[['rank', 'domain']]
@@ -1727,12 +1790,97 @@ def operon_fig2(df,
         domain_rank.loc[top_domains:, 'colors'] = "#D3D3D3"
     color_dict = domain_rank.merge(colors, how='left').set_index('domain').colors.to_dict()
     color_dict = {**color_dict,
-                  "|" :"white",
+                  '' :"white",
                   "-" :"#D3D3D3",
+                  " " :"#D3D3D3",
                   "s" :"#FF0000",
                   "TM" :"#FF6600",
-                  "LIPO":"#FF6600",
+                  "LIPO":"Blue",
+                  "SP":"Red",
+                  "SIG":"Red",
                   "?":"#D3D3D3"}
+
+    te['color'] = te.dom.replace(color_dict)
+    te.dom = te.dom.replace({'TM':'', 'LIPO':'', 'SIG':'', 'SP': ''})
+    te.loc[(te.dom=='') & (te['shape'].isin(['larrow','rarrow'])), 'dom'] = ' '
+    te.loc[(te.dom=='') & (te['shape'].isin(['larrow','rarrow'])), 'color'] = '#D3D3D3'
+####### Adding new row to represent empty proteins with TM, SIG or LIPO
+##### A lot of code to make sure the order, color and shapes  of the added rows are correct.
+    ra = te.loc[(te.dom==' ') & (te['shape'].isin(['rarrow']))].index
+    te = gf.insert_na_rows_at_indexes(
+            te,
+            ra,
+            columns_to_fill=[
+                'nucleotide',
+                'pid',
+                'block_id',
+                'arch',
+                'dom',
+                'color',
+                'shape',
+                'height',
+                'style'],
+            fill_direction=[
+                'forward',
+                'forward',
+                'backward',
+                'forward',
+                'forward',
+                'forward',
+                'forward',
+                'forward',
+                'forward'])
+    ra = te.loc[(te.dom==' ') & (te['shape'].isin(['rarrow']))].index
+    te.loc[ra,['shape','color']] =[['rarrow', '#D3D3D3']]
+    la = te.loc[(te.dom==' ') & (te['shape'].isin(['larrow']))].index
+    te = gf.insert_na_rows_at_indexes(
+            te,
+            la,
+            insert_position='downstream',
+            columns_to_fill=[
+                'nucleotide',
+                'pid',
+                'block_id',
+                'arch',
+                'dom',
+                'color',
+                'shape',
+                'height',
+                'style'],
+            fill_direction=[
+                'forward',
+                'forward',
+                'forward',
+                'forward',
+                'forward',
+                'forward',
+                'forward',
+                'forward',
+                'forward'])
+    la1 = te.loc[(te.dom==' ') & (te['shape'].isin(['larrow']) & (te.domp.isna()))].index
+    la2 = te.loc[(te.dom==' ') & (te['shape'].isin(['larrow']) & (~te.domp.isna()))].index
+    te.loc[la1,['shape', 'dom', 'height']] = [['rectangle', '', 0.14]]
+    te.loc[la2,['color']] = '#D3D3D3'
+    #Replacing the - or ? marker for empty spaces to decrease the noise on the figure.
+    te.dom = te.dom.replace({'?':' ', '-':' '})
+    del te['index']
+    te = te.reset_index()
+
+##### Fixing number of TMs on the edge
+#    ra = te.loc[(te.dom==' ') & (te['shape'].isin(['rarrow']))].index
+#    rr = ra -2
+#    rc = ra -1
+#    cr =  te.loc[rr].color.copy().tolist()
+#    sr =  te.loc[rr]['shape'].copy().tolist()
+#    te.loc[rc, ['color']] = cr
+#    te.loc[rc, ['shape']] = sr
+#    te['domp'] = pd.Series(np.where(te.pid == te.pid.shift(1), 1,0))
+#    te.domp = te.groupby(['pid','block_id'])['domp'].cumsum()
+
+
+
+
+
 
     gb = te.groupby('block_id')
     li=[]
@@ -1754,16 +1902,27 @@ def operon_fig2(df,
                            shape='none',
                            fontsize=fontsize,
                            fontname='Arial')
-
+    #        if z.dom in ['TM', 'SP', 'LIPO']:
+    #            A.add_node(z['index'],
+    #                       label='',
+    #                       shape=z['shape'],
+    #                       width=(1/40),
+    #                       style=z['style'],
+    #                       height=z['height'],
+    #                       color=color_dict[z.dom],
+    #                       fillcolor=color_dict[z.dom],
+    #                       fontsize=fontsize)
+    #            l.append(z['index'])
+    #        else:
             A.add_node(z['index'],
-                       label=z.dom,
-                       shape=z['shape'],
-                       width=(len(z['dom'])/40),
-                       style=z['style'],
-                       height=z['height'],
-                       color=color_dict[z.dom],
-                       fillcolor=color_dict[z.dom],
-                       fontsize=fontsize)
+                           label=z.dom,
+                           shape=z['shape'],
+                           width=(len(z['dom'])/40),
+                           style=z['style'],
+                           height=z['height'],
+                           color=z.color,
+                           fillcolor=z.color,
+                           fontsize=fontsize)
             l.append(z['index'])
 
         li.append(l)

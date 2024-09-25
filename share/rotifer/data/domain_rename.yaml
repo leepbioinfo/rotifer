@@ -34,7 +34,16 @@ ANKs:
   - Ank_3
   - Ank_4
   - Ank_5
-
+Big:
+  - Big_1
+  - Big_2
+  - Big_3
+  - Big_4
+  - Big_5
+  - Big_6
+  - Big_7
+  - Big_8
+  - Big_9
 Band-7: 
   - Band_7
 Bps:
@@ -48,6 +57,12 @@ CCCH:
 Calcineurin: 
   - Metallophos
   - Calcineurin-conf
+CADHERIN:
+  - Cadherin_1
+  - Cadherin_2
+  - Cadherin_3
+  - Cadherin_4
+  - Cadherin_5
 Caspase: 
   - CASPASE
   - Peptidase_C14
