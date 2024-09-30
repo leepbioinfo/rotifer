@@ -272,7 +272,7 @@ if __name__ == '__main__':
     threads = 5
     verbose = True
     db = makeDB(verbose)
-    api_key = '935f49538aaa065207b4582a5cc4fcd59408'
+    api_key = ''
     gbks_folder = os.path.join(db, 'gbff')
 
     args = parse_cli()
