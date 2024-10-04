@@ -1649,7 +1649,7 @@ def insert_na_rows_at_indexes(df, indexes, columns_to_fill=None, fill_direction=
 
     return new_df
 
-def pick_colors(df,column='dom',top_domains=20, pallets = ['pastel','deep','muted','colorblind'], own_dict=False, domain_rename=True):
+def pick_colors(df,column='dom',top_domains=20, pallets = ['pastel','deep','muted','colorblind'], own_dict=False, domain_rename=True, second_rename=False):
     import seaborn as sns
     import pandas as pd
     from rotifer.core import functions as rcf
@@ -1665,7 +1665,10 @@ def pick_colors(df,column='dom',top_domains=20, pallets = ['pastel','deep','mute
         domain_dict = rcf.loadConfig(rcf.findDataFiles(":data/domain_rename.yaml"))
         domain_dict =  {v:k for k in domain_dict.keys() for v in domain_dict[k] }
         df[column] = df[column].replace(domain_dict)
+    if second_rename:
+        df[column] = df['column'].replace(second_rename)
 
+        
     ### Using the dataframe to rank the most commons domains to be colored
     domain_rank = df[column].value_counts().reset_index().rename({'index':'domain'}, axis=1).reset_index().query( 'domain not in [ "-", "?", "|", "", " ", "LIPO", "TM", "SIG", "SP"]').rename({'index':'rank'}, axis=1)[['rank', 'domain']]
     domain_rank = domain_rank.merge(colors, how='left')
@@ -1680,17 +1683,81 @@ def pick_colors(df,column='dom',top_domains=20, pallets = ['pastel','deep','mute
     return color_dict
 
 
+def split_domain(df,
+                 column='arch',
+                 fill ='?',
+                 domain_rename=True,
+                 remove_tm=False,
+                 query_same_direction=False,
+                 check_duplicates=False):
+    '''
+    It will use the query as anchor to delect the given number of after and before genes to
+    create a dataframe of domains.
+    One can use a dcitionary of domain to select the ones that would be kept and rename it
+    '''
+    import numpy as np
+    import pandas as pd
+    from rotifer.core import functions as rcf
+    from rotifer.devel.alpha import gian_func as gf
+
+
+    # Asuring to not have duplicated protein in the input DF:
+    if check_duplicates:
+        domdf = df.drop_duplicates(['nucleotide','start','end']).reset_index(drop=True).query('type == "CDS"').copy()
+    else:
+        domdf = df.copy()
+
+    # Creating an order for block_id domain representation:
+    domdf['blockp'] = pd.Series(np.where(domdf.block_id == domdf.block_id.shift(1), 1,0))
+    domdf.blockp = domdf.groupby(['block_id'])['blockp'].cumsum()
+
+    if query_same_direction:
+        bi = domdf.query('query ==1').drop_duplicates('block_id').query('strand == -1').block_id
+        mask = domdf['block_id'].isin(bi)
+        domdf.loc[mask, 'strand']  = domdf.loc[mask, 'strand'] * -1
+        domdf.loc[mask, 'blockp'] = domdf.loc[mask].groupby('block_id')['blockp'].transform(lambda x: x[::-1].values)
+        domdf = domdf.sort_values(['block_id','blockp'])
+
+    domdf['dom'] = domdf[column].str.split('+')
+    domdf.loc[domdf.strand  == -1, 'dom'] = domdf.loc[(domdf.strand  == -1)].dom.apply(lambda x: x[::-1])
+    domdf = domdf.explode('dom')
+    domdf['domp'] = pd.Series(np.where(domdf.pid == domdf.pid.shift(1), 1,0))
+    domdf.domp = domdf.groupby(['pid','block_id'])['domp'].cumsum()
+    domdf['blockp'] = pd.Series(np.where(domdf.block_id == domdf.block_id.shift(1), 1,0))
+    domdf.blockp = domdf.groupby(['block_id'])['blockp'].cumsum()
+
+
+    if fill:
+        domdf.dom = domdf.dom.fillna(fill)
+
+    if domain_rename:
+        domain_dict = rcf.loadConfig(rcf.findDataFiles(":data/domain_rename.yaml"))
+        domain_dict =  {v:k for k in domain_dict.keys() for v in domain_dict[k] }
+        domdf['dom'] = domdf['dom'].replace(domain_dict)
+
+
+    # removing tm sig
+    if remove_tm:
+        domdf['tmc'] = np.where(domdf.dom.isin(["TM","SIG"]),0,1)
+        only_tm_sig = list(domdf.groupby('pid').tmc.sum().where(lambda x : x==0).dropna().index)
+        domdf.dom = np.where(domdf.pid.isin(only_tm_sig), fill, domdf.dom)
+        domdf = domdf.query('dom no in ["TM", "SIG"]')
+
+    return domdf
 
 
 def operon_fig2(df,
                 domain_rename=True,
                 output_file='operon_fig_out.pdf',
                 domain_column='arch',
+                query_same_direction=True,
                 color_dict=None,
                 top_domains=10,
+                sort_by='classification',
                 height=0.28,
                 f=2,
-                fontsize=4):
+                fontsize=4,
+                check_duplicates=True):
 
     import pygraphviz as pgv
     from pygraphviz.agraph import re
@@ -1701,62 +1768,16 @@ def operon_fig2(df,
     from rotifer.core import functions as rcf
     import seaborn as sns
 
-    def split_domain(df, column=domain_column,fill ='?', domain_rename=domain_rename, strand=False, after=10, before=10, remove_tm=False):
-        '''
-        It will use the query as anchor to delect the given number of after and before genes to
-        create a dataframe of domains.
-        One can use a dcitionary of domain to select the ones that would be kept and rename it
-        '''
+    if check_duplicates:
+        te = df.query('type =="CDS"').copy()
+    else:
+        te = df.copy()
 
-        def reverse_query(pid):
-            def fix_direction(df):
-                df = df.copy()
-                q = df.query('query ==1').query('strand ==-1').block_id
-                df.strand = np.where(df.block_id.isin(q), df.strand * -1, df.strand)
-                return df
-            pid = fix_direction(pid)
-            return pid.reset_index(drop=True)
-
-        # Asuring to not have duplicated protein in the input DF:
-        domdf = df.drop_duplicates(['nucleotide','start','end']).reset_index(drop=True).query('type == "CDS"').copy()
-        # making all queries on the same direction:
-        domdf = domdf.groupby('pid').apply(
-                reverse_query
-                ).reset_index(
-                        drop=True
-                        ).sort_values([
-            'nucleotide',
-            'block_id',
-            'start',
-            'end'])
-
-        domdf['dom'] = domdf[column].str.split('+')
-        domdf.loc[domdf.strand  == -1, 'dom'] = domdf.loc[(domdf.strand  == -1)].dom.apply(lambda x: x[::-1])
-        domdf = domdf.explode('dom')
-        domdf['domp'] = pd.Series(np.where(domdf.pid == domdf.pid.shift(1), 1,0))
-        domdf.domp = domdf.groupby(['pid','block_id'])['domp'].cumsum()
-
-        if fill:
-            domdf.dom = domdf.dom.fillna(fill)
-
-        if domain_rename:
-            domain_dict = rcf.loadConfig(rcf.findDataFiles(":data/domain_rename.yaml"))
-            domain_dict =  {v:k for k in domain_dict.keys() for v in domain_dict[k] }
-            domdf['dom'] = domdf['dom'].replace(domain_dict)
-
-
-        # removing tm sig
-        if remove_tm:
-            domdf['tmc'] = np.where(domdf.dom.isin(["TM","SIG"]),0,1)
-            only_tm_sig = list(domdf.groupby('pid').tmc.sum().where(lambda x : x==0).dropna().index)
-            domdf.dom = np.where(domdf.pid.isin(only_tm_sig), fill, domdf.dom)
-            domdf = domdf.query('dom no in ["TM", "SIG"]')
-
-        return domdf
-
-    te = df.query('type =="CDS"').copy()
-    te = split_domain(te)
-
+    te = gf.split_domain(te,
+                         domain_rename=domain_rename,
+                         column=domain_column,
+                         query_same_direction=query_same_direction,
+                         check_duplicates=check_duplicates)
     te['shape'] = 'rectangle'
     # Removing duplicates sequencial domain in same protein
     #te = te.loc[~((te.pid.shift() == te.pid) & (te.dom.shift() == te.dom))].reset_index(drop=True)
@@ -1858,13 +1879,18 @@ def operon_fig2(df,
     del te['index']
     te = te.reset_index()
 
+    if sort_by:
+        ordered_list = te.sort_values([sort_by,'block_id','blockp']) .block_id.drop_duplicates().tolist() 
+    else:
+        ordered_list = te.block_id.drop_duplicates().tolist() 
     gb = te.groupby('block_id')
     li=[]
     A = pgv.AGraph()
    # return gb
-    for x in gb:
+    for x in ordered_list:
+        block_id_df = gb.get_group(x)
         l =[]
-        for y,z in x[1].iterrows():
+        for y,z in block_id_df.iterrows():
             if len(l) < 1:
                 l.append(z['block_id'])
                 A.add_node(z['block_id'],
@@ -1872,9 +1898,9 @@ def operon_fig2(df,
                                f'<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="0" CELLSPACING="0">'
                                f'<TR><TD HEIGHT="4"></TD></TR>'
                                f'<TR><TD HEIGHT="4"></TD></TR>'
-                               f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial" POINT-SIZE="4">{x[1].query_pid.unique()[0]}</FONT></TD></TR>'
-                               f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial" POINT-SIZE="4">{x[1].block_id.unique()[0]}</FONT></TD></TR>'
-                               f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial italic" POINT-SIZE="4">{x[1].organism.unique()[0]}</FONT></TD></TR>'
+                               f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial" POINT-SIZE="4">{block_id_df.query_pid.unique()[0]}</FONT></TD></TR>'
+                               f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial" POINT-SIZE="4">{block_id_df.block_id.unique()[0]}</FONT></TD></TR>'
+                               f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial italic" POINT-SIZE="4">{block_id_df.organism.unique()[0]}</FONT></TD></TR>'
                                '</TABLE>>'),
                            shape='none',
                            fontsize=fontsize,
@@ -1902,4 +1928,32 @@ def operon_fig2(df,
     A.draw(output_file, prog="dot")
     return te
 
+
+def compact_to_df(compact):
+    """
+    convert TASS annotated compact represantation to DF
+    """
+    import pandas as pd
+    x = pd.read_csv(compact, sep="\t", names=['pid', 'compact', 'organism', 'pid_compact'])
+    x['arch'] = x.compact.str.split('->')
+    x = x.explode('arch')
+    x2 = x[['arch','organism']]
+    x2['strand'] = -1
+    x2.loc[~x2.arch.str.contains('<-'), 'strand'] = 1
+    x2.arch = x2.arch.str.split('<-')
+    x2 = x2.explode('arch')
+    x2 = x2.query('arch not in ["", "||"]')
+    x2.arch = x2.arch.str.replace('\|\|', '|--')
+    x2.arch = x2.arch.str.split('|')
+    x2 = x2.explode('arch')
+    x2.loc[x2.arch.str.startswith('--'), 'strand'] = 1
+    x2.arch = x2.arch.str.strip('--')
+    x2 = x2.reset_index().rename({'index':'block_id'}, axis=1)
+    x2['block_id'] = x2.block_id.replace(x.pid.to_dict())
+    x2 = x2.reset_index().rename({'index':'pid'}, axis=1)
+    x2['query'] = 0
+    x2.loc[x2.arch.str.endswith('*'), 'query'] = 1
+    x2.arch = x2.arch.str.strip('*')
+    x2['nucleotide'] = 'dummy_collumn' 
+    return x2
 

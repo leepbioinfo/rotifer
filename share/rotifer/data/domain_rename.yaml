@@ -90,6 +90,9 @@ FringeGT:
   - BACTERIALFRINGE
 Fur-HTH: 
   - FURR-HTH
+GATase:
+  - DUF4350
+  - ThuA-GATase  
 GntR-HTH: 
   - GNTR-HTH
 GYF: 
@@ -99,6 +102,9 @@ HEATs:
   - LARP1_HEAT
   - HEAT_2
   - TCAD10
+iHEPN:
+  - DUF4129
+  - DUF4381  
 HerA-FtsK: 
   - DUF87
 HKD: 
@@ -260,8 +266,13 @@ TPRs:
   - Rapsyn_N
   - PPTA
   - SNAP
+Transglutaminase:
+  - TRANSGLUTAMINASE
+  - Transglut_core 
 Trypsin: 
   - Trypsin_2
+vWA:
+  - DUF58
 YggU: 
   - DUF167
 ZnKnu: 
