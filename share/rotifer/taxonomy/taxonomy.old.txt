@@ -1,0 +1,149 @@
+#archaeal_classes
+crenarchaeota
+euryarchaeota
+korarchaeota
+nanoarchaeota
+thaumarchaeota
+DPANN group
+TACK group
+Asgard group
+archaea
+#bacterial_classes_hand_sorted
+gammaproteobacteria
+betaproteobacteria
+zetaproteobacteria
+alphaproteobacteria
+epsilonproteobacteria
+deltaproteobacteria
+proteobacteria
+thermodesulfobacteria
+spirochaetes
+deferribacteres
+chrysiogenetes
+nitrospirae
+nitrospinae
+nitrospinae/tectomicrobia group
+tectomicrobia
+acidobacteria
+verrucomicrobia
+lentisphaerae
+chlamydiae
+chlamydiae/verrucomicrobia
+elusimicrobia
+planctomycetes
+PVC group
+bacteroidetes
+flavobacteria
+chlorobi
+FCB group
+ignavibacteriae
+cloacimonetes
+fibrobacteres
+gemmatimonadetes
+fibrobacteres/acidobacteria
+aquificae
+caldiserica
+dictyoglomi
+thermotogae
+deinococci
+deinococcus-Thermus
+synergistetes
+fusobacteria
+thermobaculum
+actinobacteria
+chloroflexi
+armatimonadetes
+tenericutes
+firmicutes
+cyanobacteria
+calditrichaeota
+saccharibacteria
+bacteria
+unclassified
+unclassified Bacteria
+#eukaryota_classes
+eukaryota
+alveolata
+amoebozoa
+apusomonadidae
+cryptophyta
+euglenozoa
+diplomonadida
+haptophyceae
+heterolobosea
+apicomplexa
+ciliophora
+acanthamoebidae
+acantharea
+actinopterygii
+annelida
+arcellinida
+ascomycota
+basidiomycota
+centroheliozoa
+cercozoa
+chlorophyta
+choanoflagellida
+chordata
+chytridiomycota
+cnidaria
+crustacea
+dictyosteliida
+diplomonadida group
+echinodermata
+entamoebidae
+fungi
+basal fungal lineages
+glaucocystophyceae
+glomeromycota
+granuloreticulosea
+haplosporidia
+hemichordata
+hexapoda
+ichthyosporea
+jakobidae
+kinetoplastida
+lobosea
+malawimonadidae
+metazoa
+microsporidia
+mollusca
+mycetozoa
+nematoda
+nucleariidae
+oxymonadida
+parabasalidea
+parabasalia
+paramyxea
+pelobiontida
+placozoa
+plasmodiophorida
+polycystinea
+rhodophyta
+rhizaria
+stramenopiles
+urochordata
+vertebrata
+viridiplantae
+zygomycota
+apusozoa
+breviatea
+fornicata
+katablepharidophyta
+opisthokonta
+#virus
+ssRNA positive strand viruses
+ssDNA viruses
+dsDNA viruses
+dsDNA viruses, no RNA stage
+dsRNA viruses
+poxviridae
+flaviviridae
+caudovirales
+dinodnavirus
+viruses
+deltavirus
+Retro-transcribing viruses
+satellites
+# Plasmid
+plasmid

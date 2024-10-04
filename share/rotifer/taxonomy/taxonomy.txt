@@ -147,3 +147,2714 @@ Retro-transcribing viruses
 satellites
 # Plasmid
 plasmid
+abditibacteriales
+abditibacteriia
+abditibacteriota
+abediniales
+abrothallales
+acanthobdellida
+acanthocephala
+acanthocystida
+acanthoecida
+acanthopleuribacterales
+acanthuriformes
+acarosporales
+acaryochloridales
+accipitriformes
+acetivibrionales
+acetobacterales
+achnanthales
+acholeplasmatales
+acidaminococcales
+acidiferrobacterales
+acidilobales
+acidimicrobiales
+acidimicrobiia
+acidithiobacillales
+acidithiobacillia
+acidobacteriota
+acidothermales
+acipenseriformes
+acochlidiacea
+acoela
+aconoidasida
+acorales
+acrasida
+acrochaetiales
+acropomatiformes
+acrospermales
+acrosymphytales
+actiniaria
+actinomycetales
+actinomycetes
+actinomycetota
+actinophryidae
+actinopolysporales
+actinopteri
+actinulida
+acytosteliales
+adapedonta
+adinetida
+aegeococcales
+aeromonadales
+agamococcidiorida
+agaricales
+agaricomycetes
+agaricostilbales
+agaricostilbomycetes
+agelasida
+aggregatilineales
+ahnfeltiales
+ainoaviricetes
+albuginales
+albuliformes
+alepocephaliformes
+algavirales
+alismatales
+allomalorhagida
+alluroidida
+alsuviricetes
+alteromonadales
+amabiliviricetes
+amarillovirales
+amblypygi
+amborellales
+amiiformes
+amphibia
+amphidiniales
+amphidiscosida
+amphifilida
+amphilepidida
+amphilinidea
+amphionidacea
+amphioxiformes
+amphipoda
+amphitremida
+amylocorticiales
+anabantiformes
+anaerolineae
+anaerolineales
+anaeroplasmatales
+anaerosomatales
+anaspidacea
+anaulales
+ancyromonadida
+andreaeales
+andreaeobryales
+andreaeobryopsida
+andreaeopsida
+anguilliformes
+anisolpidiales
+annulatascales
+anostraca
+anseriformes
+anthoathecata
+anthocerotales
+anthocerotopsida
+anthozoa
+antipatharia
+anura
+aphelidea
+aphragmophora
+apiales
+aplousobranchia
+aplysiida
+apochela
+apodida
+apodiformes
+aporidea
+apostomatida
+appendicularia
+apterygiformes
+apusomonadida
+aquavolonida
+aquificales
+aquificota
+aquifoliales
+arachnida
+araeolaimida
+araneae
+araucariales
+arbacioida
+archaeoglobales
+archaeoglobi
+archaeognatha
+archaeorhizomycetales
+archaeorhizomycetes
+archaeosporales
+archiacanthocephala
+archidiales
+archigregarinorida
+archinemertea
+architaenioglossa
+arcoida
+arctomiales
+ardenticatenales
+ardenticatenia
+ardissoneales
+arecales
+arenicellales
+arfiviricetes
+argentiniformes
+arguloida
+arhynchobdellida
+armatimonadales
+armatimonadia
+armatimonadota
+armophorea
+armophorida
+arthoniales
+arthoniomycetes
+arthracanthida
+arthropoda
+arthrotardigrada
+articulavirales
+artiodactyla
+artverviricota
+ascetosporea
+ascidiacea
+ascoseirales
+asellariales
+asellariomycetes
+asfuvirales
+asparagales
+aspidochirotida
+aspidodiadematoida
+aspidosiphonidormes
+asterales
+asterinales
+asterocladales
+asteroidea
+asterolamprales
+asterotexales
+astomatida
+astrorhizida
+ateleopodiformes
+atheliales
+atheriniformes
+atractiellales
+atractiellomycetes
+atribacterales
+atribacteria
+atribacterota
+atroposvirales
+aulocalycoida
+aulographales
+aulopiformes
+aurearenophyceae
+auriculariales
+austrobaileyales
+aves
+axinellida
+azygiida
+bacillales
+bacillariales
+bacillariophyceae
+bacillariophyta
+bacilli
+bacillota
+bacteriovoracales
+bacteriovoracia
+bacteroidales
+bacteroidia
+bacteroidota
+baeomycetales
+baerida
+balanomorpha
+balbianiales
+balliales
+balneolales
+balneolia
+balneolota
+bamfordvirae
+bangiales
+bangiophyceae
+baphyvirales
+barbatosporales
+bartheletiales
+bartheletiomycetes
+bartramiales
+basidiobolales
+basidiobolomycetes
+bathynellacea
+batrachoidiformes
+batrachospermales
+bdellonemertea
+bdellovibrionales
+bdellovibrionia
+bdellovibrionota
+belfryvirales
+beloniformes
+benthimermithida
+berberidopsidales
+beroida
+beryciformes
+bicosoecida
+biddulphiales
+biemnida
+bifidobacteriales
+bigyra
+bivalvia
+bivalvulida
+blasiales
+blastocatellales
+blastocatellia
+blastocladiales
+blastocladiomycetes
+blastocladiomycota
+blastodiniales
+blattodea
+blenniiformes
+blubervirales
+boletales
+bolidophyceae
+boliniales
+bonnemaisoniales
+boraginales
+bothriocephalidea
+botrydiales
+botryosphaeriales
+bourgueticrinida
+brachiopoda
+brachypoda
+brachyspirales
+bradymonadales
+branchiobdellida
+branchiopoda
+brassicales
+brevinematales
+brisingida
+bruniales
+bryales
+bryobacterales
+bryometopida
+bryophryida
+bryopsida
+bryopsidales
+bryoxiphiales
+bryozoa
+bubarida
+bucerotiformes
+bunyavirales
+burkholderiales
+bursariomorphida
+bursovaginoidea
+buxales
+buxbaumiales
+calanoida
+calanticomorpha
+calcarea
+calcarisporiellales
+caldicellulosiruptorales
+caldilineae
+caldilineales
+caldisericales
+caldisericia
+caldisericota
+calditrichales
+calditrichia
+calditrichota
+caliciales
+callipodida
+calobryales
+calosphaeriales
+camarodonta
+campylobacterales
+campylobacterota
+candelariales
+candelariomycetes
+candidate division cpr1
+candidate division cpr2
+candidate division cpr3
+candidate division cssed10-310
+candidate division fcpu426
+candidate division gal15
+candidate division jl-etnp-z39
+candidate division kd3-62
+candidate division lcp-89
+candidate division nc10
+candidate division wor-3
+candidate division wwe3
+candidate division zb2
+candidate phylum nag2
+candidatus abawacabacteria
+candidatus absconditabacterales
+candidatus absconditabacteria
+candidatus abyssubacteria
+candidatus acidoferrales
+candidatus acidulodesulfobacterales
+candidatus actinomarinales
+candidatus adiutricales
+candidatus adlerbacteria
+candidatus aenigmatarchaeota
+candidatus aeolococcales
+candidatus aerophobetes
+candidatus alkanophagales
+candidatus altarchaeales
+candidatus altarchaeota
+candidatus altiarchaeia
+candidatus amesbacteria
+candidatus aminicenantales
+candidatus aminicenantes
+candidatus aminicenantia
+candidatus amisiscales
+candidatus anaeroferrophillales
+candidatus anaeropigmentiales
+candidatus ancaeobacterales
+candidatus ancaeobacteria
+candidatus andersenbacteria
+candidatus anoxychlamydiales
+candidatus anstonellales
+candidatus aquicultorales
+candidatus aquicultoria
+candidatus asgardarchaeales
+candidatus asgardarchaeia
+candidatus auribacterales
+candidatus auribacteria
+candidatus auribacterota
+candidatus azambacteria
+candidatus babeliae
+candidatus babeliales
+candidatus baldrarchaeales
+candidatus baldrarchaeia
+candidatus baldrarchaeota
+candidatus bathyarchaeales
+candidatus bathyarchaeia
+candidatus bathyarchaeota
+candidatus beckwithbacteria
+candidatus berkelbacteria
+candidatus binatales
+candidatus binatia
+candidatus binatota
+candidatus bipolaricaulales
+candidatus bipolaricaulia
+candidatus bipolaricaulota
+candidatus blackallbacteria
+candidatus blackburnbacteria
+candidatus borrarchaeales
+candidatus borrarchaeia
+candidatus borrarchaeota
+candidatus brennerbacteria
+candidatus brocadiales
+candidatus brocadiia
+candidatus brockarchaeota
+candidatus buchananbacteria
+candidatus burarchaeales
+candidatus caenarcanales
+candidatus caldarchaeales
+candidatus caldatribacteriota
+candidatus calescamantes
+candidatus campbellbacteria
+candidatus cenarchaeales
+candidatus cerribacteria
+candidatus chisholmbacteria
+candidatus cloacimonadales
+candidatus cloacimonadia
+candidatus cloacimonadota
+candidatus coatesbacteria
+candidatus collierbacteria
+candidatus colwellbacteria
+candidatus comchoanobacterales
+candidatus competibacterales
+candidatus cryosericales
+candidatus cryosericia
+candidatus cryosericota
+candidatus culexarchaeia
+candidatus culexarchaeles
+candidatus culexarchaeota
+candidatus curtissbacteria
+candidatus dadabacteria
+candidatus darwinibacteriales
+candidatus daviesbacteria
+candidatus deferrimicrobia
+candidatus deferrimicrobiales
+candidatus deferrimicrobiota
+candidatus delongbacteria
+candidatus desantisbacteria
+candidatus desulfofervidales
+candidatus desulfofervidia
+candidatus diapherotrites
+candidatus dormibacterales
+candidatus dormibacteria
+candidatus dormiibacterota
+candidatus doudnabacteria
+candidatus edwardsbacteria
+candidatus eisenbacteria
+candidatus electryoneales
+candidatus electryoneia
+candidatus electryoneota
+candidatus elulimicrobia
+candidatus elulimicrobiales
+candidatus elulimicrobiota
+candidatus entoporibacteria
+candidatus eremiobacterales
+candidatus erginobacterales
+candidatus erginobacteria
+candidatus falkowbacteria
+candidatus fermentibacterales
+candidatus fermentibacteria
+candidatus fermentibacteria (class)
+candidatus fermentimicrarchaeales
+candidatus fermentithermobacillales
+candidatus fermentithermobacillia
+candidatus fervidibacterota
+candidatus fibrimonadales
+candidatus firestonebacteria
+candidatus fischerbacteria
+candidatus foliamicales
+candidatus fraserbacteria
+candidatus freyarchaeota
+candidatus freyrarchaeales
+candidatus freyrarchaeia
+candidatus friggarchaeota
+candidatus frugalibacteriales
+candidatus gastranaerophilales
+candidatus gefionarchaeota
+candidatus geoarchaeota
+candidatus geothermarchaeales
+candidatus geothermarchaeota
+candidatus geothermincolales
+candidatus geothermincolia
+candidatus geothermocultorales
+candidatus gerdarchaeota
+candidatus gimiplasmatales
+candidatus giovannonibacteria
+candidatus glassbacteria
+candidatus goldiibacteriota
+candidatus gottesmanbacteria
+candidatus gracilibacteria
+candidatus gribaldobacteria
+candidatus guanabacteria
+candidatus gugararchaeales
+candidatus hadarchaeales
+candidatus hadarchaeia
+candidatus hadarchaeota
+candidatus hakubellales
+candidatus halarchaeoplasmatales
+candidatus handelsmanbacteria
+candidatus harrisonbacteria
+candidatus hatepunaeales
+candidatus hebobacterales
+candidatus hebobacteria
+candidatus hecatellales
+candidatus heimdallarchaeota
+candidatus helarchaeota
+candidatus hermodarchaeales
+candidatus hermodarchaeia
+candidatus hermodarchaeota
+candidatus hinthialibacterales
+candidatus hinthialibacteria
+candidatus hinthialibacterota
+candidatus hodarchaeales
+candidatus hodarchaeia
+candidatus hodarchaeota
+candidatus huberarchaea
+candidatus humimicrobiales
+candidatus humimicrobiia
+candidatus hydrogenedentales
+candidatus hydrogenedentia
+candidatus hydrogenedentota
+candidatus hydrothermales
+candidatus hydrothermarchaeales
+candidatus hydrothermarchaeia
+candidatus hydrothermarchaeota
+candidatus hydrothermia
+candidatus hydrothermota
+candidatus idunnarchaeota
+candidatus izemoplasmatales
+candidatus izimaplasma
+candidatus jacksonbacteria
+candidatus jingweiarchaeales
+candidatus jordarchaeales
+candidatus jordarchaeia
+candidatus jorgensenbacteria
+candidatus kaiserbacteria
+candidatus kariarchaeales
+candidatus kariarchaeia
+candidatus kariarchaeota
+candidatus kerfeldbacteria
+candidatus komeilibacteria
+candidatus krumholzibacteriales
+candidatus krumholzibacteriia
+candidatus krumholzibacteriota
+candidatus kryptoniota
+candidatus kuenenbacteria
+candidatus lambdaproteobacteria
+candidatus latescibacterota
+candidatus lernaellaia
+candidatus lernaellales
+candidatus lernaellota
+candidatus levyibacteriota
+candidatus limnocylindrales
+candidatus limnocylindria
+candidatus lindowbacteria
+candidatus liptonbacteria
+candidatus lithacetigenota
+candidatus lloydbacteria
+candidatus lokiarchaeia
+candidatus lokiarchaeota
+candidatus magasanikiibacteriota
+candidatus margulisiibacteriota
+candidatus mariimomonadales
+candidatus marinacidobacterales
+candidatus marinamargulisbacteria
+candidatus marsarchaeota
+candidatus mcinerneyibacteria
+candidatus mcinerneyibacteriales
+candidatus mcinerneyibacteriota
+candidatus melainabacteria
+candidatus methanofastidiosales
+candidatus methanofastidiosia
+candidatus methanoliparales
+candidatus methanoliparia
+candidatus methanomethylicales
+candidatus methanomethylicia
+candidatus micrarchaeales
+candidatus micrarchaeia
+candidatus micrarchaeota
+candidatus microgenomates
+candidatus mnemosynellales
+candidatus moduliflexales
+candidatus moduliflexia
+candidatus moduliflexota
+candidatus moraniibacteriota
+candidatus muiribacteriota
+candidatus multivoradales
+candidatus muproteobacteria
+candidatus naiadarchaeales
+candidatus nanoarchaeia
+candidatus nanogingivales
+candidatus nanohaloarchaea
+candidatus nanohaloarchaeota
+candidatus nanohalobia
+candidatus nanohalobiales
+candidatus nanopelagicales
+candidatus nanoperiomorbales
+candidatus nanoperiomorbia
+candidatus nanosynbacterales
+candidatus nanosyncoccales
+candidatus nanosyncoccalia
+candidatus nealsonbacteria
+candidatus nemesobacterales
+candidatus neomarinimicrobiota
+candidatus nezhaarchaeales
+candidatus nezhaarchaeia
+candidatus nezhaarchaeota
+candidatus nitrosocaldales
+candidatus niyogibacteria
+candidatus njordarchaeales
+candidatus njordarchaeia
+candidatus njordarchaeota
+candidatus nomurabacteria
+candidatus norongarragalinales
+candidatus obscuribacterales
+candidatus odinarchaeales
+candidatus odinarchaeia
+candidatus odinarchaeota
+candidatus omnitrophota
+candidatus ozemobacteria
+candidatus paceibacterales
+candidatus paceibacteria
+candidatus paceibacterota
+candidatus palauibacterales
+candidatus parcubacteria
+candidatus parvarchaeota
+candidatus pelagibacterales
+candidatus pelagiporibacteria
+candidatus peregrinibacteria
+candidatus peribacterales
+candidatus peribacteria
+candidatus polarisedimenticolales
+candidatus polarisedimenticolia
+candidatus poribacteria
+candidatus porifericomitales
+candidatus portnoybacteria
+candidatus poseidoniales
+candidatus poseidoniia
+candidatus prometheoarchaeales
+candidatus promineifilales
+candidatus proteinoplasmatales
+candidatus puniceispirillales
+candidatus pyropristinus
+candidatus rariloculales
+candidatus ratteibacteria
+candidatus raymondbacteria
+candidatus riflebacteria
+candidatus riflemargulisbacteria
+candidatus roizmanbacteria
+candidatus rokuibacteriota
+candidatus ruthmanniales
+candidatus ryanbacteria
+candidatus saccharimonadales
+candidatus saccharimonadia
+candidatus salinosulfoleibacteria
+candidatus schekmanbacteria
+candidatus sericytochromatia
+candidatus shapirobacteria
+candidatus sifarchaeales
+candidatus sifarchaeia
+candidatus sifarchaeota
+candidatus sigynarchaeales
+candidatus sigynarchaeia
+candidatus sigynarchaeota
+candidatus spechtbacterales
+candidatus spechtbacteria
+candidatus spongiifermentumdales
+candidatus spongiisociales
+candidatus staskawiczbacteria
+candidatus subteraquimicrobiales
+candidatus sulfidibacteriales
+candidatus sumerlaeales
+candidatus sumerlaeia
+candidatus sumerlaeota
+candidatus sungiibacteriota
+candidatus syntrophaliphaticia
+candidatus sysuiplasmatales
+candidatus tagabacteria
+candidatus tariuqbacterales
+candidatus tariuqbacteria
+candidatus taylorbacteria
+candidatus termititenacales
+candidatus termititenacia
+candidatus terrybacteria
+candidatus tethybacterales
+candidatus tharpellales
+candidatus tharpellia
+candidatus tharpellota
+candidatus thermofonsia
+candidatus thermoplasmatota
+candidatus thermoprofundales
+candidatus theseobacterales
+candidatus thorarchaeota
+candidatus tiddalikarchaeales
+candidatus tritonobacterales
+candidatus tritonobacteria
+candidatus troglogloeales
+candidatus uabimicrobiales
+candidatus uabimicrobiia
+candidatus uhrbacteria
+candidatus undinarchaeales
+candidatus undinarchaeia
+candidatus undinarchaeota
+candidatus veblenbacteria
+candidatus vecturitrichales
+candidatus vecturitrichia
+candidatus versatilivoradales
+candidatus verstraetearchaeota
+candidatus vogelbacteria
+candidatus wallbacteria
+candidatus wildermuthbacteria
+candidatus wirthbacteria
+candidatus woesearchaeota
+candidatus woesebacteria
+candidatus wolfebacteria
+candidatus woykebacteria
+candidatus wukongarchaeales
+candidatus wukongarchaeia
+candidatus wukongarchaeota
+candidatus xenobia
+candidatus xenobiales
+candidatus yanofskybacteria
+candidatus yaplasmales
+candidatus yonathbacteria
+candidatus zambryskibacteria
+candidatus zipacnadales
+candidatus zipacnadia
+candidatus zixiibacteriota
+candidatus zymogeniales
+canellales
+cantharellales
+capilloventrida
+capnodiales
+caprimulgiformes
+caproiformes
+capsalidea
+capsulimonadales
+carangiformes
+carcharhiniformes
+cardiida
+cardiobacteriales
+cardiopteridales
+carditida
+cariamiformes
+carinomiformes
+carnivora
+carterinida
+carybdeida
+caryophyllales
+caryophyllidea
+cassiduloida
+casuariiformes
+catenulida
+catenulisporales
+cathetocephalidea
+caudata
+caudofoveata
+caudoviricetes
+caulobacterales
+caulochytriales
+cavernulicolales
+cavibelonia
+cavosteliida
+celastrales
+cellvibrionales
+centrarchiformes
+centroplasthelida
+cephalaspidea
+cephalobaenida
+cephalocarida
+cephalodiscida
+cephalopoda
+cephalothecales
+ceraceosorales
+ceramiales
+ceratodontiformes
+ceratophyllales
+cercomonadida
+cestida
+cestoda
+chaetocerotales
+chaetodermatida
+chaetodontiformes
+chaetognatha
+chaetomellales
+chaetonotida
+chaetopeltidales
+chaetophorales
+chaetosphaeriales
+chaetothyriales
+characiformes
+charadriiformes
+charales
+charophyceae
+chattonellales
+chaunacanthida
+cheilostomatida
+chilopoda
+chimaericolidea
+chimaeriformes
+chirodropida
+chiroptera
+chitinispirillales
+chitinispirillia
+chitinivibrionales
+chitinivibrionia
+chitinophagales
+chitinophagia
+chitonida
+chitovirales
+chlamydiales
+chlamydiia
+chlamydiota
+chlamydodontida
+chlamydomonadales
+chloranthales
+chlorarachniophyceae
+chlorellales
+chlorobiales
+chlorobiia
+chlorobiota
+chlorocystidales
+chlorodendrales
+chlorodendrophyceae
+chloroflexales
+chloroflexia
+chloroflexota
+chlorokybales
+chlorokybophyceae
+chlorophyceae
+chloropicales
+chloropicophyceae
+chlorosarcinales
+choanoflagellata
+chondrichthyes
+chondrillida
+chondrosiida
+chordeumatida
+chordodea
+choreotrichida
+christensenellales
+chromadorea
+chromadorida
+chromatiales
+chromulinales
+chroococcales
+chroococcidiopsidales
+chrymotiviricetes
+chrysanthemodiscales
+chrysiogenales
+chrysiogenota
+chrysista
+chrysomeridales
+chrysomerophyceae
+chrysophyceae
+chrysosphaerales
+chthoniobacterales
+chthonomonadales
+chthonomonadetes
+chunqiuviricetes
+chytridiales
+chytridiomycetes
+cichliformes
+ciconiiformes
+cidaroida
+cingulata
+cirlivirales
+cladistia
+cladochytriales
+cladophorales
+cladosporiales
+classiculales
+classiculomycetes
+clathrinida
+clevelandellida
+climacospheniales
+clionaida
+clitellata
+clostridia
+clupeiformes
+clypeasteroida
+coccidiniales
+coccolithales
+cocconeidales
+coccosphaerales
+coelacanthiformes
+colaconematales
+coleochaetales
+coleochaetophyceae
+coleofasciculales
+coleoptera
+coliiformes
+collembola
+collemopsidiales
+collemopsidiomycetes
+collodaria
+collothecaceae
+colpodea
+colpodida
+colponemida
+columbiformes
+comatulida
+commelinales
+comminutisporales
+compsopogonales
+compsopogonophyceae
+conexivisphaerales
+conexivisphaeria
+coniochaetales
+coniocybales
+coniocybomycetes
+conioscyphales
+conoidasida
+copelata
+coprothermobacterales
+coprothermobacteria
+coprothermobacterota
+coraciiformes
+corallicolida
+corallimorpharia
+corallinales
+corethrales
+coriobacteriales
+coriobacteriia
+cornales
+coronatae
+coronophorales
+corticiales
+corycida
+coryneliales
+corynodactylales
+coscinodiscales
+coscinodiscophyceae
+cossaviricota
+coyopavirales
+craniata
+craniida
+craspedida
+crassiclitellata
+crassvirales
+craterostigmomorpha
+cremevirales
+cressdnaviricota
+crinoidea
+cristamonadida
+crocodylia
+crossosomatales
+crustaceacida
+cryomonadida
+cryppavirales
+cryptocaliciales
+cryptogemmida
+cryptomonadales
+cryptomycocolacales
+cryptomycocolacomycetes
+cryptomycota
+cryptophialida
+cryptophyceae
+cryptosporangiales
+ctenocladales
+ctenophora
+ctenostomatida
+cubozoa
+cuculiformes
+cucurbitales
+culicoidibacterales
+culicoidibacteria
+cumacea
+cupressales
+cutleriales
+cyanidiales
+cyanobacteriota
+cyanophyceae
+cyatheales
+cyathomonadacea
+cycadales
+cycadopsida
+cycliophora
+cycloneritida
+cyclophorales
+cyclophyllidea
+cyclopoida
+cyclorhagida
+cyclostomatida
+cyclotrichida
+cydippida
+cymatosirales
+cymbellales
+cyphobasidiales
+cypriniformes
+cyprinodontiformes
+cyrtocrinida
+cyrtolophosidida
+cyrtophorida
+cystobasidiales
+cystobasidiomycetes
+cystofilobasidiales
+cytophagales
+cytophagia
+cyttariales
+dacrymycetales
+dacrymycetes
+dactylogyridea
+dactylopodida
+dasycladales
+dasyuromorphia
+decapoda
+deferribacterales
+deferribacterota
+deferrisomatales
+deferrisomatia
+dehalococcoidales
+dehalococcoidia
+deinococcales
+deinococcota
+demospongiae
+dendroceratida
+dendrocerotales
+dendrochirotida
+dendrogastrida
+dentaliida
+dermaptera
+dermocystida
+dermoptera
+desertifilales
+desmacellida
+desmarestiales
+desmidiales
+desmodorida
+desmoscolecida
+desulfarculales
+desulfarculia
+desulfatiglandales
+desulfitisporales
+desulfitisporia
+desulfobaccales
+desulfobaccia
+desulfobacterales
+desulfobacteria
+desulfobulbales
+desulfobulbia
+desulfomonilales
+desulfomonilia
+desulfovibrionales
+desulfovibrionia
+desulfurellales
+desulfurellia
+desulfuribacillales
+desulfuribacillia
+desulfurobacteriales
+desulfurococcales
+desulfuromonadales
+desulfuromonadia
+dethiobacterales
+dethiobacteria
+developea
+diadematoida
+diaporthales
+diclybothriidea
+dicranales
+dictyoceratida
+dictyochales
+dictyochophyceae
+dictyoglomales
+dictyoglomia
+dictyoglomota
+dictyosteliales
+dictyotales
+dicyemida
+didelphimorphia
+dilleniales
+dimargaritales
+dimargaritomycetes
+dinophyceae
+dinophysales
+dinornithiformes
+dioctophymatida
+dioscoreales
+diphyllidea
+diphyllobothriidea
+diphysciales
+diplonemea
+diplopoda
+diplostomida
+diplostraca
+diplura
+diprotodontia
+dipsacales
+diptera
+discosea
+dissulfuribacterales
+dissulfuribacteria
+diversisporales
+dividoviricota
+dixoniellales
+doassansiales
+dolichomastigales
+doliolida
+dongiales
+dorylaimida
+dothideales
+dothideomycetes
+duplopiviricetes
+duplornaviricota
+durnavirales
+dysteriida
+echinamoebida
+echiniscoidea
+echinoidea
+echinorhiniformes
+echinorhynchida
+echinosteliales
+echinothurioida
+echiuroidea
+ectocarpales
+eggerthellales
+egibacterales
+egicoccales
+elainellales
+elardia
+elasipodida
+ellioviricetes
+ellobiida
+elopiformes
+elusimicrobiales
+elusimicrobiota
+embioptera
+emcibacterales
+encalyptales
+enchytraeida
+endogenida
+endogonales
+endogonomycetes
+endomicrobiales
+endomicrobiia
+endomyxa
+enopla
+enoplea
+enoplida
+entactinaria
+enterobacterales
+enteropneusta
+entodiniomorphida
+entomobryomorpha
+entomophthorales
+entomophthoromycetes
+entomoplasmatales
+entoprocta
+entorrhizales
+entorrhizomycetes
+entrophosporales
+entwisleiales
+entylomatales
+eoacanthocephala
+ephedrales
+ephemeroptera
+ephippiformes
+equisetales
+eremithallales
+eremomycetales
+ericales
+erysipelotrichales
+erysipelotrichia
+erysiphales
+erythrobasidiales
+erythropeltidales
+escalloniales
+esociformes
+ethmodiscales
+euamoebida
+eubacteriales
+eubodonida
+eucoccidiorida
+euglenales
+euglenida
+euglyphida
+eugregarinorida
+eulipotyphla
+eumycetozoa
+eunicida
+eunotiales
+euonychophora
+euphausiacea
+euplotida
+eupodiscales
+eurotatoria
+eurotiales
+eurotiomycetes
+euryalida
+eurypygiformes
+eustigmatales
+eustigmatophyceae
+eutardigrada
+eutreptiales
+euzebyales
+evaginogenida
+evosea
+exobasidiales
+exobasidiomycetes
+exogemmida
+exogenida
+fabales
+fagales
+falcocladiales
+falconiformes
+faserviricetes
+fecampiida
+ferritrophicales
+ferrovales
+fervidicoccales
+fibrobacterales
+fibrobacteria
+fibrobacterota
+filasterea
+filobasidiales
+filospermoidea
+fimbriimonadales
+fimbriimonadia
+flabelligerida
+flabellinia
+flasuviricetes
+flavobacteriales
+flavobacteriia
+florenciellales
+florideophyceae
+flosculariaceae
+foraminifera
+forcipulatida
+fossombroniales
+fractovitellida
+fragilariales
+fragilariophyceae
+frankiales
+fucales
+funariales
+fuscosporellales
+fusobacteriales
+fusobacteriia
+fusobacteriota
+futianiales
+gadiformes
+gadilida
+gaiellales
+galaxiiformes
+galbuliformes
+galdieriales
+galeommatida
+galliformes
+garryales
+gastrochaenida
+gastropoda
+gastrotricha
+gaviiformes
+geastrales
+geitlerinematales
+gelidiales
+gelyelloida
+geminibasidiales
+geminibasidiomycetes
+geminicoccales
+gemmatales
+gemmatimonadales
+gemmatimonadota
+gentianales
+geobacterales
+geodermatophilales
+geoglossales
+geoglossomycetes
+geophilomorpha
+georgefischeriales
+geplafuvirales
+geraniales
+gerreiformes
+ghabrivirales
+gigantorhynchida
+gigartinales
+gigaspermales
+ginkgoales
+ginkgoopsida
+glaucocystales
+glaucosphaerales
+gleicheniales
+glissomonadida
+globothalamea
+gloeobacterales
+gloeochaetales
+gloeomargaritales
+gloeophyllales
+glomerales
+glomerellales
+glomerida
+glomeridesmida
+glomeromycetes
+glycomycetales
+gnathostomulida
+gnetales
+gnetopsida
+gobiiformes
+golfingiida
+golubeviales
+gomontiellales
+gomphales
+goniochloridales
+gonorynchiformes
+gonyaulacales
+gordea
+gordioida
+goujianvirales
+gracilariales
+grimmiales
+gromiida
+gromochytriales
+grossglockneriida
+gruiformes
+grylloblattodea
+gunnerales
+gymnodiniales
+gymnolaemata
+gymnophiona
+gymnotiformes
+gyracanthocephala
+gyrocotylidea
+gyrodactylidea
+haemosporida
+halanaerobiales
+haliangiales
+halobacteria
+halobacteriales
+halobacteriota
+halocyprida
+haloferacales
+halopanivirales
+haloplasmatales
+halorutilales
+haloruvirales
+halymeniales
+hapalidiales
+haplobothriidea
+haplomitriopsida
+haplopharyngida
+haplosclerida
+haplosporida
+haplotaxida
+haptophyta
+haptorida
+harpacticoida
+harpellales
+harpellomycetes
+hedwigiales
+helicobasidiales
+helotiales
+helvetiavirae
+hemiaulales
+hemimastigophora
+hemiptera
+hepelivirales
+herpesvirales
+herpetosiphonales
+herpomycetales
+herviviricetes
+heterodontiformes
+heterogastridiales
+heterogloeales
+heteronematales
+heteronemertea
+heterotardigrada
+heterotrichea
+heterotrichida
+heunggongvirae
+hexactinellida
+hexactinosida
+hexanauplia
+hexanchiformes
+hibberdiales
+hildenbrandiales
+himatismenida
+hiodontiformes
+hirudinida
+hofneiviricota
+hoilungea
+holacanthida
+holasteroida
+holocentriformes
+holophagae
+holophagales
+holosporales
+holothuroidea
+holothyrida
+holtermanniales
+homoscleromorpha
+homosclerophorida
+honigbergiellida
+hookeriales
+howeltoviricetes
+huerteales
+huolimaviricetes
+hydrogenophilales
+hydrogenophilia
+hydrozoa
+hydrurales
+hymeneliales
+hymenochaetales
+hymenophyllales
+hymenoptera
+hymenostomatida
+hyocrinida
+hypermastigia
+hyperoartia
+hyphochytriomycetes
+hyphomicrobiales
+hyphomonadales
+hypnales
+hypnodendrales
+hypocomatida
+hypocreales
+hypotrichomonadida
+hyracoidea
+hysterangiales
+hysteriales
+iblomorpha
+icacinales
+ichthyophonida
+ichthyostraca
+ignatiales
+ignavibacteria
+ignavibacteriales
+ignavibacteriota
+imbricatea
+imitervirales
+immundisolibacterales
+ingolfiellida
+insecta
+insthoviricetes
+iodidimonadales
+isochrysidales
+isocrinida
+isoetales
+isolaimida
+isopoda
+isosphaerales
+istiophoriformes
+ixodida
+jaapiales
+jahnulales
+jakobida
+jatrophihabitantales
+jiangellales
+jingchuvirales
+julida
+jungermanniales
+jungermanniopsida
+juravirales
+kalamavirales
+kallotenuales
+kangiellales
+karyorelictea
+kathablepharidacea
+kentrorhagata
+kickxellales
+kickxellomycetes
+kiitrichida
+kineosporiales
+kinetoplastea
+kinorhyncha
+kiritimatiellales
+kiritimatiellia
+kiritimatiellota
+kirjokansivirales
+kirschsteiniotheliales
+kitasatosporales
+kitrinoviricota
+klebsormidiales
+klebsormidiophyceae
+koleobacterales
+kopriimonadales
+koralionastetales
+kordiimonadales
+kosmotogales
+kriegeriales
+ktedonobacterales
+ktedonobacteria
+kurtiformes
+laboulbeniales
+laboulbeniomycetes
+labriformes
+labyrinthulida
+lachnospirales
+lactobacillales
+lagenidiales
+lagomorpha
+lamiales
+laminariales
+lamniformes
+lampriformes
+laserviricetes
+laurales
+laurida
+lautamovirales
+lecanicephalidea
+lecanorales
+lecanoromycetes
+lecideales
+lecithoepitheliata
+lefavirales
+legionellales
+leiosporocerotales
+leiosporocerotopsida
+lenarviricota
+lentisphaerales
+lentisphaeria
+lentisphaerota
+leotiales
+leotiomycetes
+lepetellida
+lepidogalaxiiformes
+lepidopleurida
+lepidoptera
+lepidosauria
+lepidostromatales
+leprocaulales
+leptocardii
+leptocylindrales
+leptolyngbyales
+leptomitales
+leptomyxida
+leptospirales
+leptostraca
+leptothecata
+leucosolenida
+leucosporidiales
+leviviricetes
+liceales
+lichenostigmatales
+lichinales
+lichinodiales
+lichinomycetes
+licmophorales
+licnophorida
+ligamenvirales
+liliales
+limifossorida
+limisphaerales
+limnochordales
+limnochordia
+limnognathida
+limnomedusae
+limoida
+lineolatales
+lingulata
+lingulida
+lithobiomorpha
+lithodesmiales
+lithoglyptida
+lithonida
+litobothriidea
+litopterna
+litostomatea
+littorinimorpha
+lituolida
+lobata
+lobotiformes
+lobulomycetales
+loebvirae
+longamoebia
+longimicrobiales
+longimicrobiia
+lophiiformes
+lophodiniales
+lophogastrida
+lophomonadida
+loricifera
+loxodida
+lucinida
+lulworthiales
+lumbriculida
+lunulariales
+lutisporales
+lutjaniformes
+lycopodiales
+lycopodiopsida
+lyrellales
+lyssacinosida
+macrodasyida
+macroscelidea
+macrostomida
+magnaporthales
+magnetococcales
+magnoliales
+magnoliopsida
+magrovirales
+magsaviricetes
+malacalcyonacea
+malacostraca
+malacovalvulida
+malasseziales
+malasseziomycetes
+malawimonadida
+malgrandaviricetes
+malpighiales
+malvales
+mamiellales
+mamiellophyceae
+mammalia
+mantodea
+mantophasmatodea
+marattiales
+marchantiales
+marchantiopsida
+maricaulales
+marimermithida
+marimonadida
+marinilabiliales
+mariplanellida
+mariprofundales
+marosporida
+marsupiomonadales
+martellivirales
+mastigamoebida
+mastogloiales
+maveriviricetes
+maximonvirales
+mazocraeidea
+mecoptera
+medeolariales
+mediophyceae
+megaloptera
+megaviricetes
+melanosporales
+meliolales
+melosirales
+merliida
+mermithida
+merostomata
+mesoaciditogales
+mesochytriales
+mesostigmata
+mesostigmatales
+mesostigmatophyceae
+methanobacteria
+methanobacteriales
+methanobavirales
+methanocellales
+methanococcales
+methanococci
+methanomassiliicoccales
+methanomicrobia
+methanomicrobiales
+methanonatronarchaeales
+methanonatronarchaeia
+methanophagales
+methanopyrales
+methanopyri
+methanosarcinales
+methanotrichales
+methylacidiphilae
+methylacidiphilales
+methylococcales
+methylohalomonadales
+metopida
+metteniusales
+metzgeriales
+miaviricetes
+micraspidales
+microascales
+microbiotheria
+microbotryales
+microbotryomycetes
+microcaldales
+microcaldia
+microcaldota
+micrococcales
+micrognathozoa
+micromonosporales
+micropepsales
+micropygoida
+microstromatales
+microthamniales
+microthoracida
+microthyriales
+mictacea
+miliolida
+millericrinida
+milneviricetes
+miltoncostaeales
+mindivirales
+minutisphaerales
+minwuiales
+mischococcales
+misophrioida
+mixiales
+mixiomycetes
+mobilida
+mollicutes
+molpadida
+monhysterida
+moniliellales
+moniliellomycetes
+moniliformida
+moniligastrida
+monjiviricetes
+monoblastiales
+monoblepharidales
+monoblepharidomycetes
+monocleales
+monocotylidea
+monogenea
+monoglobales
+monomastigales
+mononchida
+mononegavirales
+monophragmophora
+monoplacophora
+monostilifera
+monotremata
+monstrilloida
+moorellales
+moraxellales
+mormonilloida
+mortierellales
+mortierellomycetes
+motilibacterales
+mouviricetes
+mucorales
+mucoromycetes
+mucoromycota
+mugiliformes
+mulpavirales
+multivalvulida
+muranotrichea
+muranotrichida
+murrayonida
+musophagiformes
+muspiceida
+muvirales
+muyocopronales
+mycobacteriales
+mycocaliciales
+mycoplasmatales
+mycoplasmatota
+mycoplasmoidales
+mycosphaerellales
+myctophiformes
+myida
+myliobatiformes
+myodocopida
+myopsida
+myriangiales
+myrmecridiales
+myrtales
+mysida
+mystacocarida
+mystacocaridida
+mytilida
+mytilinidiales
+myxini
+myxiniformes
+myxococcales
+myxococcia
+myxococcota
+myxozoa
+myzocytiopsidales
+myzostomida
+nakamurellales
+nakonvirales
+naldaviricetes
+nanaloricida
+nannocystales
+nanoarchaeales
+nanobdellales
+nanobdellia
+nanomonadea
+naohideales
+narapida
+narcomedusae
+nassellaria
+nassophorea
+nassulida
+natipusillales
+natranaerobiales
+natrialbales
+nautiliales
+nautilida
+naviculales
+nebulidea
+nebulidia
+nebulidida
+nectiopoda
+nectonematoida
+neelipleona
+negarnaviricota
+negativicutes
+neisseriales
+nemaliales
+nemastomatales
+nematomorpha
+nemertea
+nemertodermatida
+neobodonida
+neocallimastigales
+neocallimastigomycetes
+neoechinorhynchida
+neogastropoda
+neogregarinorida
+neohodgsoniales
+neolectales
+neolectomycetes
+neomeniamorpha
+neomphalida
+neophaeothecales
+neozygitales
+neozygitomycetes
+nephromycida
+nephroselmidales
+nephroselmidophyceae
+neuroptera
+nevskiales
+nibbleridea
+nibbleridia
+nibbleridida
+nidovirales
+nippotaeniidea
+nitriliruptorales
+nitriliruptoria
+nitrosomonadales
+nitrosopumilales
+nitrososphaerales
+nitrososphaeria
+nitrososphaerota
+nitrospinales
+nitrospinia
+nitrospinota
+nitrospirales
+nitrospiria
+nitrospirota
+noctilucales
+nodamuvirales
+nodosilineales
+norzivirales
+nostocales
+notacanthiformes
+notomyotida
+notoryctemorphia
+notostraca
+notothyladales
+notoungulata
+nucleocytoviricota
+nuculanida
+nuculida
+nuda
+nudibranchia
+nymphaeales
+oblongichytrida
+oceanospirillales
+ochromonadales
+octopoda
+oculatellales
+odonata
+odontostomatea
+odontostomatida
+oedipodiales
+oedipodiopsida
+oedogoniales
+oegopsida
+oligacanthorhynchida
+oligoflexales
+oligoflexia
+oligohymenophorea
+oligosphaerales
+oligosphaeria
+olisthodiscophyceae
+olpidiales
+olpidiomycetes
+olpidiomycota
+olpidiopsidales
+oltmannsiellopsidales
+oltmansiellopsidales
+onchoproteocephalidea
+oncothecales
+onslowiales
+onychophora
+onygenales
+oomycota
+opalinata
+opheliida
+ophidiiformes
+ophioglossales
+ophioleucida
+ophioscolecida
+ophiostomatales
+ophiuroidea
+opilioacarida
+opiliones
+opisthocomiformes
+opisthorchiida
+opitutae
+opitutales
+orbales
+orbiliales
+orbiliomycetes
+orectolobiformes
+orphellales
+ortervirales
+orthonectida
+orthopolintovirales
+orthoptera
+orthornavirae
+orthotrichales
+oscillatoriales
+osmeriformes
+osmundales
+osteoglossiformes
+ostracoda
+ostreida
+ostropales
+ourlivirales
+oxalidales
+oxyrrhinales
+pachnocybales
+palaeacanthocephala
+palaeonemertea
+pallaviciniales
+palmariales
+palmophyllales
+palmophyllophyceae
+palpigradi
+pandanales
+pantopoda
+papovaviricetes
+parablepharismea
+parablepharismida
+parabodonida
+parachela
+parachlamydiales
+paracryphiales
+paradiniida
+paraglomerales
+paraliales
+paramyxida
+pararnavirae
+pararotatoria
+parmales
+parvidrilida
+parvularculales
+passeriformes
+pasteurellales
+patatavirales
+patellariales
+paucituberculata
+pauropoda
+pavlomulinales
+pavlovales
+paxillosida
+pectinida
+pedinellales
+pedinoida
+pedinomonadales
+pedinophyceae
+pelagomonadales
+pelagophyceae
+pelecaniformes
+pelliales
+peltigerales
+pempheriformes
+penicillaria (in: tube anenomes)
+peniculida
+peploviricota
+peptostreptococcales
+peramelemorphia
+perciformes
+percopsiformes
+peribolosporales
+peribolosporomycetes
+peridiniales
+peripodida
+perissodactyla
+perkinsida
+perkinsozoa
+peronosporales
+pertusariales
+petalomonadida
+petitvirales
+petromyzontiformes
+petrosaviales
+petrotogales
+peyssonneliales
+pezizales
+pezizomycetes
+phacidiales
+phaeocalpida
+phaeoconchia
+phaeocystales
+phaeocystida
+phaeodendrida
+phaeogromida
+phaeogymnocellida
+phaeomoniellales
+phaeophilales
+phaeophyceae
+phaeosacciales
+phaeosacciophyceae
+phaeosphaerida
+phaeothamnales
+phaeothamniales
+phaeothamniophyceae
+phaeothecales
+phaeotrichales
+phaethontiformes
+phagomyxida
+phallales
+phascolosomatiformes
+phasmatodea
+philasterida
+philodinavidae
+philodinida
+phixviricota
+phlebobranchia
+phoenicopteriformes
+pholidoskepia
+pholidota
+phormidesmidales
+phoronida
+phototrophicales
+phragmophora
+phthiraptera
+phycisphaerae
+phycisphaerales
+phylactolaemata
+phyllachorales
+phyllobothriidea
+phyllodocida
+phyllopharyngea
+phymatocerotales
+phymosomatoida
+physariida
+physodermatales
+physodermatomycetes
+phytodiniales
+phytomyxea
+piccovirales
+piciformes
+picocystales
+picocystophyceae
+picomonadea
+picomonadida
+picornavirales
+picozoa
+picramniales
+pihiellales
+pilidiophora
+pilosa
+pimascovirales
+pinales
+pinguiochrysidales
+pinguiophyceae
+pinopsida
+piperales
+pirellulales
+piroplasmida
+pirsoniales
+pisoniviricetes
+pisorisporiales
+pisuviricota
+placidida
+plagiopylea
+plagiopylida
+plagiorchiida
+plagiotomida
+planctomycetales
+planctomycetia
+planctomycetota
+platycopida
+platycopioida
+platyctenida
+platygloeales
+platyhelminthes
+playtdesmida
+plecoptera
+plectida
+pleosporales
+pleurobranchida
+pleurocapsales
+pleurochloridellales
+pleuronectiformes
+pleuronematida
+pleurostomatida
+pleurotheciales
+pleurotomariida
+pleuroziales
+plocamiales
+ploima
+pneumocystales
+pneumocystomycetes
+poales
+podicipediformes
+podocopida
+poduromorpha
+poecilosclerida
+poecilostomatoida
+pokkesviricetes
+polintoviricetes
+polivirales
+pollicipedomorpha
+polyacanthocephala
+polyangiales
+polyarthra
+polychaeta
+polychytriales
+polycladida
+polydesmida
+polymastiida
+polymixiiformes
+polymorphida
+polyphagales
+polyplacophora
+polypodiales
+polypodiidea
+polypodiopsida
+polypodiozoa
+polyporales
+polypteriformes
+polystilifera
+polystomatidea
+polytrichales
+polytrichopsida
+polyxenida
+polyzoniida
+porellales
+porifera
+porocephalida
+porphyridiales
+potamodrilidae
+pottiales
+prasinococcales
+prasinodermales
+prasinodermophyceae
+prasinodermophyta
+prasiolales
+preaxostyla
+preplasmiviricota
+priacanthiformes
+priapulida
+priapulimorpha
+priapulimorphida
+priklausovirales
+primates
+primavirales
+proboscidea
+procabacteriales
+procellariiformes
+prochlorotrichales
+profiliida
+prolecithophora
+propionibacteriales
+prorocentrales
+prorodontida
+proseriata
+prostomatea
+prostomatida
+proteales
+proteocephalidea
+protococcidiorida
+protoheterotrichida
+protoraphidales
+protosiphonales
+protosteliida
+protostomatida
+protura
+prymnesiales
+pseudanabaenales
+pseudoamphisiellida
+pseudoditrichales
+pseudomonadales
+pseudomonadota
+pseudonocardiales
+pseudophyllidea
+pseudoscorpiones
+psilotales
+psittaciformes
+psocoptera
+pterioida
+pterobranchia
+pterocystida
+pteropoda
+ptilidiales
+ptychomniales
+pucciniales
+pucciniomycetes
+puniceicoccales
+pycnogonida
+pyramimonadales
+pyramimonadophyceae
+pyrenomonadales
+pyrenulales
+pyrinomonadales
+pyrocystales
+pyrosomata
+pythiales
+pyxidiophorales
+quasiramulariales
+quintoviricetes
+racodiales
+raillietiellida
+rajiformes
+ralfsiales
+ramicandelaberales
+randiellida
+ranunculales
+raphidioptera
+raphidophyceae
+rappephyceae
+recrevirales
+reighardiida
+remipedia
+reovirales
+repensiviricetes
+resentoviricetes
+revtraviricetes
+reyranellales
+rhabditida
+rhabditophora
+rhabdocoela
+rhabdomonadales
+rhabdonematales
+rhabdopleurida
+rhaponeidales
+rhaptothyreida
+rheiformes
+rhinebothriidea
+rhinopristiformes
+rhipidiales
+rhizocarpales
+rhizochloridales
+rhizochromulinales
+rhizogoniales
+rhizophlyctidales
+rhizophydiales
+rhizosoleniales
+rhizostomeae
+rhodachlyales
+rhodellales
+rhodellophyceae
+rhodelphea
+rhodelphida
+rhodobacterales
+rhodochaetales
+rhodocyclales
+rhodogorgonales
+rhodospirillales
+rhodothalassiales
+rhodothermales
+rhodothermia
+rhodothermota
+rhodymeniales
+rhopalodiales
+rhynchobdellida
+rhynchodida
+rhynchonellata
+rhynchonellida
+rhytismatales
+ricciales
+ricinulei
+rickettsiales
+rigifilida
+rivendellvirales
+robbauerales
+robertinida
+rodentia
+rohanvirales
+rosales
+rotaliida
+rotifera
+rotosphaerida
+rowavirales
+rubrobacterales
+rubrobacteria
+rufusiales
+runcinacea
+russulales
+sabellida
+saccharofermentanales
+saccharomycetales
+saccharomycetes
+sagittoidea
+salenioida
+saleviricota
+salinisphaerales
+salmoniformes
+salpida
+salsipaludibacterales
+salviniales
+sanchytriales
+sanchytriomycetes
+sanchytriomycota
+sangervirae
+santalales
+sapindales
+saprolegniales
+saprospirales
+saprospiria
+sarcinochrysidales
+sarcoptiformes
+sareales
+sareomycetes
+sarrameanales
+savoryellales
+saxifragales
+scandentia
+scaphopoda
+schizaeales
+schizomida
+schizopyrenida
+schizosaccharomycetales
+schizosaccharomycetes
+scleractinia
+scleralcyonacea
+sclerococcales
+sclerosporales
+scolopendromorpha
+scombriformes
+scopalinida
+scorpiones
+scotinosphaerales
+scouleriales
+scourfieldiales
+scutigeromorpha
+scyphozoa
+scytothamnales
+sebacinales
+sebdeniales
+sedimentisphaerales
+seguenziida
+seisonacea
+selaginellales
+selenomonadales
+semaeostomeae
+semionotiformes
+sepiida
+sepolyvirales
+septobasidiales
+serpentovirales
+sessilida
+shotokuvirae
+siluriformes
+silvanigrellales
+siphonaptera
+siphonariida
+siphonophorae
+siphonophorida
+siphonostomatoida
+sipuncula
+sirenia
+sneathiellales
+sobelivirales
+solanales
+solemyida
+solenogastres
+solifugae
+solirubrobacterales
+sordariales
+sordariomycetes
+sorogenida
+spariformes
+spartobacteria
+spatangoida
+spathebothriidea
+spelaeogriphacea
+sphacelariales
+sphaerobacterales
+sphaerocarpales
+sphaerocladina
+sphaeropleales
+sphaerotheriida
+sphagnales
+sphagnopsida
+sphenisciformes
+sphenodontia
+sphingobacteriales
+sphingobacteriia
+sphingomonadales
+spiculogloeales
+spiculogloeomycetes
+spinulosida
+spionida
+spirillinida
+spirobolida
+spirochaetales
+spirochaetia
+spirochaetota
+spirogloeales
+spirostreptida
+spirotrichea
+spirotrichonymphida
+spirularia
+spirulida
+spirulinales
+spizellomycetales
+splachnales
+spongillida
+spongomonadida
+sporadotrichida
+sporichthyales
+sporidiobolales
+sporochnales
+sporolithales
+spumellaria
+squaliformes
+squamata
+stauromedusae
+staurozoa
+stellavirales
+stelpaviricetes
+stemmiulida
+stemonitida
+stenolaemata
+stephanodiscales
+steroidobacterales
+sterrofustia
+sticholonchida
+stichotrichida
+stictocyclales
+stigmatodiscales
+stolidobranchia
+stomatohabitantales
+stomatopoda
+stomiiformes
+strepsiptera
+streptophyta
+streptosporangiales
+striatellales
+strigeidida
+strigiformes
+strigulales
+struthioniformes
+stygamoebida
+stylephoriformes
+stylommatophora
+stylonematales
+stylonematophyceae
+suberitida
+suessiales
+sulfolobales
+suliformes
+superstratomycetales
+surirellales
+symbiontida
+symbiotaphrinales
+symphyacanthida
+symphyla
+symphypleona
+synbranchiformes
+synchromophyceae
+synchytriales
+syndiniales
+synechococcales
+synergistales
+synergistia
+synergistota
+syngnathiformes
+synhymeniida
+syntrophales
+syntrophia
+syntrophobacterales
+syntrophobacteria
+syntrophorhabdales
+syntrophorhabdia
+synurales
+synurophyceae
+syracosphaerales
+syringodermatales
+systellommatophora
+tabellariales
+takakiales
+takakiopsida
+talbotiomycetales
+taleaviricota
+tanaidacea
+taphrinales
+taphrinomycetes
+tardigrada
+tectiliviricetes
+tectofilosida
+telonemida
+teloschistales
+temnopleuroida
+tentaculata
+tepidiformales
+tepidiformia
+tepidisphaerales
+terebellida
+terebratulida
+terriglobales
+terriglobia
+terrimicrobiales
+terrimicrobiia
+testudines
+tethyida
+tetrabothriidea
+tetractinellida
+tetramerocerata
+tetraodontiformes
+tetraphidales
+tetraphidopsida
+tetraphyllidea
+tetrasporales
+teuthida
+textulariida
+thalassionemales
+thalassiophysales
+thalassiosirales
+thalassocalycida
+thaliacea
+thaumatomonadida
+thecideida
+thecofilosea
+thecostraca
+theionarchaea
+thelebolales
+thelephorales
+thelocarpales
+thermales
+thermoanaerobacterales
+thermoanaerobaculales
+thermoanaerobaculia
+thermococcales
+thermococci
+thermodesulfobacteriales
+thermodesulfobacteriota
+thermodesulfobiales
+thermodesulfobiia
+thermodesulfobiota
+thermodesulfovibrionales
+thermodesulfovibrionia
+thermofilales
+thermoflexales
+thermoflexia
+thermogemmatisporales
+thermoleophilales
+thermoleophilia
+thermolithobacterales
+thermolithobacteria
+thermomicrobia
+thermomicrobiales
+thermomicrobiota
+thermoplasmata
+thermoplasmatales
+thermoproteales
+thermoprotei
+thermoproteota
+thermosbaenacea
+thermosediminibacterales
+thermostichales
+thermosulfidibacterales
+thermosulfidibacteria
+thermosulfidibacterota
+thermotogales
+thermotogota
+thermotomaculales
+thigmotrichida
+thiohalobacterales
+thiohalomonadales
+thiohalorhabdales
+thiohalospirales
+thiotrichales
+thoracosphaerales
+thoreales
+thraustochytrida
+thumleimavirales
+thysanoptera
+tichowtungiales
+tichowtungiia
+tilletiales
+tilopteridales
+timlovirales
+timmiales
+tinamiformes
+tintinnida
+tissierellales
+tissierellia
+togniniales
+tokiviricetes
+tolivirales
+tolucaviricetes
+torodiniales
+torpediniformes
+torpedosporales
+toxariales
+trachichthyiformes
+trachycladida
+trachymedusae
+tracyllales
+trapavirae
+trapeliales
+trebouxiales
+trebouxiophyceae
+trechisporales
+trematoda
+tremellales
+tremellodendropsidales
+tremellomycetes
+trentepohliales
+treponematales
+treubiales
+triblidiales
+tribonematales
+triceratiales
+trichiida
+trichinellida
+trichomonadida
+trichonymphida
+trichoplacea
+trichoptera
+trichosphaeriales
+trichosporonales
+tricladida
+trigoniida
+triplonchida
+tritirachiales
+tritirachiomycetes
+tritrichomonadida
+trochida
+trochodendrales
+trogoniformes
+trombidiformes
+trueperales
+tryblidiida
+trypanorhyncha
+trypanosomatida
+trypetheliales
+tsukubamonadida
+tubeufiales
+tubificida
+tubulaniformes
+tubulavirales
+tubulidentata
+tubulinea
+tubuliporida
+turbellaria
+tymovirales
+udeonychophora
+ulotrichales
+ulvales
+ulvophyceae
+umbelopsidales
+umbelopsidomycetes
+umbilicariales
+umbraculida
+unionida
+uniplacotomia
+upupiformes
+uranoscopiformes
+urocystidales
+uropygi
+urostylida
+uroviricota
+ustilaginales
+ustilaginomycetes
+vahliales
+valsariales
+valvatida
+vampirovibrionales
+vampirovibriophyceae
+vampyrellida
+vampyromorpha
+variosea
+vaucheriales
+veillonellales
+velatida
+venerida
+ventricleftida
+venturiales
+vermiculariopsiellales
+verongiida
+verrucariales
+verrucomicrobiae
+verrucomicrobiales
+verrucomicrobiota
+verrucomorpha
+vestibuliferida
+vezdaeales
+vibrionales
+vicinamibacterales
+vicinamibacteria
+victivallales
+vidaverviricetes
+vinavirales
+violaceomycetales
+vitales
+vulcanimicrobiales
+vulcanimicrobiia
+vulcanimicrobiota
+wallemiales
+wallemiomycetes
+watanabeales
+welwitschiales
+woeseiales
+wolframvirales
+xanthomonadales
+xanthophyceae
+xenacoelomorpha
+xenopneusta
+xenospadicoidales
+xiphosura
+xylariales
+xylobotryales
+xylobotryomycetes
+xylonales
+xylonomycetes
+yadokarivirales
+yunchangviricetes
+zeiformes
+zilligvirae
+zingiberales
+zoantharia
+zoopagales
+zoopagomycetes
+zoopagomycota
+zoraptera
+zurhausenvirales
+zygentoma
+zygnematales
+zygnemophyceae
+zygodiscales
+zygophlyctidales
+zygophyllales
+zygorhizidiales
