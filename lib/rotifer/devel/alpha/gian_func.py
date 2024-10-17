@@ -1594,9 +1594,66 @@ def extract_organism_from_description(text):
         return ' '.join(words[:2])
     return None
 
+import numpy as np
+import pandas as pd
+
+def insert_na_rows_at_indexes(df, indexes, insert_position='upstream', fill_rules=None):
+    """
+    Inserts rows with NaN values into a DataFrame at the specified indexes
+    and fills NaN values in the specified columns according to provided rules.
+
+    Parameters:
+    df : pandas.DataFrame
+        The DataFrame to modify.
+    indexes : list of int
+        The indexes where rows will be inserted.
+    insert_position : str, optional
+        Determines where the row will be inserted relative to the index ('upstream' or 'downstream').
+    fill_rules : dict, optional
+        A dictionary where keys are column names and values are either 'forward', 'backward',
+        or a specific string to fill NaN values with.
+
+    Returns:
+    new_df : pandas.DataFrame
+        The modified DataFrame with inserted rows and filled values.
+    """
+    
+    sorted_indexes = sorted(indexes, reverse=True)
+
+    # Create a DataFrame for the NaN row
+    na_row_df = pd.DataFrame([{col: np.nan for col in df.columns}], columns=df.columns)
+
+    # Convert DataFrame to a list of dictionaries for easier manipulation
+    df_list = df.to_dict(orient='records')
+
+    for index in sorted_indexes:
+        # Adjust index based on the 'insert_position'
+        if insert_position == 'downstream':
+            index += 1  # Insert after the index
+
+        # Insert NaN row into the list at the adjusted index
+        df_list.insert(index, na_row_df.iloc[0].to_dict())
+
+    # Convert the list of dictionaries back to DataFrame
+    new_df = pd.DataFrame(df_list)
+
+    # Apply the fill rules based on the fill_rules dictionary
+    if fill_rules:
+        for col, rule in fill_rules.items():
+            if rule == 'forward':
+                # Fill NaN with the value from the previous row (shift forward)
+                new_df[col] = new_df[col].fillna(method='ffill')
+            elif rule == 'backward':
+                # Fill NaN with the value from the next row (shift backward)
+                new_df[col] = new_df[col].fillna(method='bfill')
+            else:
+                # Fill NaN with the specified string
+                new_df[col] = new_df[col].fillna(rule)
+
+    return new_df
 
 
-def insert_na_rows_at_indexes(df, indexes, columns_to_fill=None, fill_direction=None, insert_position='upstream'):
+def insert_na_rows_at_indexes_2(df, indexes, columns_to_fill=None, fill_direction=None, insert_position='upstream'):
 
     import pandas as pd
     import numpy as np
@@ -1790,10 +1847,9 @@ def operon_fig2(df,
 
     te['height'] = np.where(te['shape'].isin(['larrow', 'rarrow']),  height, height/f)
     te['style'] = 'filled' 
+    # insert an space between oposite strands.
     add_rows = te[(te.strand > te.strand.shift(1) )& (te.block_id == te.block_id.shift(1))].index.tolist()
-    te = gf.insert_na_rows_at_indexes(te, add_rows)
-    te.pid = te.pid.fillna(te.pid.reset_index()['index'])
-    te.block_id = te.block_id.fillna(method='ffill')
+    te = gf.insert_na_rows_at_indexes(te, add_rows, fill_rules={'pid':'forward','block_id':'forward'})
     te.loc[te.nucleotide.isna(),['dom','domp','shape','style', 'height', 'width']] = ['', 0, 'rectangle','', 0.2, 2] 
     te = te.reset_index(drop=True).reset_index()
     if color_dict == None:
@@ -1804,73 +1860,67 @@ def operon_fig2(df,
                   "-" :"#D3D3D3",
                   " " :"#D3D3D3",
                   "?":"#D3D3D3",
-                  "TM" :"#FF6600",
+                  "TM" :"#D5B60A",
                   "LIPO":"Blue",
+                  "LP":"Blue",
                   "SP":"Red",
                   "SIG":"Red"}
     
     te['color'] = te.dom.replace(color_dict)
-    te.dom = te.dom.replace({'TM':'', 'LIPO':'', 'SIG':'', 'SP': ''})
-    te.loc[(te.dom=='') & (te['shape'].isin(['larrow','rarrow'])), 'dom'] = ' '
+#    te.dom = te.dom.replace({'TM':'', 'LP':'', 'LIPO':'', 'SIG':'', 'SP': ''})
+#    te.loc[(te.dom=='') & (te['shape'].isin(['larrow','rarrow'])), 'dom'] = ' '
     te.loc[(te.dom=='') & (te['shape'].isin(['larrow','rarrow'])), 'color'] = '#D3D3D3'
 ####### Adding new row to represent empty proteins with TM, SIG or LIPO
 ##### A lot of code to make sure the order, color and shapes  of the added rows are correct.
-    ra = te.loc[(te.dom==' ') & (te['shape'].isin(['rarrow']))].index
+    ra = te.loc[(te.dom.isin(['TM','LP','LIPO','SIG','SP'])) & (te['shape'].isin(['rarrow']))].index
     te = gf.insert_na_rows_at_indexes(
-            te,
-            ra,
-            columns_to_fill=[
-                'nucleotide',
-                'pid',
-                'block_id',
-                'arch',
-                'dom',
-                'color',
-                'shape',
-                'height',
-                'style'],
-            fill_direction=[
-                'forward',
-                'forward',
-                'backward',
-                'forward',
-                'forward',
-                'forward',
-                'forward',
-                'forward',
-                'forward'])
-    ra = te.loc[(te.dom==' ') & (te['shape'].isin(['rarrow']))].index
+       te,
+       ra,
+       fill_rules={
+           'nucleotide':'backward',
+           'pid':'backward',
+           'block_id':'backward',
+           'arch':'backward',
+           'dom':'backward',
+           'color':'backward',
+           'shape':'rectangle',
+           'height':'backward',
+           'strand':'backward',
+           'style':'backward'})
+#    te = te.reset_index(drop=True) 
+    ra = te.loc[(te.dom.isin(['TM','LP','LIPO','SIG','SP'])) & (te['shape'].isin(['rarrow']))].index
     te.loc[ra,['shape','color']] =[['rarrow', '#D3D3D3']]
-    la = te.loc[(te.dom==' ') & (te['shape'].isin(['larrow']))].index
+    la = te.loc[(te.dom.isin(['TM','LP','LIPO','SIG','SP'])) & (te['shape'].isin(['larrow']))].index
     te = gf.insert_na_rows_at_indexes(
-            te,
-            la,
-            insert_position='downstream',
-            columns_to_fill=[
-                'nucleotide',
-                'pid',
-                'block_id',
-                'arch',
-                'dom',
-                'color',
-                'shape',
-                'height',
-                'style'],
-            fill_direction=[
-                'forward',
-                'forward',
-                'forward',
-                'forward',
-                'forward',
-                'forward',
-                'forward',
-                'forward',
-                'forward'])
-    la1 = te.loc[(te.dom==' ') & (te['shape'].isin(['larrow']) & (te.domp.isna()))].index
-    la2 = te.loc[(te.dom==' ') & (te['shape'].isin(['larrow']) & (~te.domp.isna()))].index
-    te.loc[la1,['shape', 'dom', 'height']] = [['rectangle', '', 0.14]]
-    te.loc[la2,['color']] = '#D3D3D3'
+       te,
+       la,
+       insert_position='downstream',
+       fill_rules={
+           'nucleotide':'forward',
+           'pid':'forward',
+           'block_id':'forward',
+           'arch':'forward',
+           'dom':'forward',
+           'color':'forward',
+           'shape':'rectangle',
+           'height':'forward',
+           'strand':'forward',
+           'style':'forward'})
+
+#    te = te.reset_index(drop=True) 
     #Replacing the - or ? marker for empty spaces to decrease the noise on the figure.
+    te['bcolor'] = te.color
+    te['width'] = te.dom.str.len()/40
+    te.loc[te.dom =="TM", ['bcolor', 'width']] =['black', 0.03]
+    te.loc[te.dom =="PSE", ['color', 'bcolor']] =['#D3D3D340', '#D3D3D3']
+    te.loc[te.dom.isin(["SIG", "SP"]), ['bcolor', 'width']] =['black', 0.03]
+
+    te.loc[(te.dom.isin(['TM','LP','LIPO','SIG','SP'])) & (te['shape'].isin(['larrow','rarrow'])), ['dom', 'color', 'bcolor']] = [' ', '#D3D3D3', '#D3D3D3']
+    #to_a = te.query('query ==1').query("dom not in ['TM','LP','LIPO','SIG','SP']").drop_duplicates(subset=['pid'], keep='last').index ###
+    #te.loc[to_a, 'dom'] = te.loc[to_a, 'dom'] +'*' ###
+    to_a2 = te.query('query ==1').query("dom not in ['TM','LP','LIPO','SIG','SP']").index ###
+    te.loc[to_a2, 'bcolor'] = 'black' ###
+    te.dom = te.dom.replace({'TM':'', 'LP':'', 'LIPO':'', 'SIG':'', 'SP': ''})
     te.dom = te.dom.replace({'?':' ', '-':' '})
     te.loc[te.dom == "", ['height']] = 0.185
     ####Creating a column with the pid of the query seed to later be used in given a header of the figure.
@@ -1880,7 +1930,7 @@ def operon_fig2(df,
     te = te.reset_index()
 
     if sort_by:
-        ordered_list = te.sort_values([sort_by,'block_id','blockp']) .block_id.drop_duplicates().tolist() 
+        ordered_list = te.sort_values([sort_by,'block_id','blockp']).block_id.drop_duplicates().tolist() 
     else:
         ordered_list = te.block_id.drop_duplicates().tolist() 
     gb = te.groupby('block_id')
@@ -1908,10 +1958,11 @@ def operon_fig2(df,
             A.add_node(z['index'],
                            label=z.dom,
                            shape=z['shape'],
-                           width=(len(z['dom'])/40),
+                           width=z['width'],
                            style=z['style'],
                            height=z['height'],
-                           color=z.color,
+                           color=z.bcolor,
+                           penwidth=1,
                            fillcolor=z.color,
                            fontsize=fontsize)
             l.append(z['index'])
@@ -1929,30 +1980,35 @@ def operon_fig2(df,
     return te
 
 
-def compact_to_df(compact):
+def compact_to_df(compact,sep='\t', columns= ['pid', 'compact', 'organism', 'pid_compact']):
     """
     convert TASS annotated compact represantation to DF
     """
     import pandas as pd
-    x = pd.read_csv(compact, sep="\t", names=['pid', 'compact', 'organism', 'pid_compact'])
+    if sep=='\t':
+        x = pd.read_csv(compact, sep="\t", names=columns)
+    else:
+        x = pd.read_csv(compact, delimiter=r"\s\s+", names=columns)
+    x = x.drop_duplicates(subset=['pid'])
     x['arch'] = x.compact.str.split('->')
+
     x = x.explode('arch')
     x2 = x[['arch','organism']]
     x2['strand'] = -1
-    x2.loc[~x2.arch.str.contains('<-'), 'strand'] = 1
+    x2.loc[~x2.arch.fillna('').str.contains('<-'), 'strand'] = 1
     x2.arch = x2.arch.str.split('<-')
     x2 = x2.explode('arch')
     x2 = x2.query('arch not in ["", "||"]')
     x2.arch = x2.arch.str.replace('\|\|', '|--')
     x2.arch = x2.arch.str.split('|')
     x2 = x2.explode('arch')
-    x2.loc[x2.arch.str.startswith('--'), 'strand'] = 1
+    x2.loc[x2.arch.fillna(" ").str.startswith('--'), 'strand'] = 1
     x2.arch = x2.arch.str.strip('--')
     x2 = x2.reset_index().rename({'index':'block_id'}, axis=1)
     x2['block_id'] = x2.block_id.replace(x.pid.to_dict())
     x2 = x2.reset_index().rename({'index':'pid'}, axis=1)
     x2['query'] = 0
-    x2.loc[x2.arch.str.endswith('*'), 'query'] = 1
+    x2.loc[x2.arch.fillna(' ').str.endswith('*'), 'query'] = 1
     x2.arch = x2.arch.str.strip('*')
     x2['nucleotide'] = 'dummy_collumn' 
     return x2
