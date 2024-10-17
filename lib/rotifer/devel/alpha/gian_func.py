@@ -1827,6 +1827,7 @@ def operon_fig2(df,
 
     if check_duplicates:
         te = df.query('type =="CDS"').copy()
+        te[domain_column] =  te[domain_column].fillna('?')
     else:
         te = df.copy()
 
