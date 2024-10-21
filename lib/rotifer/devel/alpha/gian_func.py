@@ -1814,6 +1814,8 @@ def operon_fig2(df,
                 height=0.28,
                 f=2,
                 fontsize=4,
+                query_asterix=False,
+                query_color='black',
                 check_duplicates=True):
 
     import pygraphviz as pgv
@@ -1911,16 +1913,20 @@ def operon_fig2(df,
 #    te = te.reset_index(drop=True) 
     #Replacing the - or ? marker for empty spaces to decrease the noise on the figure.
     te['bcolor'] = te.color
+    te['penwidth'] = 1
     te['width'] = te.dom.str.len()/40
-    te.loc[te.dom =="TM", ['bcolor', 'width']] =['black', 0.03]
+    te.loc[te.dom =="TM", ['bcolor', 'width', 'penwidth']] =['black', 0.03, 0.5]
+    te.loc[te.dom.isin(["SIG", "SP"]), ['bcolor', 'width', 'penwidth']] =['black', 0.03, 0.5]
     te.loc[te.dom =="PSE", ['color', 'bcolor']] =['#D3D3D340', '#D3D3D3']
-    te.loc[te.dom.isin(["SIG", "SP"]), ['bcolor', 'width']] =['black', 0.03]
 
     te.loc[(te.dom.isin(['TM','LP','LIPO','SIG','SP'])) & (te['shape'].isin(['larrow','rarrow'])), ['dom', 'color', 'bcolor']] = [' ', '#D3D3D3', '#D3D3D3']
-    #to_a = te.query('query ==1').query("dom not in ['TM','LP','LIPO','SIG','SP']").drop_duplicates(subset=['pid'], keep='last').index ###
-    #te.loc[to_a, 'dom'] = te.loc[to_a, 'dom'] +'*' ###
-    to_a2 = te.query('query ==1').query("dom not in ['TM','LP','LIPO','SIG','SP']").index ###
-    te.loc[to_a2, 'bcolor'] = 'black' ###
+
+    if query_asterix:
+        to_a = te.query('query ==1').query("dom not in ['TM','LP','LIPO','SIG','SP']").drop_duplicates(subset=['pid'], keep='last').index ###
+        te.loc[to_a, 'dom'] = te.loc[to_a, 'dom'] +'*' ###
+    if query_color:    
+        to_a2 = te.query('query ==1').query("dom not in ['TM','LP','LIPO','SIG','SP']").index ###
+        te.loc[to_a2, 'bcolor'] = query_color ###
     te.dom = te.dom.replace({'TM':'', 'LP':'', 'LIPO':'', 'SIG':'', 'SP': ''})
     te.dom = te.dom.replace({'?':' ', '-':' '})
     te.loc[te.dom == "", ['height']] = 0.185
@@ -1963,7 +1969,7 @@ def operon_fig2(df,
                            style=z['style'],
                            height=z['height'],
                            color=z.bcolor,
-                           penwidth=1,
+                           penwidth=z['penwidth'],
                            fillcolor=z.color,
                            fontsize=fontsize)
             l.append(z['index'])
@@ -1981,12 +1987,12 @@ def operon_fig2(df,
     return te
 
 
-def compact_to_df(compact,sep='\t', columns= ['pid', 'compact', 'organism', 'pid_compact']):
+def compact_to_df(compact,sep='Tab', columns= ['pid', 'compact', 'organism', 'pid_compact']):
     """
     convert TASS annotated compact represantation to DF
     """
     import pandas as pd
-    if sep=='\t':
+    if sep=='Tab':
         x = pd.read_csv(compact, sep="\t", names=columns)
     else:
         x = pd.read_csv(compact, delimiter=r"\s\s+", names=columns)
@@ -2013,4 +2019,36 @@ def compact_to_df(compact,sep='\t', columns= ['pid', 'compact', 'organism', 'pid
     x2.arch = x2.arch.str.strip('*')
     x2['nucleotide'] = 'dummy_collumn' 
     return x2
+
+
+
+def check_spacing(text):
+    import re
+    """
+    Check if the string contains a tab or two or more spaces immediately
+    after the first word in the input text.
+
+    Parameters:
+    -----------
+    text : str
+        The input string to be checked.
+
+    Returns:
+    --------
+    str
+        A message indicating whether a tab, two or more spaces, or neither 
+        were found after the first word:
+        - "Tab found" if a tab ('\t') follows the first word.
+        - "Two or more spaces found" if two or more spaces follow the first word.
+        - "Neither found" if neither is present after the first word.
+    """
+    # Check for a tab directly after the first word
+    if re.match(r'^\S+\t', text):
+        return "Tab"
+    
+    # Check for two or more spaces directly after the first word
+    if re.match(r'^\S+  +', text):
+        return "Two_spaces"
+    
+    return "No tabular format found(with spaces/Tab), check your input"
 
