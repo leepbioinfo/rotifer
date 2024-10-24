@@ -1596,6 +1596,7 @@ def extract_organism_from_description(text):
 
 import numpy as np
 import pandas as pd
+from seaborn import light_palette
 
 def insert_na_rows_at_indexes(df, indexes, insert_position='upstream', fill_rules=None):
     """
@@ -1803,7 +1804,7 @@ def split_domain(df,
     return domdf
 
 
-def operon_fig2(df,
+def operon_fig_bkp(df,
                 domain_rename=True,
                 output_file='operon_fig_out.pdf',
                 domain_column='arch',
@@ -1815,8 +1816,9 @@ def operon_fig2(df,
                 f=2,
                 fontsize=4,
                 query_asterix=False,
-                query_color='black',
-                check_duplicates=True):
+                query_color='red',
+                check_duplicates=True,
+                light_palette='90'):
 
     import pygraphviz as pgv
     from pygraphviz.agraph import re
@@ -1857,6 +1859,11 @@ def operon_fig2(df,
     te = te.reset_index(drop=True).reset_index()
     if color_dict == None:
         color_dict = gf.pick_colors(te, column = 'dom', top_domains=top_domains)
+
+    if light_palette:
+         color_dict = {key: value + light_palette for key, value in color_dict.items()}
+
+
 
     color_dict = {**color_dict,
                   '' :"white",
@@ -1940,6 +1947,8 @@ def operon_fig2(df,
         ordered_list = te.sort_values([sort_by,'block_id','blockp']).block_id.drop_duplicates().tolist() 
     else:
         ordered_list = te.block_id.drop_duplicates().tolist() 
+    
+
     gb = te.groupby('block_id')
     li=[]
     A = pgv.AGraph()
@@ -1971,6 +1980,7 @@ def operon_fig2(df,
                            color=z.bcolor,
                            penwidth=z['penwidth'],
                            fillcolor=z.color,
+                           labeldistance=0.5,
                            fontsize=fontsize)
             l.append(z['index'])
 
@@ -2051,4 +2061,359 @@ def check_spacing(text):
         return "Two_spaces"
     
     return "No tabular format found(with spaces/Tab), check your input"
+def pid2tax(pidlist,full=False):
+    import pandas as pd
+    from rotifer.db import ncbi
+    ic = ncbi.IPGCursor()
+    if isinstance(pidlist,pd.Series):
+        pidlist = pidlist.unique().tolist()
+    ipgs = ic.fetchall(pidlist)
+    ipgs = pd.concat(ipgs)
+    assemblies_id = ipgs.assembly.unique().tolist()
+    a = ncbi.assemblies(baseurl="/am/ftp-genomes/ASSEMBLY_REPORTS", taxonomy=False)
+    a.rename({'#assembly_accession': 'assembly_accession'}, axis=1, inplace=True)
+    a = a.query('assembly_accession in @assemblies_id')
+    tc =   ncbi.TaxonomyCursor()
+    taxonomies = tc.fetchall(a.taxid.tolist())
+    a = a[['assembly_accession','taxid']]
+    result = a.merge(taxonomies,
+                     how='left').merge(ipgs[['pid','nucleotide','start','stop', 'assembly']],
+                                       left_on='assembly_accession',
+                                       right_on='assembly',
+                                       how='left'
+                                       )
+    result['position'] = result.nucleotide + ":" + result.start.astype(str) + '-' +  + result.stop.astype(str)                 
 
+    return result
+
+def operon_fig2(df,
+                domain_rename=True,
+                output_file='operon_fig_out.pdf',
+                domain_column='arch',
+                query_same_direction=True,
+                color_dict=None,
+                top_domains=10,
+                sort_by='classification',
+                height=0.35,
+                f=2,
+                fontsize=10,
+                query_asterix=False,
+                query_color='red',
+                check_duplicates=True,
+                light_palette='90',
+                labeldistance=0.5,
+                margin=0.03,
+                unknow='  ?  ',
+                id_position='side'
+                ):
+
+    import pygraphviz as pgv
+    from pygraphviz.agraph import re
+    import yaml
+    import numpy as np
+    import pandas as pd
+    from rotifer.devel.alpha import gian_func as gf
+    from rotifer.core import functions as rcf
+    import seaborn as sns
+
+    penwidth = 1
+    TM_width = 0.03 
+    space_width = 0.1 
+    if fontsize == 4:
+        labeldistance = 0.5
+        margin = 0.015
+        height = 0.15
+        TM_width = 0.02
+        space_width = 0.025
+        penwidth = 0.4
+
+
+    if check_duplicates:
+        te = df.query('type =="CDS"').copy()
+        te[domain_column] =  te[domain_column].fillna('?')
+    else:
+        te = df.copy()
+
+    te = gf.split_domain(te,
+                         domain_rename=domain_rename,
+                         column=domain_column,
+                         query_same_direction=query_same_direction,
+                         check_duplicates=check_duplicates)
+    te['shape'] = 'rectangle'
+    # Removing duplicates sequencial domain in same protein
+    #te = te.loc[~((te.pid.shift() == te.pid) & (te.dom.shift() == te.dom))].reset_index(drop=True)
+    te = te.reset_index(drop=True)
+
+    l = te.drop_duplicates(['block_id','pid'], keep='first').query('strand ==-1').index
+    r = te.drop_duplicates(['block_id','pid'], keep='last').query('strand ==1').index
+    te.loc[r,'shape'] = 'rarrow'
+    te.loc[l,'shape'] = 'larrow'
+
+    te['height'] = np.where(te['shape'].isin(['larrow', 'rarrow']),  height, height/f)
+    te['style'] = 'filled' 
+    # insert an space between oposite strands.
+    add_rows = te[(te.strand > te.strand.shift(1) )& (te.block_id == te.block_id.shift(1))].index.tolist()
+    te = gf.insert_na_rows_at_indexes(te, add_rows, fill_rules={'pid':'forward','block_id':'forward'})
+    te.loc[te.nucleotide.isna(),['dom','domp','shape','style', 'height', 'width']] = ['white_space', 0, 'rectangle','', height/1.4, 2] 
+    te = te.reset_index(drop=True).reset_index()
+    if color_dict == None:
+        color_dict = gf.pick_colors(te, column = 'dom', top_domains=top_domains)
+
+
+
+
+    color_dict = {**color_dict,
+                  'white_space' :"#FFFFFF",
+                  "-" :"#D3D3D3",
+                  " " :"#D3D3D3",
+                  "?":"#D3D3D3",
+                  "TM" :"#D5B60A",
+                  "LIPO":"#0000FF",
+                  "LP":"#0000FF",
+                  "SP":"#FF0000",
+                  "SIG":"#FF0000"}
+
+    if light_palette:
+         color_dict = {key: value + light_palette for key, value in color_dict.items()}
+    
+    te['color'] = te.dom.replace(color_dict)
+#    te.dom = te.dom.replace({'TM':'', 'LP':'', 'LIPO':'', 'SIG':'', 'SP': ''})
+#    te.loc[(te.dom=='') & (te['shape'].isin(['larrow','rarrow'])), 'dom'] = ' '
+    te.loc[(te.dom=='') & (te['shape'].isin(['larrow','rarrow'])), 'color'] = color_dict[" "]
+####### Adding new row to represent empty proteins with TM, SIG or LIPO
+##### A lot of code to make sure the order, color and shapes  of the added rows are correct.
+    ra = te.loc[(te.dom.isin(['TM','LP','LIPO','SIG','SP'])) & (te['shape'].isin(['rarrow']))].index
+    te = gf.insert_na_rows_at_indexes(
+       te,
+       ra,
+       fill_rules={
+           'nucleotide':'backward',
+           'pid':'backward',
+           'block_id':'backward',
+           'arch':'backward',
+           'dom':'backward',
+           'color':'backward',
+           'shape':'rectangle',
+           'height':'backward',
+           'strand':'backward',
+           'style':'backward'})
+#    te = te.reset_index(drop=True) 
+    ra = te.loc[(te.dom.isin(['TM','LP','LIPO','SIG','SP'])) & (te['shape'].isin(['rarrow']))].index
+    te.loc[ra,['shape','color', 'dom']] =[['rarrow', color_dict[" "], unknow]]
+    la = te.loc[(te.dom.isin(['TM','LP','LIPO','SIG','SP'])) & (te['shape'].isin(['larrow']))].index
+    te = gf.insert_na_rows_at_indexes(
+       te,
+       la,
+       insert_position='downstream',
+       fill_rules={
+           'nucleotide':'forward',
+           'pid':'forward',
+           'block_id':'forward',
+           'arch':'forward',
+           'dom':'forward',
+           'color':'forward',
+           'shape':'rectangle',
+           'height':'forward',
+           'strand':'forward',
+           'style':'forward'})
+
+#    te = te.reset_index(drop=True) 
+    #Replacing the - or ? marker for empty spaces to decrease the noise on the figure.
+    la = te.loc[(te.dom.isin(['TM','LP','LIPO','SIG','SP'])) & (te['shape'].isin(['larrow']))].index
+    te.loc[la,['shape','color', 'dom']] =[['larrow', color_dict[" "], unknow]]
+    te['bcolor'] = te.color
+    te['penwidth'] = penwidth
+    te['width'] = te.dom.str.len()/40
+    te.loc[te.dom =="white_space", 'width'] = space_width
+    te.loc[te.dom.isin(["TM", "SIG", "SP","LIPO","LP"]), ['bcolor', 'width', 'penwidth']] =['black', TM_width, 0.5]
+    te.loc[te.dom =="PSE", ['color', 'bcolor']] =['#D3D3D340', '#D3D3D3']
+
+    te.loc[(te.dom.isin(['TM','LP','LIPO','SIG','SP'])) & (te['shape'].isin(['larrow','rarrow'])), ['dom', 'color', 'bcolor']] = [' ', color_dict[" "], color_dict[" "]]
+
+    if query_asterix:
+        to_a = te.query('query ==1').query("dom not in ['TM','LP','LIPO','SIG','SP']").drop_duplicates(subset=['pid'], keep='last').index ###
+        te.loc[to_a, 'dom'] = te.loc[to_a, 'dom'] +'*' ###
+    if query_color:    
+        to_a2 = te.query('query ==1').query("dom not in ['TM','LP','LIPO','SIG','SP']").index ###
+        te.loc[to_a2, 'bcolor'] = query_color ###
+    te.dom = te.dom.replace({'TM':'', 'LP':'', 'LIPO':'', 'SIG':'', 'SP': '', 'white_space': ''})
+    te.dom = te.dom.replace({'?':unknow, '-':unknow})
+    te.loc[te.dom == "", ['height']] = height/1.5
+    ####Creating a column with the pid of the query seed to later be used in given a header of the figure.
+    te['query_pid'] = te.groupby('block_id')['pid'].transform(lambda x: x[te['query'] == 1].iloc[0] if any(te['query'] == 1) else np.nan)   
+    ##### Reseting the index to use the new index as name of each node in the figure
+    del te['index']
+    te = te.reset_index()
+
+    if sort_by:
+        ordered_list = te.sort_values([sort_by,'block_id','blockp']).block_id.drop_duplicates().tolist() 
+    else:
+        ordered_list = te.block_id.drop_duplicates().tolist() 
+    
+    te.organism = te.organism.fillna(' ')
+    gb = te.groupby('block_id')
+    li=[]
+    A = pgv.AGraph()
+    if id_position =='bellow':
+        bellow = True
+    else:
+        bellow = False
+
+   # return gb
+    for group in ordered_list:
+        block_id_df = gb.get_group(group)
+        if bellow:
+            l =[]
+        else:
+            l =[]
+            l.append(group)
+            A.add_node(group,
+                       label=(
+                           f'<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="0" CELLSPACING="0">'
+                           f'<TR><TD HEIGHT="4"></TD></TR>'
+                           f'<TR><TD HEIGHT="4"></TD></TR>'
+                          #f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial" POINT-SIZE="{fontsize}">{block_id_df.query_pid.unique()[0]}</FONT></TD></TR>'
+                           f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial" POINT-SIZE="{fontsize}">{block_id_df.block_id.unique()[0]}</FONT></TD></TR>'
+                           f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial italic" POINT-SIZE="{fontsize}">{block_id_df.organism.unique()[0]}</FONT></TD></TR>'
+                           '</TABLE>>'),
+                       shape='none',
+                       fontsize=fontsize,
+                       fontname='Arial',
+                       margin=margin,
+                       height=height)
+
+        for y,z in block_id_df.iterrows():
+
+            A.add_node(z['index'],
+                           label=z.dom,
+                           shape=z['shape'],
+                           width=z['width'],
+                           style=z['style'],
+                           height=z['height'],
+                           color=z.bcolor,
+                           penwidth=z['penwidth'],
+                           fillcolor=z.color,
+                           labeldistance=labeldistance,
+                           margin=margin,
+                           fontsize=fontsize)
+            l.append(z['index'])
+    
+        if bellow:
+            li.append(l)
+            l =[]
+            l.append(group)
+            A.add_node(group,
+                       label=(
+                           f'<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="0" CELLSPACING="0">'
+                           f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial" POINT-SIZE="{fontsize}">{block_id_df.block_id.unique()[0]}/</FONT></TD>'
+                           #f'<TD ALIGN="LEFT"><FONT FACE="Arial" POINT-SIZE="{fontsize}">{block_id_df.query_pid.unique()[0]}</FONT></TD>'
+                           f'<TD ALIGN="LEFT"><FONT FACE="Arial italic" POINT-SIZE="{fontsize}">{block_id_df.organism.unique()[0]}</FONT></TD></TR>'
+                           '</TABLE>>'),
+                       shape='none',
+                       fontsize=fontsize,
+                       fontname='Arial',
+                       margin=margin,
+                       height=height)
+            li.append(l)
+        else:
+            li.append(l)
+    for x in range(len(li)):
+        A.add_subgraph(li[x], rank="same")
+
+
+    v = [li[x][0] for x in range(len(li))]
+    [A.add_edge(v.pop(0), v[0], penwidth = 0) for x in range(len(v)-1)]
+    A.graph_attr.update(nodesep= 0.02)
+    A.graph_attr.update(ranksep= 0.02)
+    A.draw(output_file, prog="dot")
+    return te
+
+
+def compact_to_df(compact,sep='Tab', columns= ['pid', 'compact', 'organism', 'pid_compact']):
+    """
+    convert TASS annotated compact represantation to DF
+    """
+    import pandas as pd
+    if sep=='Tab':
+        x = pd.read_csv(compact, sep="\t", names=columns)
+    else:
+        x = pd.read_csv(compact, delimiter=r"\s\s+", names=columns)
+    x = x.drop_duplicates(subset=['pid'])
+    x['arch'] = x.compact.str.split('->')
+
+    x = x.explode('arch')
+    x2 = x[['arch','organism']]
+    x2['strand'] = -1
+    x2.loc[~x2.arch.fillna('').str.contains('<-'), 'strand'] = 1
+    x2.arch = x2.arch.str.split('<-')
+    x2 = x2.explode('arch')
+    x2 = x2.query('arch not in ["", "||"]')
+    x2.arch = x2.arch.str.replace('\|\|', '|--')
+    x2.arch = x2.arch.str.split('|')
+    x2 = x2.explode('arch')
+    x2.loc[x2.arch.fillna(" ").str.startswith('--'), 'strand'] = 1
+    x2.arch = x2.arch.str.strip('--')
+    x2 = x2.reset_index().rename({'index':'block_id'}, axis=1)
+    x2['block_id'] = x2.block_id.replace(x.pid.to_dict())
+    x2 = x2.reset_index().rename({'index':'pid'}, axis=1)
+    x2['query'] = 0
+    x2.loc[x2.arch.fillna(' ').str.endswith('*'), 'query'] = 1
+    x2.arch = x2.arch.str.strip('*')
+    x2['nucleotide'] = 'dummy_collumn' 
+    return x2
+
+
+
+def check_spacing(text):
+    import re
+    """
+    Check if the string contains a tab or two or more spaces immediately
+    after the first word in the input text.
+
+    Parameters:
+    -----------
+    text : str
+        The input string to be checked.
+
+    Returns:
+    --------
+    str
+        A message indicating whether a tab, two or more spaces, or neither 
+        were found after the first word:
+        - "Tab found" if a tab ('\t') follows the first word.
+        - "Two or more spaces found" if two or more spaces follow the first word.
+        - "Neither found" if neither is present after the first word.
+    """
+    # Check for a tab directly after the first word
+    if re.match(r'^\S+\t', text):
+        return "Tab"
+    
+    # Check for two or more spaces directly after the first word
+    if re.match(r'^\S+  +', text):
+        return "Two_spaces"
+    
+    return "No tabular format found(with spaces/Tab), check your input"
+def pid2tax(pidlist,full=False):
+    import pandas as pd
+    from rotifer.db import ncbi
+    ic = ncbi.IPGCursor()
+    if isinstance(pidlist,pd.Series):
+        pidlist = pidlist.unique().tolist()
+    ipgs = ic.fetchall(pidlist)
+    ipgs = pd.concat(ipgs)
+    assemblies_id = ipgs.assembly.unique().tolist()
+    a = ncbi.assemblies(baseurl="/am/ftp-genomes/ASSEMBLY_REPORTS", taxonomy=False)
+    a.rename({'#assembly_accession': 'assembly_accession'}, axis=1, inplace=True)
+    a = a.query('assembly_accession in @assemblies_id')
+    tc =   ncbi.TaxonomyCursor()
+    taxonomies = tc.fetchall(a.taxid.tolist())
+    a = a[['assembly_accession','taxid']]
+    result = a.merge(taxonomies,
+                     how='left').merge(ipgs[['pid','nucleotide','start','stop', 'assembly']],
+                                       left_on='assembly_accession',
+                                       right_on='assembly',
+                                       how='left'
+                                       )
+    result['position'] = result.nucleotide + ":" + result.start.astype(str) + '-' +  + result.stop.astype(str)                 
+
+    return result
