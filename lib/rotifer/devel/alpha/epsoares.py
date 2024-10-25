@@ -6,18 +6,17 @@ def get_matrix(df, filter_list, rows, columns, n=10, filter_by='pid'):
         matrix = filtered_df.pivot_table(index=rows, columns=columns, aggfunc='size', fill_value=0)
         return matrix
 
-def update_lineage(ndf):
+def update_lineage(ndf, preferred="/home/leep/epsoares/projects/databases/data/preferred_taxa.txt"):
     '''
     A function to update the lineage of Gene Neighborhood cursor;
     '''
-    ndf = ndf
     from rotifer.db import ncbi
     from rotifer.taxonomy import utils as rtu
     tc = ncbi.TaxonomyCursor()
     tax = tc.fetchall(ndf.taxid.dropna().drop_duplicates().tolist())
     tax['taxid'] = tax.taxid.astype(int)
     ndf.classification = ndf.taxid.map(tax.set_index('taxid').classification.to_dict())
-    ndf.lineage = rtu.lineage(ndf.classification, preferred_taxa=[ x.strip() for x in open("/home/leep/epsoares/projects/databases/data/preferred_taxa.txt","rt")]).tolist()
+    ndf.lineage = rtu.lineage(ndf.classification, preferred_taxa=[ x.strip() for x in open(preferred,"rt")]).tolist()
     return ndf
 
 def extract_envelope(df, seqobj=None, start='estart', end='eend', expand=10, local_database_path='/databases/fadb/nr/nr'):
@@ -76,3 +75,23 @@ def to_network(df, target=['pfam'], ftype='CDS', interaction=True, ignore = []):
     w = w.agg(weight=('strand', 'count'), blocks=('block_id', 'nunique')).reset_index()
     return w
 
+def compact_for_treeviewer(
+        ndf,
+        acc,
+        columns=['pid','assembly','nucleotide','block_id','organism','lineage','classification','pfam','aravind','compact'],
+        save=None,
+    ):
+    '''
+    Add a compact GeneNeighborhoodDF representation, select
+    and reorder columns to match those required by TreeViewer
+    and FigTree (leaf identifier as first column).
+    '''
+    ndfc = ndf.compact()
+    ndf_acc = ndf[ndf.pid.isin(acc)]
+    ndf_acc['compact'] = ndf_acc.block_id.map(ndfc.compact.to_dict())
+    table = ndf_acc[columns].drop_duplicates(columns[0])
+    if save:
+        table.to_csv(save, sep = '\t', index = False)
+        print(f'Table saved to {save}')
+    else:
+        return table
