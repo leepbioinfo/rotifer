@@ -87,8 +87,10 @@ def compact_for_treeviewer(
     and FigTree (leaf identifier as first column).
     '''
     ndfc = ndf.compact()
+    ndfcs = ndf.select_neighbors(strand = True).compact()
     ndf_acc = ndf[ndf.pid.isin(acc)]
-    ndf_acc['compact'] = ndf_acc.block_id.map(ndfc.compact.to_dict())
+    ndf_acc['compact1'] = ndf_acc.block_id.map(ndfc.compact.to_dict())
+    ndf_acc['compacts'] = ndf_acc.block_id.map(ndfcs.compact.to_dict())
     table = ndf_acc[columns].drop_duplicates(columns[0])
     if save:
         table.to_csv(save, sep = '\t', index = False)
