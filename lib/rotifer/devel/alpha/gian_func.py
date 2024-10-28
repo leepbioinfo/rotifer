@@ -2093,7 +2093,7 @@ def operon_fig2(df,
                 query_same_direction=True,
                 color_dict=None,
                 top_domains=10,
-                sort_by='classification',
+                sort_by='pid',
                 height=0.35,
                 f=2,
                 fontsize=10,
@@ -2104,17 +2104,15 @@ def operon_fig2(df,
                 labeldistance=0.5,
                 margin=0.03,
                 unknow='  ?  ',
-                id_position='side'
+                id_position='side',
+                comments=False
                 ):
 
     import pygraphviz as pgv
-    from pygraphviz.agraph import re
-    import yaml
     import numpy as np
     import pandas as pd
     from rotifer.devel.alpha import gian_func as gf
-    from rotifer.core import functions as rcf
-    import seaborn as sns
+    import textwrap
 
     penwidth = 1
     TM_width = 0.03 
@@ -2251,8 +2249,13 @@ def operon_fig2(df,
         ordered_list = te.block_id.drop_duplicates().tolist() 
     
     te.organism = te.organism.fillna(' ')
+    #Getting the mas string size to padd the image headers 
+    w1 = te.block_id.str.len().max()
+    w2 = te.organism.str.len().max()
+    max_width = max(w1, w2)
     gb = te.groupby('block_id')
     li=[]
+    label_list=[]
     A = pgv.AGraph()
     if id_position =='bellow':
         bellow = True
@@ -2262,19 +2265,47 @@ def operon_fig2(df,
    # return gb
     for group in ordered_list:
         block_id_df = gb.get_group(group)
+        if isinstance( comments, pd.DataFrame):
+            if group in comments.index:
+                l = []
+                node_name = f'{group}_comments'
+                comment_text = comments.loc[group][0].replace("&", "&amp;")
+                comment_text = comment_text.replace("\n", "<br/>")
+                comment_text = textwrap.wrap(comment_text, width=100)
+                comment_text = [line.ljust(100) for line in comment_text]
+                comment_text = '<br/>'.join(comment_text)
+                
+                l.append(node_name)
+                A.add_node(node_name,
+                           label=(
+                               f'<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="0" CELLSPACING="0">'
+                               f'<TR><TD HEIGHT="4"></TD></TR>'
+                               f'<TR><TD HEIGHT="4"></TD></TR>'
+                               f'<TR><TD ALIGN="LEFT"><FONT FACE="Consolas" POINT-SIZE="{fontsize +2}"><B>{comment_text:<{max_width}}</B></FONT></TD></TR>'
+                              f'<TR><TD ALIGN="LEFT"></TD></TR>'
+                               '</TABLE>>'),
+                           shape='none',
+                           fontsize=fontsize,
+                           fontname='Arial',
+                           margin=margin,
+                           height=height)
+
+                li.append(l)
+
         if bellow:
             l =[]
         else:
             l =[]
             l.append(group)
+            label_list.append(group)
             A.add_node(group,
                        label=(
                            f'<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="0" CELLSPACING="0">'
                            f'<TR><TD HEIGHT="4"></TD></TR>'
                            f'<TR><TD HEIGHT="4"></TD></TR>'
                           #f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial" POINT-SIZE="{fontsize}">{block_id_df.query_pid.unique()[0]}</FONT></TD></TR>'
-                           f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial" POINT-SIZE="{fontsize}">{block_id_df.block_id.unique()[0]}</FONT></TD></TR>'
-                           f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial italic" POINT-SIZE="{fontsize}">{block_id_df.organism.unique()[0]}</FONT></TD></TR>'
+                          f'<TR><TD ALIGN="LEFT"><FONT FACE="Consolas" POINT-SIZE="{fontsize}">{block_id_df.block_id.unique()[0]:<{max_width}}</FONT></TD></TR>'
+                          f'<TR><TD ALIGN="LEFT"><FONT FACE="Consolas italic" POINT-SIZE="{fontsize}">{block_id_df.organism.unique()[0]:<{max_width}}</FONT></TD></TR>'
                            '</TABLE>>'),
                        shape='none',
                        fontsize=fontsize,
@@ -2302,12 +2333,13 @@ def operon_fig2(df,
             li.append(l)
             l =[]
             l.append(group)
+            label_list.append(group)
             A.add_node(group,
                        label=(
                            f'<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="0" CELLSPACING="0">'
-                           f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial" POINT-SIZE="{fontsize}">{block_id_df.block_id.unique()[0]}/</FONT></TD>'
+                           f'<TR><TD ALIGN="LEFT"><FONT FACE="Consolas" POINT-SIZE="{fontsize}">{block_id_df.block_id.unique()[0]:<{max_width}}/</FONT></TD>'
                            #f'<TD ALIGN="LEFT"><FONT FACE="Arial" POINT-SIZE="{fontsize}">{block_id_df.query_pid.unique()[0]}</FONT></TD>'
-                           f'<TD ALIGN="LEFT"><FONT FACE="Arial italic" POINT-SIZE="{fontsize}">{block_id_df.organism.unique()[0]}</FONT></TD></TR>'
+                           f'<TD ALIGN="LEFT"><FONT FACE="Consolas italic" POINT-SIZE="{fontsize}">{block_id_df.organism.unique()[0]:<{max_width}}</FONT></TD></TR>'
                            '</TABLE>>'),
                        shape='none',
                        fontsize=fontsize,
@@ -2317,8 +2349,12 @@ def operon_fig2(df,
             li.append(l)
         else:
             li.append(l)
+    # Drawing the nodes using the li list to make the loci in the same rank        
     for x in range(len(li)):
         A.add_subgraph(li[x], rank="same")
+    # Creating invisible Edges using the list of first nodes tok align it to the left.    
+    #for i in range(len(label_list) - 1):
+    #    A.add_edge(label_list[i], label_list[i + 1], style='invis')    
 
 
     v = [li[x][0] for x in range(len(li))]
@@ -2417,3 +2453,92 @@ def pid2tax(pidlist,full=False):
     result['position'] = result.nucleotide + ":" + result.start.astype(str) + '-' +  + result.stop.astype(str)                 
 
     return result
+
+
+def compact_to_df2(compact,
+                   columns= ['pid', 'compact', 'organism'],
+                   columns_to_keep=[0,1,2],
+                   sep='auto'):
+    """
+    convert TASS annotated compact represantation to DF
+    """
+    import pandas as pd
+    from rotifer.devel.alpha import gian_func as gf
+
+    with open(compact, 'r') as f:
+        file = f.readlines()
+    file = pd.Series(file, name='lines').to_frame()
+    file.lines = file.lines.str.strip('\n')
+    file = file.query('lines !=""').reset_index(drop=True)
+    to_read = file.query('~lines.str.startswith("#")')
+    # Auto checking for the type of separator \t or two or more spaces:
+    if sep=='auto':
+        if to_read.lines.str.contains('\t').sum() >1:
+            sep='\t'
+        else:
+            sep=r"\s\s+"
+
+            
+    comments_lines = file.query('lines.str.startswith("#")')
+    comments_lines.lines = comments_lines.lines.str.strip()
+
+    if comments_lines.empty:
+        pass
+    else:
+        c_ref = gf.find_next_non_existing(comments_lines.index.tolist())
+        pid_ref = to_read.loc[c_ref].lines.str.split(sep, expand=True)[0].tolist()
+        comments_lines['pid_ref'] = pid_ref
+        comments_lines = comments_lines.groupby('pid_ref').agg(l =('lines' ,lambda x : '; '.join(x.tolist())))
+
+    
+
+
+    x = to_read.lines.str.split(sep, expand=True)
+    
+    if x.shape[1] > 2:
+        x = x[columns_to_keep]
+        x.columns = columns
+    else:
+        x = x[columns_to_keep[:-1]]
+        x.columns = columns[:-1]
+
+
+
+    x = x.drop_duplicates(subset=['pid'])
+    x['arch'] = x.compact.str.split('->')
+
+    x = x.explode('arch')
+    x2 = x[['arch','organism']]
+    x2['strand'] = -1
+    x2.loc[~x2.arch.fillna('').str.contains('<-'), 'strand'] = 1
+    x2.arch = x2.arch.str.split('<-')
+    x2 = x2.explode('arch')
+    x2 = x2.query('arch not in ["", "||"]')
+    x2.arch = x2.arch.str.replace('\|\|', '|--')
+    x2.arch = x2.arch.str.split('|')
+    x2 = x2.explode('arch')
+    x2.loc[x2.arch.fillna(" ").str.startswith('--'), 'strand'] = 1
+    x2.arch = x2.arch.str.strip('--')
+    x2 = x2.reset_index().rename({'index':'block_id'}, axis=1)
+    x2['block_id'] = x2.block_id.replace(x.pid.to_dict())
+    x2 = x2.reset_index().rename({'index':'pid'}, axis=1)
+    x2['query'] = 0
+    x2.loc[x2.arch.fillna(' ').str.endswith('*'), 'query'] = 1
+    x2.arch = x2.arch.str.strip('*')
+    x2['nucleotide'] = 'dummy_collumn' 
+    return x2, comments_lines
+
+def find_next_non_existing(lst):
+    result = []
+    seen = set(lst)  # Store the original elements in a set for quick lookup
+    
+    for num in lst:
+        next_num = num + 1  # Start with the next integer
+        # Increment until we find a unique number not in the original list
+        while next_num in seen:
+            next_num += 1
+        result.append(next_num)
+    
+    return result
+
+
