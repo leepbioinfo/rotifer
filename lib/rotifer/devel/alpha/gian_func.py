@@ -193,7 +193,8 @@ def count_series(
         series,
         normalize=False,
         cut_off=False,
-        count='domain'
+        count='domain',
+        as_list=False
         ):
     '''
     Function to flatten a pd.Series.value_counts
@@ -227,13 +228,20 @@ def count_series(
                 )
 
     if cut_off:
-        cut_off = cut_off/100
+        #cut_off = cut_off/100
         s = s.where(lambda x: x >= cut_off).dropna()
     for y, z in s.items():
         if normalize:
             flattened_list.append(f'{y}({100 * z:.2f}%)')
         else:
             flattened_list.append(f'{y}({z})')
+    
+    if as_list:
+        if len(flattened_list) ==0:
+            return list([''])
+        else:
+            return flattened_list
+
     return ', '.join(flattened_list)
 
 
@@ -2253,6 +2261,8 @@ def operon_fig2(df,
     w1 = te.block_id.str.len().max()
     w2 = te.organism.str.len().max()
     max_width = max(w1, w2)
+    te['to_bellow'] = te.block_id.fillna('-') +'/' + te.organism.fillna('-')
+    bellow_max = te.to_bellow.str.len().max()
     gb = te.groupby('block_id')
     li=[]
     label_list=[]
@@ -2337,9 +2347,7 @@ def operon_fig2(df,
             A.add_node(group,
                        label=(
                            f'<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="0" CELLSPACING="0">'
-                           f'<TR><TD ALIGN="LEFT"><FONT FACE="Consolas" POINT-SIZE="{fontsize}">{block_id_df.block_id.unique()[0]:<{max_width}}/</FONT></TD>'
-                           #f'<TD ALIGN="LEFT"><FONT FACE="Arial" POINT-SIZE="{fontsize}">{block_id_df.query_pid.unique()[0]}</FONT></TD>'
-                           f'<TD ALIGN="LEFT"><FONT FACE="Consolas italic" POINT-SIZE="{fontsize}">{block_id_df.organism.unique()[0]:<{max_width}}</FONT></TD></TR>'
+                           f'<TR><TD ALIGN="LEFT"><FONT FACE="Consolas" POINT-SIZE="{fontsize}">{block_id_df.to_bellow.unique()[0]:<{bellow_max}}</FONT></TD></TR>'
                            '</TABLE>>'),
                        shape='none',
                        fontsize=fontsize,
@@ -2446,8 +2454,9 @@ def pid2tax(pidlist,full=False):
     a = a[['assembly_accession','taxid']]
     result = a.merge(taxonomies,
                      how='left').merge(ipgs[['pid','nucleotide','start','stop', 'assembly']],
-                                       left_on='assembly_accession',
+                                      left_on='assembly_accession',
                                        right_on='assembly',
+                  
                                        how='left'
                                        )
     result['position'] = result.nucleotide + ":" + result.start.astype(str) + '-' +  + result.stop.astype(str)                 
@@ -2458,9 +2467,10 @@ def pid2tax(pidlist,full=False):
 def compact_to_df2(compact,
                    columns= ['pid', 'compact', 'organism'],
                    columns_to_keep=[0,1,2],
-                   sep='auto'):
+                   only_parser=False):
     """
     convert TASS annotated compact represantation to DF
+    If only parser, it will retunr the dataframe before transform it
     """
     import pandas as pd
     from rotifer.devel.alpha import gian_func as gf
@@ -2469,14 +2479,13 @@ def compact_to_df2(compact,
         file = f.readlines()
     file = pd.Series(file, name='lines').to_frame()
     file.lines = file.lines.str.strip('\n')
+    file.lines = file.lines.str.strip()
+    file.lines = file.lines.str.replace('\t', '\s\s')
+
     file = file.query('lines !=""').reset_index(drop=True)
     to_read = file.query('~lines.str.startswith("#")')
     # Auto checking for the type of separator \t or two or more spaces:
-    if sep=='auto':
-        if to_read.lines.str.contains('\t').sum() >1:
-            sep='\t'
-        else:
-            sep=r"\s\s+"
+    sep=r"\s\s+"
 
             
     comments_lines = file.query('lines.str.startswith("#")')
@@ -2494,6 +2503,8 @@ def compact_to_df2(compact,
 
 
     x = to_read.lines.str.split(sep, expand=True)
+    if only_parser:
+        return x
     
     if x.shape[1] > 2:
         x = x[columns_to_keep]
@@ -2540,5 +2551,177 @@ def find_next_non_existing(lst):
         result.append(next_num)
     
     return result
+
+
+def get_relations(domdf, dom='full', min_connections = 5, yaml=False, iteration=1):
+    """ 
+    domdf to network, it can create dictionary to create a YAML file or a dataframe.
+    dom: list of domains to be used as query in the network, if full all domdf will be used
+    min_connections: Minimum number of relationship (Operon or fusion) anode should have to be presente in the network.
+    yaml: If decided to transform the network in dictionary to latter be exported as YAML file.
+    Iteration: If a list of domains was supplied, the number of iteration in the network to collect other nodes.
+    """
+    domdf.dom = domdf.dom.str.strip()
+    if isinstance(dom, str):
+        dom = [dom]
+    if dom[0] =='full':
+        block_id = domdf.block_id.tolist()
+    else:
+        for x in range(iteration):
+            block_id = domdf.query('dom in @dom').block_id.tolist()
+            dom = domdf.query('block_id in @block_id').dom.unique().tolist()
+    to_net = domdf.query('block_id in @block_id')[['pid', 'block_id', 'dom', 'strand']]
+    to_net['block_pos'] = 1
+    to_net['block_pos'] = to_net.groupby(['block_id'])['block_pos'].cumsum()
+    to_net = to_net.merge(to_net, on ='block_id')
+    to_net.loc[((to_net.strand_x == 1 ) & (to_net.block_pos_x < to_net.block_pos_y) & (to_net.pid_x != to_net.pid_y)), 'edge_type'] = 'Downstream'
+    to_net.loc[((to_net.strand_x == 1 ) & (to_net.block_pos_x > to_net.block_pos_y) & (to_net.pid_x != to_net.pid_y)), 'edge_type'] = 'Upstream'
+    to_net.loc[((to_net.strand_x == 1 ) & (to_net.block_pos_x > to_net.block_pos_y) & (to_net.pid_x == to_net.pid_y)), 'edge_type'] = 'Nterminal'
+    to_net.loc[((to_net.strand_x == 1 ) & (to_net.block_pos_x < to_net.block_pos_y) & (to_net.pid_x == to_net.pid_y)), 'edge_type'] = 'Cterminal'
+    to_net.loc[((to_net.strand_x == -1 ) & (to_net.block_pos_x < to_net.block_pos_y) & (to_net.pid_x != to_net.pid_y)), 'edge_type'] = 'Downstream'
+    to_net.loc[((to_net.strand_x == -1 ) & (to_net.block_pos_x > to_net.block_pos_y) & (to_net.pid_x != to_net.pid_y)), 'edge_type'] = 'Upstream'
+    to_net.loc[((to_net.strand_x == -1 ) & (to_net.block_pos_x > to_net.block_pos_y) & (to_net.pid_x == to_net.pid_y)), 'edge_type'] = 'Cterminal'
+    to_net.loc[((to_net.strand_x == -1 ) & (to_net.block_pos_x < to_net.block_pos_y) & (to_net.pid_x == to_net.pid_y)), 'edge_type'] = 'Nterminal'
+
+    to_net= to_net.query('edge_type.notna()')
+    to_net = to_net[['block_id','dom_x','dom_y','edge_type']]
+    to_net.columns = ['block_id','source','target','edge_type']
+    if yaml:
+        to_net['edge_count'] = to_net.groupby(['source', 'target']).edge_type.transform('count')
+        to_net = to_net.query('edge_count >= @ min_connections').drop(['edge_count'], axis=1)
+        yamldf = pd.pivot_table(to_net,
+                            index='source',
+                            columns='edge_type',
+                            values = ['target', 'block_id'],
+                            aggfunc={
+                                'target':lambda x : gf.count_series(x, as_list=True),
+                                'block_id': 'nunique'}
+                            )
+        yamldf = yamldf.loc[:,'block_id'].sum(axis=1).rename('total').to_frame().join(yamldf.loc[:,'target']).sort_values('total')
+        yamldf.fillna('', inplace=True)
+        yamldf.Nterminal = yamldf.Nterminal.apply(lambda x: x.split(' ') if isinstance(x, str) else x)
+        yamldf.Cterminal = yamldf.Cterminal.apply(lambda x: x.split(' ') if isinstance(x, str) else x)
+        yamldf.Downstream = yamldf.Downstream.apply(lambda x: x.split(' ') if isinstance(x, str) else x)
+        yamldf.Upstream = yamldf.Upstream.apply(lambda x: x.split(' ') if isinstance(x, str) else x)
+        yamldf['L'] = yamldf[['Cterminal', 'Downstream', 'Nterminal', 'Upstream']].apply(
+                lambda row: [item for sublist in row for item in sublist if item != ''],
+                axis=1
+                )
+        yamldf.L = yamldf.L.apply(len)
+        yamldf = yamldf.query('L >0')
+        yamldf = yamldf.drop(['L'], axis=1)
+
+        return(yamldf.to_dict(orient='index'))
+    else:
+        to_net['edge_total'] = to_net.groupby(['source', 'target']).edge_type.transform('count')
+        to_net = to_net.groupby(['source', 'target', 'edge_type']).agg(
+                {'block_id' :'count',
+                 'edge_total' : 'first'}).reset_index().sort_values('block_id')
+        to_net = to_net.rename({'block_id':'edge_count'},axis=1)        
+        to_net = to_net.query('edge_total >= @min_connections').drop(['edge_total'], axis=1)
+        return(to_net)
+
+def yaml2net(dict_from_yaml):
+    """
+    Transform the dictionary from a yaml network file back to the network
+    """
+    dfc  = pd.DataFrame(dict_from_yaml).T
+    dfc.index.name = 'source'
+    a = dfc.Cterminal.explode().dropna().str.extract(r'(.+?)(?:\W*\((\d+)\))?$').rename({0: 'target', 1:'cterminal'}, axis=1)
+    b = dfc.Downstream.explode().dropna().str.extract(r'(.+?)(?:\W*\((\d+)\))?$').rename({0: 'target', 1:'dowstream'}, axis=1)
+    c = dfc.Nterminal.explode().dropna().str.extract(r'(.+?)(?:\W*\((\d+)\))?$').rename({0: 'target', 1:'Nterminal'}, axis=1)
+    d = dfc.Upstream.explode().dropna().str.extract(r'(.+?)(?:\W*\((\d+)\))?$').rename({0: 'target', 1:'Upstream'}, axis=1)
+    te = pd.concat([a,b,c,d]).reset_index().melt(id_vars=['source', 'target']).dropna()
+    te.columns = ['source', 'target', 'edge_type', 'edge_count']
+    te.edge_count = te.edge_count.astype(int)
+    return te.sort_values('edge_count')
+
+
+
+
+
+def plot_network(networkdf,
+                 community_to_color='leidein',
+                 outputfile='net.svg',
+                 view=False,
+                 node_size='freq',
+                 color_edge=True,
+                 highlight_query=[]):
+    """
+    PLot the network in svg
+    """
+    import community
+    import seaborn as sns
+    import leidenalg as la
+    import igraph as ig
+    import matplotlib.pyplot as plt
+    from matplotlib import cm as cm
+    import numpy as np
+    import networkx as nx
+
+    G = nx.from_pandas_edgelist(networkdf, edge_attr=['edge_type', 'edge_count'])
+    #Community detection by Louvain
+    partition = community.best_partition(G,weight='edge_count')
+    #Df to easily map community to node:
+    c = pd.DataFrame.from_dict(partition,orient='index').reset_index().rename(
+       {'index': 'cluster', 0: 'Louvain'}, axis=1)
+    #Leiden partition:
+    part = la.find_partition(ig.Graph.from_networkx(G), la.ModularityVertexPartition, weights='edge_count')
+    c['leidein'] = pd.Series(part.membership)
+    #Leiden partition playing with resolution parameter:
+    part2 = la.find_partition(ig.Graph.from_networkx(G), la.CPMVertexPartition, weights='edge_count', resolution_parameter = 2.5)
+    c['leidein_2'] = pd.Series(part2.membership)
+
+
+
+    #Adding a color column for each community method used:
+    c['Louvain_color'] = c.Louvain.map(pd.Series(sns.color_palette('pastel',c.Louvain.nunique()).as_hex()).to_dict())
+    c['leidein_color'] = c.leidein.map(pd.Series(sns.color_palette('pastel',c.Louvain.nunique()).as_hex()).to_dict())
+    c['leidein_2_color'] = c.leidein_2.map(pd.Series(sns.color_palette('pastel',c.leidein_2.nunique()).as_hex()).to_dict())
+
+    #Creating a list to create relative node size based in frequency
+    if node_size=='freq':
+        Node_size_dict =  (np.sqrt(pd.concat([networkdf.source, networkdf.target]).value_counts()) *30).to_dict()
+        node_size = [Node_size_dict[x] for x in G.nodes]
+    else:
+        node_size = node_size
+
+    # getting specific colors and for edges:
+    d = c.set_index(community_to_color).fillna('black')[f'{community_to_color}_color'].to_dict()
+
+    #Colors for Nodes
+    nc = c.set_index('cluster')[f'{community_to_color}_color'].fillna('black').to_dict()
+    Node_colors = [nc[x] for x in G.nodes]
+
+    Node_edge = ['red' if x in highlight_query else nc [x] for x in G.nodes ]
+
+    #Edge Colors
+    if color_edge:
+        community_dict = c.set_index('cluster')[community_to_color].to_dict()
+        edge_colors=[]
+        ew =[]
+        for x,y in G.edges:
+            if community_dict[x] == community_dict[y]:
+                edge_colors.append(d[community_dict[x]])
+            else:
+                edge_colors.append('black')
+
+
+    #Drawing the network:
+    fig, ax = plt.subplots(figsize=(20,14 ))
+    pos = nx.kamada_kawai_layout(G)
+    nx.draw_networkx_nodes(G, pos, c.cluster, node_shape="o",node_size=node_size, node_color=Node_colors, edgecolors=Node_edge)
+    nx.draw_networkx_edges(G, pos, alpha=0.5, edge_color=edge_colors)
+    label_pos = {node: (x, y - 0.03) for node, (x, y) in pos.items()}
+    nx.draw_networkx_labels(G,label_pos, font_size= 8)
+    plt.tight_layout()
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    if view==True:
+        plt.plot()
+    else:
+        plt.savefig(outputfile, format='svg', bbox_inches='tight')
 
 
