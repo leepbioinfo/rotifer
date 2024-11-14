@@ -1003,7 +1003,7 @@ class sequence(rotifer.pipeline.Annotatable):
         Column-wise frequencies of residues and residue categories.
         '''
         freq_df = self.residues
-        freq_df = freq_df.apply(pd.value_counts).fillna(0).astype(int)/len(freq_df)*100 
+        freq_df = freq_df.apply(pd.Series.value_counts).fillna(0).astype(int)/len(freq_df)*100 
         freq_df.rename({'-':'gap','.':'gap','?':'X'}, inplace=True)
 
         aromatic = ['F','Y', 'W', 'H']
