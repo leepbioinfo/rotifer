@@ -1808,6 +1808,10 @@ def split_domain(df,
         only_tm_sig = list(domdf.groupby('pid').tmc.sum().where(lambda x : x==0).dropna().index)
         domdf.dom = np.where(domdf.pid.isin(only_tm_sig), fill, domdf.dom)
         domdf = domdf.query('dom no in ["TM", "SIG"]')
+     
+    #reorder to keep the same input order:
+    domdf = domdf.sort_values(['pid','blockp','domp'])
+
 
     return domdf
 
@@ -2553,7 +2557,14 @@ def find_next_non_existing(lst):
     return result
 
 
-def get_relations(domdf, dom='full', min_connections = 5, yaml=False, iteration=1):
+def get_relations(domdf,
+                  dom='full',
+                  min_connections = 5,
+                  self_relation = False,
+                  to_yaml=False,
+                  iteration=1,
+                  filter_rename_yaml  = False):
+    from rotifer.devel.alpha import gian_func as gf
     """ 
     domdf to network, it can create dictionary to create a YAML file or a dataframe.
     dom: list of domains to be used as query in the network, if full all domdf will be used
@@ -2562,6 +2573,15 @@ def get_relations(domdf, dom='full', min_connections = 5, yaml=False, iteration=
     Iteration: If a list of domains was supplied, the number of iteration in the network to collect other nodes.
     """
     domdf.dom = domdf.dom.str.strip()
+    if filter_rename_yaml:
+        import yaml
+        with open(filter_rename_yaml, "r") as file:
+            data = yaml.safe_load(file)
+            data = pd.DataFrame(data).T
+            rename_dict = data.Display_name.to_dict()
+            domdf.dom = domdf.dom.replace(rename_dict)
+            domdf = domdf.query('dom != ""')
+
     if isinstance(dom, str):
         dom = [dom]
     if dom[0] =='full':
@@ -2586,7 +2606,7 @@ def get_relations(domdf, dom='full', min_connections = 5, yaml=False, iteration=
     to_net= to_net.query('edge_type.notna()')
     to_net = to_net[['block_id','dom_x','dom_y','edge_type']]
     to_net.columns = ['block_id','source','target','edge_type']
-    if yaml:
+    if to_yaml:
         to_net['edge_count'] = to_net.groupby(['source', 'target']).edge_type.transform('count')
         to_net = to_net.query('edge_count >= @ min_connections').drop(['edge_count'], axis=1)
         yamldf = pd.pivot_table(to_net,
@@ -2619,6 +2639,10 @@ def get_relations(domdf, dom='full', min_connections = 5, yaml=False, iteration=
                  'edge_total' : 'first'}).reset_index().sort_values('block_id')
         to_net = to_net.rename({'block_id':'edge_count'},axis=1)        
         to_net = to_net.query('edge_total >= @min_connections').drop(['edge_total'], axis=1)
+        if self_relation:
+            pass
+        else:
+            to_net = to_net[to_net.source != to_net.target]
         return(to_net)
 
 def yaml2net(dict_from_yaml):
@@ -2646,7 +2670,8 @@ def plot_network(networkdf,
                  view=False,
                  node_size='freq',
                  color_edge=True,
-                 highlight_query=[]):
+                 highlight_query=[],
+                 position='spring'):
     """
     PLot the network in svg
     """
@@ -2709,7 +2734,10 @@ def plot_network(networkdf,
 
     #Drawing the network:
     fig, ax = plt.subplots(figsize=(20,14 ))
-    pos = nx.kamada_kawai_layout(G)
+    if position=='spring':
+        pos = nx.spring_layout(G)
+    else:    
+        pos = nx.kamada_kawai_layout(G)
     nx.draw_networkx_nodes(G, pos, c.cluster, node_shape="o",node_size=node_size, node_color=Node_colors, edgecolors=Node_edge)
     nx.draw_networkx_edges(G, pos, alpha=0.5, edge_color=edge_colors)
     label_pos = {node: (x, y - 0.03) for node, (x, y) in pos.items()}
@@ -2724,4 +2752,120 @@ def plot_network(networkdf,
     else:
         plt.savefig(outputfile, format='svg', bbox_inches='tight')
 
+def domain2compact(domdf, domain_rename=False):
+    if domain_rename:
+        if isinstance(domain_rename, dict):
+            domdf.dom = domdf.dom.replace(domain_rename)
+        else:
+           import yaml
+           with open(domain_rename, "r") as file:
+               data = yaml.safe_load(file)
+               s = pd.DataFrame(data).T
+               tex = s.query('Include ==0').index.tolist()
+               s.loc[tex, 'Display_name'] = '?'
+               domain_rename = s.Display_name.where(lambda x : x!="").dropna().to_dict()
+               domdf.dom = domdf.dom.replace(domain_rename)
 
+    g = domdf.copy().groupby(['pid'], sort=False).agg(
+            block_id = ('block_id', 'first'),
+            organism =  ('organism' ,'first'),
+            strand = ('strand', 'first'),
+            query = ('query', 'first'),
+            arch = ('dom', lambda x: '+'.join(list(x))))
+    if domain_rename:
+        ##Tidyng multiples ? from the excluded node list (removing tralling or ? from proteins with annotations)
+        g['arch'] = g['arch'].str.replace(r'^\?\+|\+\?', '', regex=True)
+
+    g.loc[g['query'] ==1, 'arch'] = g.loc[g['query'] ==1,'arch'] +'*'
+    g.loc[g['strand'] ==1, 'arch'] = g.loc[g['strand'] ==1,'arch'] + '->'
+    g.loc[g['strand'] == -1, 'arch'] = '<-' + g.loc[g['strand'] == -1, 'arch'].astype(str)
+    m1  = (g.strand ==  1) & (g.block_id == g.block_id.shift(-1)) & (g.strand != g.strand.shift(-1))
+    m2  = (g.strand == -1) & (g.block_id == g.block_id.shift(-1)) & (g.strand != g.strand.shift(-1))
+    m3 =  (g.strand ==  1) & (g.block_id == g.block_id.shift(1)) & (g.strand != g.strand.shift(1))
+    m4 =  (g.strand == -1) & (g.block_id == g.block_id.shift(1)) & (g.strand != g.strand.shift(1))
+    g.loc[m1, 'arch'] = g.loc[m1,'arch'].astype(str) + '|'
+    g.loc[m2, 'arch'] = g.loc[m2,'arch'].astype(str) + '|'
+    g.loc[m3, 'arch'] = '|' + g.loc[m3,'arch'].astype(str)
+    g.loc[m4, 'arch'] = '|' + g.loc[m4,'arch'].astype(str)
+    g = g.groupby(['block_id'], sort=False).agg(
+            compact = ('arch', lambda x: ''.join(list(x))),
+            organism =  ('organism' ,'first'))
+    return g
+
+def domtable_to_yaml_names(domtable, cutoff=0, to_file=False):
+    to_remove = ["TM", "SP", "LP", "LIPO", '-', '?']
+    to_remove = domtable.query('dom in @to_remove').dom.unique().tolist()
+    to_dict = domtable.dom.value_counts().to_frame()
+    to_dict.loc[to_dict.dom > cutoff, 'Display_name'] = to_dict.loc[to_dict.dom > cutoff].index.tolist()
+    to_dict.loc[to_remove , 'Display_name'] = ''
+    to_dict['Display_name'] = to_dict['Display_name'].fillna('')
+    to_dict['Notes'] = [['', ''] for x in range(to_dict.shape[0])]
+    to_dict = to_dict.drop('dom', axis=1).to_dict(orient='index')
+    if to_file:
+        import yaml
+        with open(to_file, 'w') as file:
+            yaml.dump(to_dict, file, default_flow_style=False, sort_keys=False)
+    else:
+        return to_dict
+def yamldomain2df(file):
+    """
+    Load yaml file created by the domtable_to_yaml_names into a pandas dataframe
+    """
+    import yaml
+    with open(file, "r") as file:
+        data = yaml.safe_load(file)
+        data = pd.DataFrame(data).T
+        data.Display_name =  data.Display_name.fillna('')
+     
+    return data 
+
+
+
+def display_html_popup_from_file(file_path, title="Popout Window", use_button=True):
+    from IPython.display import display, HTML
+    import html
+    # Read the content of the HTML or SVG file
+    with open(file_path, 'r', encoding='utf-8') as file:
+        html_content = file.read()
+    
+    # Properly escape the content for safe inclusion in the HTML
+    escaped_content = html.escape(html_content).replace("\n", "&#10;")
+
+    if use_button:
+        # Generate the pop-out script for a new window
+        script = f"""
+        <script>
+            function openPopup() {{
+                var newWindow = window.open("", "{title}", "width=800,height=600");
+                newWindow.document.write(`
+                    <html>
+                        <head>
+                            <title>{title}</title>
+                        </head>
+                        <body>
+                            {html_content}
+                        </body>
+                    </html>
+                `);
+                newWindow.document.close();
+            }}
+        </script>
+        <button onclick="openPopup()">Open Content in Popout</button>
+        """
+    else:
+        # Directly display the content embedded in an iframe
+        script = f"""
+        <iframe style="border:none; width:100%; height:600px;" srcdoc="{escaped_content}"></iframe>
+        """
+
+    display(HTML(script))
+
+def is_running_in_jupyter():
+    try:
+        from IPython import get_ipython
+        if 'IPKernelApp' in get_ipython().config:
+            return True
+        else:
+            return False
+    except (ImportError, AttributeError):
+        return False    

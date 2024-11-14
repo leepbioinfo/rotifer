@@ -1354,6 +1354,8 @@ class sequence(rotifer.pipeline.Annotatable):
              sample=None,
              pager='less -SR',
              *args, **kwargs):
+        from rotifer.view import functions
+        jupyter = functions.is_running_in_jupyter()
         """
         See a colored version of the alignment with annotations.
 
@@ -1421,6 +1423,9 @@ class sequence(rotifer.pipeline.Annotatable):
                 separator = None
             method = '_view_groups'
         method = self.__getattribute__(method)
+        if jupyter:
+            functions.display_html_popup_from_file(self.to_html())
+            return
         return method(groupby=groupby,
                       min_group_size=min_group_size,
                       group_separator=group_separator,
@@ -1853,11 +1858,21 @@ class sequence(rotifer.pipeline.Annotatable):
         ).apply(col_fun).hide(axis='columns')
         return df_style    
 
-    def to_html(self, output_file, consensus=[50, 60,70,80,90,100],simple=True ,background='black',consensus_position='top', annotations=False, remove_gaps=False, fixed_index=True, adjust_coordinates=False):
+    def to_html(self,
+                output_file=False,
+                consensus=[50, 60,70,80,90,100],
+                simple=True,
+                background='black',
+                consensus_position='top',
+                annotations=False,
+                remove_gaps=False,
+                fixed_index=True,
+                adjust_coordinates=False):
+
         """TODO: Docstring for function.
 
         :consensus: The consensus threshold that should be used to color the aligment, if simple=False the consensus cannot be a list
-        :output_file: output file name
+        :output_file: output file name, if no outputfile it will retunr the HTML and can be save as object
         :annotation: List of annotations rows that should be keept in the  html file
         The annotation label should be the same as in the id seq object df columm
         :remove_gaps: Query sequence to use as model to remove the gaps, 
@@ -1919,9 +1934,12 @@ class sequence(rotifer.pipeline.Annotatable):
         if fixed_index:
             html = html.set_sticky(axis="index")
         if simple:
-            with open(f'{output_file}', 'w') as f:
-                f.write(html_template)
-                return(f'{output_file} saved on the working path')
+            if output_file:
+                with open(f'{output_file}', 'w') as f:
+                    f.write(html_template)
+                    return(f'{output_file} saved on the working path')
+            else:
+                return html_template
         else:        
             with open(output_file, 'w') as f:
                 f.write(html.render(table_attributes='cellspacing=0, cellpadding=0'))
