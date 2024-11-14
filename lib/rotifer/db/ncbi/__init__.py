@@ -40,7 +40,7 @@ config = loadConfig(__name__, defaults = {
         'local_database_path': [ os.path.join(rotifer.config['data'],"fadb","nr","nr") ],
         "entrez_database": "protein",
         "mirror": os.path.join(os.environ["ROTIFER_DATA"] if 'ROTIFER_DATA' in os.environ else "/databases","genomes"),
-        'email': os.environ['USER'] + '@' + socket.gethostname(),
+        'email': os.environ['USER'] + '@' + socket.gethostname() if 'USER' in os.environ  else 'Unk_user' + '@' + socket.gethostname(),
         'ftpserver': 'ftp.ncbi.nlm.nih.gov',
         'api_key': os.environ['NCBI_API_KEY'] if 'NCBI_API_KEY' in os.environ else None,
         'readers': {
