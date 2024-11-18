@@ -2117,7 +2117,8 @@ def operon_fig2(df,
                 margin=0.03,
                 unknow='  ?  ',
                 id_position='side',
-                comments=False
+                comments=False,
+                to_string=False
                 ):
 
     import pygraphviz as pgv
@@ -2125,6 +2126,7 @@ def operon_fig2(df,
     import pandas as pd
     from rotifer.devel.alpha import gian_func as gf
     import textwrap
+    import io
 
     penwidth = 1
     TM_width = 0.03 
@@ -2373,6 +2375,13 @@ def operon_fig2(df,
     [A.add_edge(v.pop(0), v[0], penwidth = 0) for x in range(len(v)-1)]
     A.graph_attr.update(nodesep= 0.02)
     A.graph_attr.update(ranksep= 0.02)
+    if to_string:
+        buffer = io.BytesIO()
+        A.draw(buffer, format='svg', prog='dot')
+        svg_output = buffer.getvalue().decode('utf-8')
+        buffer.close()
+        return svg_output
+
     A.draw(output_file, prog="dot")
     return te
 

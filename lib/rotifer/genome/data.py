@@ -428,6 +428,13 @@ class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
                              query='query',
                              strand=False,
                              fill_unk=False):
+        from rotifer.view import functions
+        from rotifer.devel.alpha import gian_func as gf
+        jupyter = functions.is_running_in_jupyter()
+        if jupyter:
+            to_display = gf.operon_fig2(self,domain_column = annotation, to_string=True) 
+            functions.display_html_popup_from_file(to_display)
+            return
         """
         A tabular and compact representation of  selected neighborhoods block.
         Given a acc2operons Dataframe it will print the block ID as first column
