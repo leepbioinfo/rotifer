@@ -3126,7 +3126,7 @@ def dash_aligner_view(seqobj):
     from dash import Dash, html, Input, Output, callback
     import io
     # Convert the FASTA string to a format compatible with Dash Bio
-    fasta_data = seqobj.to_string()
+    fasta_string = seqobj.to_string()
     fasta_data = io.StringIO(fasta_string)
 
     app = Dash(__name__)
