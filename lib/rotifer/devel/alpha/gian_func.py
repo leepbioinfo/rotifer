@@ -3102,12 +3102,12 @@ def remote_blast(acc,
         if isinstance (acc, sequence):
             acc.to_file(f'{tmpdirname}/seqfile') 
             if aln:
-                Popen(f'psiblast -in_msa {tmpdirname}/seqfile -db {db} -num_alignments {max_out} -num_descriptions {max_out} max_target_seqs {max_out} > {tmpdirname}/out',
+                Popen(f'psiblast -in_msa {tmpdirname}/seqfile -db {db} -num_alignments {max_out} -num_descriptions {max_out} -max_target_seqs {max_out} > {tmpdirname}/out',
                       stdout=PIPE,
                       shell=True
                       ).communicate()
             else:
-                Popen(f'blastp -query {tmpdirname}/seqfile -db {db} -num_alignments {max_out} -num_descriptions {max_out} max_target_seqs {max_out} > {tmpdirname}/out',
+                Popen(f'blastp -query {tmpdirname}/seqfile -db {db} -num_alignments {max_out} -num_descriptions {max_out} -max_target_seqs {max_out} > {tmpdirname}/out',
                       stdout=PIPE,
                       shell=True
                       ).communicate()
