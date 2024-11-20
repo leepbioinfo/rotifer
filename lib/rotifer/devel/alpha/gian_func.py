@@ -3102,12 +3102,12 @@ def remote_blast(acc,
         if isinstance (acc, sequence):
             acc.to_file(f'{tmpdirname}/seqfile') 
             if aln:
-                Popen(f'psiblast -in_msa {tmpdirname}/seqfile -db {db} -num_alignments {max_out} -num_descriptions {max_out} -max_target_seqs {max_out} > {tmpdirname}/out',
+                Popen(f'psiblast -in_msa {tmpdirname}/seqfile -db {db} -num_alignments {max_out} -num_descriptions {max_out}  > {tmpdirname}/out',
                       stdout=PIPE,
                       shell=True
                       ).communicate()
             else:
-                Popen(f'blastp -query {tmpdirname}/seqfile -db {db} -num_alignments {max_out} -num_descriptions {max_out} -max_target_seqs {max_out} > {tmpdirname}/out',
+                Popen(f'blastp -query {tmpdirname}/seqfile -db {db} -num_alignments {max_out} -num_descriptions {max_out}  > {tmpdirname}/out',
                       stdout=PIPE,
                       shell=True
                       ).communicate()
@@ -3120,3 +3120,35 @@ def remote_blast(acc,
         
     return  blast_r 
 
+
+def dash_aligner_view(seqobj):
+    import dash_bio as dashbio
+    from dash import Dash, html, Input, Output, callback
+    import io
+    # Convert the FASTA string to a format compatible with Dash Bio
+    fasta_data = seqobj.to_string()
+    fasta_data = io.StringIO(fasta_string)
+
+    app = Dash(__name__)
+
+    app.layout = html.Div([
+        dashbio.AlignmentChart(
+            id='my-default-alignment-viewer',
+            data=fasta_data.read(),
+            height=900,
+            tilewidth=30,
+        ),
+        html.Div(id='default-alignment-viewer-output')
+    ])
+
+    @callback(
+        Output('default-alignment-viewer-output', 'children'),
+        Input('my-default-alignment-viewer', 'eventDatum')
+    )
+    def update_output(value):
+        if value is None:
+            return 'No data.'
+        return str(value)
+
+    if __name__ == '__main__':
+        app.run(debug=True)
