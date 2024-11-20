@@ -2587,9 +2587,11 @@ def get_relations(domdf,
         with open(filter_rename_yaml, "r") as file:
             data = yaml.safe_load(file)
             data = pd.DataFrame(data).T
+            data.loc[data.Display_name =="", 'Display_name'] = data.loc[data.Display_name ==""].index.tolist()
             rename_dict = data.Display_name.to_dict()
             domdf.dom = domdf.dom.replace(rename_dict)
-            domdf = domdf.query('dom != ""')
+            to_display = data.query('Include ==1').Display_name.unique().tolist()
+            domdf = domdf.query('dom in @to_display')
 
     if isinstance(dom, str):
         dom = [dom]
@@ -2878,3 +2880,243 @@ def is_running_in_jupyter():
             return False
     except (ImportError, AttributeError):
         return False    
+
+
+def find_potential_typos(df, column, threshold=2):
+    import textdistance
+    results = []
+    for i, word1 in enumerate(df[column]):
+        for j, word2 in enumerate(df[column]):
+            if i < j:  # To avoid duplicate and self-comparisons
+                distance = textdistance.levenshtein(word1, word2)
+                if distance <= threshold:  # Change threshold as needed
+                    results.append((word1, word2, distance))
+    return results
+
+
+
+
+
+
+def plot_network2(networkdf,
+                 community_to_color='leidein',
+                 outputfile='net.svg',
+                 view=False,
+                 node_size='freq',
+                 color_edge=True,
+                 highlight_query=[],
+                 position='Kamada-kawai'):
+    """
+    PLot the network in svg
+    """
+    import community
+    import seaborn as sns
+    import leidenalg as la
+    import igraph as ig
+    import matplotlib.pyplot as plt
+    from matplotlib import cm as cm
+    import numpy as np
+    import networkx as nx
+
+    G = nx.from_pandas_edgelist(networkdf, edge_attr=['edge_type', 'edge_count'])
+    #Community detection by Louvain
+    partition = community.best_partition(G,weight='edge_count')
+    #Df to easily map community to node:
+    c = pd.DataFrame.from_dict(partition,orient='index').reset_index().rename(
+       {'index': 'cluster', 0: 'Louvain'}, axis=1)
+    #Leiden partition:
+    part = la.find_partition(ig.Graph.from_networkx(G), la.ModularityVertexPartition, weights='edge_count')
+    c['leidein'] = pd.Series(part.membership)
+    #Leiden partition playing with resolution parameter:
+    part2 = la.find_partition(ig.Graph.from_networkx(G), la.CPMVertexPartition, weights='edge_count', resolution_parameter = 2.5)
+    c['leidein_2'] = pd.Series(part2.membership)
+
+
+
+    #Adding a color column for each community method used:
+    c['Louvain_color'] = c.Louvain.map(pd.Series(sns.color_palette('pastel',c.Louvain.nunique()).as_hex()).to_dict())
+    c['leidein_color'] = c.leidein.map(pd.Series(sns.color_palette('pastel',c.Louvain.nunique()).as_hex()).to_dict())
+    c['leidein_2_color'] = c.leidein_2.map(pd.Series(sns.color_palette('pastel',c.leidein_2.nunique()).as_hex()).to_dict())
+
+    #Creating a list to create relative node size based in frequency
+    if node_size=='freq':
+        Node_size_dict =  (np.sqrt(pd.concat([networkdf.source, networkdf.target]).value_counts()) *30).to_dict()
+        node_size = [Node_size_dict[x] for x in G.nodes]
+    else:
+        node_size = node_size
+
+
+    #Colors for Nodes
+    if isinstance(community_to_color, str):
+        nc = gf.get_network_community_color(networkdf, community_to_color = community_color)
+    else:
+        nc = community_to_color
+    Node_colors = [nc[x] for x in G.nodes]
+
+    Node_edge = ['red' if x in highlight_query else nc [x] for x in G.nodes ]
+
+    #Edge Colors
+    if color_edge:
+        edge_colors=[]
+        for x,y in G.edges:
+            if nc[x] == nc[y]:
+                edge_colors.append(nc[x])
+            else:
+                edge_colors.append('black')
+
+
+    #Drawing the network:
+    fig, ax = plt.subplots(figsize=(20,14 ))
+    if isinstance(position, dict):
+        pos = position
+        print ('Dict position')
+    else:
+        if position=='spring':
+            pos = nx.spring_layout(G)
+            print('Spring')
+        else:    
+            pos = nx.kamada_kawai_layout(G)
+            print('Kamada')
+    nx.draw_networkx_nodes(G, pos, c.cluster, node_shape="o",node_size=node_size, node_color=Node_colors, edgecolors=Node_edge)
+    nx.draw_networkx_edges(G, pos, alpha=0.5, edge_color=edge_colors)
+    label_pos = {node: (x, y - 0.03) for node, (x, y) in pos.items()}
+    nx.draw_networkx_labels(G,label_pos, font_size= 8)
+    plt.tight_layout()
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    if view==True:
+        plt.plot()
+    else:
+        plt.savefig(outputfile, format='svg', bbox_inches='tight')
+
+def get_network_community_color(networkdf,
+                 community_to_color='leidein'):
+    """
+    PLot the network in svg
+    """
+    import community
+    import seaborn as sns
+    import leidenalg as la
+    import igraph as ig
+    import matplotlib.pyplot as plt
+    from matplotlib import cm as cm
+    import numpy as np
+    import networkx as nx
+
+    G = nx.from_pandas_edgelist(networkdf, edge_attr=['edge_type', 'edge_count'])
+    #Community detection by Louvain
+    partition = community.best_partition(G,weight='edge_count')
+    #Df to easily map community to node:
+    c = pd.DataFrame.from_dict(partition,orient='index').reset_index().rename(
+       {'index': 'cluster', 0: 'Louvain'}, axis=1)
+    #Leiden partition:
+    part = la.find_partition(ig.Graph.from_networkx(G), la.ModularityVertexPartition, weights='edge_count')
+    c['leidein'] = pd.Series(part.membership)
+    #Leiden partition playing with resolution parameter:
+    part2 = la.find_partition(ig.Graph.from_networkx(G), la.CPMVertexPartition, weights='edge_count', resolution_parameter = 2.5)
+    c['leidein_2'] = pd.Series(part2.membership)
+
+
+
+    #Adding a color column for each community method used:
+    c['Louvain_color'] = c.Louvain.map(pd.Series(sns.color_palette('pastel',c.Louvain.nunique()).as_hex()).to_dict())
+    c['leidein_color'] = c.leidein.map(pd.Series(sns.color_palette('pastel',c.Louvain.nunique()).as_hex()).to_dict())
+    c['leidein_2_color'] = c.leidein_2.map(pd.Series(sns.color_palette('pastel',c.leidein_2.nunique()).as_hex()).to_dict())
+
+
+    # getting specific colors and for edges:
+    d = c.set_index(community_to_color).fillna('black')[f'{community_to_color}_color'].to_dict()
+
+    #Colors for Nodes
+    nc = c.set_index('cluster')[f'{community_to_color}_color'].fillna('black').to_dict()
+
+    return nc
+
+def reposition_nodes_keep(G, pos, x_correction=0, y_correction=0):
+    """
+    Keeps the specified nodes in the graph, removes all other nodes.
+    The remaining nodes are repositioned to maintain the same aspect ratio and fill the space.
+
+    Parameters:
+    G (networkx.Graph): The graph from which nodes will be kept.
+    nodes_to_keep (list): A list of nodes to keep in the graph.
+
+    Returns:
+    dict: A dictionary of positions for the remaining nodes after scaling.
+    """
+
+    # Get the positions of the remaining nodes
+    remaining_nodes = list(G.nodes)
+    remaining_pos = {node: pos[node] for node in remaining_nodes}
+
+    # Calculate the bounding box for the remaining nodes
+    x_vals = [p[0] for p in remaining_pos.values()]
+    y_vals = [p[1] for p in remaining_pos.values()]
+
+    # Find the scaling factors based on the bounding box of the remaining nodes
+    x_range = max(x_vals) - min(x_vals)
+    y_range = max(y_vals) - min(y_vals)
+
+    # Avoid division by zero by defaulting scale factors to 1
+    scale_x = 1 / x_range if x_range != 0 else 1
+    scale_y = 1 / y_range if y_range != 0 else 1
+
+    # Scale positions to maintain aspect ratio
+    scaled_pos = {node: ((pos[0] * scale_x) + x_correction, (pos[1] * scale_y) + y_correction) for node, pos in remaining_pos.items()}
+
+    # Return the scaled positions
+    return scaled_pos
+
+def remote_blast(acc,
+             db='nr_cluster_seq',
+             aln=False,
+             max_out = 5000):
+    '''
+    Remote_blast accepts sequence object. 
+    '''
+
+    import tempfile
+    import subprocess
+    from subprocess import Popen, PIPE, STDOUT
+    from rotifer.devel.beta.sequence import sequence as sequence
+    import os
+    import pandas as pd
+    cols =[
+            'hit',
+            'query',
+            'hitstart',
+            'hitend',
+            'evalue',
+            'querycoverage',
+            'querystart',
+            'queryend',
+            'iteration',
+            'bitscore',
+            'length'
+            ]
+    cwd = os.getcwd()
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        # temporary save fasta sequence file
+        if isinstance (acc, sequence):
+            acc.to_file(f'{tmpdirname}/seqfile') 
+            if aln:
+                Popen(f'psiblast -in_msa {tmpdirname}/seqfile -d {db} -num_alignments {max_out} -num_descriptions {max_out} max_target_seqs {max_out} > {tmpdirname}/out',
+                      stdout=PIPE,
+                      shell=True
+                      ).communicate()
+            else:
+                Popen(f'blastp -query {tmpdirname}/seqfile -d {db} -num_alignments {max_out} -num_descriptions {max_out} max_target_seqs {max_out} > {tmpdirname}/out',
+                      stdout=PIPE,
+                      shell=True
+                      ).communicate()
+            #Popen(f'blast2table {tmpdirname}/out > {tmpdirname}/out.tsv',
+            #      stdout=PIPE,
+            #      shell=True).communicate()
+            #t = pd.read_csv(f'{tmpdirname}/out.tsv', sep="\t", names=cols)
+            with open(f'{tmpdirname}/out') as f:
+                    blast_r = f.read()
+        
+    return  blast_r 
+
