@@ -3152,3 +3152,60 @@ def dash_aligner_view(seqobj):
 
     if __name__ == '__main__':
         app.run(debug=True)
+        
+def wrap2html(match, background='black'):
+    from rotifer.devel.beta.sequence import config
+    import yaml
+    import re
+    if background =='black':
+        foreground = '#FFFFFF'
+    else:
+        foreground = 'black'
+    cd = {**yaml.load(open(config['html_colors']), Loader=yaml.Loader), '-':foreground, 'x':foreground, 'X':foreground}
+    def wrap_match(match):
+        return f'<SPAN style=color:{cd[match.group(0)[0]]}>{match.group(0)}</SPAN>'
+    gconsensus = {'h':r'[AILMFWVh]', 'p':r"[KR\+]", 'n' :r'[ED\-]', 'po' : r"[NQST]", "C":r"C", "pro":r"P", "G":r"G", "Ali":r"[HY]", '-':r'[\-xX\.]'}
+    gp = {'h':r'[AILMFWVh]', 'p':r"[KR]", 'n' :r'[ED]', 'po' : r"[NQST]", "C":r"C", "pro":r"P", "G":r"G", "Ali":r"[HY]", '-':r'[\-xX]'}
+    combined_pattern = '|'.join(f"({pattern}+)" for pattern in gp.values())
+    result = re.sub(combined_pattern, wrap_match, match)
+    return result
+
+def to_html2(seqobj, output, backgroung = 'black', columns =[]):
+    from rotifer.devel.alpha import gian_func as gf
+    s = seqobj.copy()
+    s.df['html'] = s.df.sequence.apply(gf.wrap2html)
+    if len(columns) <1:
+        columns = ['id','html']
+    else:
+        columns = columns.append(['id','html'] )
+    my_text = gf.padding_df(s.df[columns]).to_csv(sep="\t", index=None, header = None)
+    """
+    Save the MSA as HTML file
+    
+    Parameters:
+    - file_name: str, name of the file to save (e.g., "output.html").
+    - Background color: str, [white or black].
+    """
+    html_content = f"""<!DOCTYPE html>
+<HTML>
+<HEAD>
+<META http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<TITLE>Rotifer HTML view</TITLE>
+</HEAD>
+<BODY style="background-color:black;color:white">
+<TABLE style="border:0px; background-color:black; color:white; a:link:blue; a:active:red; a:visited:purple;">
+<TR><TD><PRE>
+</PRE></TD></TR>
+<TR><TD><PRE>
+{my_text}
+</PRE></TD></TR>
+</TABLE>
+<P><SMALL><A HREF="my page/">rotifer</A> 2024 <A HREF="mailto:ggnicastr@gmail.com">Gianlucca G. Nicastro</A></SMALL></P>
+</BODY>
+</HTML>
+"""
+    # Write the HTML content to the file
+    with open(output, "w", encoding="utf-8") as file:
+        file.write(html_content)
+    print(f"HTML file '{output}' has been successfully created.")
+

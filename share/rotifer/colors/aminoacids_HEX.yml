@@ -8,26 +8,35 @@ M: "#0087FC"
 F: "#0087FC"
 W: "#0087FC"
 V: "#0087FC"
+a: "#0087FC"
+l: "#0087FC"
+h: "#0087FC"
 
 # Positive
 K: "#AE1902"
 R: "#AE1902"
++: "#AE1902"
 
 # NEgative
 E: "#AE23AF"
 D: "#AE23AF"
+-: "#AE23AF"
 
 # Polar
 N: "#00AF1E"
 Q: "#00AF1E"
 S: "#00AF1E"
 T: "#00AF1E"
+c: "#00AF1E"
+p: "#00AF1E"
+o: "#00AF1E"
 
 # Cysteine
 C: "#D75F87"
 
 # Glycine
 G: "#D75F0D"
+u: "#D75F0D"
 
 # Proline
 P: "#D7AF1F"
@@ -35,3 +44,8 @@ P: "#D7AF1F"
 # Aliphatic and polar
 H: "#00AFAF"
 Y: "#00AFAF"
+
+# Small
+s: "#b069db"
+# Big 
+b: "#CCEEAD"
