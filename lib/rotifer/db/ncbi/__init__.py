@@ -504,10 +504,18 @@ class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, rotifer.
         }
         if mirror:
             from rotifer.db.ncbi import mirror as rdnm
-            cursor = rdnm.GeneNeighborhoodCursor(path=mirror)
-            if 'mirror' not in self.readers:
-                self.readers.insert(0,'mirror')
-            self.cursors['mirror'] = cursor
+            if isinstance(mirror, list):
+                count=0
+                for mirror_path in mirror[::-1]:
+                    count += 1
+                    cursor = rdnm.GeneNeighborhoodCursor(path=mirror_path)
+                    self.readers.insert(0,f'mirror_{count}')
+                    self.cursors[f'mirror_{count}'] = cursor
+            else:
+                cursor = rdnm.GeneNeighborhoodCursor(path=mirror)
+                if 'mirror' not in self.readers:
+                    self.readers.insert(0,'mirror')
+                self.cursors['mirror'] = cursor
         if save:
             from rotifer.db.sql import sqlite3 as rdss
             cursor = rdss.GeneNeighborhoodCursor(save, replace=replace)
