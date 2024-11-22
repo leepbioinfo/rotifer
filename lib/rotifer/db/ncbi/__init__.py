@@ -505,10 +505,10 @@ class GeneNeighborhoodCursor(rotifer.db.methods.GeneNeighborhoodCursor, rotifer.
         if mirror:
             from rotifer.db.ncbi import mirror as rdnm
             if isinstance(mirror, list):
-                count=0
+                count=len(mirror) +1
                 for mirror_path in mirror[::-1]:
-                    count += 1
-                    cursor = rdnm.GeneNeighborhoodCursor(path=mirror_path)
+                    count -= 1
+                    cursor = rdnm.GeneNeighborhoodCursor(path=mirror_path, tries=1)
                     self.readers.insert(0,f'mirror_{count}')
                     self.cursors[f'mirror_{count}'] = cursor
             else:
