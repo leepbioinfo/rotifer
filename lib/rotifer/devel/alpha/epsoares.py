@@ -78,7 +78,7 @@ def to_network(df, target=['pfam'], ftype='CDS', interaction=True, ignore = []):
 def compact_for_treeviewer(
         ndf,
         acc,
-        columns=['pid','assembly','nucleotide','block_id','organism','lineage','classification','pfam','aravind','compact'],
+        columns=['pid','assembly','nucleotide','block_id','organism','lineage','classification','pfam','aravind','compact1','compacts'],
         save=None,
     ):
     '''
