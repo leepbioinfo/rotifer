@@ -1755,7 +1755,8 @@ def split_domain(df,
                  domain_rename=True,
                  remove_tm=False,
                  query_same_direction=False,
-                 check_duplicates=False):
+                 check_duplicates=False,
+                 reverse_annotaion=False):
     '''
     It will use the query as anchor to delect the given number of after and before genes to
     create a dataframe of domains.
@@ -1766,7 +1767,8 @@ def split_domain(df,
     from rotifer.core import functions as rcf
     from rotifer.devel.alpha import gian_func as gf
 
-
+    df = df.copy()
+    df.reset_index(drop=True, inplace=True) ### Add recently 20241202
     # Asuring to not have duplicated protein in the input DF:
     if check_duplicates:
         domdf = df.drop_duplicates(['nucleotide','start','end']).reset_index(drop=True).query('type == "CDS"').copy()
@@ -1785,7 +1787,10 @@ def split_domain(df,
         domdf = domdf.sort_values(['block_id','blockp'])
 
     domdf['dom'] = domdf[column].str.split('+')
-    domdf.loc[domdf.strand  == -1, 'dom'] = domdf.loc[(domdf.strand  == -1)].dom.apply(lambda x: x[::-1])
+    if reverse_annotaion:
+        pass
+    else:
+        domdf.loc[domdf.strand  == -1, 'dom'] = domdf.loc[(domdf.strand  == -1)].dom.apply(lambda x: x[::-1])
     domdf = domdf.explode('dom')
     domdf['domp'] = pd.Series(np.where(domdf.pid == domdf.pid.shift(1), 1,0))
     domdf.domp = domdf.groupby(['pid','block_id'])['domp'].cumsum()
@@ -1830,7 +1835,8 @@ def operon_fig_bkp(df,
                 query_asterix=False,
                 query_color='red',
                 check_duplicates=True,
-                light_palette='90'):
+                light_palette='90',
+                reverse_annotaion=False):
 
     import pygraphviz as pgv
     from pygraphviz.agraph import re
@@ -1851,7 +1857,8 @@ def operon_fig_bkp(df,
                          domain_rename=domain_rename,
                          column=domain_column,
                          query_same_direction=query_same_direction,
-                         check_duplicates=check_duplicates)
+                         check_duplicates=check_duplicates,
+                         reverse_annotaion=reverse_annotaion)
     te['shape'] = 'rectangle'
     # Removing duplicates sequencial domain in same protein
     #te = te.loc[~((te.pid.shift() == te.pid) & (te.dom.shift() == te.dom))].reset_index(drop=True)
@@ -2111,6 +2118,7 @@ def operon_fig2(df,
                 fontsize=10,
                 query_asterix=False,
                 query_color='red',
+                highlight_domain=False,
                 check_duplicates=True,
                 light_palette='90',
                 labeldistance=0.5,
@@ -2118,9 +2126,12 @@ def operon_fig2(df,
                 unknow='  ?  ',
                 id_position='side',
                 comments=False,
-                to_string=False
+                to_string=False,
+                reverse_annotaion=False
                 ):
-
+    """
+    Highlight domain should be dictnionary
+    """
     import pygraphviz as pgv
     import numpy as np
     import pandas as pd
@@ -2150,7 +2161,8 @@ def operon_fig2(df,
                          domain_rename=domain_rename,
                          column=domain_column,
                          query_same_direction=query_same_direction,
-                         check_duplicates=check_duplicates)
+                         check_duplicates=check_duplicates,
+                         reverse_annotaion=reverse_annotaion)
     te['shape'] = 'rectangle'
     # Removing duplicates sequencial domain in same protein
     #te = te.loc[~((te.pid.shift() == te.pid) & (te.dom.shift() == te.dom))].reset_index(drop=True)
@@ -2191,7 +2203,7 @@ def operon_fig2(df,
     te['color'] = te.dom.replace(color_dict)
 #    te.dom = te.dom.replace({'TM':'', 'LP':'', 'LIPO':'', 'SIG':'', 'SP': ''})
 #    te.loc[(te.dom=='') & (te['shape'].isin(['larrow','rarrow'])), 'dom'] = ' '
-    te.loc[(te.dom=='') & (te['shape'].isin(['larrow','rarrow'])), 'color'] = color_dict[" "]
+#    te.loc[(te.dom=='') & (te['shape'].isin(['larrow','rarrow'])), 'color'] = color_dict[" "] 
 ####### Adding new row to represent empty proteins with TM, SIG or LIPO
 ##### A lot of code to make sure the order, color and shapes  of the added rows are correct.
     ra = te.loc[(te.dom.isin(['TM','LP','LIPO','SIG','SP'])) & (te['shape'].isin(['rarrow']))].index
@@ -2202,6 +2214,7 @@ def operon_fig2(df,
            'nucleotide':'backward',
            'pid':'backward',
            'block_id':'backward',
+           'organism':'backward',
            'arch':'backward',
            'dom':'backward',
            'color':'backward',
@@ -2211,7 +2224,7 @@ def operon_fig2(df,
            'style':'backward'})
 #    te = te.reset_index(drop=True) 
     ra = te.loc[(te.dom.isin(['TM','LP','LIPO','SIG','SP'])) & (te['shape'].isin(['rarrow']))].index
-    te.loc[ra,['shape','color', 'dom']] =[['rarrow', color_dict[" "], unknow]]
+    te.loc[ra,['shape', 'dom', 'height', 'width']] =[['rarrow', ' ', height * 0.95, TM_width * 3]] # remove color from the colors to change  te.loc[ra,['shape','color', 'dom']] =[['rarrow', color_dict[" "], unknow]]
     la = te.loc[(te.dom.isin(['TM','LP','LIPO','SIG','SP'])) & (te['shape'].isin(['larrow']))].index
     te = gf.insert_na_rows_at_indexes(
        te,
@@ -2221,6 +2234,7 @@ def operon_fig2(df,
            'nucleotide':'forward',
            'pid':'forward',
            'block_id':'forward',
+           'organism':'forward',
            'arch':'forward',
            'dom':'forward',
            'color':'forward',
@@ -2232,8 +2246,12 @@ def operon_fig2(df,
 #    te = te.reset_index(drop=True) 
     #Replacing the - or ? marker for empty spaces to decrease the noise on the figure.
     la = te.loc[(te.dom.isin(['TM','LP','LIPO','SIG','SP'])) & (te['shape'].isin(['larrow']))].index
-    te.loc[la,['shape','color', 'dom']] =[['larrow', color_dict[" "], unknow]]
+    te.loc[la,['shape', 'dom', 'height', 'width']] =[['larrow', ' ', height * 0.95, TM_width * 3]] # samething as above  remove color from the colors to change  te.loc[ra,['shape','color', 'dom']] =[['rarrow', color_dict[" "], unknow]]
     te['bcolor'] = te.color
+    if highlight_domain:
+        mask = te.dom.isin(list(highlight_domain.keys()))
+        te.loc[mask, 'bcolor'] = te.loc[mask, 'dom'].replace(highlight_domain)
+
     te['penwidth'] = penwidth
     te['width'] = te.dom.str.len()/40
     te.loc[te.dom =="white_space", 'width'] = space_width
@@ -2245,6 +2263,7 @@ def operon_fig2(df,
     if query_asterix:
         to_a = te.query('query ==1').query("dom not in ['TM','LP','LIPO','SIG','SP']").drop_duplicates(subset=['pid'], keep='last').index ###
         te.loc[to_a, 'dom'] = te.loc[to_a, 'dom'] +'*' ###
+        te.loc[te.dom == " *", 'dom'] = "*"
     if query_color:    
         to_a2 = te.query('query ==1').query("dom not in ['TM','LP','LIPO','SIG','SP']").index ###
         te.loc[to_a2, 'bcolor'] = query_color ###
@@ -2268,6 +2287,11 @@ def operon_fig2(df,
     w2 = te.organism.str.len().max()
     max_width = max(w1, w2)
     te['to_bellow'] = te.block_id.fillna('-') +'/' + te.organism.fillna('-')
+    ## Adjusting the height os arrows accourding to the string size
+    te['dom_string_size'] = te.dom.str.len()
+    te.loc[(te.dom_string_size ==1) & (te['shape'].isin(['rarrow', 'larrow'])), 'height'] = height * 0.80
+    te.loc[(te.dom_string_size ==2) & (te['shape'].isin(['rarrow', 'larrow'])), 'height'] = height * 0.90
+    te.loc[(te.dom_string_size ==3) & (te['shape'].isin(['rarrow', 'larrow'])), 'height'] = height * 0.90
     bellow_max = te.to_bellow.str.len().max()
     gb = te.groupby('block_id')
     li=[]
@@ -2325,7 +2349,7 @@ def operon_fig2(df,
                            '</TABLE>>'),
                        shape='none',
                        fontsize=fontsize,
-                       fontname='Arial',
+                       fontname='Consolas',
                        margin=margin,
                        height=height)
 
@@ -2342,6 +2366,7 @@ def operon_fig2(df,
                            fillcolor=z.color,
                            labeldistance=labeldistance,
                            margin=margin,
+                           fontname="Consolas",
                            fontsize=fontsize)
             l.append(z['index'])
     
@@ -2357,7 +2382,7 @@ def operon_fig2(df,
                            '</TABLE>>'),
                        shape='none',
                        fontsize=fontsize,
-                       fontname='Arial',
+                       fontname='Consolas',
                        margin=margin,
                        height=height)
             li.append(l)
@@ -2484,6 +2509,8 @@ def compact_to_df2(compact,
     """
     convert TASS annotated compact represantation to DF
     If only parser, it will retunr the dataframe before transform it
+    Your file must have at leat block identification and compact representation colum
+
     """
     import pandas as pd
     from rotifer.devel.alpha import gian_func as gf
@@ -2493,7 +2520,7 @@ def compact_to_df2(compact,
     file = pd.Series(file, name='lines').to_frame()
     file.lines = file.lines.str.strip('\n')
     file.lines = file.lines.str.strip()
-    file.lines = file.lines.str.replace('\t', '\s\s')
+    file.lines = file.lines.str.replace('\t', '  ')
 
     file = file.query('lines !=""').reset_index(drop=True)
     to_read = file.query('~lines.str.startswith("#")')
@@ -2525,6 +2552,7 @@ def compact_to_df2(compact,
     else:
         x = x[columns_to_keep[:-1]]
         x.columns = columns[:-1]
+        x['organism'] = 'Dummy_organism'
 
 
 
@@ -2780,7 +2808,7 @@ def domain2compact(domdf, domain_rename=False):
     g = domdf.copy().groupby(['pid'], sort=False).agg(
             block_id = ('block_id', 'first'),
             organism =  ('organism' ,'first'),
-            strand = ('strand', 'first'),
+           strand = ('strand', 'first'),
             query = ('query', 'first'),
             arch = ('dom', lambda x: '+'.join(list(x))))
     if domain_rename:
@@ -2804,12 +2832,16 @@ def domain2compact(domdf, domain_rename=False):
     return g
 
 def domtable_to_yaml_names(domtable, cutoff=0, to_file=False):
-    to_remove = ["TM", "SP", "LP", "LIPO", '-', '?']
+    to_remove = ["TM", "SP", "LP", "LIPO", '-', '?', 'SIG', 'tRNA', 'PSE']
     to_remove = domtable.query('dom in @to_remove').dom.unique().tolist()
     to_dict = domtable.dom.value_counts().to_frame()
     to_dict.loc[to_dict.dom > cutoff, 'Display_name'] = to_dict.loc[to_dict.dom > cutoff].index.tolist()
+    to_dict['Include']= 0
+    to_dict.loc[to_dict.dom > cutoff, 'Include'] = 1
     to_dict.loc[to_remove , 'Display_name'] = ''
     to_dict['Display_name'] = to_dict['Display_name'].fillna('')
+    to_dict.loc[to_dict.Display_name =='', 'Include'] = 0
+    to_dict['Function'] = [['', ''] for x in range(to_dict.shape[0])]
     to_dict['Notes'] = [['', ''] for x in range(to_dict.shape[0])]
     to_dict = to_dict.drop('dom', axis=1).to_dict(orient='index')
     if to_file:
@@ -2904,10 +2936,19 @@ def plot_network2(networkdf,
                  view=False,
                  node_size='freq',
                  color_edge=True,
-                 highlight_query=[],
-                 position='Kamada-kawai'):
+                 query_list=[],
+                 position='Kamada-kawai',
+                 legend=False,
+                 legend_title='Functional theme', 
+                 highlight_color='green',
+                 highlight_list =[], 
+                 return_position=False,
+                 label=True,
+                 font_size=4,
+                 fig_size = (11.7,8.3)):
     """
     PLot the network in svg
+    fig_size 11.7, 8.3 is a full size landscape in a standard journal
     """
     import community
     import seaborn as sns
@@ -2916,7 +2957,9 @@ def plot_network2(networkdf,
     import matplotlib.pyplot as plt
     from matplotlib import cm as cm
     import numpy as np
+    from rotifer.devel.alpha import gian_func as gf
     import networkx as nx
+    plt.rcParams['svg.fonttype'] = 'none'
 
     G = nx.from_pandas_edgelist(networkdf, edge_attr=['edge_type', 'edge_count'])
     #Community detection by Louvain
@@ -2938,35 +2981,50 @@ def plot_network2(networkdf,
     c['leidein_color'] = c.leidein.map(pd.Series(sns.color_palette('pastel',c.Louvain.nunique()).as_hex()).to_dict())
     c['leidein_2_color'] = c.leidein_2.map(pd.Series(sns.color_palette('pastel',c.leidein_2.nunique()).as_hex()).to_dict())
 
-    #Creating a list to create relative node size based in frequency
-    if node_size=='freq':
-        Node_size_dict =  (np.sqrt(pd.concat([networkdf.source, networkdf.target]).value_counts()) *30).to_dict()
-        node_size = [Node_size_dict[x] for x in G.nodes]
-    else:
-        node_size = node_size
 
 
     #Colors for Nodes
     if isinstance(community_to_color, str):
-        nc = gf.get_network_community_color(networkdf, community_to_color = community_color)
+        nc = gf.get_network_community_color(networkdf, community_to_color = community_to_color)
     else:
         nc = community_to_color
-    Node_colors = [nc[x] for x in G.nodes]
 
-    Node_edge = ['red' if x in highlight_query else nc [x] for x in G.nodes ]
+    Node_colors = [nc[x] for x in G.nodes]
 
     #Edge Colors
     if color_edge:
         edge_colors=[]
+        edge_alpha=[]
+        edge_styles=[]
         for x,y in G.edges:
             if nc[x] == nc[y]:
                 edge_colors.append(nc[x])
+                edge_styles.append('-')
+                edge_alpha.append(0.7)
             else:
                 edge_colors.append('black')
+                edge_styles.append(':')
+                edge_alpha.append(0.2)
 
+    # Creating the G fot the queries, and the G tor the other nodes:
+    G_queries = G.copy()
+    G_queries = G_queries.subgraph(query_list)
+    Node_query_colors = [nc[x] for x in G_queries.nodes]
+    G_others = G.copy()
+    G_others.remove_nodes_from(query_list)
+    Node_others_colors = [nc[x] for x in G_others.nodes]
+
+    #Creating a list to create relative node size based in frequency
+    if node_size=='freq':
+        Node_size_dict =  (np.sqrt(pd.concat([networkdf.source, networkdf.target]).value_counts()) *30).to_dict()
+        node_size = [Node_size_dict[x] for x in G.nodes if x not in query_list]
+        node_query_size = [Node_size_dict[x] for x in G_queries.nodes]
+        node_others_size = [Node_size_dict[x] for x in G_others.nodes]
+    else:
+        node_size = node_size
 
     #Drawing the network:
-    fig, ax = plt.subplots(figsize=(20,14 ))
+    fig, ax = plt.subplots(figsize=(fig_size))
     if isinstance(position, dict):
         pos = position
         print ('Dict position')
@@ -2977,18 +3035,50 @@ def plot_network2(networkdf,
         else:    
             pos = nx.kamada_kawai_layout(G)
             print('Kamada')
-    nx.draw_networkx_nodes(G, pos, c.cluster, node_shape="o",node_size=node_size, node_color=Node_colors, edgecolors=Node_edge)
-    nx.draw_networkx_edges(G, pos, alpha=0.5, edge_color=edge_colors)
+    if len(query_list) > 0 :
+        nx.draw_networkx_nodes(G_queries,
+                               pos,
+                               node_shape="h",
+                               node_size=node_query_size,
+                               node_color=Node_query_colors,
+                               edgecolors=[highlight_color if node in highlight_list else nc[node] for node in G_queries.nodes])
+        nx.draw_networkx_nodes(G_others,
+                               pos,
+                               node_shape="o",
+                               node_size=node_others_size,
+                               node_color=Node_others_colors,
+                               edgecolors=[highlight_color if node in highlight_list else nc[node] for node in G_others.nodes])
+    else:
+        nx.draw_networkx_nodes(G,
+                               pos,
+                               node_shape="o",
+                               node_size=node_size,
+                               node_color=Node_colors,
+                               edgecolors=[highlight_color if node in highlight_list else nc[node] for node in G.nodes])
+        
+    nx.draw_networkx_edges(G, pos, alpha=edge_alpha, edge_color=edge_colors, style=edge_styles)
     label_pos = {node: (x, y - 0.03) for node, (x, y) in pos.items()}
-    nx.draw_networkx_labels(G,label_pos, font_size= 8)
+    if label:
+        nx.draw_networkx_labels(G,label_pos, font_size= font_size)
     plt.tight_layout()
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     ax.spines['left'].set_visible(False)
     ax.spines['bottom'].set_visible(False)
+    if legend:
+        import matplotlib.patches as mpatches
+        legend_handles = [mpatches.Patch(color=color, label=group) for group, color in legend.items()]
+        ax.legend(handles=legend_handles, title=legend_title, fontsize=font_size)
     if view==True:
+        if return_position:
+            plt.plot()
+            return(pos)
         plt.plot()
     else:
+        if return_position:
+            plt.savefig(outputfile, format='svg', bbox_inches='tight')
+            return(pos)
+
         plt.savefig(outputfile, format='svg', bbox_inches='tight')
 
 def get_network_community_color(networkdf,
@@ -3209,3 +3299,120 @@ def to_html2(seqobj, output, backgroung = 'black', columns =[]):
         file.write(html_content)
     print(f"HTML file '{output}' has been successfully created.")
 
+def yaml2df(file, transpose=True):
+    from rotifer.core.functions import loadConfig
+    import pandas as pd
+    yaml_dict = loadConfig(file)
+    df = pd.DataFrame(yaml_dict)
+    if transpose:
+        return df.T
+    else:
+        return df
+
+def yamldf2yamlfile(yamldf, output_file):
+    import yaml
+    """
+    Function to convert yaml table to yaml file
+    """
+    to_file = yamldf.to_dict(orient='index')
+    with open(output_file, 'w') as file:
+        yaml.dump(to_file, file, default_flow_style=False, sort_keys=False)
+    return print(f'dataframe saved as {output_file}')    
+
+
+def plot_network_dash(networkdf,
+                 community_to_color='leidein',
+                 outputfile='net.svg',
+                 view=False,
+                 node_size='freq',
+                 color_edge=True,
+                 query_list=[],
+                 position='Kamada-kawai',
+                 legend=False,
+                 legend_title='Functional theme', 
+                 highlight_color='green',
+                 highlight_list =[], 
+                 return_position=False,
+                 label=True,
+                 font_size=4,
+                 fig_size = (11.7,8.3)):
+    """
+    PLot the network in svg
+    fig_size 11.7, 8.3 is a full size landscape in a standard journal
+    """
+    import community
+    import seaborn as sns
+    import leidenalg as la
+    import igraph as ig
+    import matplotlib.pyplot as plt
+    from matplotlib import cm as cm
+    import numpy as np
+    from rotifer.devel.alpha import gian_func as gf
+    import networkx as nx
+    plt.rcParams['svg.fonttype'] = 'none'
+
+    G = nx.from_pandas_edgelist(networkdf, edge_attr=['edge_type', 'edge_count'])
+    #Community detection by Louvain
+    partition = community.best_partition(G,weight='edge_count')
+    #Df to easily map community to node:
+    c = pd.DataFrame.from_dict(partition,orient='index').reset_index().rename(
+       {'index': 'cluster', 0: 'Louvain'}, axis=1)
+    #Leiden partition:
+    part = la.find_partition(ig.Graph.from_networkx(G), la.ModularityVertexPartition, weights='edge_count')
+    c['leidein'] = pd.Series(part.membership)
+    #Leiden partition playing with resolution parameter:
+    part2 = la.find_partition(ig.Graph.from_networkx(G), la.CPMVertexPartition, weights='edge_count', resolution_parameter = 2.5)
+    c['leidein_2'] = pd.Series(part2.membership)
+
+
+
+    #Adding a color column for each community method used:
+    c['Louvain_color'] = c.Louvain.map(pd.Series(sns.color_palette('pastel',c.Louvain.nunique()).as_hex()).to_dict())
+    c['leidein_color'] = c.leidein.map(pd.Series(sns.color_palette('pastel',c.Louvain.nunique()).as_hex()).to_dict())
+    c['leidein_2_color'] = c.leidein_2.map(pd.Series(sns.color_palette('pastel',c.leidein_2.nunique()).as_hex()).to_dict())
+
+
+
+    #Colors for Nodes
+    if isinstance(community_to_color, str):
+        nc = gf.get_network_community_color(networkdf, community_to_color = community_to_color)
+    else:
+        nc = community_to_color
+
+    Node_colors = [nc[x] for x in G.nodes]
+
+    #Edge Colors
+    if color_edge:
+        edge_colors=[]
+        edge_alpha=[]
+        edge_styles=[]
+        for x,y in G.edges:
+            if nc[x] == nc[y]:
+                edge_colors.append(nc[x])
+                edge_styles.append('-')
+                edge_alpha.append(0.7)
+            else:
+                edge_colors.append('gray')
+                edge_styles.append(':')
+                edge_alpha.append(0.2)
+
+    # Creating the G fot the queries, and the G tor the other nodes:
+    G_queries = G.copy()
+    G_queries = G_queries.subgraph(query_list)
+    Node_query_colors = [nc[x] for x in G_queries.nodes]
+    G_others = G.copy()
+    G_others.remove_nodes_from(query_list)
+    Node_others_colors = [nc[x] for x in G_others.nodes]
+    pos = nx.kamada_kawai_layout(G)
+
+
+    #Creating a list to create relative node size based in frequency
+    if node_size=='freq':
+        Node_size_dict =  (np.sqrt(pd.concat([networkdf.source, networkdf.target]).value_counts()) *3).to_dict()
+        node_size = [Node_size_dict[x] for x in G.nodes]
+        node_query_size = [Node_size_dict[x] for x in G_queries.nodes]
+        node_others_size = [Node_size_dict[x] for x in G_others.nodes]
+    else:
+        node_size = node_size
+    
+    return (G,Node_colors,node_size, nc, edge_colors,edge_styles, edge_alpha, pos)
