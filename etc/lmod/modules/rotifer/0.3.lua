@@ -4,7 +4,7 @@
 local myversion = "0.2"
 local myfn  = myFileName()
 local mymfn = myModuleFullName()
-local mydir = myfn:gsub(mymfn .. ".lua",""):gsub("/etc/lmod/modules/","")
+local mydir = realpath(myfn:gsub(mymfn .. ".lua",""):gsub("/etc/lmod/modules/",""))
 local datadir = mydir .. "/share/rotifer/data"
 
 -- Environment variables
