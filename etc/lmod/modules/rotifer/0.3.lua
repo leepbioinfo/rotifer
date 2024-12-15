@@ -1,10 +1,10 @@
 -- Rotifer's shell configuration
 
 -- Local variables
-local myversion = "0.2"
+local myversion = "0.3"
 local myfn  = myFileName()
 local mymfn = myModuleFullName()
-local mydir = realpath(myfn:gsub(mymfn .. ".lua",""):gsub("/etc/lmod/modules/",""))
+local mydir = realpath(dirname(realpath(myfn)) .. "/../../../../")
 local datadir = mydir .. "/share/rotifer/data"
 
 -- Environment variables
@@ -81,9 +81,10 @@ set_shell_function("tdesc"," \
 
 -- Whatis
 whatis("Module: " .. mymfn)
+whatis("Version: " .. myversion)
 whatis("Filename: " .. myfn)
 whatis("Directory: " .. mydir)
-whatis("Version: " .. myversion)
+whatis("Data directory: " .. datadir)
 whatis("Category: data analysis ")
 whatis("Description: Rotifer's shell setup.")
 whatis("URL: https://github.com/leepbioinfo/rotifer ")
