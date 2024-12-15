@@ -4,10 +4,11 @@
 local myversion = "0.3"
 local myfn  = myFileName()
 local mymfn = myModuleFullName()
-if _G["realpath"] then
-	local mydir = abspath(dirname(realpath(myfn)) .. "/../../../../")
+local mydir = "none"
+if realpath ~= nil then
+	mydir = realpath(dirname(realpath(myfn)) .. "/../../../../")
 else
-	local mydir = realpath(dirname(realpath(myfn)) .. "/../../../../")
+	mydir = abspath(dirname(abspath(myfn)) .. "/../../../../")
 end
 local datadir = mydir .. "/share/rotifer/data"
 
