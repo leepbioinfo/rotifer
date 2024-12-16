@@ -1,6 +1,19 @@
 -- Rotifer's shell configuration
 
+-- ------------------------------
+-- Lua Funcions
+-- ------------------------------
+local function read_file(path)
+    local file = open(path, "rb") -- r read mode and b binary mode
+    if not file then return nil end
+    local content = file:read "*a" -- *a or *all reads the whole file
+    file:close()
+    return content
+end
+
+-- ------------------------------
 -- Local variables
+-- ------------------------------
 local myversion = "0.3"
 local myfn  = myFileName()
 local mymfn = myModuleFullName()
@@ -12,7 +25,9 @@ else
 end
 local datadir = mydir .. "/share/rotifer/data"
 
+-- ------------------------------
 -- Environment variables
+-- ------------------------------
 prepend_path("PYTHONPATH", mydir .. "/lib")
 prepend_path("PERL5LIB", mydir .. "/perl/lib")
 if (os.getenv("DATABASES") == nil) then
@@ -27,9 +42,9 @@ end
 -- PATH
 prepend_path("PATH", mydir .. "/bin")
 
--- ----------
--- Functions
--- ----------
+-- ------------------------------
+-- Shell Functions
+-- ------------------------------
 
 -- acc2pfam
 set_shell_function("acc2pfam"," \
@@ -84,7 +99,9 @@ set_shell_function("tdesc"," \
     head -n1 $1 | ttranspose -s $sep | tfilter -f 'unshift(@F,$H{c}++);1'\
 ","")
 
+-- ------------------------------
 -- Whatis
+-- ------------------------------
 whatis("Module: " .. mymfn)
 whatis("Version: " .. myversion)
 whatis("Filename: " .. myfn)
