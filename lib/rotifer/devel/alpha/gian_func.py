@@ -1255,7 +1255,7 @@ def rpsblast(seqobj,
     import pandas as pd
     import os
     if db == 'gian': #### Improvisation ################
-        db =['/panfs/pan1/proteinworld/People/gian/projects/my_db/tmp/allprofiles', 'pwld_new_pfam']
+        db =['/netmnt/vast01/cbb01/proteinworld/People/gian/projects/my_db/tmp/allprofiles', 'pwld_new_pfam']
     if isinstance(db,list):
         dbpath = f'{os.getenv("DATABASES")}/rpsdb/'
         with tempfile.TemporaryDirectory() as tmpdirname:
@@ -1804,6 +1804,8 @@ def split_domain(df,
     if domain_rename:
         domain_dict = rcf.loadConfig(rcf.findDataFiles(":data/domain_rename.yaml"))
         domain_dict =  {v:k for k in domain_dict.keys() for v in domain_dict[k] }
+        if isinstance(domain_rename, dict):
+            domain_dict = {**domain_dict, **domain_rename}
         domdf['dom'] = domdf['dom'].replace(domain_dict)
 
 
@@ -2127,7 +2129,9 @@ def operon_fig2(df,
                 id_position='side',
                 comments=False,
                 to_string=False,
-                reverse_annotaion=False
+                reverse_annotaion=False,
+                lineage=False,
+                yaml_file=False
                 ):
     """
     Highlight domain should be dictnionary
@@ -2139,6 +2143,7 @@ def operon_fig2(df,
     import textwrap
     import io
 
+
     penwidth = 1
     TM_width = 0.03 
     space_width = 0.1 
@@ -2149,6 +2154,18 @@ def operon_fig2(df,
         TM_width = 0.02
         space_width = 0.025
         penwidth = 0.4
+
+    if yaml_file:
+        yaml_df =gf.yamldomain2df(yaml_file)
+        yaml_df.Include = yaml_df.Include.astype(int)
+        yaml_df.loc[yaml_df.Include ==0, 'Display_name'] = '-'
+        yaml_rename_dict = yaml_df.Display_name.to_dict()
+        yaml_df.loc[yaml_df.Include ==0, 'color'] = '#D3D3D3'
+        yaml_color_dict = yaml_df.color.to_dict()
+        if isinstance(domain_rename, dict):
+            domain_rename = {**domain_rename, **yaml_rename_dict}
+        else:
+            domain_rename = yaml_rename_dict
 
 
     if check_duplicates:
@@ -2196,6 +2213,8 @@ def operon_fig2(df,
                   "LP":"#0000FF",
                   "SP":"#FF0000",
                   "SIG":"#FF0000"}
+    if yaml_file:
+        color_dict = {**color_dict, **yaml_color_dict}
 
     if light_palette:
          color_dict = {key: value + light_palette for key, value in color_dict.items()}
@@ -2286,12 +2305,17 @@ def operon_fig2(df,
     w1 = te.block_id.str.len().max()
     w2 = te.organism.str.len().max()
     max_width = max(w1, w2)
-    te['to_bellow'] = te.block_id.fillna('-') +'/' + te.organism.fillna('-')
+    if lineage:
+        te['lineage'] = te.block_id.map(df[['block_id', 'lineage']].drop_duplicates('block_id').set_index('block_id').lineage.to_dict())
+        te['to_bellow'] = te.block_id.fillna('-') +'/' + te.organism.fillna('-') + ' (' + te.lineage.fillna('-') + ')'
+        te['to_bellow'] = te.to_bellow.str.replace('>', '&#62;')
+    else:    
+        te['to_bellow'] = te.block_id.fillna('-') +'/' + te.organism.fillna('-')
     ## Adjusting the height os arrows accourding to the string size
     te['dom_string_size'] = te.dom.str.len()
     te.loc[(te.dom_string_size ==1) & (te['shape'].isin(['rarrow', 'larrow'])), 'height'] = height * 0.80
     te.loc[(te.dom_string_size ==2) & (te['shape'].isin(['rarrow', 'larrow'])), 'height'] = height * 0.90
-    te.loc[(te.dom_string_size ==3) & (te['shape'].isin(['rarrow', 'larrow'])), 'height'] = height * 0.90
+    te.loc[(te.dom_string_size ==3) & (te['shape'].isin(['rarrow', 'larrow'])), 'height'] = height * 0.99
     bellow_max = te.to_bellow.str.len().max()
     gb = te.groupby('block_id')
     li=[]
@@ -2308,6 +2332,15 @@ def operon_fig2(df,
         if isinstance( comments, pd.DataFrame):
             if group in comments.index:
                 l = []
+                node_fake = f'{group}_fake_comment'
+                l.append(node_fake)
+                A.add_node(node_fake,
+                           label='',
+                           shape='none',
+                           fontsize=fontsize,
+                           fontname='Arial',
+                           margin=margin,
+                           height=height)
                 node_name = f'{group}_comments'
                 comment_text = comments.loc[group][0].replace("&", "&amp;")
                 comment_text = comment_text.replace("\n", "<br/>")
@@ -2334,8 +2367,26 @@ def operon_fig2(df,
 
         if bellow:
             l =[]
+            node_fake = f'{group}_fake_text_3'
+            l.append(node_fake)
+            A.add_node(node_fake,
+                       label='',
+                       shape='none',
+                       fontsize=fontsize,
+                       fontname='Arial',
+                       margin=margin,
+                       height=height)
         else:
             l =[]
+            node_fake = f'{group}_fake_text_2'
+            l.append(node_fake)
+            A.add_node(node_fake,
+                       label='',
+                       shape='none',
+                       fontsize=fontsize,
+                       fontname='Arial',
+                       margin=margin,
+                       height=height)
             l.append(group)
             label_list.append(group)
             A.add_node(group,
@@ -2373,6 +2424,15 @@ def operon_fig2(df,
         if bellow:
             li.append(l)
             l =[]
+            node_fake = f'{group}_fake_text'
+            l.append(node_fake)
+            A.add_node(node_fake,
+                       label='',
+                       shape='none',
+                       fontsize=fontsize,
+                       fontname='Arial',
+                       margin=margin,
+                       height=height)
             l.append(group)
             label_list.append(group)
             A.add_node(group,
@@ -2397,6 +2457,7 @@ def operon_fig2(df,
 
 
     v = [li[x][0] for x in range(len(li))]
+   # [A.add_edge(f"{v.pop(0)}:w", f"{v[0]}:w", penwidth=0) for x in range(len(v)-1)]
     [A.add_edge(v.pop(0), v[0], penwidth = 0) for x in range(len(v)-1)]
     A.graph_attr.update(nodesep= 0.02)
     A.graph_attr.update(ranksep= 0.02)
@@ -2407,7 +2468,11 @@ def operon_fig2(df,
         buffer.close()
         return svg_output
 
+    
+    A.graph_attr["page"] = "8.5,11" 
     A.draw(output_file, prog="dot")
+#    with open("Output.txt", "w") as text_file:  In case we ant to ahve the .dot file
+#        text_file.write(A.string())
     return te
 
 
@@ -2740,7 +2805,7 @@ def plot_network(networkdf,
 
     #Adding a color column for each community method used:
     c['Louvain_color'] = c.Louvain.map(pd.Series(sns.color_palette('pastel',c.Louvain.nunique()).as_hex()).to_dict())
-    c['leidein_color'] = c.leidein.map(pd.Series(sns.color_palette('pastel',c.Louvain.nunique()).as_hex()).to_dict())
+    c['leidein_color'] = c.leidein.map(pd.Series(sns.color_palette('pastel',c.leidein.nunique()).as_hex()).to_dict())
     c['leidein_2_color'] = c.leidein_2.map(pd.Series(sns.color_palette('pastel',c.leidein_2.nunique()).as_hex()).to_dict())
 
     #Creating a list to create relative node size based in frequency
@@ -2831,18 +2896,25 @@ def domain2compact(domdf, domain_rename=False):
             organism =  ('organism' ,'first'))
     return g
 
-def domtable_to_yaml_names(domtable, cutoff=0, to_file=False):
+def domtable_to_yaml_names(domtable, cutoff=0, to_file=False, color=False):
     to_remove = ["TM", "SP", "LP", "LIPO", '-', '?', 'SIG', 'tRNA', 'PSE']
     to_remove = domtable.query('dom in @to_remove').dom.unique().tolist()
     to_dict = domtable.dom.value_counts().to_frame()
     to_dict.loc[to_dict.dom > cutoff, 'Display_name'] = to_dict.loc[to_dict.dom > cutoff].index.tolist()
     to_dict['Include']= 0
     to_dict.loc[to_dict.dom > cutoff, 'Include'] = 1
-    to_dict.loc[to_remove , 'Display_name'] = ''
-    to_dict['Display_name'] = to_dict['Display_name'].fillna('')
+    to_dict.loc[to_remove , 'Display_name'] = '-'
+    to_dict['Display_name'] = to_dict['Display_name'].fillna('-')
     to_dict.loc[to_dict.Display_name =='', 'Include'] = 0
     to_dict['Function'] = [['', ''] for x in range(to_dict.shape[0])]
     to_dict['Notes'] = [['', ''] for x in range(to_dict.shape[0])]
+    if color:
+        if isinstance(color,dict):
+            to_dict['color'] = to_dict.index.map(color).fillna("#D3D3D3")
+            to_dict.loc[to_dict.dom <= cutoff, 'color'] = '#D3D3D3'
+        else:
+            print('color must be a domain color dict (gf.pickcolor on domtable)') 
+
     to_dict = to_dict.drop('dom', axis=1).to_dict(orient='index')
     if to_file:
         import yaml
