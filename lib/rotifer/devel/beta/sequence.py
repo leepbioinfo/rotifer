@@ -1097,7 +1097,7 @@ class sequence(rotifer.pipeline.Annotatable):
                     lines = f.readlines()
                 for i, line in enumerate(lines):
                     if line.startswith("NAME"):
-                        lines.insert(i + 1, "DESC  Custom description here\n")
+                        lines.insert(i + 1, f"DESC  {self.description}\n")
                         break    
                 with open(file_path, "w") as f:
                     f.writelines(lines)
