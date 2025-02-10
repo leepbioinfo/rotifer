@@ -1067,7 +1067,7 @@ class sequence(rotifer.pipeline.Annotatable):
         return MultipleSeqAlignment(self.to_seqrecords())
 
     def to_file(self, file_path=None, output_format='fasta', annotations=None, remove_gaps=False):
-        file_ext_dict = {'pkl':'pickle', 'a3m':'a3m'}
+        file_ext_dict = {'pkl':'pickle', 'a3m':'a3m', 'hmm':'hmm'}
         file_ext = file_path.rsplit('.', maxsplit=1)
         if len(file_ext) == 2 and file_ext[1] in file_ext_dict:
             output_format = file_ext_dict[file_ext[1]]
@@ -1083,6 +1083,26 @@ class sequence(rotifer.pipeline.Annotatable):
             with open(file_path,"wb") as fh:
                 pickle.dump(self,fh)
             return f'{file_path} pickle file saved'
+        elif output_format =="hmm":
+            import subprocess
+            import tempfile
+            import os
+            with tempfile.TemporaryDirectory() as temp_dir:
+                fasta_file = os.path.join(temp_dir, "alignment.fa")
+                self.to_file(fasta_file)
+                hmm_file = os.path.join(temp_dir, 'output.hmm')
+                cmd = ["hmmbuild", "-n", self.name, hmm_file, fasta_file]
+                subprocess.run(cmd, check=True)
+                with open(hmm_file, "r") as f:
+                    lines = f.readlines()
+                for i, line in enumerate(lines):
+                    if line.startswith("NAME"):
+                        lines.insert(i + 1, "DESC  Custom description here\n")
+                        break    
+                with open(file_path, "w") as f:
+                    f.writelines(lines)
+            return f'{file_path} hmm file saved'
+
         else:
             return SeqIO.write(self.to_seqrecords(annotations=annotations, remove_gaps=remove_gaps), file_path, output_format)
 
