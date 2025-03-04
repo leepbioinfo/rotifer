@@ -1224,7 +1224,7 @@ class sequence(rotifer.pipeline.Annotatable):
     def _view_groups(self,
             groupby=None,
             min_group_size=2,
-            group_separator=np.NaN,
+            group_separator=np.nan,
             color=True,
             scale=True,
             pager='less -SR',
