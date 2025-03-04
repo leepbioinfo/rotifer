@@ -222,7 +222,7 @@ class IPGCursor(rotifer.db.methods.IPGCursor, rotifer.db.delegator.SequentialDel
         super().__init__(readers=readers, writers=writers, progress=progress, tries=tries, batch_size=batch_size, threads=threads, *args, **kwargs)
 
     def fetchall(self, accessions):
-        df = super.fetchall(self, accessions)
+        df = super().fetchall(self, accessions)
         if isinstance(df, list):
             df = pd.concat(df, ignore_index=True)
         return df
