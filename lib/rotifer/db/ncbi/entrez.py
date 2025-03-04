@@ -243,7 +243,7 @@ class IPGCursor(rotifer.db.methods.IPGCursor, SequenceCursor):
 
         # Register original order of the table's rows
         o = pd.Series(range(1, len(ipg) + 1))
-        c = i.id.map(o.groupby(i.id).min().to_dict())
+        c = ipg.id.map(o.groupby(ipg.id).min().to_dict())
         #c = pd.Series(np.where(ipg.id != ipg.id.shift(1), o.values, pd.NA)).ffill()
         ipg['order'] = (o - c).values
 
