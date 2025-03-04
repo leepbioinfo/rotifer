@@ -16,7 +16,7 @@ Installing ROTIFER package with conda enviroments:
 1. Clone this git reposytory.
 2. Create a rotifer's conda enviroment:
   ```Bash
-  conda create --name rotifer biopython pandas numpy termcolor PyYAML tqdm ipython ascii_graph matplotlib ete3
+  conda create --name rotifer biopython pandas numpy termcolor PyYAML tqdm ipython ascii_graph matplotlib ete3 prettytable ascii_graph
   ```
 3. Activating the rotifer enviroment:
   ```Bash
@@ -45,9 +45,9 @@ for df in ic.fetchone([query_list]):
         df.to_csv("ipg.tsv", sep="\t", index=False, mode="a", header=False)
     else:
         df.to_csv("ipg.tsv", sep="\t", index=False) 
-           
 ipg = pd.read_csv('ipg.tsv',sep="\t")
 ```
+
 Remember to check ic.missing to see if there are any missing ipg, you could further collect it with:
 SequenceCursor + ic._seqrecords_to_ipg
  
