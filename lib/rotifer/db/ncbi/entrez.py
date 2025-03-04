@@ -206,8 +206,8 @@ class IPGCursor(rotifer.db.methods.IPGCursor, SequenceCursor):
                 org = desc[1].replace("]","")
                 desc = desc[0]
             else:
-                org = np.NaN
-            strain = np.NaN
+                org = np.nan
+            strain = np.nan
             for f in x.features:
                 for k in f.qualifiers:
                     if "strain" in f.qualifiers:
@@ -219,7 +219,7 @@ class IPGCursor(rotifer.db.methods.IPGCursor, SequenceCursor):
                         coord = v.replace('complement(',"").replace('join(',"").replace(")","").replace("..",":").replace(",",":").split(":")
                         acc = ",".join(pd.Series([ y.strip() for y in coord if "." in y ]).unique())
                         coord = [ int(y.replace(">","").replace("<","")) for y in coord if "." not in y ]
-                        ipgFromGenPept.append([ipg[seq],source,acc,min(coord),max(coord),strand,x.id, desc,org,strain,np.NaN,1,order[seq],representative[seq]])
+                        ipgFromGenPept.append([ipg[seq],source,acc,min(coord),max(coord),strand,x.id, desc,org,strain,np.nan,1,order[seq],representative[seq]])
         ipgFromGenPept = pd.DataFrame(ipgFromGenPept, columns=self._columns + self._added_columns)
         return ipgFromGenPept
 
@@ -769,7 +769,7 @@ def nucleotide2assembly(nucids):
     t = elink(nucids, dbfrom="nuccore", dbto="assembly")
     t.rename({'qacc':'nucleotide','quid':'nuid','tuid':'auid'}, axis=1, inplace=True)
     t.drop(['dbfrom','linkname','dbto'], axis=1, inplace=True)
-    t['assembly'] = np.NaN
+    t['assembly'] = np.nan
     if len(t) == 0:
         return t
     auids = t.auid.to_list()

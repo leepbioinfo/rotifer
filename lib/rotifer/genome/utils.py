@@ -92,7 +92,7 @@ def seqrecords_to_dataframe(seqrecs=None, exclude_type=[], autopid=False, assemb
                 assemblyID = seqrecord.id
 
         # Process source feature
-        taxid = np.NaN
+        taxid = np.nan
         seq_type = 'chromosome'
         ftsource = [ x for x in seqrecord.features if x.type == "source" ]
         if len(ftsource):
@@ -128,7 +128,7 @@ def seqrecords_to_dataframe(seqrecs=None, exclude_type=[], autopid=False, assemb
             # PID
             locus = qualifiers['locus_tag'][0] if 'locus_tag' in qualifiers else seqrecord.id + f'.{internal_id:0{digits}}'
             plen = sum([ len(x) for x in ft.location.parts ])
-            pid = np.NaN
+            pid = np.nan
             if feature_type == 'CDS':
                 if 'pseudo' in qualifiers:
                     feature_type = 'PSE'
@@ -158,8 +158,8 @@ def seqrecords_to_dataframe(seqrecs=None, exclude_type=[], autopid=False, assemb
                         pid = locus
 
             # Other feature attributes
-            gene = qualifiers['gene'][0] if 'gene' in qualifiers else np.NaN
-            product = np.NaN
+            gene = qualifiers['gene'][0] if 'gene' in qualifiers else np.nan
+            product = np.nan
             for tag in ['product','inference']:
                 if tag in qualifiers:
                     product = qualifiers[tag][0]

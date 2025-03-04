@@ -70,7 +70,7 @@ class TaxonomyCursor(rotifer.db.core.BaseCursor):
             return pd.DataFrame(columns=self.taxcols)
         ti = pd.Series(tl.values()).explode().unique()
         ti = self.ete3.get_taxid_translator(ti)
-        li = [[x,ti[x],np.NaN,np.NaN,"; ".join([ ti[y] for y in tl[x] if ti[y] not in ["root","cellular organisms"] ]),x] for x in tl ]
+        li = [[x,ti[x],np.nan,np.nan,"; ".join([ ti[y] for y in tl[x] if ti[y] not in ["root","cellular organisms"] ]),x] for x in tl ]
         li = pd.DataFrame(li, columns=self.taxcols)
         li['superkingdom'] = li.classification.str.split("; ", expand=True)[0]
         li['lineage'] = lineage(li.classification)

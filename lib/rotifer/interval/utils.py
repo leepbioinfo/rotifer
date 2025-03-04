@@ -177,7 +177,7 @@ def filter_nonoverlapping_regions(df,
     clean.reset_index(drop=True, inplace=True)
 
     # Remove non-optimal layers
-    keep = pd.Series([ np.NaN ] * len(clean), index=clean.index.copy())
+    keep = pd.Series([ np.nan ] * len(clean), index=clean.index.copy())
     while keep.isna().any():
         logger.info(f'Running next layer with {keep.notna().sum()} processed rows out of {len(clean)} rows')
         best = clean.loc[keep.isna()].drop_duplicates(reference)
@@ -200,7 +200,7 @@ def filter_nonoverlapping_regions(df,
     clean.sort_values(reference + [start,end], ascending=(len(reference)+2)*[True], inplace=True)
     return clean
 
-def complement(df, include=True, exclude=False, values=False, reference='ID', start='start', end='end'):
+def complement(df, include=True, exclude=False, add=False, reference='ID', start='start', end='end'):
     
     '''
     Given a DataFrame describing regions in one-dimensional
@@ -212,15 +212,22 @@ def complement(df, include=True, exclude=False, values=False, reference='ID', st
     describing the reference object and a pair of integer columns
     corresponding to the start and end positions of each region.
 
+    If a column with the length of each interval is supplied, the
+    last interval and the length of each fragment will be included
+    in the returned dataframe.
+
     Parameters
     ----------
     df : Pandas dataframe
        The dataframe must have at least a reference column and coordinates
+    include: list
+    exclude: list
+    add: dict
     reference : (list of) strings, default ['sequence']
         Name of the column(s) storing sequence identifiers
-    start : string, default estart
+    start : string, default 'start'
         Name of the column with the first coordinate of each interval
-    end : string, default eend
+    end : string, default 'end'
         Name of the column with the last coordinate of each interval
     '''
     if isinstance(reference, str):
@@ -252,7 +259,7 @@ def complement(df, include=True, exclude=False, values=False, reference='ID', st
     if isinstance(exclude, list):
         uncovered = uncovered.drop(exclude, axis=1)
 
-    if isinstance(values, dict):
+    if isinstance(add, dict):
         for keys in values.keys():
             uncovered[keys] = values[keys]
 

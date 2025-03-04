@@ -109,7 +109,7 @@ class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
                 cols = datum.columns.to_list()
             missing = [ x for x in self.NDFProperties["columns"] if x not in cols ]
             if missing:
-                datum[missing] = np.NaN
+                datum[missing] = np.nan
             if cols[0:len(self.NDFProperties["columns"])] != self.NDFProperties["columns"]:
                 cols = self.NDFProperties["columns"] + [ x for x in cols if x not in self.NDFProperties["columns"] ]
                 datum = datum[cols].copy()
