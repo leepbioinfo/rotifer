@@ -664,8 +664,8 @@ class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
             blks = blks.groupby([*cols,'block_id']).agg({
                 'feature_order': lambda x: ", ".join(sorted(set([ str(y) for y in x]))),
                 'internal_id': lambda x: ", ".join(sorted(set([ str(y) for y in x]))),
-                'foup': min,
-                'fodown': max,
+                'foup': 'min',
+                'fodown': 'max',
                 'is_fragment': 'all'
             }).reset_index()
             blks = blks.merge(dflim, left_on=['assembly','nucleotide','type'], right_on=['assembly','nucleotide','type'], how='left')

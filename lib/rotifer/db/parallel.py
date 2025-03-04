@@ -386,7 +386,7 @@ class GeneNeighborhoodCursor(rotifer.db.core.BaseCursor):
             contigs, report = self.genome_report(accession)
             if len(report) > 0:
                 tc = ncbi.TaxonomyCursor(sleep_between_tries=15, tries=5)
-                taxonomy = tc[report.loc['taxid'][0]] # Fetching from database
+                taxonomy = tc[report.loc['taxid'].iloc[0]] # Fetching from database
                 if taxonomy.loc[0,"superkingdom"] == "Eukaryota":
                     raise ValueError(f"Eukaryotic genome {accession} ignored.")
         stream = self.open_genome(accession)
