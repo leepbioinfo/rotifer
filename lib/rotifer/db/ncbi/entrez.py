@@ -243,7 +243,9 @@ class IPGCursor(rotifer.db.methods.IPGCursor, SequenceCursor):
 
         # Register original order of the table's rows
         o = pd.Series(range(1, len(ipg) + 1))
-        c = pd.Series(np.where(ipg.id != ipg.id.shift(1), o.values, pd.NA)).ffill()
+        c = ipg.reset_index().rename({'index':'o'}, axis=1).eval('o = o + 1').groupby('id').o.min().to_dict()
+        c = ipg.id.map(c)
+        #c = pd.Series(np.where(ipg.id != ipg.id.shift(1), o.values, pd.NA)).ffill()
         ipg['order'] = (o - c).values
 
         # Annotate representatives
