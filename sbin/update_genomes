@@ -38,6 +38,7 @@ function mirror_genome() {
 	bn=$(basename $path)
 
 	# Load libraries
+	MYPATH=$(dirname $(dirname $(realpath $0)))
 	source $MYPATH/lib/rotifer/rbashpipe/base/00.logger.lib
 	simplelog "Updating target $db/$path"
 
