@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Load environment
-source /etc/profile
+#source /etc/profile
 
 # Directories
 basedir=${ROTIFER_DATA:-/databases}
