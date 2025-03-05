@@ -36,6 +36,9 @@ function mirror_genome() {
 	justecho=""
 	if [ "$runtest" != "" ]; then justecho="echo"; fi
 	bn=$(basename $path)
+
+	# Load libraries
+	source $MYPATH/lib/rotifer/rbashpipe/base/00.logger.lib
 	simplelog "Updating target $db/$path"
 
 	# Download/update metadata
