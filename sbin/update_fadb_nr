@@ -8,40 +8,28 @@
 # root data directory => section => target
 #
 # Under this model, the path to the working directory of this
-# script is /databases (root) => fadb (section) => nr (target)
-# i.e. /databases/fadb/nr
+# script is $DATABASES (root) => fadb (section) => nr (target)
+# i.e. $DATABASES/fadb/nr
 #
 # Additionally, the basename of most data files will match the
 # target name. Therefore, the NR FASTA file, is
 #
-# /databases/fadb/nr/nr
+# $DATABASES/fadb/nr/nr
 #
 # The script performs atomic updates by storing each update
 # within a versioned name (nr.$version), derived from the last
-# run date, and updating the link /databases/fadb/nr points to
+# run date, and updating the link $DATABASES/fadb/nr points to
 # 
 
 set -e # Abort at first error!
 
 # Environment and parameters
 dependencies="aria2c mmseqs esl-sfetch"
-modules="leep brew"
 version=$(date +%Y%m%d)
 section=fadb
 target=nr
 new=$target.$version
 log=${new}.log
-
-# Make sure environment modules are working
-if [ "$(declare -F module)" == "" ]; then
-	echo No environment modules: cannot proceeed!
-	exit 1
-fi
-module load $modules
-if [ $? -ne 0 ]; then
-	echo "Error loading modules: $modules"
-	exit 1
-fi
 
 # Check for dependencies
 for program in $dependencies
@@ -53,15 +41,17 @@ do
 done
 
 # Access data root directory
-if [ ! -d $ROTIFER_DATA ]; then
-	echo "Data root directory not set! Aborting..."
+if [ ! -d $DATABASES ]; then
+	echo "Data root directory not set!
+Set the environment variable DATABASES to the root of the data directory.
+Aborting..."
 	exit 1
 fi
-cd $ROTIFER_DATA
+cd $DATABASES
 
 # Enter section
 if [ ! -d $section ]; then
-	echo "Creating directory for section $section at $ROTIFER_DATA"
+	echo "Creating directory for section $section at $DATABASES"
 	mkdir $section
 fi
 cd $section
@@ -84,17 +74,24 @@ cd $new
 	esl-sfetch --index nr
 
 	echo "Using linclust to cluster NR database: 50% identity and 80% alignment coverage"
-	mmseqs linclust nrDB nr50linclu tmp2 --min-seq-id 0.5 --threads 20 --split-memory-limit 64G
-	mmseqs createtsv nrDB nrDB nr50linclu nr50linclu.tsv
-	mmseqs createsubdb nr50linclu nrDB nr50DB
-	mmseqs convert2fasta nr50DB nr50
+	mmseqs cluster nrDB nr50linclu tmp2 --min-seq-id 0.5 --target-cov 0.9 --threads 20 --split-memory-limit 64G
+	mmseqs createtsv nrDB nr50linclu nr50linclu.tsv
+	mmseqs result2repseq nrDB nr50linclu nr50rep -v 0
+	mmseqs result2flat nrDB nrDB nr50rep nr50 --use-fasta-header  -v 0
+	#mmseqs createsubdb nr50linclu nrDB nr50DB
+	#mmseqs convert2fasta nr50DB nr50
 	esl-sfetch --index nr50
-	makeblastdb -dbtype prot -in nr50 -parse_seqids \
-	 -title "NCBI Protein database representatives for 50% indentity maximum" \
-	 -taxid_map /databases/taxonomy/accession2taxid/prot.accession2taxid
+	if [ -f $DATABASES/taxonomy/accession2taxid/prot.accession2taxid.FULL ]; then
+		makeblastdb -dbtype prot -in nr50 -parse_seqids \
+		 -title "NCBI Protein database representatives for 50% indentity maximum" \
+		 -taxid_map $DATABASES/taxonomy/accession2taxid/prot.accession2taxid.FULL
+	else
+		makeblastdb -dbtype prot -in nr50 -parse_seqids \
+		 -title "NCBI Protein database representatives for 50% indentity maximum"
+	fi
 
 	# Update link
-	cd $ROTIFER_DATA/$section
+	cd $DATABASES/$section
 	if [ -L $target ]; then
 		rm -f $target
 	fi
