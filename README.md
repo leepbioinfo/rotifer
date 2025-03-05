@@ -16,7 +16,12 @@ Installing ROTIFER package with conda enviroments:
 1. Clone this git reposytory.
 2. Create a rotifer's conda enviroment:
   ```Bash
-  conda create --name rotifer biopython pandas numpy termcolor PyYAML tqdm ipython ascii_graph matplotlib ete3 prettytable ascii_graph
+  conda create --name rotifer biopython pandas numpy termcolor PyYAML tqdm ipython ascii_graph matplotlib ete3 prettytable
+  conda -n rotifer install perl-bioperl perl-moose perl-ipc-system-simple \
+    perl-config-any perl-appconfig perl-carp-clan perl-module-find \
+    perl-file-which perl-module-list perl-statistics-descriptive perl-yaml
+  conda install hhsuite hmmer mmseqs2 foldseek mafft famsa blast parallel
+  cpan i Module::Find
   ```
 3. Activating the rotifer enviroment:
   ```Bash
