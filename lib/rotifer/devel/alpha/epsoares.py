@@ -98,39 +98,3 @@ def compact_for_treeviewer(
     else:
         return table
 
-def make_heatmap(
-        df, 
-        name = 'heatmap.svg'
-        color_list = ['white','blue','yellow','red'],
-        cbar = False,
-        fmt = 'd',
-        annot = False,
-        linewidths = 1
-        tree_file = None
-        tree = False
-    ):
-    '''
-    Creates a heatmap from a dataframe to represent 
-    domain occurrence. The colors are correspondent 
-    to the values in the dataframe, by exemple, four 
-    colors corresponds to the values: 0, 1, 2 and 3, 
-    respectively. The columns in the dataframe will
-    be the columns in the heatmap, and each line 
-    represents a occurrence from the respective domain
-    and the colors the type of correspondence, that is
-    determined by the numbers utilized.
-    '''
-    import seaborn as sns
-    import matplotlib.pyplot as plt
-    import matplotlib.colors as colors
-    cl = color_list
-    cmap = colors.ListedColormap(cl) 
-
-    if tree == True:
-        import ete3
-        t = ete3.Tree(f'{tree_file}')
-        df = df.reindex(t.get_leaf_names()).fillna(0).astyoe(int)
-    return df
-
-    fig, ax = sns.heatmap(data = df, cmap = cmap, cbar = cbar, fmt = fmt, annot = annot, linewidths = linewidths)
-    plt.savefig(f'{name}')
