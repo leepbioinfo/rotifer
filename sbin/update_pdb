@@ -8,7 +8,7 @@ basedir=${ROTIFER_DATA:-/databases}
 pdbdir=$basedir/pdb
 dalidb=$basedir/dalidb
 blastdb=$basedir/blast/dalidb
-pdburl=rsync://ftp.wwpdb.org:33444/ftp/data/structures/divided/pdb/
+pdburl=rsync.rcsb.org::ftp_data/structures/divided/pdb/
 
 # functions
 dalimport () 
@@ -28,7 +28,7 @@ dalimport ()
 export -f dalimport
 
 # Run rsync
-/usr/bin/rsync $TEST -arHv --delete --prune-empty-dirs --delete-excluded $pdburl $pdbdir
+/usr/bin/rsync $TEST -rlpt -v -z --port=33444 --delete --prune-empty-dirs --delete-excluded $pdburl $pdbdir
 
 # Update Dali database
 find $pdbdir -name 'pdb*.ent.gz' | cut -c 22-25 > $dalidb/pdb.latest.txt
