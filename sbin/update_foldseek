@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# Stop at the first error!
+set -e
+
+# Make sure environment is fully loaded
+if [ "$DATABASES" == "" ]; then
+	echo "You must set the environment variable DATABASES to the root of your databases directory! Aborting..."
+	exit 1
+fi
+if [ "$(which foldseek)" == "" ]; then
+	echo "Could not find foldseek executable! Aborting..."
+	exit 1
+fi
+
+# Enter database directory
+work=$DATABASES/foldseek
+if [ ! -f $work ]; then mkdir $work; fi
+cd $work
+if [ ! -d old ]; then mkdir old; fi
+if [ ! -d new ]; then mkdir new; fi
+
+# Process databases
+for f in $(foldseek databases --tsv 1 | awk '{t=tolower($1);gsub("/","_",t);gsub("-","",t);print $1":"t}')
+do
+	origin=$(echo $f | cut -f 1 -d :)
+	localdb=$(echo $f | cut -f 2 -d :)
+	echo $origin $localdb
+	cd $work/new
+	if [ -d tmp ]; then
+		rm -fr tmp/
+	fi
+	foldseek databases $origin $localdb tmp
+	modified=$(stat $localdb | grep Modify | cut -f 2 -d " " | sed -e 's/-//g')
+	cd $work
+	rename $localdb old/$modified.$localdb ${localdb}*
+	mv new/${localdb}* .
+done
+
+# Exit and send last run code
+exit $?
