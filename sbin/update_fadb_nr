@@ -74,11 +74,11 @@ cd $new
 	esl-sfetch --index nr
 
 	echo "Using linclust to cluster NR database: 50% identity and 80% alignment coverage"
-	mmseqs cluster nrDB nr50linclu tmp2 --min-seq-id 0.5 --target-cov 0.9 --threads 20 --split-memory-limit 64G
-	mmseqs createtsv nrDB nr50linclu nr50linclu.tsv
-	mmseqs result2repseq nrDB nr50linclu nr50rep -v 0
+	mmseqs cluster nrDB nr50clu tmp2 --min-seq-id 0.5 --target-cov 0.9 --threads 20 --split-memory-limit 64G
+	mmseqs createtsv nrDB nr50clu nr50clu.tsv
+	mmseqs result2repseq nrDB nr50clu nr50rep -v 0
 	mmseqs result2flat nrDB nrDB nr50rep nr50 --use-fasta-header  -v 0
-	#mmseqs createsubdb nr50linclu nrDB nr50DB
+	#mmseqs createsubdb nr50clu nrDB nr50DB
 	#mmseqs convert2fasta nr50DB nr50
 	esl-sfetch --index nr50
 	if [ -f $DATABASES/taxonomy/accession2taxid/prot.accession2taxid.FULL ]; then
