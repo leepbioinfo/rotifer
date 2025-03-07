@@ -22,7 +22,8 @@ Installing ROTIFER package with conda enviroments:
   conda -n rotifer install perl-bioperl perl-moose perl-ipc-system-simple \
     perl-config-any perl-appconfig perl-carp-clan perl-module-find \
     perl-file-which perl-module-list perl-statistics-descriptive perl-yaml
-  conda -n rotifer install hhsuite hmmer mmseqs2 foldseek mafft famsa blast parallel
+  conda -n rotifer install hhsuite hmmer mmseqs2 foldseek mafft famsa blast \
+    parallel datamash
   conda activate rotifer
   pip install dash-cytoscape
   cpan i Module::Find
