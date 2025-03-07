@@ -15,7 +15,7 @@ fi
 
 # Enter database directory
 work=$DATABASES/foldseek
-if [ ! -f $work ]; then mkdir $work; fi
+if [ ! -d $work ]; then mkdir $work; fi
 cd $work
 if [ ! -d old ]; then mkdir old; fi
 if [ ! -d new ]; then mkdir new; fi
