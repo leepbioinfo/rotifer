@@ -24,6 +24,10 @@ def _setup_config(logger):
         'data': os.environ['ROTIFER_DATA'] if 'ROTIFER_DATA' in os.environ else "/databases",
         **CoreConfig
     })
+    if 'cache' not in config:
+        config['cache'] = '/tmp'
+    if not os.path.exists(config['cache']):
+        config['cache'] = os.path.join(os.path.expanduser("~"),".cache","rotifer")
 
     # Create directiories, if needed
     auto = [ 'cache', 'user', 'userConfig' ]
@@ -36,10 +40,6 @@ def _setup_config(logger):
                 logger.warning(f'Unable to create cache directory at {target}')
 
     # Return main configuration
-    if 'cache' not in config:
-        config['cache'] = '/tmp'
-    if not os.path.exists(config['cache']):
-        config['cache'] = os.path.join(os.path.expanduser("~"),".cache","rotifer")
     return config
 
 # Setup configuration
