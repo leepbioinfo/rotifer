@@ -737,7 +737,7 @@ def add_arch_to_df(df, db='/databases/fadb/nr/nr'):
         os.chdir(tmpdirname)
         os.makedirs('tmpd')
         Popen(
-                '/home/linuxbrew/git/rotifer/share/rotifer/scripts/scanseqs.sh tmp1 seqfile',
+                os.path.join(rotifer.config['base'],"bin","scanseqs") + " tmp1 seqfile",
                 stdout=PIPE,
                 shell=True
                 ).communicate()
