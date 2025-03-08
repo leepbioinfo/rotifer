@@ -18,7 +18,8 @@ Installing ROTIFER package with conda enviroments:
   ```Bash
   conda create --name rotifer biopython pandas numpy termcolor PyYAML tqdm \
     ipython ascii_graph matplotlib ete3 prettytable seaborn pygraphviz \
-    bcbio-gff dash-bio gspread leidenalg igraph networkx oauth2client sqlalchemy
+    bcbio-gff dash-bio gspread leidenalg igraph networkx oauth2client sqlalchemy \
+    argcomplete
   conda -n rotifer install perl-bioperl perl-moose perl-ipc-system-simple \
     perl-config-any perl-appconfig perl-carp-clan perl-module-find \
     perl-file-which perl-module-list perl-statistics-descriptive perl-yaml

@@ -37,7 +37,7 @@ def _setup_config(logger):
 
     # Return main configuration
     if 'cache' not in config:
-	config['cache'] = '/tmp'
+        config['cache'] = '/tmp'
     if not os.path.exists(config['cache']):
         config['cache'] = os.path.join(os.path.expanduser("~"),".cache","rotifer")
     return config
