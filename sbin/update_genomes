@@ -15,7 +15,7 @@ Usage: $(basename $0) [options] <targets>
 Available options:
  Option         : Description               : Default
 ----------------:---------------------------:---------
- -d <databases> : root databases directory  : /db
+ -d <databases> : root databases directory  : $DB
  -e             : include Eukaryotes        : off
  -n             : dry run (test only)       : off
  -r             : update assembly reports   : off
@@ -86,15 +86,11 @@ function mirror_genome() {
 }
 export -f mirror_genome
 
-# Load configuration
-#source /etc/profile
-#module load brew
-
 # Load libraries
 source $MYPATH/lib/rotifer/rbashpipe/base/00.logger.lib
 
 # Parse command line options
-DB=/db
+DB=${DATABASES:-"/db"}
 typeset -i EUKARYOTES=0
 typeset -i UPDATE_ETE3_TAXONOMY=0
 typeset -i UPDATE_REPORTS=0
