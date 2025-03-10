@@ -11,6 +11,7 @@ logger = rotifer.logging.getLogger(__name__)
 
 config = loadConfig(__name__, defaults = {
     'local_database_path': [ os.path.join(rotifer.config['data'],"fadb","nr","nr") ],
+    'blastdb': [ os.path.join(rotifer.config['data'],"blast","nr50") ],
 })
 
 def annotate_community(df, column='community', reference='query', ):
@@ -619,12 +620,12 @@ def psiblast(acc,
         if isinstance (acc, sequence):
             acc.to_file(f'{tmpdirname}/seqfile') 
             if aln:
-                Popen(f'splishpsi -a {cpu} -num_alignments {num_aln} -in_msa {tmpdirname}/seqfile -d {db} > {tmpdirname}/out',
+                Popen(f'psiblast -num_threads {cpu} -num_alignments {num_aln} -in_msa {tmpdirname}/seqfile -db {db} > {tmpdirname}/out',
                       stdout=PIPE,
                       shell=True
                       ).communicate()
             else:
-                Popen(f'splishpsi -a {cpu} -num_alignments {num_aln} -i {tmpdirname}/seqfile -d {db} > {tmpdirname}/out',
+                Popen(f'psiblast -num_threads {cpu} -num_alignments {num_aln} -query {tmpdirname}/seqfile -db {db} > {tmpdirname}/out',
                       stdout=PIPE,
                       shell=True
                       ).communicate()
