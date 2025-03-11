@@ -591,14 +591,13 @@ def psiblast(acc,
     '''
     Psiblast search of a seqobj against sequence database.
     '''
-    slurmcmd = f'srun --pty -N1 -c {cpu} -p {partition} '
-
     import tempfile
     import subprocess
     from subprocess import Popen, PIPE, STDOUT
     from rotifer.devel.beta import sequence as rdbs
     import os
     import pandas as pd
+
     cols =[
             'hit',
             'query',
@@ -615,6 +614,7 @@ def psiblast(acc,
 
     cwd = os.getcwd()
 
+    slurmcmd = f'srun --pty -N1 -c {cpu} -p {partition} '
     with tempfile.NamedTemporaryFile(mode='w+t', suffix='.fa', prefix='rotifer.', dir='.', delete=delete) as seqfile:
         # save fasta sequence to a temporary file
         if not isinstance (acc, rdbs.sequence):
@@ -631,10 +631,10 @@ def psiblast(acc,
         if slurm:
             cmd = f'{slurmcmd} {cmd}'
         Popen(cmd, stdout=PIPE, shell=True).communicate()
-        with open(out) as f:
-            blast_r = f.read()
         if not os.path.exists(out) or os.path.getsize(out) == 0:
             return None
+        with open(out) as f:
+            blast_r = f.read()
 
         # Blast2table
         cmd = f'blast2table {out} --output {out.replace(".out",".tsv")}'
