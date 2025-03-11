@@ -33,6 +33,7 @@ my $CONFIG = parse_configuration();
 my $OUTSTREAM = $CONFIG->output;
 if (defined $OUTSTREAM) {
     open(OUTSTREAM,$CONFIG->output) || die "Could not create output file " . $CONFIG->output;
+    $OUTSTREAM = \*OUTSTREAM;
 } else {
     $OUTSTREAM = \*STDOUT;
 }
