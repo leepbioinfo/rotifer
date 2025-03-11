@@ -586,7 +586,8 @@ def psiblast(acc,
              aln = True,
              num_aln = 1000,
              slurm = False,
-             partition = 'basic'):
+             partition = 'basic',
+             delete=True):
     '''
     Psiblast search of a seqobj against sequence database.
     '''
@@ -627,13 +628,17 @@ def psiblast(acc,
         if slurm:
             cmd = f'srun --pty -N1 -c {cpu} -p {partition} {cmd}'
         Popen(cmd, stdout=PIPE, shell=True).communicate()
+        with open(out) as f:
+            blast_r = f.read()
         cmd = f'blast2table {out} > {out.replace(".out",".tsv")}'
         if slurm:
             cmd = f'srun --pty -N1 -c {cpu} -p {partition} {cmd}'
         Popen(cmd, stdout=PIPE, shell=True).communicate()
         t = pd.read_csv(out.replace(".out",".tsv"), sep='\t', names=cols)
-        with open(out) as f:
-            blast_r = f.read()
+        if delete:
+            for temp in [out,out.replace(".out",".tsv")]:
+                if os.path.exists(temp):
+                    os.unlink(temp)
     return (t, blast_r) 
 
 
