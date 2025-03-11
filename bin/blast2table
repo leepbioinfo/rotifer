@@ -32,7 +32,7 @@ if (defined $parser) {
 my $CONFIG = parse_configuration();
 my $OUTSTREAM = $CONFIG->output;
 if (defined $OUTSTREAM) {
-    open(OUTSTREAM,$CONFIG->output) || die "Could not create output file " . $CONFIG->output;
+    open(OUTSTREAM,">".$OUTSTREAM) || die "Could not create output file " . $CONFIG->output;
     $OUTSTREAM = \*OUTSTREAM;
 } else {
     $OUTSTREAM = \*STDOUT;
@@ -50,7 +50,7 @@ foreach my $file (@ARGV) {
 }
 
 # Terminate execution nicely
-close($OUTSTREAM) if (defined $OUTSTREAM);
+close($OUTSTREAM) if (defined $CONFIG->output);
 exit 0;
 
 #####

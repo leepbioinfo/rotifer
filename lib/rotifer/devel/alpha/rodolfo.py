@@ -591,6 +591,7 @@ def psiblast(acc,
     '''
     Psiblast search of a seqobj against sequence database.
     '''
+    slurmcmd = f'srun --pty -N1 -c {cpu} -p {partition} '
 
     import tempfile
     import subprocess
@@ -613,7 +614,6 @@ def psiblast(acc,
             ]
 
     cwd = os.getcwd()
-    slurmcmd = f'srun --wait 0 -N1 -c {cpu} -p {partition} '
 
     with tempfile.NamedTemporaryFile(mode='w+t', suffix='.fa', prefix='rotifer.', dir='.', delete=delete) as seqfile:
         # save fasta sequence to a temporary file
