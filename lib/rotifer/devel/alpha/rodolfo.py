@@ -639,8 +639,6 @@ def psiblast(acc,
 
         # Blast2table
         cmd = f'blast2table {out} > {out.replace(".out",".tsv")}'
-        if slurm:
-            cmd = f'{slurmcmd} {cmd}'
         Popen(cmd, stdout=PIPE, shell=True).communicate()
         t = pd.read_csv(out.replace(".out",".tsv"), sep='\t', names=cols)
 
