@@ -633,7 +633,7 @@ def psiblast(acc,
         Popen(cmd, stdout=PIPE, shell=True).communicate()
         with open(out) as f:
             blast_r = f.read()
-	if not os.path.exists(out) or os.path.getsize(out) == 0:
+        if not os.path.exists(out) or os.path.getsize(out) == 0:
             return None
 
         # Blast2table
