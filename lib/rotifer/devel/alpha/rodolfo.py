@@ -587,7 +587,8 @@ def psiblast(acc,
              num_aln = 1000,
              slurm = False,
              partition = 'basic',
-             delete=True):
+             delete=True,
+             **kwargs):
     '''
     Psiblast search of a seqobj against sequence database.
     '''
@@ -614,7 +615,7 @@ def psiblast(acc,
 
     cwd = os.getcwd()
 
-    slurmcmd = f'srun --pty -N1 -c {cpu} -p {partition} '
+    slurmcmd = f'srun --wait 0 -N1 -c {cpu} -p {partition} '
     with tempfile.NamedTemporaryFile(mode='w+t', suffix='.fa', prefix='rotifer.', dir='.', delete=delete) as seqfile:
         # save fasta sequence to a temporary file
         if not isinstance (acc, rdbs.sequence):
