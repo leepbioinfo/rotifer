@@ -39,12 +39,12 @@ if (defined $OUTSTREAM) {
 
 # Parse report and print table
 my $ColNames = $CONFIG->column;
-print $OUTSTREM join("\t",@$ColNames),"\n" if ($CONFIG->header);
+print $OUTSTREAM join("\t",@$ColNames),"\n" if ($CONFIG->header);
 foreach my $file (@ARGV) {
     my @parsed = $parser->($CONFIG, $file);
     foreach my $hsp (@parsed) {
 	&swap($hsp) if ($CONFIG->swap);
-	print $OUTSTREM join("\t",map { exists $hsp->{$_} && length $hsp->{$_} ? $hsp->{$_} : "" } @{$ColNames}),"\n";
+	print $OUTSTREAM join("\t",map { exists $hsp->{$_} && length $hsp->{$_} ? $hsp->{$_} : "" } @{$ColNames}),"\n";
     }
 }
 
