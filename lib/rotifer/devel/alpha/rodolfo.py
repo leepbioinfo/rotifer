@@ -618,7 +618,7 @@ def psiblast(acc,
         # save fasta sequence to a temporary file
         if not isinstance (acc, rdbs.sequence):
             return None
-        print(seqfile.to_string().strip(), file=seqfile)
+        print(acc.to_string().strip(), file=seqfile)
         seqfile.file.flush()
         out = seqfile.replace(".fa",".psiblast.out")
         if aln:
