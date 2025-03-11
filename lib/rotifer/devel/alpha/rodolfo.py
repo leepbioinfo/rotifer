@@ -615,7 +615,7 @@ def psiblast(acc,
 
     cwd = os.getcwd()
 
-    slurmcmd = f'srun --wait -N1 -c {cpu} -p {partition} '
+    slurmcmd = f'srun --wait 3600 -N1 -c {cpu} -p {partition} '
     with tempfile.NamedTemporaryFile(mode='w+t', suffix='.fa', prefix='rotifer.', dir='.', delete=delete) as seqfile:
         # save fasta sequence to a temporary file
         if not isinstance (acc, rdbs.sequence):
