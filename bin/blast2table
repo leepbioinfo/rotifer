@@ -30,19 +30,26 @@ if (defined $parser) {
 
 # Parse command line options
 my $CONFIG = parse_configuration();
+my $OUTSTREAM = $CONFIG->output;
+if (defined $OUTSTREAM) {
+    open(OUTSTREAM,$CONFIG->output) || die "Could not create output file " . $CONFIG->output;
+} else {
+    $OUTSTREAM = \*STDOUT;
+}
 
 # Parse report and print table
 my $ColNames = $CONFIG->column;
-print join("\t",@$ColNames),"\n" if ($CONFIG->header);
+print $OUTSTREM join("\t",@$ColNames),"\n" if ($CONFIG->header);
 foreach my $file (@ARGV) {
     my @parsed = $parser->($CONFIG, $file);
     foreach my $hsp (@parsed) {
 	&swap($hsp) if ($CONFIG->swap);
-	print join("\t",map { exists $hsp->{$_} && length $hsp->{$_} ? $hsp->{$_} : "" } @{$ColNames}),"\n";
+	print $OUTSTREM join("\t",map { exists $hsp->{$_} && length $hsp->{$_} ? $hsp->{$_} : "" } @{$ColNames}),"\n";
     }
 }
 
 # Terminate execution nicely
+close($OUTSTREAM) if (defined $OUTSTREAM);
 exit 0;
 
 #####
@@ -115,7 +122,7 @@ sub process_rg_blast_parser {
     eval { $report = RG::Blast::Parser->new($stream,$file) };
     die "Failed to parse blast result $file: exception caught" if( $@ && $@ =~ /^parser error/ );
     close($stream);
-    return undef;
+    return $report;
 }
 
 sub process_bio_searchio {
@@ -127,6 +134,7 @@ sub process_bio_searchio {
     # Input options
     my $basename = undef;
     my $stream = each_input_stream($file,1);
+    my $outstream = $conf->output || \*STDOUT;
     my %opts = ("-fh", $stream, %{ $conf->input_args });
     $opts{'-format'} = $conf->format if ($conf->format ne 'auto');
     $basename = fileparse($file, @{ $CONFIG->force_basename }) if (scalar @{ $CONFIG->force_basename });
@@ -224,7 +232,7 @@ sub process_bio_searchio {
 		    } else {
 			$data->{'percent_match'} = $hit->frac_aligned_hit*100;
 		    }
-#		    print join("\t",map { $data->{$_} } @{$colNames}),"\n";
+#		    print STDERR join("\t",map { $data->{$_} } @{$colNames}),"\n";
 #		    next; # No need to further process HSPs in this case
 		}
 
@@ -276,10 +284,10 @@ sub process_bio_searchio {
 		    my $is_new = 1;
 		    if ($conf->non_redundant_hsps) {
 			if (exists $index{$data->{'query_name'}.":".$data->{'hit_name'}}) {
-			    #print join(" ","Check",map { $data->{$_} } qw(query_name query_start query_end hit_name hit_start hit_end)),"\n";
+			    #print STDERR join(" ","Check",map { $data->{$_} } qw(query_name query_start query_end hit_name hit_start hit_end)),"\n";
 			    foreach my $i (@{ $index{$data->{'query_name'}.":".$data->{'hit_name'}} }) {
 				if (same_hsp($conf, $parsed[$i], $data)) {
-				    #print join(" ","Same",map { $parsed[$i]->{$_} } qw(query_name query_start query_end hit_name hit_start hit_end)),"\n";
+				    #print STDERR join(" ","Same",map { $parsed[$i]->{$_} } qw(query_name query_start query_end hit_name hit_start hit_end)),"\n";
 				    if ($parsed[$i]->{'evalue'} < $conf->threshold) {
 					# If we have already found the first HSP lower than the inclusion threshold, we
 					# will select and store the widest coordinates but keep the E-value and iteration
@@ -306,7 +314,7 @@ sub process_bio_searchio {
 		    elsif ($conf->mode ne 'orthomcl')  { #if ($conf->mode ne 'orthomcl') {
 			my $copy = { %$data };
 			&swap($copy) if ($conf->swap);
-			print join("\t",map { $copy->{$_} } @{$colNames}),"\n";
+			print $outstream join("\t",map { $copy->{$_} } @{$colNames}),"\n";
 			next;
 		    }
 
@@ -330,7 +338,7 @@ sub process_bio_searchio {
 		    #my $length = $data->{'query_length'} < $hit->length ? $data->{'query_length'} : $hit->length;
 		    #$data->{'percent_match'} = sprintf("%.1f",($data->{'length_aln_total'}*100/$length));
 		    &swap($data) if ($conf->swap);
-		    print join("\t",map { $data->{$_} } @{$colNames}),"\n";
+		    print $outstream join("\t",map { $data->{$_} } @{$colNames}),"\n";
 		    @parsed = (); %index = ();
 		}
 	    } # while (my $hit = $it->next_hit)
@@ -528,6 +536,13 @@ The default processing mode generates the columns listed as the default columns 
 				  ARGCOUNT => ARGCOUNT_NONE,
 				  ALIAS    => 'y',
 				  SUMMARY  => "Add columns names to output table.",
+			      },
+
+			      'output' => {
+				  DEFAULT  => undef,
+				  ARGCOUNT => ARGCOUNT_ONE,
+				  ALIAS    => 'out|outfile',
+				  SUMMARY  => "Output file name.",
 			      },
 
 			      'non_redundant_hsps' => {

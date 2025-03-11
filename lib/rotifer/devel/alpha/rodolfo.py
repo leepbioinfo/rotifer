@@ -630,7 +630,7 @@ def psiblast(acc,
         Popen(cmd, stdout=PIPE, shell=True).communicate()
         with open(out) as f:
             blast_r = f.read()
-        cmd = f'blast2table {out} > {out.replace(".out",".tsv")}'
+        cmd = f'blast2table {out} --output {out.replace(".out",".tsv")}'
         if slurm:
             cmd = f'srun --pty -N1 -c {cpu} -p {partition} {cmd}'
         Popen(cmd, stdout=PIPE, shell=True).communicate()
