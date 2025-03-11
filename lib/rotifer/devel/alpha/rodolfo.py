@@ -95,7 +95,7 @@ def build_hhsuite_database(
     import os
     import tempfile
     from subprocess import Popen, PIPE, STDOUT
-    from rotifer.devel.beta.sequence import sequence
+    from rotifer.devel.beta import sequence as rdbs
 
     # Create output directory
     if not os.path.exists(f'{output_directory}/aln'):
@@ -107,7 +107,7 @@ def build_hhsuite_database(
         g = df.loc[df[group] == group_cluster,members].drop_duplicates().dropna()
         if g.nunique() >= minimum_group_size:
             if not os.path.exists(f'{output_directory}/aln/{group_cluster}.a3m'):
-                aln = sequence(g.tolist(),"accession", name=group_cluster, local_database_path=sequences)
+                aln = rdbs.sequence(g.tolist(),"accession", name=group_cluster, local_database_path=sequences)
                 aln = aln.align(method="famsa", cpu="threads")
                 aln.to_file(f'{output_directory}/aln/{group_cluster}.a3m','a3m')
 
@@ -223,7 +223,7 @@ def cluster2aln(
     import os
     import tempfile
     from subprocess import Popen, PIPE
-    from rotifer.devel.beta.sequence import sequence
+    from rotifer.devel.beta import sequence as rdbs
     with tempfile.TemporaryDirectory() as tmpdirname:
         if query:
             df.query(
@@ -255,7 +255,7 @@ def cluster2aln(
                 stdout=PIPE,
                 shell=True
                 ).communicate()
-        b = sequence(
+        b = rdbs.sequence(
                 f'{tmpdirname}/accs.fa'
                 ).align(
                         method=align_method,
@@ -581,22 +581,20 @@ def annotate_seqobj(seqobj,
 
 
 def psiblast(acc,
-             db='/databases/fadb/nr/nr50',
+             db=config['blastdb'],
              cpu=54,
              aln = True,
-             num_aln = 1000):
+             num_aln = 1000,
+             slurm = False,
+             partition = 'basic'):
     '''
-    Psiblast search of a seqobj against nr50 (default),
-
-    Dependencies:
-        splishpsi
-        blast2table
+    Psiblast search of a seqobj against sequence database.
     '''
 
     import tempfile
     import subprocess
     from subprocess import Popen, PIPE, STDOUT
-    from rotifer.devel.beta.sequence import sequence as sequence
+    from rotifer.devel.beta import sequence as rdbs
     import os
     import pandas as pd
     cols =[
@@ -615,26 +613,27 @@ def psiblast(acc,
 
     cwd = os.getcwd()
 
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        # temporary save fasta sequence file
-        if isinstance (acc, sequence):
-            acc.to_file(f'{tmpdirname}/seqfile') 
-            if aln:
-                Popen(f'psiblast -num_threads {cpu} -num_alignments {num_aln} -in_msa {tmpdirname}/seqfile -db {db} > {tmpdirname}/out',
-                      stdout=PIPE,
-                      shell=True
-                      ).communicate()
-            else:
-                Popen(f'psiblast -num_threads {cpu} -num_alignments {num_aln} -query {tmpdirname}/seqfile -db {db} > {tmpdirname}/out',
-                      stdout=PIPE,
-                      shell=True
-                      ).communicate()
-            Popen(f'blast2table {tmpdirname}/out > {tmpdirname}/out.tsv',
-                  stdout=PIPE,
-                  shell=True).communicate()
-            t = pd.read_csv(f'{tmpdirname}/out.tsv', sep='\t', names=cols)
-            with open(f'{tmpdirname}/out') as f:
-                blast_r = f.read()
+    with tempfile.NamedTemporaryFile(mode='w+t', suffix='.fa', prefix='rotifer.', dir='.', delete=delete) as seqfile:
+        # save fasta sequence to a temporary file
+        if not isinstance (acc, rdbs.sequence):
+		return None
+        print(seqfile.to_string().strip(), file=seqfile)
+        seqfile.file.flush()
+        out = seqfile.replace(".fa",".psiblast.out")
+        if aln:
+            cmd = f'psiblast -num_threads {cpu} -num_alignments {num_aln} -in_msa seqfile -db {db} -out {out}'
+        else:
+            cmd = f'psiblast -num_threads {cpu} -num_alignments {num_aln} -query seqfile -db {db} -out {out}'
+        if slurm:
+            cmd = f'srun --pty -N1 -c {cpu} -p {partition} {cmd}'
+        Popen(cmd, stdout=PIPE, shell=True).communicate()
+        cmd = f'blast2table {out} > {out.replace(".out",".tsv")}'
+        if slurm:
+            cmd = f'srun --pty -N1 -c {cpu} -p {partition} {cmd}'
+        Popen(cmd, stdout=PIPE, shell=True).communicate()
+        t = pd.read_csv(out.replace(".out",".tsv"), sep='\t', names=cols)
+        with open(out) as f:
+            blast_r = f.read()
     return (t, blast_r) 
 
 
@@ -643,7 +642,7 @@ def search2aln(df, coverage=50, evalue=1e-3, id_with_coord = False, arch=None, l
     import tempfile
     import subprocess
     from subprocess import Popen, PIPE, STDOUT
-    from rotifer.devel.beta.sequence import sequence as sequence
+    from rotifer.devel.beta import sequence as rdbs
     import pandas as pd
     if coverage > 1:
         coverage = coverage/100
@@ -651,7 +650,7 @@ def search2aln(df, coverage=50, evalue=1e-3, id_with_coord = False, arch=None, l
     From a search tabular file, filter by cov, and evalue to make a aln object
     '''
     df = df.query(f'evalue <= {evalue} and querycoverage > {coverage}')
-    seqobj = sequence(df.hit.drop_duplicates().to_list(), local_database_path=local_database_path)
+    seqobj = rdbs.sequence(df.hit.drop_duplicates().to_list(), local_database_path=local_database_path)
     if arch == 'profiledb':
         arch = ' '
     if arch:
@@ -684,17 +683,13 @@ def search2aln(df, coverage=50, evalue=1e-3, id_with_coord = False, arch=None, l
 
 def add_arch_to_seqobj(seqobj, db='profiledb', cpu=8):
     '''
-    Psiblast it can accept sequence object. 
-
-    Dependencies:
-        splishrps
-        rps2arch
+    Run scanseqs for the sequences in a seqobj.
     '''
 
     import tempfile
     import subprocess
     from subprocess import Popen, PIPE, STDOUT
-    from rotifer.devel.beta.sequence import sequence as sequence
+    from rotifer.devel.beta import sequence as rdbs
     import os
     import pandas as pd
 
@@ -704,7 +699,7 @@ def add_arch_to_seqobj(seqobj, db='profiledb', cpu=8):
     cwd = os.getcwd()
     with tempfile.TemporaryDirectory() as tmpdirname:
         # temporary save fasta sequence file
-        acc = sequence(seqobj.df.id.to_list())
+        acc = rdbs.sequence(seqobj.df.id.to_list())
         acc.to_file(f'{tmpdirname}/seqfile') 
         Popen(f'cat {tmpdirname}/seqfile| splishrps -a {cpu} {db} > {tmpdirname}/out' , stdout=PIPE,shell=True).communicate()
         Popen(f'rps2arch {tmpdirname}/out > {tmpdirname}/out.tsv' , stdout=PIPE,shell=True).communicate()
@@ -721,7 +716,7 @@ def add_arch_to_df(df, db='/databases/fadb/nr/nr'):
 
     import tempfile
     from subprocess import Popen, PIPE
-    from rotifer.devel.beta.sequence import sequence as sequence
+    from rotifer.devel.beta import sequence as rdbs
     from rotifer.devel.alpha.rodolfo import load_seq_scan
     import os
     import pandas as pd
@@ -729,7 +724,7 @@ def add_arch_to_df(df, db='/databases/fadb/nr/nr'):
     cwd = os.getcwd()
     with tempfile.TemporaryDirectory() as tmpdirname:
         # temporary save fasta sequence file
-        sequence(
+        rdbs.sequence(
                 df.query(
                     'type =="CDS"'
                     ).pid.dropna().drop_duplicates().to_list(),
@@ -838,7 +833,7 @@ def extract_envelope(df, start='estart', end='eend', expand=10, local_database_p
     import tempfile
     import subprocess
     from subprocess import Popen, PIPE, STDOUT
-    import rotifer.devel.beta.sequence as rdbs
+    from rotifer.devel.beta import sequence as rdbs
     
     myDF = df.drop_duplicates()
 
@@ -885,7 +880,7 @@ def split_by_model(seqobj=None, df=False, evalue=1e-3, arch=None, coverage=50, m
     import tempfile
     import subprocess
     from subprocess import Popen, PIPE, STDOUT
-    from rotifer.devel.beta.sequence import sequence as sequence
+    from rotifer.devel.beta import sequence as rdbs
     
     if coverage > 1:
         coverage = coverage/100
@@ -904,7 +899,7 @@ def split_by_model(seqobj=None, df=False, evalue=1e-3, arch=None, coverage=50, m
            #       stdout=PIPE,
            #       shell=True).communicate()
            # t = pd.read_csv(f'{tmpdirname}/hmmsearch_table', sep="\t")
-        seqobj = sequence(df.sequence.drop_duplicates().to_list(), local_database_path=ldbp)
+        seqobj = rdbs.sequence(df.sequence.drop_duplicates().to_list(), local_database_path=ldbp)
         seqobj.df = seqobj.df.merge(df.rename({'sequence':'id'},axis=1), how='left')
         seqobj.df.end = seqobj.df.eend.fillna(seqobj.df.length)
         seqobj.df.start = seqobj.df.estart.fillna(1)
@@ -935,7 +930,7 @@ def split_by_model(seqobj=None, df=False, evalue=1e-3, arch=None, coverage=50, m
     return (seqobj)
 
 def remove_redundancy(seqobj, identity =80, coverage = 70):
-    from rotifer.devel.beta.sequence import sequence as sequence
+    from rotifer.devel.beta import sequence as rdbs
     import pandas as pd
     s = seqobj.copy()
     s.add_cluster(coverage=coverage, identity=identity, inplace=True)
@@ -954,7 +949,7 @@ def alnclu(info, c80e3="c80e3", c80i70="c80i70", i=3, local_database_path='', ba
     '''
     import os
     import pandas as pd
-    import rotifer.devel.beta.sequence as rdbs
+    from rotifer.devel.beta import sequence as rdbs
 
     # Validate input
     if not isinstance(info, pd.DataFrame):
