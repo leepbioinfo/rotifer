@@ -613,6 +613,7 @@ def psiblast(acc,
             ]
 
     cwd = os.getcwd()
+    slurmcmd = f'srun --wait 0 -N1 -c {cpu} -p {partition} '
 
     with tempfile.NamedTemporaryFile(mode='w+t', suffix='.fa', prefix='rotifer.', dir='.', delete=delete) as seqfile:
         # save fasta sequence to a temporary file
@@ -626,13 +627,13 @@ def psiblast(acc,
         else:
             cmd = f'psiblast -num_threads {cpu} -num_alignments {num_aln} -query {seqfile.name} -db {db} -out {out}'
         if slurm:
-            cmd = f'srun --pty -N1 -c {cpu} -p {partition} {cmd}'
+            cmd = f'{slurmcmd} {cmd}'
         Popen(cmd, stdout=PIPE, shell=True).communicate()
         with open(out) as f:
             blast_r = f.read()
         cmd = f'blast2table {out} --output {out.replace(".out",".tsv")}'
         if slurm:
-            cmd = f'srun --pty -N1 -c {cpu} -p {partition} {cmd}'
+            cmd = f'{slurmcmd} {cmd}'
         Popen(cmd, stdout=PIPE, shell=True).communicate()
         t = pd.read_csv(out.replace(".out",".tsv"), sep='\t', names=cols)
         if delete:
