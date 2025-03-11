@@ -631,7 +631,7 @@ def psiblast(acc,
             cmd = f'psiblast -num_threads {cpu} -num_alignments {num_aln} -query {seqfile.name} -db {db} -out {out}'
         if slurm:
             cmd = f'{slurmcmd} {cmd}'
-        subprocess.run(cmd.split(" "))
+        subprocess.run(cmd.split(" "), shell=True)
         if not os.path.exists(out) or os.path.getsize(out) == 0:
             return None
         with open(out) as f:
@@ -641,7 +641,7 @@ def psiblast(acc,
         cmd = f'blast2table {out} --output {out.replace(".out",".tsv")}'
         if slurm:
             cmd = f'{slurmcmd} {cmd}'
-        subprocess.run(cmd.split(" "))
+        subprocess.run(cmd.split(" "), shell=True)
         t = pd.read_csv(out.replace(".out",".tsv"), sep='\t', names=cols)
 
         # Cleanup
