@@ -720,8 +720,7 @@ def add_arch_to_seqobj(seqobj, db='profiledb', cpu=8):
 
     return seqobj
 
-
-def add_arch_to_df(df, db='/databases/fadb/nr/nr'):
+def add_arch_to_df(df, db=config['local_database_path']):
     '''
     Add architecture and clusters info to a NeighborHooddf
     '''
@@ -758,7 +757,7 @@ def add_arch_to_df(df, db='/databases/fadb/nr/nr'):
 def full_annotate(seqobj,
                   progress=True,
                   batch_size=8,
-                  mirror=["/am/ftp-genomes","/databases/genomes"],
+                  mirror=["/am/ftp-genomes",os.path.join(rotifer.config['data'],"genomes")],
                   threads=8,
                   after=7,
                   before=7,
@@ -832,7 +831,7 @@ def alnxaln(seqobj, clustercol = 'c50i0', minseq=10):
     os.chdir(path)
     return (result_table, allhhr, alndict) 
 
-def extract_envelope(df, start='estart', end='eend', expand=10, local_database_path='/database/fadb/nr/nr50'): 
+def extract_envelope(df, start='estart', end='eend', expand=10, local_database_path=config['local_database_path']): 
     '''
     Using a hmm model to split your sequence object to match only the model region.
     If more than one match in one protein, it will split the match in two sequence.
