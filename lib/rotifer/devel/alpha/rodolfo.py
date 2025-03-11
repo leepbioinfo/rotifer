@@ -616,7 +616,7 @@ def psiblast(acc,
     with tempfile.NamedTemporaryFile(mode='w+t', suffix='.fa', prefix='rotifer.', dir='.', delete=delete) as seqfile:
         # save fasta sequence to a temporary file
         if not isinstance (acc, rdbs.sequence):
-	    return None
+            return None
         print(seqfile.to_string().strip(), file=seqfile)
         seqfile.file.flush()
         out = seqfile.replace(".fa",".psiblast.out")
