@@ -620,11 +620,11 @@ def psiblast(acc,
             return None
         print(acc.to_string().strip(), file=seqfile)
         seqfile.file.flush()
-        out = seqfile.replace(".fa",".psiblast.out")
+        out = seqfile.name.replace(".fa",".psiblast.out")
         if aln:
-            cmd = f'psiblast -num_threads {cpu} -num_alignments {num_aln} -in_msa seqfile -db {db} -out {out}'
+            cmd = f'psiblast -num_threads {cpu} -num_alignments {num_aln} -in_msa {seqfile.name} -db {db} -out {out}'
         else:
-            cmd = f'psiblast -num_threads {cpu} -num_alignments {num_aln} -query seqfile -db {db} -out {out}'
+            cmd = f'psiblast -num_threads {cpu} -num_alignments {num_aln} -query {seqfile.name} -db {db} -out {out}'
         if slurm:
             cmd = f'srun --pty -N1 -c {cpu} -p {partition} {cmd}'
         Popen(cmd, stdout=PIPE, shell=True).communicate()
