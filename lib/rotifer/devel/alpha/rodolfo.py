@@ -621,6 +621,8 @@ def psiblast(acc,
             return None
         print(acc.to_string().strip(), file=seqfile)
         seqfile.file.flush()
+
+        # PSI-BLAST
         out = seqfile.name.replace(".fa",".psiblast.out")
         if aln:
             cmd = f'psiblast -num_threads {cpu} -num_alignments {num_aln} -in_msa {seqfile.name} -db {db} -out {out}'
@@ -631,11 +633,17 @@ def psiblast(acc,
         Popen(cmd, stdout=PIPE, shell=True).communicate()
         with open(out) as f:
             blast_r = f.read()
+	if not os.path.exists(out) or os.path.getsize(out) == 0:
+            return None
+
+        # Blast2table
         cmd = f'blast2table {out} --output {out.replace(".out",".tsv")}'
         if slurm:
             cmd = f'{slurmcmd} {cmd}'
         Popen(cmd, stdout=PIPE, shell=True).communicate()
         t = pd.read_csv(out.replace(".out",".tsv"), sep='\t', names=cols)
+
+        # Cleanup
         if delete:
             for temp in [out,out.replace(".out",".tsv")]:
                 if os.path.exists(temp):
