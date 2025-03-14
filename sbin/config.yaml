@@ -1,0 +1,30 @@
+# Configurações do script de envio de e-mails
+#
+# Passo 1: Habilitar a verificação em duas etapas e gerar uma senha de aplicativo
+#
+# Caso você precise usar sua conta do Gmail no script de envio de e-mails, siga as instruções abaixo para gerar uma senha de aplicativo.
+#
+# 1. Habilitar a verificação em duas etapas:
+#    - Acesse sua conta Google: https://myaccount.google.com/ e faça login com sua conta Google.
+#    - Vá para a seção de segurança: No menu à esquerda, clique em "Segurança".
+#    - Ativar a verificação em duas etapas: Na seção "Como você faz login no Google", clique em "Verificação em duas etapas".
+#    - Clique em "Começar" e siga as instruções para adicionar um segundo fator de autenticação (pode ser um código enviado por SMS ou um aplicativo como o Google Authenticator).
+#    - Após configurar, a verificação em duas etapas será ativada.
+#
+# 2. Criar uma senha de aplicativo:
+#    Agora que a verificação em duas etapas está ativada, você precisa gerar uma senha de aplicativo.
+#    - No painel de "Segurança", procure pela seção "Senhas de app" (pode ser necessário rolar para baixo).
+#    - Clique em "Gerar senha".
+#    - Uma nova janela será aberta, permitindo que você selecione o aplicativo e o dispositivo para o qual deseja gerar a senha.
+#    - Selecione "Outro (nome personalizado)" e digite um nome como "Script de E-mail".
+#    - Clique em "Gerar".
+#    - O Google gerará uma senha de 16 caracteres (por exemplo: abcd efgh ijkl mnop).
+#    - Anote essa senha, pois você a usará no script de envio de e-mails.
+#
+# 3. Usando a senha de aplicativo no seu script:
+#    Agora, substitua a sua senha normal no script pela senha gerada (a senha de 16 caracteres).
+#
+# Exemplo de como preencher as configurações de e-mail:
+email:
+  from_email: 'seu_email.com'  # Substitua com o seu endereço de e-mail
+  from_password: 'senha'      # Substitua pela senha de aplicativo gerada
