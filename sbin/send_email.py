@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*- 
 """
 Script para enviar e-mails para usuários com informações de acesso ao servidor,
 baixando as informações de uma planilha do Google Drive e atualizando o status na planilha.
@@ -13,6 +13,8 @@ envia os e-mails com informações de acesso e atualiza o status de envio na pla
 import os
 import smtplib
 import pandas as pd
+import yaml
+import argparse
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from google.oauth2.credentials import Credentials
@@ -21,8 +23,14 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 import io
 
+# Função para ler configurações do arquivo config.yaml
+def load_email_config(config_path='config.yaml'):
+    with open(config_path, 'r') as file:
+        config = yaml.safe_load(file)
+    return config
+
 # Função para autenticar no Google Drive e Google Sheets
-def authenticate_google_drive():
+def authenticate_google_drive(credentials_path):
     """Autentica e retorna a API do Google Drive e Google Sheets."""
     creds = None
     SCOPES = ['https://www.googleapis.com/auth/drive.readonly', 'https://www.googleapis.com/auth/spreadsheets']
@@ -35,7 +43,7 @@ def authenticate_google_drive():
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
-                'credentials.json', SCOPES)
+                credentials_path, SCOPES)
             creds = flow.run_local_server(port=8080)  # A porta fixa é 8080
 
         with open('token.json', 'w') as token:
@@ -58,9 +66,9 @@ def download_file(service, file_id):
     print("Arquivo Excel baixado com sucesso!")
 
 # Função para enviar e-mail
-def send_email(nome, email, senha, usuario, sheets_service):
-    from_email = 'raphaluizlobo@gmail.com'
-    from_password = 'lzdkdllhbbsxjqqn'  # Substitua pela senha de aplicativo criada
+def send_email(nome, email, senha, usuario, sheets_service, config):
+    from_email = config['email']['from_email']
+    from_password = config['email']['from_password']
 
     smtp_server = 'smtp.gmail.com'
     smtp_port = 587
@@ -153,9 +161,18 @@ def update_sent_status(sheets_service, usuario):
 
 # Função principal
 def main():
-    # Autenticar com o Google Drive e Sheets
-    service, sheets_service = authenticate_google_drive()
+    # Analisando argumentos da linha de comando
+    parser = argparse.ArgumentParser(description='Enviar e-mails para usuários com informações de acesso.')
+    parser.add_argument('-c', '--credentials', default='credentials.json', help='Caminho para o arquivo credentials.json')
+    parser.add_argument('-e', '--config', default='config.yaml', help='Caminho para o arquivo de configuração YAML (configuração de e-mail e senha)')
+    args = parser.parse_args()
+
+    # Carregar configuração de e-mail do arquivo YAML
+    config = load_email_config(args.config)
     
+    # Autenticar com o Google Drive e Sheets
+    service, sheets_service = authenticate_google_drive(args.credentials)
+
     # O ID do arquivo Excel no Google Drive
     file_id = '1AYgGOApwYb7QsdNvAfXohGwFvIXaJzeFLol-eBFMFIM'  # ID do seu arquivo do Google Sheets
     
@@ -173,7 +190,7 @@ def main():
         usuario = row['Login']
         
         # Enviar o e-mail para cada usuário
-        send_email(nome, email, senha, usuario, sheets_service)
+        send_email(nome, email, senha, usuario, sheets_service, config)
 
     # Deletar os arquivos após a execução
     if os.path.exists("token.json"):
