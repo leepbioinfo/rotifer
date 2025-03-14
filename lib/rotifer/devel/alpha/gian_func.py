@@ -3488,3 +3488,271 @@ def plot_network_dash(networkdf,
         node_size = node_size
     
     return (G,Node_colors,node_size, nc, edge_colors,edge_styles, edge_alpha, pos)
+
+
+
+def get_pubmed_bibtex(pmid):
+    from Bio import Entrez
+    from rotifer.db.ncbi import NcbiConfig as config
+
+    Entrez.email = config['email']  # Provide your email for Entrez requests
+    try:
+        # Fetch the PubMed article information in XML format
+        handle = Entrez.esummary(db="pubmed", id=pmid, retmode="xml")
+        records = Entrez.read(handle)
+        if not records:
+            print(f"Error: No records found for PMID {pmid}")
+            return None
+
+        docsum = records[0]  # Get the first record
+
+        # Extract information (safe checking for missing elements)
+        title = docsum.get("Title", "No title available")
+        authors = docsum.get("AuthorList", ["No authors available"])
+        source = docsum.get("Source", "No source available")
+        pubdate = docsum.get("PubDate", "No publication date available")
+        pmid_value = docsum.get("Id", "No PMID available")
+
+        # Create BibTeX entry
+        bibtex_entry = f"@article{{{pmid_value},\n"
+        bibtex_entry += f"  author = {{{', '.join(authors)}}},\n"
+        bibtex_entry += f"  title = {{{title}}},\n"
+        bibtex_entry += f"  journal = {{{source}}},\n"
+        bibtex_entry += f"  year = {{{pubdate}}},\n"
+        bibtex_entry += f"  publisher = {{{source}}},\n"
+        bibtex_entry += f"  PMID = {{{pmid_value}}}\n"
+        bibtex_entry += f"}}\n"
+
+        return bibtex_entry
+    except Exception as e:
+        print(f"Error fetching data for PMID {pmid}: {e}")
+        return None
+
+def generate_bibtex(pmid_list, filename):
+    from rotifer.devel.alpha import gian_func as gf
+    with open(filename, "w") as bibfile:
+        for pmid in pmid_list:
+            # Fetch the BibTeX entry for each PMID
+            bibtex_entry = gf.get_pubmed_bibtex(pmid)
+            if bibtex_entry:
+                bibfile.write(bibtex_entry)
+
+
+def extract_citations_from_latex(latex_file):
+    import re
+    with open(latex_file, 'r', encoding='utf-8') as f:
+        content = f.read()
+    
+    citations = re.findall(r'\\cite\{(.*?)\}', content)
+    
+    # Flatten list if there are multiple citations inside a single \cite{a,b,c}
+    citation_list = [cite.strip() for group in citations for cite in group.split(',')]
+    
+    return set(citation_list)  # Use set to remove duplicates
+
+def create_models_dict_db(suffix='pkl'):
+    """ 
+    Load multiple seqobject pickle files in a dictionary
+    Is importante to have the .name agrument from qhe seqobject as a proper name and not the name of the first sequence
+    """
+
+    from glob import glob
+    files = glob(f'*.{suffix}')
+    alndb = {}
+    for x in files:
+        m = pd.read_pickle(x)
+        alndb[m.name] = m
+
+    return alndb    
+
+def create_HHMdb(model_dict_db, hhm_db_name='hmmdb'):
+    """
+    Using the model_dict db to create an HHM database, it uses the names of the models that cames from seqobjc.name
+    """
+
+    import tempfile
+    import subprocess
+    import rotifer
+    from rotifer.devel.alpha import gian_func as gf
+    import os
+    import shutil
+
+    hhdb_script  = f"{rotifer.config['base']}/bin/build_hhmDB.sh"
+    alndb = model_dict_db
+    with tempfile.TemporaryDirectory() as temp_dir:
+        os.makedirs(f'{temp_dir}/alns', exist_ok=True)
+        for x in alndb.keys():
+            aln_file = os.path.join(temp_dir, 'alns', f'{x}.fa')
+            alndb[x].to_file(aln_file)
+            with open(aln_file, "r") as f:
+                    lines = f.readlines()
+            lines.insert(0, f"#{x}\n")
+            with open(aln_file, "w") as f:
+                    f.writelines(lines)
+        pwd = os.getcwd()
+        os.chdir(temp_dir)
+        cmd = [hhdb_script,  'alns', 'hhdb_test']
+        subprocess.run(cmd, check=True)
+        shutil.copytree(temp_dir, os.path.join(pwd, hhm_db_name))
+        os.chdir(pwd)
+    return ('hmmdb produce')
+
+def hmm_models_vs_sequence_db(models_dic_db, seqdb):
+    import tempfile
+    import os
+    import subprocess
+    import rotifer
+    hmmer2table_from_rotifer  = f"{rotifer.config['base']}/bin/hmmer2table"
+    with tempfile.TemporaryDirectory() as temp_dir:
+        sequence_db = os.path.join(temp_dir, 'sequenceDB.fa')
+        output_raw = os.path.join(temp_dir, 'output.txt')
+        tbl_output = os.path.join(temp_dir, 'tbl.tsv')
+
+        seqdb.to_file(sequence_db)
+        for x in models_dic_db.keys():
+            hmm_file = os.path.join(temp_dir, f'{x}.hmm')
+            models_dic_db[x].to_file(hmm_file)
+            result = subprocess.run(['hmmsearch', hmm_file,  sequence_db], capture_output=True, text=True)
+            with open(output_raw, 'a') as file:
+                file.write(result.stdout)
+        tbl_result = subprocess.run([hmmer2table_from_rotifer, '-y', output_raw], capture_output=True, text=True)        
+        with open(tbl_output, 'a') as file:
+            file.write(tbl_result.stdout)
+            
+        with open(output_raw, 'r') as file:
+            output = file.read()
+        tbl_o = pd.read_csv(tbl_output, sep="\t")    
+            
+    return [output, tbl_o]            
+
+
+def pid_ncbi_to_uniprotkb(ncbi_ids, max_retries=3, delay=5):
+    from unipressed import IdMappingClient
+    import pandas as pd
+    import time
+    # Create an ID mapping client
+    request = IdMappingClient.submit(
+        source="RefSeq_Protein",
+        dest="UniProtKB",
+        ids=set(ncbi_ids)
+    )
+    time.sleep(delay)
+    for attempt in range(1, max_retries + 1):
+        try:
+            results = list(request.each_result())  # Attempt fetching results
+            return pd.DataFrame(results)  # Convert to DataFrame if successful
+        except IdMappingError as e:
+            if attempt < max_retries:
+                print(f"Attempt {attempt} failed: {e}. Retrying in {delay} seconds...")
+                time.sleep(delay)  # Wait before retrying
+            else:
+                print(f"Final attempt {attempt} failed. Raising error.")
+                raise  # Raise error after max retries
+
+def uniprot2fasta(uniprot_ids):
+    import requests
+    from rotifer.devel.beta import sequence as rdbs
+    """
+    Retrieve FASTA sequences from UniProtKB for given UniProt IDs.
+    
+    Args:
+        uniprot_ids (str/list): Single UniProt ID or list of IDs
+        
+    Returns:
+        str: FASTA formatted sequences if successful, None otherwise
+    """
+    # Handle single ID input
+    if isinstance(uniprot_ids, str):
+        uniprot_ids = [uniprot_ids]
+        
+    # Build API query
+    url = "https://rest.uniprot.org/uniprotkb/stream"
+    params = {
+        "format": "fasta",
+        "query": " OR ".join(f'accession:{id}' for id in uniprot_ids)
+    }
+    
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()  # Raise exception for HTTP errors
+        return rdbs.sequence(response.text)
+    except requests.exceptions.RequestException as e:
+        print(f"Error retrieving sequences: {e}")
+        return None
+def domain_seg(seqobj,
+               ted_path= "/netmnt/vast01/cbb01/proteinworld/People/gian/projects/TED/TED_database.db",
+               duplicates=False):
+     '''
+     The function is implementend only for high confidence domain prediction, don't think it worth use lowr than that
+     '''
+     from rotifer.devel.alpha import gian_func as gf
+     import numpy as np
+     import sqlite3
+
+     ###inner function
+     def parse_seg_per_conf(segdf, conf_level):
+         segdf = segdf.dropna(subset=[f'{conf_level}_c'])
+         segdf[f'{conf_level}_c'] = segdf[f'{conf_level}_c'].str.split(',')
+         segdf = segdf.explode(f'{conf_level}_c')
+         segdf = segdf[['pid','uniprot',f'{conf_level}_c']].rename({f'{conf_level}_c':'coordinates'},axis=1)
+         segdf['domain_name'] = segdf.apply(lambda x : f'{conf_level}/{x.uniprot}/{x.coordinates}', axis=1)
+         segdf.coordinates = segdf.coordinates.str.split('_')
+         segdf = segdf.explode(['coordinates'])
+         segdf[['start', 'end']] = segdf.coordinates.str.split('-', expand=True)
+         segdf['confidence'] = conf_level
+
+         return segdf
+
+     uniref_id = gf.pid_ncbi_to_uniprotkb(seqobj.df.id.unique().tolist())
+     conn = sqlite3.connect(ted_path)
+     cursor = conn.cursor()
+     value_to_search = [f"AF-{id}-F1-model_v4" for id in uniref_id.to.tolist()]
+     placeholders = ','.join(['?' for _ in range(len(value_to_search))])
+     query = f"SELECT * FROM ted WHERE AFDB_model_ID IN ({placeholders})"
+
+     # Define the value to search for
+
+
+     # Execute the query
+     cursor.execute(query, value_to_search)
+
+     # Fetch all matching rows
+     results = cursor.fetchall()
+     output = pd.DataFrame(results, columns=['to', 'length', 'high' ,'medium' ,'low' ,'high_c', 'medium_c', 'low_c'])
+     output.to = output.to.str.extract(r'AF-([A-Z0-9]+)-F1-model_v4')
+     output = uniref_id.merge(output, how='left', on='to').rename({'from':'pid', 'to':'uniprot'}, axis=1)
+     output = output.replace('na', np.nan)
+     output = output.dropna(subset = ['length'])
+     if not duplicates:
+         output = output.drop_duplicates(['pid'])
+     out2 = pd.DataFrame()
+     for con in ['high', 'medium', 'low']:
+         out2 = pd.concat([out2, parse_seg_per_conf(output, con)])
+     seg = out2.domain_name.value_counts().where(lambda x: x>1).dropna().index.tolist()
+     out2['segmented'] = np.where(out2.domain_name.isin(seg), True, False)
+     to_merge = seqobj.df[['id','sequence']].rename({'id':'pid'}, axis=1).copy()
+     out2 = out2.merge(to_merge,on='pid', how='left') 
+     out2['aln_start'] = out2.apply(lambda x: pd.Series(list(x.sequence)).rename('seq').to_frame().query('seq !="-"').reset_index().loc[int(x.start)]['index'], axis=1)
+     out2['aln_end'] = out2.apply(lambda x: pd.Series(list(x.sequence)).rename('seq').to_frame().query('seq !="-"').reset_index().loc[int(x.end) -1]['index'], axis=1)
+     out2 = out2.drop(['sequence'], axis=1)
+
+     return out2
+
+def segment_seqobj(seqobj):
+    from rotifer.devel.alpha import gian_func as gf
+    import rotifer.interval.utils as riu
+    segtable = gf.domain_seg(seqobj)
+    segtable['fake_name'] = 'x'
+    dt = riu.filter_nonoverlapping_regions(segtable, reference='fake_name', start='aln_start', end='aln_end', criteria={"region_length":False})
+    dom_dict={}
+    for x,y in dt.iterrows():
+        dom_dict[y.domain_name] = seqobj.slice((y.aln_start, y.aln_end))
+    return dom_dict
+
+
+
+
+
+
+
+

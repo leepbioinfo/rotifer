@@ -140,7 +140,7 @@ def network_dash(G,pos_dict, xx, function):
     import networkx as nx
     import numpy as np
     import pandas as pd
-    import net_functions
+    from rotifer.devel.alpha import net_functions
     
     
     app = dash.Dash(__name__)
@@ -548,3 +548,92 @@ def subgraph_stats(net,
         return pd.DataFrame(to_fisher, columns=['Theme', 'Total'], index=['Subnetwork', 'net - subnet'] )
     return fisher_exact(to_fisher,alternative=alternative)
 
+def get_relations(domdf,
+                  dom='full',
+                  min_connections = 5,
+                  self_relation = False,
+                  to_yaml=False,
+                  iteration=1,
+                  filter_rename_yaml  = False):
+    from rotifer.devel.alpha import gian_func as gf
+    """ 
+    domdf to network, it can create dictionary to create a YAML file or a dataframe.
+    dom: list of domains to be used as query in the network, if full all domdf will be used
+    min_connections: Minimum number of relationship (Operon or fusion) anode should have to be presente in the network.
+    yaml: If decided to transform the network in dictionary to latter be exported as YAML file.
+    Iteration: If a list of domains was supplied, the number of iteration in the network to collect other nodes.
+    """
+    domdf.dom = domdf.dom.str.strip()
+    if filter_rename_yaml:
+        import yaml
+        with open(filter_rename_yaml, "r") as file:
+            data = yaml.safe_load(file)
+            data = pd.DataFrame(data).T
+            data.loc[data.Display_name =="", 'Display_name'] = data.loc[data.Display_name ==""].index.tolist()
+            rename_dict = data.Display_name.to_dict()
+            domdf.dom = domdf.dom.replace(rename_dict)
+            to_display = data.query('Include ==1').Display_name.unique().tolist()
+            domdf = domdf.query('dom in @to_display')
+
+    if isinstance(dom, str):
+        dom = [dom]
+    if dom[0] =='full':
+        block_id = domdf.block_id.tolist()
+    else:
+        for x in range(iteration):
+            block_id = domdf.query('dom in @dom').block_id.tolist()
+            dom = domdf.query('block_id in @block_id').dom.unique().tolist()
+    to_net = domdf.query('block_id in @block_id')[['pid', 'block_id', 'dom', 'strand']]
+    to_net['block_pos'] = 1
+    to_net['block_pos'] = to_net.groupby(['block_id'])['block_pos'].cumsum()
+    to_net = to_net.merge(to_net, on ='block_id')
+    to_net.loc[((to_net.strand_x == 1 ) & (to_net.block_pos_x < to_net.block_pos_y) & (to_net.pid_x != to_net.pid_y)), 'edge_type'] = 'Downstream'
+    to_net.loc[((to_net.strand_x == 1 ) & (to_net.block_pos_x > to_net.block_pos_y) & (to_net.pid_x != to_net.pid_y)), 'edge_type'] = 'Upstream'
+    to_net.loc[((to_net.strand_x == 1 ) & (to_net.block_pos_x > to_net.block_pos_y) & (to_net.pid_x == to_net.pid_y)), 'edge_type'] = 'Nterminal'
+    to_net.loc[((to_net.strand_x == 1 ) & (to_net.block_pos_x < to_net.block_pos_y) & (to_net.pid_x == to_net.pid_y)), 'edge_type'] = 'Cterminal'
+    to_net.loc[((to_net.strand_x == -1 ) & (to_net.block_pos_x < to_net.block_pos_y) & (to_net.pid_x != to_net.pid_y)), 'edge_type'] = 'Downstream'
+    to_net.loc[((to_net.strand_x == -1 ) & (to_net.block_pos_x > to_net.block_pos_y) & (to_net.pid_x != to_net.pid_y)), 'edge_type'] = 'Upstream'
+    to_net.loc[((to_net.strand_x == -1 ) & (to_net.block_pos_x > to_net.block_pos_y) & (to_net.pid_x == to_net.pid_y)), 'edge_type'] = 'Cterminal'
+    to_net.loc[((to_net.strand_x == -1 ) & (to_net.block_pos_x < to_net.block_pos_y) & (to_net.pid_x == to_net.pid_y)), 'edge_type'] = 'Nterminal'
+
+    to_net= to_net.query('edge_type.notna()')
+    to_net = to_net[['block_id','dom_x','dom_y','edge_type']]
+    to_net.columns = ['block_id','source','target','edge_type']
+    if to_yaml:
+        to_net['edge_count'] = to_net.groupby(['source', 'target']).edge_type.transform('count')
+        to_net = to_net.query('edge_count >= @ min_connections').drop(['edge_count'], axis=1)
+        yamldf = pd.pivot_table(to_net,
+                            index='source',
+                            columns='edge_type',
+                            values = ['target', 'block_id'],
+                            aggfunc={
+                                'target':lambda x : gf.count_series(x, as_list=True),
+                                'block_id': 'nunique'}
+                            )
+        yamldf = yamldf.loc[:,'block_id'].sum(axis=1).rename('total').to_frame().join(yamldf.loc[:,'target']).sort_values('total')
+        yamldf.fillna('', inplace=True)
+        yamldf.Nterminal = yamldf.Nterminal.apply(lambda x: x.split(' ') if isinstance(x, str) else x)
+        yamldf.Cterminal = yamldf.Cterminal.apply(lambda x: x.split(' ') if isinstance(x, str) else x)
+        yamldf.Downstream = yamldf.Downstream.apply(lambda x: x.split(' ') if isinstance(x, str) else x)
+        yamldf.Upstream = yamldf.Upstream.apply(lambda x: x.split(' ') if isinstance(x, str) else x)
+        yamldf['L'] = yamldf[['Cterminal', 'Downstream', 'Nterminal', 'Upstream']].apply(
+                lambda row: [item for sublist in row for item in sublist if item != ''],
+                axis=1
+                )
+        yamldf.L = yamldf.L.apply(len)
+        yamldf = yamldf.query('L >0')
+        yamldf = yamldf.drop(['L'], axis=1)
+
+        return(yamldf.to_dict(orient='index'))
+    else:
+        to_net['edge_total'] = to_net.groupby(['source', 'target']).edge_type.transform('count')
+        to_net = to_net.groupby(['source', 'target', 'edge_type']).agg(
+                {'block_id' :'count',
+                 'edge_total' : 'first'}).reset_index().sort_values('block_id')
+        to_net = to_net.rename({'block_id':'edge_count'},axis=1)        
+        to_net = to_net.query('edge_total >= @min_connections').drop(['edge_total'], axis=1)
+        if self_relation:
+            pass
+        else:
+            to_net = to_net[to_net.source != to_net.target]
+        return(to_net)
