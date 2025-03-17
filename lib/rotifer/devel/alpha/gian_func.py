@@ -3738,16 +3738,23 @@ def domain_seg(seqobj,
 
      return out2
 
-def segment_seqobj(seqobj):
+def segment_seqobj(seqobj, confidence='medium'):
     from rotifer.devel.alpha import gian_func as gf
     import rotifer.interval.utils as riu
     segtable = gf.domain_seg(seqobj)
     segtable['fake_name'] = 'x'
+    if confidence =='low':
+        pass
+    elif confidence =="medium":
+        segtable = segtable.query('confidence !="low"')
+    else:
+        segtable = segtable.query('confidence =="high"')
+
     dt = riu.filter_nonoverlapping_regions(segtable, reference='fake_name', start='aln_start', end='aln_end', criteria={"region_length":False})
     dom_dict={}
     for x,y in dt.iterrows():
         dom_dict[y.domain_name] = seqobj.slice((y.aln_start, y.aln_end))
-    return dom_dict
+    return [dom_dict, segtable]
 
 
 
