@@ -39,6 +39,11 @@ def read_tables(
         rename={'pfam':{'ID':'c100i100','architecture':'pfam'}, 'aravind':{'ID':'c100i100','architecture':'aravind'}},
         filter_columns={'pfam':['c100i100','pfam'], 'aravind':['c100i100','aravind']},
         sep="\t"):
+    """
+    This function loads, process and either join or concatenate a set of tables.
+
+    The list of tables is derived iby matching prefixes and suffixes to a target directory.
+    """
     import pandas as pd
 
     # Loading...
@@ -70,7 +75,7 @@ def read_tables(
             df = tmp
         else:
             if merge and merge[mergeIndex] == name:
-                df = df.merge(tmp)
+                df = df.merge(tmp, how='left')
                 mergeIndex = mergeIndex + 1
             elif concat and concat[concatIndex] == name:
                 df = pd.concat([ df, tmp ])
