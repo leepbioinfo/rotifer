@@ -81,8 +81,8 @@ def read_tables(
                 df = pd.concat([ df, tmp ])
                 concatIndex = concatIndex + 1
 
-        # return dataframe
-        return df
+    # return dataframe
+    return df
 
 def extract_by_hmm(seqobj1, seqobj2, suffixes=('','_YyYyYy')):
     '''
