@@ -1,3 +1,83 @@
+def findFilesByPrefixSuffix(
+        prefix,
+        suffixes=[".scan.arch","_cluster.tsv"],
+        path=".",
+        order=['c100i100','c80i70','c80i0','pfam','aravind']):
+    import os
+    from glob import glob
+
+    # Finding...
+    tables = []
+    for fname in glob(f'''{path}/{prefix}.*'''):
+        name = os.path.basename(fname)
+        name = name[len(prefix):]
+        if name[0] == ".":
+            name = name[1:]
+        for pattern in suffixes:
+            if name[-len(pattern):] == pattern:
+                name = name[:len(name)-len(pattern)]
+                if name[-1] == ".":
+                    name = name[:-1]
+                tables.append([ name, prefix, pattern, fname ])
+    tables = pd.DataFrame(tables, columns=['target','prefix','suffix','path'])
+    if order:
+        myorder = { order[i]: i for i in range(0,len(order)) }
+        tables['idx'] = tables['target'].map(myorder)
+        tables.sort_values('idx', inplace=True)
+    else:
+        tables['idx'] = tables.index.tolist()
+    return tables
+
+def read_tables(
+        prefix,
+        suffixes=[".scan.arch","_cluster.tsv"],
+        path=".",
+        order=['c100i100','c80i70','c80i0','pfam','aravind'],
+        concat=[],
+        source=[],
+        colnames={'c100i100':['c100i100','pid'], 'c80i70':['c80i70','c100i100'], 'c80i0':['c80i0','c80i70']},
+        rename={'pfam':{'ID':'c100i100','architecture':'pfam'}, 'aravind':{'ID':'c100i100','architecture':'aravind'}},
+        filter_columns={'pfam':['c100i100','pfam'], 'aravind':['c100i100','aravind']},
+        sep="\t"):
+    import pandas as pd
+
+    # Loading...
+    mergeIndex = 0
+    concatIndex = 0
+    df = pd.DataFrame()
+    tables = findFilesByPrefixSuffix(prefix, suffixes, path, order)
+    for idx, row in tables.iterrows():
+        name = row['target']
+
+        # Set column names
+        columns = None
+        if name in colnames:
+            columns = colnames[name]
+        
+        # Read
+        tmp = pd.read_csv(row['path'], sep=sep, names=columns)
+
+        # Adjust
+        if name in rename:
+            tmp.rename(rename[name], inplace=True)
+        if name in filter_columns:
+            tmp = tmp.filter(filter_columns[name])
+        if name in source:
+            tmp['source'] = name
+
+        # Operate
+        if df.empty:
+            df = tmp
+        else:
+            if merge and merge[mergeIndex] == name:
+                df = df.merge(tmp)
+                mergeIndex = mergeIndex + 1
+            elif concat and concat[concatIndex] == name:
+                df = pd.concat([ df, tmp ])
+                concatIndex = concatIndex + 1
+
+        # return dataframe
+        return df
 
 def extract_by_hmm(seqobj1, seqobj2, suffixes=('','_YyYyYy')):
     '''
