@@ -5,6 +5,7 @@ def findFilesByPrefixSuffix(
         order=['c100i100','c80i70','c80i0','pfam','aravind']):
     import os
     from glob import glob
+    import pandas as pd
 
     # Finding...
     tables = []
@@ -35,6 +36,7 @@ def read_tables(
         order=['c100i100','c80i70','c80i0','pfam','aravind'],
         concat=[],
         source=[],
+        merge=[],
         colnames={'c100i100':['c100i100','pid'], 'c80i70':['c80i70','c100i100'], 'c80i0':['c80i0','c80i70']},
         rename={'pfam':{'ID':'c100i100','architecture':'pfam'}, 'aravind':{'ID':'c100i100','architecture':'aravind'}},
         filter_columns={'pfam':['c100i100','pfam'], 'aravind':['c100i100','aravind']},
@@ -51,35 +53,56 @@ def read_tables(
     concatIndex = 0
     df = pd.DataFrame()
     tables = findFilesByPrefixSuffix(prefix, suffixes, path, order)
+    print('this is the findfilesfunc result')
+    print(tables)
     for idx, row in tables.iterrows():
+        print(f"this is {idx}")
         name = row['target']
+        print(name)
 
         # Set column names
         columns = None
         if name in colnames:
             columns = colnames[name]
-        
+            print(columns)
         # Read
         tmp = pd.read_csv(row['path'], sep=sep, names=columns)
+        print('this is before adjust loop')
+        print(tmp.head(2))
 
         # Adjust
         if name in rename:
-            tmp.rename(rename[name], inplace=True)
+            tmp.rename(rename[name], inplace=True,axis=1)
         if name in filter_columns:
             tmp = tmp.filter(filter_columns[name])
         if name in source:
             tmp['source'] = name
-
+        
+        print('this is after passing adjust loop')
+        print(tmp.head(2))
         # Operate
+        print('Reaching Operate loop')
+        print(f"df.empty: {df.empty}")
         if df.empty:
+            print(f"Setting df to: {name}")
             df = tmp
+            print('this is printed if df was empty')
+            print(df.head(2))
         else:
+            print(f"Trying to merge or concat: {name}")
             if merge and merge[mergeIndex] == name:
+                print('merge loop')
+                print(f'{merge} and {merge[mergeIndex]}')
                 df = df.merge(tmp, how='left')
                 mergeIndex = mergeIndex + 1
+                print(df.head(2))
             elif concat and concat[concatIndex] == name:
-                df = pd.concat([ df, tmp ])
+                print('concat loop')
+                print(f'{concat} and {concat[concatIndex]}')
+                df = pd.concat([ df, tmp ],ignore_index=True)
                 concatIndex = concatIndex + 1
+                print(df.head(2))
+        print(f"{name} was not merged or concatenated. Skipping.")
 
     # return dataframe
     return df
