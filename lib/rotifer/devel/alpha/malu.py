@@ -1,3 +1,17 @@
+# Import rotifer modules
+import rotifer
+
+from rotifer.core.functions import loadConfig
+config = loadConfig(__name__, defaults = {
+    'read_tables': {
+        'suffixes':[".scan.arch","_cluster.tsv"],
+        'order':['c100i100','c80i70','c80i0','pfam','aravind'],
+        'colnames':{'c100i100':['c100i100','pid'], 'c80i70':['c80i70','c100i100'], 'c80i0':['c80i0','c80i70']},
+        'rename':{'pfam':{'ID':'c100i100','architecture':'pfam'}, 'aravind':{'ID':'c100i100','architecture':'aravind'}},
+        'filter_columns':['pid','c100i100','c80i70','c80i0','pfam','aravind'],
+    }})
+logger = rotifer.logging.getLogger(__name__)
+
 def findFilesByPrefixSuffix(
         prefix,
         suffixes=[".scan.arch","_cluster.tsv"],
@@ -21,26 +35,30 @@ def findFilesByPrefixSuffix(
                     name = name[:-1]
                 tables.append([ name, prefix, pattern, fname ])
     tables = pd.DataFrame(tables, columns=['target','prefix','suffix','path'])
+
+    # Sorting
     if order:
         myorder = { order[i]: i for i in range(0,len(order)) }
-        tables['idx'] = tables['target'].map(myorder)
-        tables.sort_values('idx', inplace=True)
     else:
         tables['idx'] = tables.index.tolist()
+    tables['_idx'] = tables['target'].map(myorder)
+    tables.sort_values(['_idx','target'], inplace=True)
+    tables.reset_index(inplace=True, drop=True)
+    tables.drop('_idx', inplace=True, axis=1)
+
     return tables
 
-def read_tables(
-        prefix,
-        suffixes=[".scan.arch","_cluster.tsv"],
-        path=".",
-        order=['c100i100','c80i70','c80i0','pfam','aravind'],
-        concat=[],
-        source=[],
-        merge=[],
-        colnames={'c100i100':['c100i100','pid'], 'c80i70':['c80i70','c100i100'], 'c80i0':['c80i0','c80i70']},
-        rename={'pfam':{'ID':'c100i100','architecture':'pfam'}, 'aravind':{'ID':'c100i100','architecture':'aravind'}},
-        filter_columns={'pfam':['c100i100','pfam'], 'aravind':['c100i100','aravind']},
-        sep="\t"):
+def read_tables(prefix,
+                suffixes=config['read_tables']['suffixes'],
+                path=".",
+                order=config['read_tables']['order'],
+                source=False,
+                merge=True,
+                colnames=config['read_tables']['colnames'],
+                rename=config['read_tables']['rename'],
+                filter_columns=config['read_tables']['filter_columns'],
+                sep="\t",
+                ):
     """
     This function loads, process and either join or concatenate a set of tables.
 
@@ -49,60 +67,34 @@ def read_tables(
     import pandas as pd
 
     # Loading...
-    mergeIndex = 0
-    concatIndex = 0
     df = pd.DataFrame()
     tables = findFilesByPrefixSuffix(prefix, suffixes, path, order)
-    print('this is the findfilesfunc result')
-    print(tables)
     for idx, row in tables.iterrows():
-        print(f"this is {idx}")
         name = row['target']
-        print(name)
 
         # Set column names
         columns = None
         if name in colnames:
             columns = colnames[name]
-            print(columns)
+
         # Read
         tmp = pd.read_csv(row['path'], sep=sep, names=columns)
-        print('this is before adjust loop')
-        print(tmp.head(2))
 
         # Adjust
         if name in rename:
-            tmp.rename(rename[name], inplace=True,axis=1)
-        if name in filter_columns:
-            tmp = tmp.filter(filter_columns[name])
-        if name in source:
+            tmp.rename(rename[name], inplace=True, axis=1)
+        if filter_columns:
+            tmp = tmp.filter(filter_columns)
+        if source:
             tmp['source'] = name
-        
-        print('this is after passing adjust loop')
-        print(tmp.head(2))
+
         # Operate
-        print('Reaching Operate loop')
-        print(f"df.empty: {df.empty}")
         if df.empty:
-            print(f"Setting df to: {name}")
-            df = tmp
-            print('this is printed if df was empty')
-            print(df.head(2))
+            df = tmp.copy()
+        elif merge:
+            df = df.merge(tmp, how='left')
         else:
-            print(f"Trying to merge or concat: {name}")
-            if merge and merge[mergeIndex] == name:
-                print('merge loop')
-                print(f'{merge} and {merge[mergeIndex]}')
-                df = df.merge(tmp, how='left')
-                mergeIndex = mergeIndex + 1
-                print(df.head(2))
-            elif concat and concat[concatIndex] == name:
-                print('concat loop')
-                print(f'{concat} and {concat[concatIndex]}')
-                df = pd.concat([ df, tmp ],ignore_index=True)
-                concatIndex = concatIndex + 1
-                print(df.head(2))
-        print(f"{name} was not merged or concatenated. Skipping.")
+            df = pd.concat([ df, tmp ],ignore_index=True)
 
     # return dataframe
     return df
