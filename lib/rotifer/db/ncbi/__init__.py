@@ -775,7 +775,7 @@ class TaxonomyCursor(rotifer.db.delegator.SequentialDelegatorCursor):
 # FUNCTIONS
 
 # Load NCBI assembly reports
-def assemblies(baseurl=f'ftp://{config["ftpserver"]}/genomes/ASSEMBLY_REPORTS', taxonomy=True, progress=True):
+def assemblies(baseurl=f'ftp://{config["ftpserver"]}/genomes/ASSEMBLY_REPORTS', targets=['refseq', 'genbank', 'refseq_historical', 'genbank_historical'], taxonomy=True, progress=True):
     '''
     Load a table documenting all NCBI genome assemblies.
 
@@ -802,8 +802,13 @@ def assemblies(baseurl=f'ftp://{config["ftpserver"]}/genomes/ASSEMBLY_REPORTS', 
     ----------
     baseurl: string
       URL or directory with assembly_summary_*.txt files
+    targets: list
+      List of genome database sections to load.
+      Options are: refseq, genbank, genbank_historical, refseq_historical
     taxonomy: boolean, default True
       If set to true, taxonomy data is added to the table
+    progress: boolean
+      Display progress messages.
 
     Returns
     -------
@@ -826,7 +831,7 @@ def assemblies(baseurl=f'ftp://{config["ftpserver"]}/genomes/ASSEMBLY_REPORTS', 
 
     # Load assembly reports
     df = list()
-    for x in ['refseq', 'genbank', 'refseq_historical', 'genbank_historical']:
+    for x in targets:
         if os.path.exists(baseurl): # Local file
             url = os.path.join(baseurl, f'assembly_summary_{x}.txt')
             if not os.path.exists(url):
@@ -834,7 +839,7 @@ def assemblies(baseurl=f'ftp://{config["ftpserver"]}/genomes/ASSEMBLY_REPORTS', 
                 continue
         else: # FTP
             url = f'{baseurl}/assembly_summary_{x}.txt'
-        _ = pd.read_csv(url, sep ="\t", skiprows=[0])
+        _ = pd.read_csv(url, sep ="\t", skiprows=[0], low_memory=False)
         _.rename({'# assembly_accession':'assembly'}, axis=1, inplace=True)
         _['source'] = x
         _['loaded_from'] = url
