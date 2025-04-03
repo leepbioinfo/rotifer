@@ -78,7 +78,7 @@ def to_network(df, target=['pfam'], ftype='CDS', interaction=True, ignore = []):
 def compact_for_treeviewer(
         ndf,
         acc,
-        columns=['pid','assembly','nucleotide','block_id','organism','lineage','classification','pfam','aravind','compact1','compacts'],
+        columns=['pid','assembly','nucleotide','block_id','organism','lineage','classification','pfam','aravind','compact','compacts'],
         save=None,
     ):
     '''
@@ -89,7 +89,7 @@ def compact_for_treeviewer(
     ndfc = ndf.compact()
     ndfcs = ndf.select_neighbors(strand = True).compact()
     ndf_acc = ndf[ndf.pid.isin(acc)]
-    ndf_acc['compact1'] = ndf_acc.block_id.map(ndfc.compact.to_dict())
+    ndf_acc['compact'] = ndf_acc.block_id.map(ndfc.compact.to_dict())
     ndf_acc['compacts'] = ndf_acc.block_id.map(ndfcs.compact.to_dict())
     table = ndf_acc[columns].drop_duplicates(columns[0])
     if save:
@@ -97,4 +97,56 @@ def compact_for_treeviewer(
         print(f'Table saved to {save}')
     else:
         return table
+
+def make_heatmap(
+        df,
+        name = None,
+        domain_list = [],
+        format_table = True,
+        color_list = ['white','blue','green','red'],
+        cbar = False,
+        fmt = 'd',
+        annot = False,
+        linewidths = 1,
+        tree_file = None,
+        tree = False,
+        figsize=None
+    ):
+    '''
+    Creates a heatmap from a dataframe to represent 
+    main occurrence. The colors are correspondent 
+    to the values in the dataframe, by exemple, four 
+    colors corresponds to the values: 0, 1, 2 and 3, 
+    respectively. The columns in the dataframe will
+    be the columns in the heatmap, and each line 
+    represents a occurrence from the respective domain
+    and the colors the type of correspondence, that is
+    determined by the numbers utilized.
+    '''
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    import matplotlib.colors as colors
+    import pandas as pd
+              
+    if format_table == True:
+        hm = df.set_index('pid')[['pfam','compact']]
+        for x in domain_list:
+            inpfam = hm.pfam.str.contains(x, na = False)
+            inneighbors = hm.compact.str.contains(x, na = False)
+            hm[f'{x}'] = ((inpfam & inneighbors).astype(int)*3 + (inpfam & ~inneighbors).astype(int)*2 + (~inpfam & inneighbors).astype(int)*1 + (~inpfam & ~inneighbors).astype(int)*0)
+        df = hm[domain_list]
+                                                                   
+    if tree == True:
+        import ete3
+        t = ete3.Tree(f'{tree_file}')
+        df = df.reindex(t.get_leaf_names()).fillna(0).astyoe(int)
+    if figsize:
+        figsize=figsize
+    else:
+        figsize=(len(df.columns),len(df)/5)
+    cmap = colors.ListedColormap(color_list)
+    fig, ax = plt.subplots(figsize=figsize)
+    sns.heatmap(data = df, cmap = cmap, cbar = cbar, fmt = fmt, annot = annot, linewidths = linewidths, ax=ax)
+    plt.savefig(f'{name}', bbox_inches='tight')
+    plt.close(fig)
 
