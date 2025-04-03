@@ -139,11 +139,13 @@ def make_heatmap(
     if tree == True:
         import ete3
         t = ete3.Tree(f'{tree_file}')
-        df = df.reindex(t.get_leaf_names()).fillna(0).astyoe(int)
+        df = df.reindex(df.reindex(t.get_leaf_names()).index.str.replace('\'','')).fillna(0).astype(int)
+    
     if figsize:
         figsize=figsize
     else:
         figsize=(len(df.columns),len(df)/5)
+  
     cmap = colors.ListedColormap(color_list)
     fig, ax = plt.subplots(figsize=figsize)
     sns.heatmap(data = df, cmap = cmap, cbar = cbar, fmt = fmt, annot = annot, linewidths = linewidths, ax=ax)
