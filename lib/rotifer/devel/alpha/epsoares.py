@@ -132,7 +132,7 @@ def make_heatmap(
         hm = df.set_index('pid')[['pfam','compact']]
         for x in domain_list:
             inpfam = hm.pfam.str.contains(x, na = False)
-            inneighbors = hm.compact.str.contains(x, na = False)
+            inneighbors = hm['compact'].str.contains(x, na = False)
             hm[f'{x}'] = ((inpfam & inneighbors).astype(int)*3 + (inpfam & ~inneighbors).astype(int)*2 + (~inpfam & inneighbors).astype(int)*1 + (~inpfam & ~inneighbors).astype(int)*0)
         df = hm[domain_list]
                                                                    
