@@ -222,3 +222,179 @@ def operon_fig(df, domain_dict=False):
     A.draw("subgraph3.svg", prog="dot")
     return print(A.string())
 
+def _get_df_to_img(self, consensus, annotations=False, remove_gaps=False, adjust_coordinates=False):
+    """
+    Generate a DataFrame suitable for matplotlib image generation from a sequence alignment object.
+
+    :param consensus: The consensus threshold used to color the alignment.
+    :param annotations: List or str of annotation row IDs to include in the output.
+    :param remove_gaps: ID of the sequence to use as a model for gap removal.
+    :param adjust_coordinates: Whether to adjust coordinates when removing gaps.
+    :return: A pandas DataFrame with sequences + annotations + consensus, gaps handled if requested.
+    """
+
+    import sys
+    import pandas as pd
+    from rotifer.devel.beta.sequence import sequence
+    import numpy as np
+
+    aln = self.copy()
+
+    if remove_gaps:
+        gaps, gdf = aln.gaps_to_numbers(remove_gaps, adjust_coordinates=adjust_coordinates)
+        gdf.index = aln.df.query('type == "sequence"').id
+
+    aromatic = ['F', 'Y', 'W', 'H']
+    alifatic = ['I', 'V', 'L']
+    hydrophobic = alifatic + ['A', 'C', 'F', 'M', 'W', 'Y']
+    positive = ['H', 'K', 'R']
+    negative = ['D', 'E']
+    charged = positive + negative
+    polar = charged + ['p', 'Q', 'N', 'S', 'T', 'C']
+    alcohol = ['S', 'T']
+    tiny = ['G', 'A', 'S']
+    small = tiny + ['V', 'T', 'D', 'N', 'P', 'C']
+    big = ['K', 'F', 'I', 'L', 'M', 'Q', 'R', 'W', 'Y', 'E']
+    all_aa = ['G', 'A', 'V', 'I', 'L', 'M', 'F', 'Y', 'W', 'H', 'C', 'P', 'K', 'R', 'D', 'E', 'Q', 'N', 'S', 'T']
+
+    aa_groups_colors = {
+        'a': [aromatic, '#2C68F3'],
+        'l': [alifatic, '#2CF3EA'],
+        'h': [hydrophobic, '#F3E42C90'],
+        '+': [positive, '#2C68F3'],
+        '-': [negative, '#F50EF195'],
+        'c': [charged, '#38F50E'],
+        'p': [polar, '#0EF5A150'],
+        'o': [alcohol, '#AE5BF8'],
+        'u': [tiny, '#EE9C0C'],
+        's': [small, '#DA147750'],
+        'b': [big, '#A28694'],
+        '.': [all_aa, 'white'],
+        'G': [all_aa, 'white'], 'A': [all_aa, 'white'], 'V': [all_aa, 'white'], 'I': [all_aa, 'white'],
+        'L': [all_aa, 'white'], 'M': [all_aa, 'white'], 'F': [all_aa, 'white'], 'Y': [all_aa, 'white'],
+        'W': [all_aa, 'white'], 'H': [all_aa, 'white'], 'C': [all_aa, 'white'], 'P': [all_aa, 'white'],
+        'K': [all_aa, 'white'], 'R': [all_aa, 'white'], 'D': [all_aa, 'white'], 'E': [all_aa, 'white'],
+        'Q': [all_aa, 'white'], 'N': [all_aa, 'white'], 'S': [all_aa, 'white'], 'T': [all_aa, 'white'],
+        ' ': [all_aa, 'white'], '  ': [all_aa, 'white'], '_': [all_aa, 'white']
+    }
+
+    # Getting the residues table
+    aln_r = aln.residues
+    con = pd.Series(list(aln.consensus(consensus)))
+    aln_r = aln_r.set_index(aln.df.query('type == "sequence"').id)
+    con.index += 1
+    aln_r = pd.concat([aln_r, con.rename('consensus').to_frame().T], axis=0)
+
+    # Adding annotations if present
+    if annotations:
+        if isinstance(annotations, str):
+            ann = pd.Series(list(aln.df.query('id == @annotations').sequence.iloc[0]))
+            ann.index += 1
+            aln_r = pd.concat([ann.rename(annotations).to_frame().T, aln_r])
+        else:
+            for x in annotations:
+                ann = pd.Series(list(aln.df.query('id == @x').sequence.iloc[0]))
+                ann.index += 1
+                aln_r = pd.concat([ann.rename(x).to_frame().T, aln_r])
+
+    # Removing gaps if specified
+    if remove_gaps:
+        aln_r = aln_r.drop(gaps, axis=1).join(gdf).sort_index(axis=1).fillna(0).astype(int, errors='ignore').astype(str).replace('0', '  ')
+
+    return aln_r
+
+
+def aln2img(seqobj, consensus=60, remove_gaps=False, annotations=False, outfile=''):
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    aromatic = ['F', 'Y', 'W', 'H']
+    alifatic = ['I', 'V', 'L']
+    hydrophobic = alifatic + ['A', 'C', 'F', 'M', 'W', 'Y']
+    positive = ['H', 'K', 'R']
+    negative = ['D', 'E']
+    charged = positive + negative
+    polar = charged + ['Q', 'N', 'S', 'T', 'C']
+    alcohol = ['S', 'T']
+    tiny = ['G', 'A', 'S']
+    small = tiny + ['V', 'T', 'D', 'N', 'P', 'C']
+    big = ['K', 'F', 'I', 'L', 'M', 'Q', 'R', 'W', 'Y', 'E']
+    all_aa = ['G', 'A', 'V', 'I', 'L', 'M', 'F', 'Y', 'W', 'H', 'C', 'P', 'K', 'R', 'D', 'E', 'Q', 'N', 'S', 'T']
+
+    aa_groups_colors = {
+        'a': [aromatic, '#2C68F3'],
+        'l': [alifatic, '#2CF3EA'],
+        'h': [hydrophobic, '#F3E42C'],
+        '+': [positive, '#2C68F3'],
+        '-': [negative, '#F50EF1'],
+        'c': [charged, '#38F50E'],
+        'p': [polar, '#0EF5A1'],
+        'o': [alcohol, '#AE5BF8'],
+        'u': [tiny, '#EE9C0C'],
+        's': [small, '#DA1477'],
+        'b': [big, '#A28694'],
+        '.': [all_aa, '#FFFFFF']
+    }
+
+    aln_r = _get_df_to_img(seqobj, consensus=consensus, remove_gaps=remove_gaps, annotations=annotations)
+
+    aln_r = aln_r.fillna('    ').astype(str)
+    aln_r = aln_r.T.reset_index(drop=True).T
+    aln_r = aln_r.reset_index().drop_duplicates('index').set_index('index')
+    aln_r.index.name = None
+
+    xx = aln_r.loc['consensus'].to_frame()
+    no_color_row = np.where(aln_r.index.str.contains('ss_from', regex=True))[0].tolist()
+    conservedAA = xx.iloc[:, 0].str.isupper().where(lambda x: x == True).dropna().index.to_list()
+    cell_text = aln_r.values.tolist()
+
+    fig, ax = plt.subplots()
+    ax.axis('auto')
+    ax.axis('off')
+
+    the_table = ax.table(
+        cellText=cell_text,
+        cellLoc='center',
+        rowLabels=aln_r.index.to_list(),
+        colLabels=None,
+        loc='center'
+    )
+    the_table.auto_set_font_size(False)
+    the_table.set_fontsize(10)
+    the_table.auto_set_column_width(col=aln_r.columns.to_list())
+
+    for x in the_table.get_celld():
+        the_table.get_celld()[x].set_facecolor('white')
+        the_table.get_celld()[x].set_edgecolor('white')
+
+        if x[1] in xx[(xx['consensus'] != '.')].index:
+            if str(xx.iloc[x[1], 0]).isupper():
+                if the_table.get_celld()[x].get_text().get_text() == xx.iloc[x[1], 0]:
+                    the_table.get_celld()[x].set_facecolor('black')
+                    the_table.get_celld()[x].set_edgecolor('black')
+                    the_table.get_celld()[x].get_text().set_color('white')
+            elif xx.iloc[x[1], 0] in aa_groups_colors:
+                if the_table.get_celld()[x].get_text().get_text() in aa_groups_colors[xx.iloc[x[1], 0]][0]:
+                    color = aa_groups_colors[xx.iloc[x[1], 0]][1]
+                    the_table.get_celld()[x].set_facecolor(color)
+                    the_table.get_celld()[x].set_edgecolor(color)
+
+        if x[0] in no_color_row:
+            val = the_table.get_celld()[x].get_text().get_text()
+            if val in ['H', 'h']:
+                the_table.get_celld()[x].set_edgecolor('red')
+                the_table.get_celld()[x].get_text().set_color('white')
+                the_table.get_celld()[x].set_facecolor('red')
+            elif val in ['e', 'E']:
+                the_table.get_celld()[x].set_edgecolor('blue')
+                the_table.get_celld()[x].get_text().set_color('white')
+                the_table.get_celld()[x].set_facecolor('blue')
+            else:
+                the_table.get_celld()[x].set_edgecolor('white')
+                the_table.get_celld()[x].get_text().set_color('black')
+                the_table.get_celld()[x].set_facecolor('white')
+
+    plt.savefig(outfile, bbox_inches='tight', dpi=300)
+    return f'{outfile} saved on the working path'
+
+
