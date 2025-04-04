@@ -272,7 +272,9 @@ runphobius() {
 		echo ${tsv}
 		return
 	fi
-	cut -f1 -d " " ${input} | parallel -N1 -j10 --pipe --recstart ">" ${program} > ${out} 2> ${err}
+	cut -f1 -d " " ${input} \
+	| awk '{if(!/>/){gsub("[BJOUZ_.]","X",$_)};print}' \
+	| parallel -N1 -j10 --pipe --recstart ">" ${program} > ${out} 2> ${err}
 	phobius2table -e $EVALUE ${out} > ${tsv}
 	echo ${tsv}
 }
