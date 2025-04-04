@@ -304,7 +304,7 @@ def _get_df_to_img(self, consensus, annotations=False, remove_gaps=False, adjust
     return aln_r
 
 
-def aln2img(seqobj, consensus=60, remove_gaps=False, annotations=False, outfile=''):
+def aln2img(seqobj, outfile, consensus=60, remove_gaps=False, annotations=False):
     import matplotlib.pyplot as plt
     import numpy as np
 
