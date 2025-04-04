@@ -976,7 +976,7 @@ class sequence(rotifer.pipeline.Annotatable):
         else:
             result = self.residue_frequencies
         result.rename({'gap':consensus_gap}, inplace=True)
-        result = pd.concat([result, pd.DataFrame(columns=result.columns, index=[consensus_gap]).fillna(cutoff+100)])
+        result = pd.concat([result, pd.DataFrame([[cutoff+100]*len(result.columns)], columns=result.columns, index=[consensus_gap])])
         result = result.melt(ignore_index=False).reset_index().rename({'index':'aa', 'variable':'position', 'value':'freq'}, axis=1)
         result['ranking'] = result.aa.map(aa_type_dict)
         result = result.query(f'freq >= {cutoff}').sort_values(['position','ranking'], na_position='first').drop_duplicates(subset='position')

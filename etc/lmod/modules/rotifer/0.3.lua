@@ -30,14 +30,10 @@ local datadir = mydir .. "/share/rotifer/data"
 -- ------------------------------
 prepend_path("PYTHONPATH", mydir .. "/lib")
 prepend_path("PERL5LIB", mydir .. "/perl/lib")
-if (os.getenv("DATABASES") == nil) then
-	setenv("DATABASES",datadir)
-else
+if (os.getenv("DATABASES") ~= nil) then
 	datadir = os.getenv("DATABASES")
 end
-if (os.getenv("ROTIFER_DATA") == nil) then
-	setenv("ROTIFER_DATA",datadir)
-end
+setenv("ROTIFER_DATA",datadir)
 
 -- PATH
 prepend_path("PATH", mydir .. "/bin")
