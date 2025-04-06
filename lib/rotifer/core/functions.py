@@ -830,15 +830,17 @@ def _fasta_ls(*args):
                 fasta_res += arg.split('\n')
     return fasta_res
 
-def save_session(filename, exclude = ['In','Out','exit', 'quit'], exclude_type=tuple([types.ModuleType,types.FunctionType,types.MethodType,typing.Type])):
+def save_session(filename, exclude=['In','Out','exit','quit'], exclude_type=tuple([types.ModuleType,types.FunctionType,types.MethodType,typing.Type]), namespace=None):
     myshelve = shelve.open(filename)
-    for x in globals().keys():
-        if x[0] == "_" or x in exclude or isinstance(globals()[x],exclude_type):
+    if namespace is None:
+        namespace = sys.modules['__main__'].__dict__
+    for x in namespace.keys():
+        if (x[0] == "_") or (x in exclude) or isinstance(namespace[x],exclude_type):
             continue
         try:
-            myshelve[x] = globals()[x]
+            myshelve[x] = namespace[x]
         except:
-            print(f'Will not save {x} of type {type(globals()[x])}', file=sys.stderr)
+            print(f'Will not save {x} of type {type(namespace[x])}', file=sys.stderr)
     myshelve.sync()
     return myshelve
 
