@@ -2,8 +2,12 @@
 
 import os
 import sys
+import types
+import typing
+import shelve
 from copy import deepcopy
 from datetime import datetime as dt
+
 from rotifer.core import config as CoreConfig
 from rotifer.core import logger as rcl
 logger = rcl.get_logger(__name__)
@@ -825,3 +829,28 @@ def _fasta_ls(*args):
             except:
                 fasta_res += arg.split('\n')
     return fasta_res
+
+def save_session(filename, exclude = ['In','Out','exit', 'quit'], exclude_type=tuple([types.ModuleType,types.FunctionType,types.MethodType,typing.Type])):
+    myshelve = shelve.open(filename)
+    for x in globals().keys():
+        if x[0] == "_" or x in exclude or isinstance(globals()[x],exclude_type):
+            continue
+        try:
+            myshelve[x] = globals()[x]
+        except:
+            print(f'Will not save {x} of type {type(globals()[x])}', file=sys.stderr)
+    myshelve.sync()
+    return myshelve
+
+def restore_session(filename, exclude=[], namespace=None):
+    myshelve = shelve.open(filename)
+    if namespace is None:
+        namespace = sys.modules['__main__'].__dict__
+    for x in myshelve.keys():
+        if x in exclude:
+            continue
+        try:
+            namespace[x] = myshelve[x]
+        except:
+            print(f'Failed to restore {x}', file=sys.stderr)
+    return myshelve
