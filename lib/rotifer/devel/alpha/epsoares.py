@@ -51,33 +51,50 @@ def extract_envelope(df, seqobj=None, start='estart', end='eend', expand=10, loc
 
     return seqobj
 
-def to_network(df, target=['pfam'], ftype='CDS', interaction=True, ignore = []):
+def to_network(df, target=['pfam'], ftype=['CDS'], interaction=True, ignore = [], strand = True):
+    if isinstance(ftype, str):
+        ftype = [ftype]
     if isinstance(target, str):
         target = [target]
 
-    w = df.query(f'type == "{ftype}"')[['block_id', 'strand']].copy()
-    w['source'] = df[target[0]]
+    if strand:
+        w = df.neighbors(strand='same')
+        w['rid'] = list(range(1,len(w)+1))
+        w.rid = w.rid * w.strand
+        w.sort_values(['rid'], inplace=True)
+    else:
+        w = df.copy()
 
+    # Building the source column
+    w = w.query(f'type == "{ftype}"').block_id.reset_index(dropna=True)
+    w['source'] = df[target[0]]
     for col in target[1:]:
         w['source'] = np.where(w['source'].isna(), df[df.type == ftype][col], w['source'])
-
     w['source'] = w['source'].fillna("?").str.split('+')
     w = w.explode(column='source')
+    if ignore:
+        w = w[~w.source.isin(ignore)].copy()
+
+    # Building target data
+    w['tblock_id'] = w['block_id'].shift(-1)
     w['target'] = w['source'].shift(-1)
 
-    if ignore:
-        w = w[~(w.source.isin(ignore) | w.target.isin(ignore))].copy()
+    # Selecting same block rows
+    w = w[w.block_id == w.tblock_id.shift(1)].copy()
 
-    w = w[(w.block_id == w.block_id.shift(1)) & (w.strand == w.strand.shift(1))].copy()
-    w.loc[w.strand == -1, ['source', 'target']] = w.loc[w.strand == -1, ['target', 'source']].values
+    # Fix source target order when not restricted to the same strand
+    sameprotein = (w.index.to_series() == w.index.to_series().shift(1))
+    if not strand:
+        reverse = (~sameprotein) & (w.source > w.target)
+        w.loc[reverse,['source','target']] = w.loc[reverse, ['target', 'source']].values
 
     if interaction:
-        w['interaction'] = np.where((w.index.to_series() == w.index.to_series().shift(1)), 'fusion', 'neighbor')
+        w['interaction'] = np.where(sameprotein, 'fusion', 'neighbor')
         w = w.groupby(['source', 'target', 'interaction'])
     else:
         w = w.groupby(['source', 'target'])
 
-    w = w.agg(weight=('strand', 'count'), blocks=('block_id', 'nunique')).reset_index()
+    w = w.agg(weight=('rid', 'count'), blocks=('block_id', 'nunique')).reset_index()
     return w
 
 def compact_for_treeviewer(
