@@ -57,13 +57,12 @@ def to_network(df, target=['pfam'], ftype=['CDS'], interaction=True, ignore = []
     if isinstance(target, str):
         target = [target]
 
+    w = df.copy()
     if strand:
         w = df.neighbors(strand='same')
         w['rid'] = list(range(1,len(w)+1))
         w.rid = w.rid * w.strand
         w.sort_values(['rid'], inplace=True)
-    else:
-        w = df.copy()
 
     # Building the source column
     w = w.query(f'type == "{ftype}"').block_id.reset_index().drop('index', axis=1)
