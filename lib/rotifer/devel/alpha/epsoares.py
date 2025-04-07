@@ -66,7 +66,7 @@ def to_network(df, target=['pfam'], ftype=['CDS'], interaction=True, ignore = []
         w = df.copy()
 
     # Building the source column
-    w = w.query(f'type == "{ftype}"').block_id.reset_index(dropna=True)
+    w = w.query(f'type == "{ftype}"').block_id.reset_index().drop('index', axis=1)
     w['source'] = df[target[0]]
     for col in target[1:]:
         w['source'] = np.where(w['source'].isna(), df[df.type == ftype][col], w['source'])
