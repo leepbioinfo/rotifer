@@ -851,11 +851,11 @@ def restore_session(filename, exclude=[], namespace=None):
     myshelve = shelve.open(filename)
     if namespace is None:
         namespace = sys.modules['__main__'].__dict__
-    for x in myshelve.keys():
-        if x in exclude:
-            continue
-        try:
-            namespace[x] = myshelve[x]
-        except:
-            print(f'Failed to restore {x}', file=sys.stderr)
-    return myshelve
+    with shelve.open(filename) as myshelve:
+        for x in myshelve.keys():
+            if x in exclude:
+                continue
+            try:
+                namespace[x] = myshelve[x]
+            except Exception as e:
+                print(f'Failed to restore {x}: {e}', file=sys.stderr)
