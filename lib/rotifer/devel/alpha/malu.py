@@ -166,3 +166,24 @@ def extract_by_hmm(seqobj1, seqobj2, suffixes=('','_YyYyYy')):
     nseqobj.df.sequence = nseqobj.df.apply(lambda x: x.sequence[(int(x[start])-1):int(x[end])], axis=1)
     nseqobj = nseqobj.filter('domain == "model"')
     return (nseqobj)
+
+def positions_to_coordinates(seqobj, df, seqid='ID', annotation='fixed', start='start', end='end', maxoverlap=10, how='merge'):
+    coord = df.filter([seqid,annotation,start,end]).values
+    coord = [ (*seqobj.position_to_column([s,e],i),f,i) for i, f, s, e in coord  ]
+    coord = pd.DataFrame(coord, columns=["start","end","annotation","seqid"])
+    coord.sort_values(['start','end'], inplace=True)
+    coord['same'] = ((coord.annotation != coord.annotation.shift(1)) | (coord.start > maxoverlap+coord.end.shift(1)))
+    coord['same'] = coord.same.cumsum()
+    if how == "merge":
+        coord = coord.groupby('same').agg({'start':'min', 'end':'max', 'annotation':'first'}).values
+    elif how == "longest":
+        coord['length'] = coord.end - coord.start + 1
+        coord.sort_values(['same','length'], ascending=[True,False], inplace=True)
+        coord = coord.drop_duplicates('same')
+    coord = [ tuple(x) for x in coord.filter(['start':'end':'annotation']).values ]
+    return coord
+
+def annotate_columns_from_sequence_coordinates(seqobj, df, **kwargs):
+    from rotifer.devel.alpha import gian_func as gf
+    return gf.annotation(seqobj, positions_to_coordinates(seqobj, df, **kwargs))
+
