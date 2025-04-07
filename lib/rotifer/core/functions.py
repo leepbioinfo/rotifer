@@ -834,15 +834,18 @@ def save_session(filename, exclude=['In','Out','exit','quit'], exclude_type=tupl
     myshelve = shelve.open(filename)
     if namespace is None:
         namespace = sys.modules['__main__'].__dict__
-    for x in namespace.keys():
-        if (x[0] == "_") or (x in exclude) or isinstance(namespace[x],exclude_type):
-            continue
-        try:
-            myshelve[x] = namespace[x]
-        except:
-            print(f'Will not save {x} of type {type(namespace[x])}', file=sys.stderr)
-    myshelve.sync()
-    return myshelve
+    with shelve.open(filename) as myshelve:
+        for y in myshelve:
+            if y not in namespace:
+                del(myshelve[y])
+        for x in namespace:
+            if x.startswith('_') or (x in exclude) or isinstance(namespace[x],exclude_type):
+                continue
+            try:
+                myshelve[x] = namespace[x]
+            except Exception as e:
+                print(f'Will not save {x} ({type(namespace[x])}): {e}', file=sys.stderr)
+        myshelve.sync()
 
 def restore_session(filename, exclude=[], namespace=None):
     myshelve = shelve.open(filename)
