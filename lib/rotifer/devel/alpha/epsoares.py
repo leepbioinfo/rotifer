@@ -94,7 +94,7 @@ def to_network(df, target=['pfam'], ftype=['CDS'], interaction=True, ignore = []
     else:
         w = w.groupby(['source', 'target'])
 
-    w = w.agg(weight=('rid', 'count'), blocks=('block_id', 'nunique')).reset_index()
+    w = w.agg(weight=('block_id', 'count'), blocks=('block_id', 'nunique')).reset_index()
     return w
 
 def compact_for_treeviewer(
