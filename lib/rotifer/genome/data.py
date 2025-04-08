@@ -534,6 +534,7 @@ class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
         else:
             _1 = self.group_strand().copy()
         return _1.groupby(group).apply(main_cnei).reset_index(drop = True).set_index('block_id')
+
     #Alias for compact neighborhood
     compact = compact_neighborhood
     def full_neighborhood(self, column='cluster', value='value', stats=False, new_query=True):
@@ -566,17 +567,17 @@ class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
         df = self
         if isinstance(nucleotide,list) or isinstance(nucleotide,pd.Series):
             df = self[self.nucleotide.isin(nucleotide)]
-        dflim = df.groupby(['assembly','nucleotide','type']).agg({'feature_order':['min','max']})
+        dflim = df.groupby(['assembly','nucleotide','block_id','type']).agg({'feature_order':['min','max']})
         dflim.reset_index(inplace=True)
-        dflim.columns = ['assembly','nucleotide','type','fomin','fomax']
-        iidlim = df.groupby(['assembly','nucleotide']).agg({'internal_id':['min','max']})
+        dflim.columns = ['assembly','nucleotide','block','type','fomin','fomax']
+        iidlim = df.groupby(['assembly','nucleotide','block_id']).agg({'internal_id':['min','max']})
         iidlim.reset_index(inplace=True)
-        iidlim.columns = ['assembly','nucleotide','iidmin','iidmax']
+        iidlim.columns = ['assembly','nucleotide','block','iidmin','iidmax']
         bidlim = df.groupby(['assembly']).agg({'block_id':[lambda x: 1,'nunique']})
         bidlim.reset_index(inplace=True)
         bidlim.columns = ['assembly','bidmin','bidmax']
-        dflim = dflim.merge(iidlim, left_on=['assembly','nucleotide'], right_on=['assembly','nucleotide'], how='left')
-        dflim = dflim.merge(bidlim, left_on=['assembly'], right_on=['assembly'], how='left')
+        dflim = dflim.merge(iidlim, on=['assembly','nucleotide','block'], how='left')
+        dflim = dflim.merge(bidlim, on=['assembly'], how='left')
         return dflim
 
     def vicinity(self, targets=['query == 1'], before=3, after=3, min_block_distance=0, fttype='same'):
@@ -618,6 +619,11 @@ class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
         import sys
         import numpy as np
 
+        # Make sure data is sorted and has compatible internal ids
+        self.sort_values(['assembly','nucleotide','block_id','feature_order','start','end'], ascending=[True,True,True,True,False,False], inplace=True)
+        self.internal_id = list(range(0,len(self)))
+        self.reset_index(drop=True, inplace=True)
+
         # Build boolean pandas.Series to mark targets
         select = True
         if not isinstance(targets, list):
@@ -636,11 +642,6 @@ class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
             logger.error(f'No anchors to define neighborhoods! Targets: {targets}')
             return pd.DataFrame()
 
-        # Make sure data is sorted and has compatible internal ids
-        if 'is_fragment' in self.columns and self.is_fragment.any():
-            self.sort_values(['assembly','nucleotide','start','end','internal_id'], inplace=True)
-            self.internal_id = list(range(0,len(self)))
-
         # Initialize dataframe for each region (blocks)
         cols = ['assembly','nucleotide','topology','type']
         dflim = self.boundaries()
@@ -648,32 +649,33 @@ class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
         # Process features with type
         if (fttype == 'same'):
             blksCols = [ x for x in [*cols,'block_id','feature_order','internal_id','is_fragment'] if x in self.columns ]
-            blks = self[select].filter(blksCols)
+            blks = self[select].filter(blksCols).copy()
             if 'is_fragment' not in self.columns:
                 blks['is_fragment'] = False
-            blks.sort_values([*cols,'feature_order'], inplace=True)
             blks['foup']   = blks.feature_order - before
             blks['fodown'] = blks.feature_order + after
 
             # Identify blocks by merging neighborhoods
+            blks.sort_values([*cols,'feature_order'], inplace=True)
             bid = (blks.nucleotide != blks.nucleotide.shift(1))
             bid = bid | (blks.is_fragment & (blks.block_id != blks.block_id.shift(1)))
             bid = bid | (blks.type != blks.type.shift(1))
             bid = bid | ((blks.foup - blks.fodown.shift(1) - 1) > min_block_distance)
+            blks.rename({'block_id':'block'}, axis=1, inplace=True)
             blks['block_id'] = bid.cumsum()
-            blks = blks.groupby([*cols,'block_id']).agg({
+            blks = blks.groupby([*cols,'block','block_id']).agg({
                 'feature_order': lambda x: ", ".join(sorted(set([ str(y) for y in x]))),
                 'internal_id': lambda x: ", ".join(sorted(set([ str(y) for y in x]))),
                 'foup': 'min',
                 'fodown': 'max',
                 'is_fragment': 'all'
             }).reset_index()
-            blks = blks.merge(dflim, left_on=['assembly','nucleotide','type'], right_on=['assembly','nucleotide','type'], how='left')
+            blks = blks.merge(dflim, on=['assembly','nucleotide','block','type'], how='left')
             blks.rename({'feature_order':'targets','internal_id':'tiids'}, axis=1, inplace=True)
             blks['origin'] = 0
 
             # Initiate analysis of circular replicons
-            circular = blks.query('topology == "circular"')
+            circular = blks.query('topology == "circular" and not is_fragment')
             if len(circular) > 0:
                 circular = circular.groupby(['assembly','nucleotide','type'])
                 circular = circular.agg({'block_id':['min','max'],'foup':'min','fodown':'max','fomin':'min','fomax':'max'})
@@ -810,6 +812,11 @@ class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
         """
         import sys
         import numpy as np
+
+        # Make sure data is sorted and has compatible internal ids
+        self.sort_values(['assembly','nucleotide','block_id','feature_order','start','end'], ascending=[True,True,True,True,False,False], inplace=True)
+        self.internal_id = list(range(0,len(self)))
+        self.reset_index(drop=True, inplace=True)
 
         # Build boolean pandas.Series to mark targets
         select = True
