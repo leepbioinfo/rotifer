@@ -618,11 +618,13 @@ class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
         """
         import sys
         import numpy as np
+        from copy import deepcopy
+        blks = deepcopy(self)
 
         # Make sure data is sorted and has compatible internal ids
-        self.sort_values(['assembly','nucleotide','block_id','feature_order','start','end'], ascending=[True,True,True,True,False,False], inplace=True)
-        self.internal_id = list(range(0,len(self)))
-        self.reset_index(drop=True, inplace=True)
+        blks.sort_values(['assembly','nucleotide','block_id','feature_order','start','end'], ascending=[True,True,True,True,False,False], inplace=True)
+        blks.internal_id = list(range(0,len(blks)))
+        blks.reset_index(drop=True, inplace=True)
 
         # Build boolean pandas.Series to mark targets
         select = True
@@ -631,7 +633,7 @@ class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
         for code in targets:
             if isinstance(code,str):
                 try:
-                    select &= self.eval(code)
+                    select &= blks.eval(code)
                 except:
                     logger.error(f'Rule {code} failed', file=sys.stderr)
             elif isinstance(code,pd.Series):
@@ -644,13 +646,13 @@ class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
 
         # Initialize dataframe for each region (blocks)
         cols = ['assembly','nucleotide','topology','type']
-        dflim = self.boundaries()
+        dflim = blks.boundaries()
 
         # Process features with type
         if (fttype == 'same'):
-            blksCols = [ x for x in [*cols,'block_id','feature_order','internal_id','is_fragment'] if x in self.columns ]
-            blks = self[select].filter(blksCols).copy()
-            if 'is_fragment' not in self.columns:
+            blksCols = [ x for x in [*cols,'block_id','feature_order','internal_id','is_fragment'] if x in blks.columns ]
+            blks = blks[select].filter(blksCols).copy()
+            if 'is_fragment' not in blks.columns:
                 blks['is_fragment'] = False
             blks['foup']   = blks.feature_order - before
             blks['fodown'] = blks.feature_order + after
@@ -812,11 +814,13 @@ class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
         """
         import sys
         import numpy as np
+        from copy import deepcopy
+        df = deepcopy(self)
 
         # Make sure data is sorted and has compatible internal ids
-        self.sort_values(['assembly','nucleotide','block_id','feature_order','start','end'], ascending=[True,True,True,True,False,False], inplace=True)
-        self.internal_id = list(range(0,len(self)))
-        self.reset_index(drop=True, inplace=True)
+        df.sort_values(['assembly','nucleotide','block_id','feature_order','start','end'], ascending=[True,True,True,True,False,False], inplace=True)
+        df.internal_id = list(range(0,len(df)))
+        df.reset_index(drop=True, inplace=True)
 
         # Build boolean pandas.Series to mark targets
         select = True
@@ -825,7 +829,7 @@ class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
         for code in targets:
             if isinstance(code,str):
                 try:
-                    select &= self.eval(code)
+                    select &= df.eval(code)
                 except:
                     logger.error(f'Rule {code} failed', file=sys.stderr)
             elif isinstance(code,pd.Series):
@@ -837,8 +841,8 @@ class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
             return seqrecords_to_dataframe([])
 
         # Initialize dataframe for each region (blocks)
-        select = self.filter(['assembly','nucleotide','internal_id']).assign(query=select)
-        blks = self.vicinity(select['query'], before, after, min_block_distance, fttype)
+        select = df.filter(['assembly','nucleotide','internal_id']).assign(query=select)
+        blks = df.vicinity(select['query'], before, after, min_block_distance, fttype)
         if blks.empty:
             return seqrecords_to_dataframe([])
 
@@ -850,9 +854,9 @@ class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
 
         # Replace columns in self with those from blks
         dropList = ['query','block_id','origin','rid','is_fragment']
-        cols = self.columns
+        cols = df.columns
         dropList = [ x for x in dropList if x in cols ]
-        copy = self.drop(dropList, axis=1).sort_values(['assembly','nucleotide','start','end'])
+        copy = df.drop(dropList, axis=1).sort_values(['assembly','nucleotide','start','end'])
         copy = copy.merge(blks, left_on=['assembly','nucleotide','internal_id'], right_on=['assembly','nucleotide','internal_id'], how='inner')
         copy.sort_values(['assembly','nucleotide','block_id','rid','internal_id'], ascending=[True,True,True,True,True], inplace=True)
         copy['query'] = np.where((~copy['query'].isna()) & copy['query'],1,0).astype(int)
