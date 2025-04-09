@@ -180,10 +180,100 @@ def positions_to_coordinates(seqobj, df, seqid='ID', annotation='fixed', start='
         coord['length'] = coord.end - coord.start + 1
         coord.sort_values(['same','length'], ascending=[True,False], inplace=True)
         coord = coord.drop_duplicates('same')
-    coord = [ tuple(x) for x in coord.filter(['start':'end':'annotation']).values ]
+    coord = [ tuple(x) for x in coord.filter(['start','end','annotation']).values ] #substitui ':' por ',' nessa linha
     return coord
 
 def annotate_columns_from_sequence_coordinates(seqobj, df, **kwargs):
     from rotifer.devel.alpha import gian_func as gf
     return gf.annotation(seqobj, positions_to_coordinates(seqobj, df, **kwargs))
+
+def merge_ranges(df, identifier=None, merge_distance=10, method=None):
+    """
+    Merge overlapping or nearby (within merge_distance) regions for each sequence ID.
+    Takes a df with an identifier colum, a merge distance that will be used to fuse sequence lengths
+    Sometimes the hits of the domain are distant enough that they won't merge, currently the only selection method is sliced length
+
+    df : A df with start and end columns and a sequence identifier
+    identifier: the column which contains the sequence identifiers
+    merge_distance : how far the start and end position of the domain hits can be from each other
+    method: 'length', if the sequences are not mergeable, chooses the largest fragment
+    it may be nice to select by evalue! Not implemented yet
+
+    """
+    import pandas as pd
+
+    merged = []
+    df = df.copy()
+
+    if identifier:
+        df.rename({identifier: 'id'}, axis=1, inplace=True)
+
+    for _, group in df.groupby("id"):
+        # Sort ranges for each id
+        ranges = group[["start", "end"]].sort_values("start").values.tolist()
+        merged_ranges = []
+        for rng in ranges:
+            if not merged_ranges:
+                merged_ranges.append(rng)
+            else:
+                last = merged_ranges[-1]
+                if rng[0] <= last[1] + merge_distance:
+                    # Merge overlapping/nearby ranges
+                    last[1] = max(last[1], rng[1])
+                else:
+                    merged_ranges.append(rng)
+
+        for start, end in merged_ranges:
+            merged.append({"id": group["id"].iloc[0], "start": start, "end": end})
+
+    result = pd.DataFrame(merged)
+    result["length"] = result["end"] - result["start"]
+
+    if method == 'length':
+        result = result.sort_values(['id', 'length'], ascending=[True, False])
+        result = result.groupby('id', as_index=False).first()
+
+    return result
+                    
+
+
+def extract_by_table(seqobj, df, suffixes=('','_YyYyYy'),method=None, merge_distance=10, downstream=0,upstream=0,):
+    """
+
+    Extracts the domains by the provided df, **needs to be for only one domain**, currently seems to add +1 residue
+    good enough for now, but needs checking later
+
+    seqobj: your sequence object
+    df : the df with the hits, must contain at least the columns ID, start and end.
+    method: see merge_ranges
+    merge_distance: see merge_ranges
+    downstream : number of bases downstream
+    upstream: number of bases upstream
+    """
+
+    import pandas as pd
+
+    t = df.copy()
+    t.rename({'ID': 'id'}, axis=1, inplace=True)
+    nseqobj=seqobj.copy()
+    if {'start', 'end'}.issubset(t.columns):
+        t = merge_ranges(t, merge_distance=merge_distance,method=method)
+
+    sharedColumns = set(t.columns).intersection(set(nseqobj.df.columns))
+
+    if "start" in sharedColumns:
+        start = f'start{suffixes[1]}'
+    else:
+        start = "start"
+    if "end" in sharedColumns:
+        end = f'end{suffixes[1]}'
+    else:
+        end = "end"
+
+    nseqobj.df = nseqobj.df.merge(t, on='id', how='left', suffixes=suffixes)
+    nseqobj.df[end] = nseqobj.df[end].fillna(nseqobj.df.length)
+    nseqobj.df[start] = nseqobj.df[start].fillna(1)                                                                                                                                                              
+    nseqobj.df.sequence = nseqobj.df.apply(lambda x: x.sequence[max(0, int(x[start]) - upstream - 1):min(int(x[end]) + downstream, int(x['length']))], axis=1)
+    nseqobj.df['length_slice'] = nseqobj.df.sequence.str.len()
+    return nseqobj
 
