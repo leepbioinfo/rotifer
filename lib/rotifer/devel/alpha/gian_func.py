@@ -649,7 +649,7 @@ def annotate_seqobj(seqobj,
 
 
 def psiblast(acc,
-             db='nr.50',
+             db='latest50',
              cpu=96,
              aln=True,
              max_out = 5000):
@@ -677,7 +677,9 @@ def psiblast(acc,
             'length'
             ]
     print(db)
-    if db.startswith('nr'):
+    if db =='latest50':
+        db = f'{os.environ["FADB"]}/nr/latest/nr.50.mmseqs.fa'
+    elif db.startswith('nr'):
         db = f'{os.environ["FADB"]}/nr/{db}.mmseqs.fa'
     elif db.startswith('all'):
         db = f'{os.environ["FADB"]}/allfa/{db}.mmseqs.fa'
@@ -2089,7 +2091,7 @@ def pid2tax(pidlist,full=False):
     if isinstance(pidlist,pd.Series):
         pidlist = pidlist.unique().tolist()
     ipgs = ic.fetchall(pidlist)
-    ipgs = pd.concat(ipgs)
+    #ipgs = pd.concat(ipgs) Removing this line because it seems no reason to be here and is breaking the code
     assemblies_id = ipgs.assembly.unique().tolist()
     a = ncbi.assemblies(baseurl="/am/ftp-genomes/ASSEMBLY_REPORTS", taxonomy=False)
     a.rename({'#assembly_accession': 'assembly_accession'}, axis=1, inplace=True)
@@ -2547,9 +2549,9 @@ def pid2tax(pidlist,full=False):
     if isinstance(pidlist,pd.Series):
         pidlist = pidlist.unique().tolist()
     ipgs = ic.fetchall(pidlist)
-    ipgs = pd.concat(ipgs)
+    # ipgs = pd.concat(ipgs) removing this line because there ar eno reason to have it here, also check duplicate of this function?? what happend with my codes!!!
     assemblies_id = ipgs.assembly.unique().tolist()
-    a = ncbi.assemblies(baseurl="/am/ftp-genomes/ASSEMBLY_REPORTS", taxonomy=False)
+    a = ncbi.assemblies(taxonomy=False)
     a.rename({'#assembly_accession': 'assembly_accession'}, axis=1, inplace=True)
     a = a.query('assembly_accession in @assemblies_id')
     tc =   ncbi.TaxonomyCursor()
@@ -3316,25 +3318,44 @@ def dash_aligner_view(seqobj):
         app.run(debug=True)
         
 def wrap2html(match, background='black'):
-    from rotifer.devel.beta.sequence import config
-    import yaml
+    from rotifer.devel.alpha import gian_func as gf
     import re
     if background =='black':
         foreground = '#FFFFFF'
     else:
         foreground = 'black'
-    cd = {**yaml.load(open(config['html_colors']), Loader=yaml.Loader), '-':foreground, 'x':foreground, 'X':foreground}
+    
+    first_dict = gf.colors_for_html_function(foreground=foreground)[0]
+
     def wrap_match(match):
-        return f'<SPAN style=color:{cd[match.group(0)[0]]}>{match.group(0)}</SPAN>'
-    gconsensus = {'h':r'[AILMFWVh]', 'p':r"[KR\+]", 'n' :r'[ED\-]', 'po' : r"[NQST]", "C":r"C", "pro":r"P", "G":r"G", "Ali":r"[HY]", '-':r'[\-xX\.]'}
+        return f'<SPAN class={first_dict[match.group(0)[0]]}>{match.group(0)}</SPAN>'
+    #gconsensus = {'h':r'[AILMFWVh]', 'p':r"[KR\+]", 'n' :r'[ED\-]', 'po' : r"[NQST]", "C":r"C", "pro":r"P", "G":r"G", "Ali":r"[HY]", '-':r'[\-xX\.]'}
     gp = {'h':r'[AILMFWVh]', 'p':r"[KR]", 'n' :r'[ED]', 'po' : r"[NQST]", "C":r"C", "pro":r"P", "G":r"G", "Ali":r"[HY]", '-':r'[\-xX]'}
     combined_pattern = '|'.join(f"({pattern}+)" for pattern in gp.values())
     result = re.sub(combined_pattern, wrap_match, match)
     return result
 
-def to_html2(seqobj, output, backgroung = 'black', columns =[]):
+def to_html2(seqobj, output, background = 'black', columns =[], consensus=(50,60,70,80,90)):
     from rotifer.devel.alpha import gian_func as gf
+    if background =='black':
+        foreground = '#FFFFFF'
+    else:
+        foreground = 'black'
+   ### creating the CSS style block with  the color dict 
+    cd = gf.colors_for_html_function(foreground=foreground)[1]
+    css_rules = ""
+    for key, value in cd.items():
+        css_rule = f"    .{key} {{ color: {value}; }}\n"
+        css_rules += css_rule
+    # Wrap CSS rules in <style> tag
+    css_style_block = f"<style>\n{css_rules}</style>"
+
     s = seqobj.copy()
+    #Getting the length of the aligment:
+    l = len(s.df.iloc[0,1])
+    s = s.add_consensus(cutoffs=consensus)
+    s.df = pd.concat([s._scale_bar(l), s.df])
+
     s.df['html'] = s.df.sequence.apply(gf.wrap2html)
     if len(columns) <1:
         columns = ['id','html']
@@ -3353,6 +3374,8 @@ def to_html2(seqobj, output, backgroung = 'black', columns =[]):
 <HEAD>
 <META http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 <TITLE>Rotifer HTML view</TITLE>
+{css_style_block}
+
 </HEAD>
 <BODY style="background-color:black;color:white">
 <TABLE style="border:0px; background-color:black; color:white; a:link:blue; a:active:red; a:visited:purple;">
@@ -3756,10 +3779,27 @@ def segment_seqobj(seqobj, confidence='medium'):
         dom_dict[y.domain_name] = seqobj.slice((y.aln_start, y.aln_end))
     return [dom_dict, segtable]
 
+def colors_for_html_function(foreground):
+    from rotifer.devel.beta.sequence import config
+    import yaml
+    """ Function should be improved to receive any yaml file with color mapping, at the moment it is harded coded
+    it should be ease to just change the cd loading
+    """
+    cd = {**yaml.load(open(config['html_colors']), Loader=yaml.Loader), '-':foreground, 'x':foreground, 'X':foreground}
+    #Converting the color dictionary to 2 different dictinary to apply CSS style to improve page size and loading
+    color_to_key = {}
+    key_to_color = {}
+    counter = 1
 
+    for color in set(cd.values()):
+        new_key = f'c{counter}'
+        color_to_key[color] = new_key
+        key_to_color[new_key] = color
+        counter += 1
 
+    # Step 2: Generate the first dictionary
+    first_dict = {k: color_to_key[v] for k, v in cd.items()}
 
-
-
-
-
+    # Step 3: Generate the second dictionary
+    second_dict = key_to_color
+    return (first_dict, second_dict)
