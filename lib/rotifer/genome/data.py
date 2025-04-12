@@ -624,7 +624,6 @@ class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
         # Make sure data is sorted and has compatible internal ids
         blks.sort_values(['assembly','nucleotide','block_id','feature_order','start','end'], ascending=[True,True,True,True,False,False], inplace=True)
         blks.internal_id = list(range(0,len(blks)))
-        blks.reset_index(drop=True, inplace=True)
 
         # Build boolean pandas.Series to mark targets
         select = True
@@ -772,7 +771,7 @@ class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
         blks.drop_duplicates(inplace=True)
         return blks
 
-    def neighbors(self, targets=['query == 1'], before=3, after=3, min_block_distance=0, strand=None, fttype='same'):
+    def neighbors(self, targets=['query == 1'], before=3, after=3, min_block_distance=0, strand='any', fttype='same'):
         """
         Find sets of rows, representing genomic regions, that are located near a set of targets.
 
@@ -820,7 +819,6 @@ class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
         # Make sure data is sorted and has compatible internal ids
         df.sort_values(['assembly','nucleotide','block_id','feature_order','start','end'], ascending=[True,True,True,True,False,False], inplace=True)
         df.internal_id = list(range(0,len(df)))
-        df.reset_index(drop=True, inplace=True)
 
         # Build boolean pandas.Series to mark targets
         select = True
@@ -864,6 +862,7 @@ class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
 
         # Evaluate other criteria for defining blocks
         if strand == 'same':
+            # Locate new blocks
             tmp  = (copy.assembly   == copy.shift(1).assembly)
             tmp &= (copy.nucleotide == copy.shift(1).nucleotide)
             tmp &= (copy.block_id   == copy.shift(1).block_id)
