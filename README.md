@@ -43,6 +43,7 @@ Installing ROTIFER package with conda enviroments:
   
   5. Write the follow path to eh activate.d file:
   export PATH="path_to_git/rotifer/bin:$PATH"
+  export PYTHONPATH="$PYTHONPATH:/path_to_git/rotifer/lib"
   ```
  
  ## Examples of use
