@@ -1,23 +1,38 @@
-def summarize_taxonomic_levels(df, column, level):
+def taxon_summary(
+    df,
+    level,
+    column='classification',
+    separator=';',
+    unclassified_terms=[
+        'unclassified',
+        'environmental samples',
+        'uncultured',
+        'incertae sedis',
+        'candidatus',
+        'synthetic construct',
+        'other']
+):
     """
     Summarizes the taxonomic composition of a dataset at a specified taxonomic level.
 
     Parameters
     ----------
     df : pd.DataFrame
-        The input DataFrame, typically a normalized data format (ndf) containing taxonomic lineages.
-    column : str
-        The name of the column in the DataFrame that contains taxonomic lineage strings.
+        Input table containing taxonomic lineage strings.
     level : int
-        The taxonomic level to summarize (1 for kingdom/domain, 2 for phylum, etc.).
-        Taxonomic levels are assumed to be separated by '>'.
+        The taxonomic rank to extract (e.g., 1 = kingdom/domain, 2 = phylum, 3 = class, etc.).
+    column : str, default 'classification'
+        Name of the column in `df` that holds the full lineage strings.
+    separator : str, default ';'
+        Character or substring used to split the lineage into ranks.
+    unclassified_terms : list of str, default ['unclassified','environmental samples','uncultured','incertae sedis','candidatus','synthetic construct','other']
+        Keywords which, if found in the extracted term, force it to be labeled 'unclassified'.
 
     Returns
     -------
     pd.DataFrame
         A summary DataFrame with the count and percentage of entries at the specified taxonomic level.
         Example output:
-
                     Count  Percentage
         bacteria     11350   93.16
         archaea        658    5.40
@@ -29,22 +44,37 @@ def summarize_taxonomic_levels(df, column, level):
 
     Example
     -------
-    >>> summary = summarize_taxonomic_levels(rad_sam.ndf, 'lineage', 1)
+    >>> summary = taxon_summary(rad_sam.ndf, 1, column='lineage', separator='>')
     >>> summary.head()
     """
+    
     import pandas as pd
+    import re
 
-    def extract_taxonomic_level(lineage, level):
-        if pd.isna(lineage):  # Handle NaN values
+    # Pre-compile regex for faster checks (case-insensitive)
+    uncl_pattern = re.compile(
+        r'\b(?:' + '|'.join(re.escape(t) for t in unclassified_terms) + r')\b',
+        flags=re.IGNORECASE
+    )
+
+    def extract_taxonomic_level(lineage):
+        # Handle missing or empty
+        if pd.isna(lineage) or not isinstance(lineage, str) or not lineage.strip():
             return 'unclassified'
-        parts = lineage.split('>')
-        if len(parts) >= level:
-            return parts[level - 1].strip().lower()  # Standardize to lowercase for consistency
-        else:
+
+        parts = lineage.split(separator)
+        if len(parts) < level:
             return 'unclassified'
+
+        term = parts[level - 1].strip().lower()
+        # If the term itself is empty, or matches any placeholder keyword, classify as unclassified
+        if not term or uncl_pattern.search(term):
+            return 'unclassified'
+
+        return term
 
     # Extract the specified taxonomic level
-    taxonomic_levels = df[column].apply(lambda x: extract_taxonomic_level(x, level))
+    taxonomic_levels = df[column].apply(extract_taxonomic_level)
 
     # Calculate absolute and normalized counts
     absolute_counts = taxonomic_levels.value_counts()
@@ -56,9 +86,12 @@ def summarize_taxonomic_levels(df, column, level):
         'Percentage': normalized_counts
     })
 
+    summary.index.name = 'Taxon'
+    summary.reset_index(inplace=True)
+
     return summary
 
-def compute_shannon_entropy(self, ignore_gaps=True):
+def shannon(self, ignore_gaps=True):
     """
     Computes Shannon entropy for each column in the alignment.
 
