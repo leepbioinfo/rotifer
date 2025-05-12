@@ -1,0 +1,7 @@
+strand:
+  line: "#000000"
+  color: "#FFCC99"
+
+helix:
+  line: "#000000"
+  color: "#ADD8E6"

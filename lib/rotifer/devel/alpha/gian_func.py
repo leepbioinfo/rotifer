@@ -3664,7 +3664,7 @@ def pid_ncbi_to_uniprotkb(ncbi_ids, max_retries=3, delay=5):
         try:
             results = list(request.each_result())  # Attempt fetching results
             return pd.DataFrame(results)  # Convert to DataFrame if successful
-        except IdMappingError as e:
+        except Exception  as e:
             if attempt < max_retries:
                 print(f"Attempt {attempt} failed: {e}. Retrying in {delay} seconds...")
                 time.sleep(delay)  # Wait before retrying
@@ -3803,3 +3803,510 @@ def colors_for_html_function(foreground):
     # Step 3: Generate the second dictionary
     second_dict = key_to_color
     return (first_dict, second_dict)
+def single_tax2ndf(ndf):
+    r = ndf.copy()
+    from ete3 import NCBITaxa
+    import rotifer
+    ncbi = NCBITaxa()
+    tax = r.taxid.unique().tolist()
+    lineages = [ncbi.get_lineage(taxid) for taxid in tax]
+    names = [ncbi.get_taxid_translator(lineage) for lineage in lineages]
+    z = pd.read_csv(f"{rotifer.config['base']}/share/rotifer/taxonomy/tass2.txt", sep="\t", comment='#', names=['tax']).reset_index()
+    z.rename({'index':'tax_level'}, axis=1, inplace=True)
+    tt = pd.DataFrame()
+    for taxid, lineage, name in zip(tax, lineages, names):
+         z2 = pd.Series(name).reset_index().rename({'index':'taxid', 0:'taxname'}, axis=1)
+         z2['real_taxid'] = taxid
+         z3 = z.merge(z2, left_on=z['tax'].str.casefold(), right_on=z2['taxname'].str.casefold())
+         tt = pd.concat([tt, z3])
+
+    tt = tt.sort_values('tax_level').drop_duplicates('real_taxid')
+    r['single_tax_name'] = r.taxid.map(tt.set_index('real_taxid').taxname.to_dict())
+    r['single_tax_taxid'] = r.taxid.map(tt.set_index('real_taxid').taxid.to_dict())
+    return r
+
+def mmseqs_easy_search(acc,
+             cpu=96,
+             aln=True,
+             max_out = 10000,
+             sensitivity=3,
+             iterations=1,          
+             db = '/netmnt/vast01/cbb01/proteinworld/data/fadb/tmp/nr.50.mmseqs.db',
+             columns = "query,target,fident,alnlen,mismatch,gapopen,qstart,qend,tstart,tend,evalue,bits,qaln,taln,theader"):
+    '''
+    MMseqs easy-search that accepts sequence object. 
+    '''
+
+    import tempfile
+    import subprocess
+    from subprocess import Popen, PIPE, STDOUT
+    from rotifer.devel.beta.sequence import sequence as sequence
+    import os
+    import pandas as pd
+    import time
+
+    max_out = str(max_out)
+    sensitivity = str(sensitivity)
+    iterations = str(iterations)
+    cwd = os.getcwd()
+
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        # temporary save fasta sequence file
+        if isinstance (acc, sequence):
+            command = ["mmseqs",
+                       "easy-search",
+                       f'{tmpdirname}/seqfile',
+                       db,
+                       f'{tmpdirname}/out.tsv',
+                       f'{tmpdirname}/tmp',
+                       '--db-load-mode',
+                       '2',
+                       '--max-seqs',
+                       max_out,
+                       '-s',
+                       sensitivity,
+                       '--num-iterations',
+                       iterations,
+                       '--format-output',
+                       columns]
+            if aln:
+                acc.to_file(f'{tmpdirname}/seqfile',  output_format='stockholm') 
+                Popen(f'mmseqs convertmsa {tmpdirname}/seqfile {tmpdirname}/msaconverted', 
+                  stdout=PIPE,
+                  shell=True
+                  ).communicate()
+                Popen(f'mmseqs msa2profile {tmpdirname}/msaconverted {tmpdirname}/converted_fasta', 
+                  stdout=PIPE,
+                  shell=True
+                  ).communicate()
+                Popen(f'mmseqs search {tmpdirname}/converted_fasta {db} {tmpdirname}/resultDB {tmpdirname}/tmp --db-load-mode 2 -a -s {sensitivity} --max-seqs {max_out}, --num-iterations {iterations}', 
+                  stdout=PIPE,
+                  shell=True
+                  ).communicate()
+                Popen(f'mmseqs convertalis {tmpdirname}/converted_fasta {db} {tmpdirname}/resultDB {tmpdirname}/out.tsv --db-load-mode 2 --format-output {columns}', 
+                  stdout=PIPE,
+                  shell=True
+                  ).communicate()
+            else:
+                acc.to_file(f'{tmpdirname}/seqfile') 
+                Popen(" ".join(command),
+                      stdout=PIPE,
+                      shell=True
+                      ).communicate()
+
+            t = pd.read_csv(f'{tmpdirname}/out.tsv', sep="\t", names=columns.split(','))
+            t2 = sequence(t.rename({'target':'id', 'taln':'sequence'}, axis=1))
+            with open(f'{tmpdirname}/out.tsv') as f:
+                    blast_r = f.read()
+        
+    return (t, blast_r, t2) 
+
+import os
+import requests
+import tempfile
+from Bio.PDB import PDBParser, DSSP
+
+def get_alphafold_dssp(afid,  sequence_object=False, id_to_guide=False, chain_id="A"):
+    """
+    Download AlphaFold PDB, run DSSP, return sequence and secondary structure string.
+
+    Parameters:
+    - afid: str, UniProt ID (e.g. "P0DTC2")
+    - chain_id: str, chain to extract (AlphaFold models always use 'A')
+
+    Returns:
+    - sequence: str, one-letter amino acids
+    - ss_string: str, secondary structure (H, E, C)
+    """
+    url = f"https://alphafold.ebi.ac.uk/files/AF-{afid}-F1-model_v4.pdb"
+    filename = f"AF-{afid}-F1-model_v4.pdb"
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        pdb_path = os.path.join(tmpdir, filename)
+
+        # Download PDB
+        r = requests.get(url)
+        if r.status_code != 200:
+            raise ValueError(f"Failed to download AlphaFold structure for {afid}: HTTP {r.status_code}")
+        with open(pdb_path, "wb") as f:
+            f.write(r.content)
+
+        # Parse structure
+        parser = PDBParser(QUIET=True)
+        structure = parser.get_structure(afid, pdb_path)
+        model = structure[0]
+
+        # Run DSSP
+        dssp = DSSP(model, pdb_path)
+
+        # Build sequence and secondary structure string
+        sequence = ""
+        ss_string = ""
+        for key in dssp.keys():
+            chain, res_id = key
+            if chain != chain_id:
+                continue
+            aa = dssp[key][1]
+            raw_ss = dssp[key][2]
+            ss = (
+                "H" if raw_ss in ("H", "G", "I") else
+                "E" if raw_ss in ("E", "B") else
+                "C"
+            )
+            sequence += aa
+            ss_string += ss
+        if sequence_object:
+            sequence_object = sequence_object.add_pdb(id_to_guide, pdb_file=pdb_path)
+            return sequence_object
+
+    return sequence, ss_string
+
+def polish_2_residues_df(polish_file):
+    import re
+    from collections import Counter
+
+    def drop_leading_empty_columns(df):
+        while True:
+            df.columns = range(df.shape[1])  # Reindex columns as 0, 1, 2, ...
+            if df.empty or df.shape[1] == 0:
+                break
+            first_col = df.columns[0]
+            # Check if entire first column is empty (NaN or blank string)
+            if df[first_col].apply(lambda x: pd.isna(x) or (isinstance(x, str) and x.strip() == '')).all():
+                df = df.drop(columns=first_col)
+            else:
+                break
+        return df
+
+    def insert_tabs(line, positions):
+        chars = list(line)
+
+        # Shift mode_second to AFTER the space
+        adjusted_positions = []
+        for i, pos in enumerate(positions):
+            if pos is None:
+                continue
+            # If it's the second position (index 1), insert after the space
+            adjusted_pos = pos + 1 if i == 1 else pos
+            if 0 <= adjusted_pos <= len(line):
+                adjusted_positions.append(adjusted_pos)
+
+        # Insert tabs in reverse order to avoid shifting issues
+        for pos in sorted(set(adjusted_positions), reverse=True):
+            chars.insert(pos, '\t')
+
+        return ''.join(chars)
+
+    # Step 1: Read lines
+    with open(polish_file, "r") as f:
+        lines = [line.rstrip('\n') for line in f]
+
+    # Step 2: Extract space-after-word positions per line
+    results = [[m.start(2) for m in re.finditer(r'(\w)( )', line)] for line in lines]
+
+    # Step 3: Compute stats across all lines
+    first_elements = [lst[0] for lst in results if len(lst) >= 1]
+    second_elements = [lst[1] for lst in results if len(lst) >= 2]
+    last_elements = [lst[-1] for lst in results if lst]
+
+    max_first = max(first_elements) if first_elements else None
+    mode_second = Counter(second_elements).most_common(1)
+    mode_second = mode_second[0][0] if mode_second else None
+    mode_last = Counter(last_elements).most_common(1)
+    mode_last = mode_last[0][0] if mode_last else None
+
+    # Step 4: Function to insert tabs at multiple positions
+
+    # Step 5: Apply to each line
+    new_lines = [insert_tabs(line, [max_first, mode_second, mode_last]) for line in lines]
+    tsv_string = '\n'.join(new_lines)
+    # Step 6: Save result in pd.DataFrame
+    from io import StringIO
+    df = pd.read_csv(StringIO(tsv_string), sep='\t', header=None)
+    rdf = df.set_index([0])[2].str.split("", expand=True)
+    rdf = drop_leading_empty_columns(rdf)
+    rdf.insert(0,'start',df[1].str.strip().values)
+    rdf['end'] = df[3].str.strip().fillna('').values
+    rdf.columns = list((range(1,rdf.shape[1]+1)))
+    rdf.index = rdf.index.str.strip()
+    rdf = rdf.replace('', ' ')
+    rdf.index.name =None
+
+    return rdf
+
+
+def aln_fig_style(i,
+                 polish_aln=False,
+                 consensus=90,
+                 annotations=False,
+                 remove_gaps=False,
+                 adjust_coordinates = False,
+                 font_size=6):
+    from rotifer.devel.alpha import gian_func as gf
+    """TODO: Docstring for function.
+
+    :consensus: The consensus threshold that should be used to color the aligment
+    :output_file: output file name
+    :annotation: List of annotations rows that should be keept in the  html file
+    The annotation label should be the same as in the id seq object df columm
+    :remove_gaps: Query sequence to use as model to remove the gaps, 
+    it will add numbers of aminoacid suppressed in the sequence that contain the insertions.
+    :returns: TODO
+
+    """
+
+    import sys
+    import pandas as pd
+    from rotifer.devel.beta.sequence import sequence
+    from rotifer.core.functions import loadConfig
+    from rotifer.core  import config as CoreConfig
+
+    #### Loading the color dictionary
+    cd = loadConfig(
+            ':colors.html_aa_colors',
+            system_path=CoreConfig['baseDataDirectory'])
+
+    import numpy as np
+    
+    if polish_aln:
+        aln_r = gf.polish_2_residues_df(i)
+    else:    
+        aln_r = i.compact_residue_df(consensus,
+                     annotations=annotations,
+                     remove_gaps=remove_gaps,
+                     adjust_coordinates = adjust_coordinates)
+
+
+    # Funtions to color the algiment:
+    def highlight_aln(s):
+        import numpy as np
+
+        cd = loadConfig(
+                ':colors.html_aa_colors',
+                system_path=CoreConfig['baseDataDirectory'])
+        ### getting the consensus value to map the colors filling na with "  " to color white 
+        d = cd[s.fillna('_').iloc[-1]]
+        #d = aa_groups_colors[s.fillna('  ').iloc[-1]]
+        return np.where(
+            s == '  ',
+            'color:"";background-color:""',
+            np.where(
+                s == s.iloc[-1],
+                f'color:{d["fcolor"]};background-color:{d["color"]}',
+                np.where(
+                    s.isin(d['residues']),
+                    f'color:{d["fcolor"]};background-color:{d["color"]}',
+                    f'color:black;background-color:')))
+
+    def highlight_consensus(s):
+        import numpy as np
+        cd = loadConfig(
+                ':colors.html_aa_colors',
+                system_path=CoreConfig['baseDataDirectory'])
+        d = cd[s.fillna('_').iloc[-1]]
+        """TODO: Docstring for highlight_consensus.
+
+        :arg1: TODO
+        :returns: TODO
+
+        """
+        return np.where(
+            s.isin(cd["ALL"]["residues"]),
+            f'color:{d["fcolor"]};background-color:{d["color"]}',
+            f'color:{d["fcolor"]};background-color:{d["color"]}',
+            )
+
+    #Making slice index where the functions should be applied:
+    # One function should be applien only in the consensus row
+    # Other function should be appplied only in seq rows
+    if polish_aln:
+        slice_consensus = ([consensus], aln_r.columns)
+        slice_annotaion = (annotations, aln_r.columns)
+        print (annotations)
+        print(consensus)
+        con_ann = annotations + [consensus]
+
+        slice_sequences = aln_r.loc[~aln_r.index.isin(con_ann)].index.tolist() 
+        slice_sequences = slice_sequences + [consensus]
+        slice_sequences = (slice_sequences, aln_r.columns)
+    else:    
+        #### Geting the Consensus line
+        slice_consensus = ([f'consensus/{consensus}%'],aln_r.columns)
+        ###Getting the sequences from the aligment
+        #Getting the firs sequence (fs) row to map the slice:
+        fs = i.df.query('type == "sequence"').id.tolist()
+        fs.append(f'consensus/{consensus}%')
+        slice_sequences = (fs, aln_r.columns)
+
+
+    headers = {
+        'selector': 'th:not(.index_name)',
+        'props': f'''font-size: {font_size}px;
+        text-align: left;
+        font-family:"Lucida Console", Monaco, monospace;
+        color:black;
+        background-color:white'''
+    }
+
+    if sys.version_info.minor > 8:
+        df_style = aln_r.style.set_properties(**{
+            'font-size': f'{font_size}px',
+            'font-family':'"Lucida Console", Monaco,monospace',
+            "text-align": "center"}
+        ).apply(highlight_aln, axis=0, subset=slice_sequences).hide(axis='columns').apply(
+            highlight_consensus, subset=slice_consensus
+        ).set_table_styles(
+            [headers]
+        )
+    else:
+        df_style = aln_r.style.set_properties(**{
+            'font-size': f'{font_size}px',
+            'font-family':'"Lucida Console", Monaco,monospace',
+            "text-align": "center"}
+        ).apply(highlight_aln, axis=0, subset=slice_sequences).hide_columns().apply(
+            highlight_consensus, subset=slice_consensus
+        ).set_table_styles(
+            [headers]
+        )
+    #if whant to send to latex, replace set_stick... to:to_latex(environment='longtable', convert_css=True)
+    return df_style
+
+def html_highlight_aln(s):
+    from rotifer.core.functions import loadConfig
+    from rotifer.core  import config as CoreConfig
+    import numpy as np
+    cd = loadConfig(
+            ':colors.html_aa_colors',
+            system_path=CoreConfig['baseDataDirectory'])
+    ### getting the consensus value to map the colors filling na with "  " to color white 
+    d = cd[s.fillna('_').iloc[-1]]
+    #d = aa_groups_colors[s.fillna('  ').iloc[-1]]
+    return np.where(
+        s == '  ',
+        'color:"";background-color:""',
+        np.where(
+            s == s.iloc[-1],
+            f'color:{d["fcolor"]};background-color:{d["color"]}',
+            np.where(
+                s.isin(d['residues']),
+                f'color:{d["fcolor"]};background-color:{d["color"]}',
+                f'color:black;background-color:')))
+
+def html_highlight_consensus(s):
+    from rotifer.core.functions import loadConfig
+    from rotifer.core  import config as CoreConfig
+    from rotifer.devel.alpha import gian_func as gf
+    import numpy as np
+    cd = loadConfig(
+            ':colors.html_aa_colors',
+            system_path=CoreConfig['baseDataDirectory'])
+    d = cd[s.fillna('_').iloc[-1]]
+    """TODO: Docstring for highlight_consensus.
+
+    :arg1: TODO
+    :returns: TODO
+
+    """
+    return np.where(
+        s.isin(cd["ALL"]["residues"]),
+        f'color:{d["fcolor"]};background-color:{d["color"]}',
+        f'color:{d["fcolor"]};background-color:{d["color"]}',
+        )
+
+def veremos(aln_r,
+            consensus=False,
+            annotations=False,
+            font_size=6,
+            output='figure.pdf',
+            landscape=False,
+            aln_length=70
+             ):
+    from rotifer.core.functions import chunks
+    from rotifer.devel.alpha import gian_func as gf
+    from weasyprint import HTML
+    import sys
+    if not consensus:
+        consensus = aln_r[aln_r.index.str.contains("Consensus", case=False)].index[0]
+    if not annotations:
+        try:
+            annotations = aln_r[aln_r.index.str.startswith("#")].index.str.lstrip('#').tolist()
+            aln_r.index = aln_r.index.str.lstrip('#')
+        except:
+            annotations = False 
+
+    if landscape:
+        landscape='landscape'
+    else:
+        landscape =""
+
+
+    headers = {
+        'selector': 'th:not(.index_name)',
+        'props': f'''font-size: {font_size}px;
+        text-align: left;
+        font-family:"Lucida Console", Monaco, monospace;
+        color:black;'''
+    }
+    slices = chunks(aln_r.columns, aln_length)
+    to_merge = []
+    for x in slices:
+        sliced = aln_r.loc[:,x].copy()
+        slice_consensus = ([consensus], sliced.columns)
+        if annotations:
+            slice_annotaion = (annotations, sliced.columns)
+            con_ann = annotations + [consensus]
+        else:
+            con_ann = [consensus]
+
+        slice_sequences = sliced.loc[~sliced.index.isin(con_ann)].index.tolist() 
+        slice_sequences = slice_sequences + [consensus]
+        slice_sequences = (slice_sequences, sliced.columns)
+        if sys.version_info.minor > 8:
+            df_style = sliced.loc[:,x].style.set_properties(**{
+                'font-size': f'{font_size}px',
+                'font-family':'"Lucida Console", Monaco,monospace',
+                "text-align": "center"}
+            ).apply(gf.html_highlight_aln, axis=0, subset=slice_sequences).hide(axis='columns').apply(
+                gf.html_highlight_consensus, subset=slice_consensus
+            ).set_table_styles(
+                [headers]
+            )
+        else:
+            df_style = sliced.loc[:,x].style.set_properties(**{
+                'font-size': f'{font_size}px',
+                'font-family':'"Lucida Console", Monaco,monospace',
+                "text-align": "center"}
+            ).apply(gf.html_highlight_aln, axis=0, subset=slice_sequences).hide_columns().apply(
+                gf.html_highlight_consensus, subset=slice_consensus
+            ).set_table_styles(
+                [headers]
+            )
+        df_style = df_style.to_html(table_attributes='cellspacing=0, cellpadding=0')
+        to_merge.append(df_style)
+    ht = ''.join(to_merge)        
+    #if whant to send to latex, replace set_stick... to:to_latex(environment='longtable', convert_css=True)
+    html_full = f"""
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+      @page {{
+      size: A4 {landscape};
+      margin: 1cm;
+        }}
+
+        table, th, td {{
+          border: none !important;
+          border-collapse: collapse;
+        }}
+      </style>
+    </head>
+    <body>
+      {ht}
+    </body>
+    </html>
+    """
+    HTML(string=html_full).write_pdf(f"{output}")
+
+
+

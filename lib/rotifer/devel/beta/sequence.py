@@ -1657,8 +1657,57 @@ class sequence(rotifer.pipeline.Annotatable):
             result.df = pd.concat([a6.iloc[2:4,:],result.df])
 
             return result
+    def compact_residue_df(self,
+                           consensus,
+                           annotations=False,
+                           remove_gaps=False,
+                           adjust_coordinates=False):
+        """
+        Function to return a residue df containing a selected consensus as the last line
+        consensus: consensus threshold to bild the consensus line
+        annotation: can be a list of string of sequence obejct id to be used as annotation on top of aligment
+        and will not be colored
+        remove gaps: Should add the id of the protein used to be the model to remove gaps on aligment
+        adjust coordinate: will fetch sequences to add start and end coordinates 
+        """
 
-    def _to_df_style(self, consensus, annotations=False, remove_gaps=False, adjust_coordinates = False):
+        aln = self.copy()
+        if remove_gaps:
+            gaps,gdf, spos,epos = aln.gaps_to_numbers(remove_gaps, adjust_coordinates=adjust_coordinates)
+            gdf.index = aln.df.query('type == "sequence"').id
+
+        aln_r = aln.residues
+        con = pd.Series(list(aln.consensus(consensus)))
+        aln_r = aln_r.set_index(aln.df.query('type == "sequence"').id)
+        con.index +=1
+        aln_r = pd.concat([aln_r, con.rename(f'consensus/{consensus}%').to_frame().T], axis=0)
+        if annotations:
+            if isinstance(annotations, str):
+                ann = pd.Series(list(aln.df.query('id ==@annotations').sequence.iloc[0]))
+                ann.index +=1
+                aln_r = pd.concat([ann.rename(annotations).to_frame().T,aln_r])
+            else:
+                for x in annotations:
+                    ann = pd.Series(list(aln.df.query('id ==@x').sequence.iloc[0]))
+                    ann.index +=1
+                    aln_r = pd.concat([ann.rename(x).to_frame().T,aln_r])
+
+        if remove_gaps:
+            if adjust_coordinates:
+                aln_r.insert(0,spos, ['-'] * len(aln_r))
+                aln_r[epos] = ['-'] * len(aln_r)
+            aln_r =  aln_r.drop(gaps,axis=1).join(gdf).sort_index(axis=1).fillna(0).astype(int, errors='ignore').astype(str).replace('0','  ')
+        return aln_r
+
+
+
+
+    def _to_df_style(self,
+                     consensus,
+                     annotations=False,
+                     remove_gaps=False,
+                     adjust_coordinates = False,
+                     font_size=6):
         """TODO: Docstring for function.
 
         :consensus: The consensus threshold that should be used to color the aligment
@@ -1674,99 +1723,43 @@ class sequence(rotifer.pipeline.Annotatable):
         import sys
         import pandas as pd
         from rotifer.devel.beta.sequence import sequence
+        from rotifer.core.functions import loadConfig
+        from rotifer.core  import config as CoreConfig
+
+        #### Loading the color dictionary
+        cd = loadConfig(
+                ':colors.html_aa_colors',
+                system_path=CoreConfig['baseDataDirectory'])
+
         import numpy as np
         aln = self.copy()
-        if remove_gaps:
-            gaps,gdf = aln.gaps_to_numbers(remove_gaps, adjust_coordinates=adjust_coordinates)
-            gdf.index = aln.df.query('type == "sequence"').id
 
-        aromatic = ['F','Y', 'W', 'H']
-        alifatic = ['I','V','L']
-        hydrophobic = alifatic + [ 'A', 'C', 'F', 'M', 'W', 'Y']
-        positive = ['H', 'K', 'R']
-        negative = [ 'D', 'E']
-        charged = positive + negative
-        polar = charged + ['p','Q', 'N', 'S', 'T','C']
-        alcohol = ['S','T']
-        tiny = ['G', 'A', 'S']
-        small = tiny + [ 'V', 'T', 'D', 'N', 'P', 'C']
-        big = ['K', 'F', 'I', 'L','M', 'Q', 'R', 'W', 'Y', 'E']
-        all_aa = ['G','A','V','I','L','M','F','Y','W','H','C','P','K','R','D','E','Q','N','S','T']
+        aln_r = aln.compact_residue_df(consensus,
+                     annotations=annotations,
+                     remove_gaps=remove_gaps,
+                     adjust_coordinates = adjust_coordinates)
 
-        aa_groups_colors = {'a':[aromatic,  '#2C68F3'],
-                            'l':[alifatic, '#2CF3EA'],
-                            'h':[hydrophobic,  '#F3E42C90'],
-                            '+':[positive,  '#2C68F3'],
-                            '-':[negative,  '#F50EF195'],
-                            'c':[charged,  '#38F50E'],
-                            'p':[polar,  '#0EF5A150'],
-                            'o':[alcohol,  '#AE5BF8'],
-                            'u':[tiny,  '#EE9C0C'],
-                            's':[small,  '#DA147750'],
-                            'b':[big,  '#A28694'],
-                            '.':[all_aa,  'white'],
-                            'G':[all_aa,'white'],
-                            'A':[all_aa,'white'],
-                            'V':[all_aa,'white'],
-                            'I':[all_aa,'white'],
-                            'L':[all_aa,'white'],
-                            'M':[all_aa,'white'],
-                            'F':[all_aa,'white'],
-                            'Y':[all_aa,'white'],
-                            'W':[all_aa,'white'],
-                            'H':[all_aa,'white'],
-                            'C':[all_aa,'white'],
-                            'P':[all_aa,'white'],
-                            'K':[all_aa,'white'],
-                            'R':[all_aa,'white'],
-                            'D':[all_aa,'white'],
-                            'E':[all_aa,'white'],
-                            'Q':[all_aa,'white'],
-                            'N':[all_aa,'white'],
-                            'S':[all_aa,'white'],
-                            'T':[all_aa,'white'],
-                            ' ':[all_aa,'white'],
-                            '  ':[all_aa,'white'],
-                            '_':[all_aa,'white']}
 
-        # Geting the residues tabele:
-        aln_r = aln.residues
-        con = pd.Series(list(aln.consensus(consensus)))
-        aln_r = aln_r.set_index(aln.df.query('type == "sequence"').id)
-        con.index +=1
-        aln_r = pd.concat([aln_r, con.rename('consensus').to_frame().T], axis=0)
-        if annotations:
-            if isinstance(annotations, str):
-                ann = pd.Series(list(aln.df.query('id ==@annotations').sequence.iloc[0]))
-                ann.index +=1
-                aln_r = pd.concat([ann.rename(annotations).to_frame().T,aln_r])
-            else:
-                for x in annotations:
-                    ann = pd.Series(list(aln.df.query('id ==@x').sequence.iloc[0]))
-                    ann.index +=1
-                    aln_r = pd.concat([ann.rename(x).to_frame().T,aln_r])
-
-        if remove_gaps:
-            aln_r =  aln_r.drop(gaps,axis=1).join(gdf).sort_index(axis=1).fillna(0).astype(int, errors='ignore').astype(str).replace('0','  ')
-
-        # Funtion that works!!!
+        # Funtions to color the algiment:
         def highlight_aln(s):
             import numpy as np
-            d = aa_groups_colors[s.fillna('  ').iloc[-1]]
+            ### getting the consensus value to map the colors filling na with "  " to color white 
+            d = cd[s.fillna('_').iloc[-1]]
+            #d = aa_groups_colors[s.fillna('  ').iloc[-1]]
             return np.where(
                 s == '  ',
                 'color:white;background-color:white',
                 np.where(
                     s == s.iloc[-1],
-                    'color:white;background-color:black',
+                    f'color:{d["fcolor"]};background-color:{d["color"]}',
                     np.where(
-                        s.isin(d[0]),
-                        f'color:black;background-color:{d[1]}',
-                        'color:black;background-color:white')))
+                        s.isin(d['residues']),
+                        f'color:{d["fcolor"]};background-color:{d["color"]}',
+                        f'color:black;background-color:white')))
 
         def highlight_consensus(s):
             import numpy as np
-            d = aa_groups_colors[s.fillna('  ').iloc[-1]]
+            d = cd[s.fillna('_').iloc[-1]]
             """TODO: Docstring for highlight_consensus.
 
             :arg1: TODO
@@ -1774,16 +1767,19 @@ class sequence(rotifer.pipeline.Annotatable):
 
             """
             return np.where(
-                s.isin(all_aa),
-                'color:white;background-color:black',
-                f'color:black;background-color:{d[1]}',
+                s.isin(cd["ALL"]["residues"]),
+                f'color:{d["fcolor"]};background-color:{d["color"]}',
+                f'color:{d["fcolor"]};background-color:{d["color"]}',
                 )
 
         #Making slice index where the functions should be applied:
         # One function should be applien only in the consensus row
         # Other function should be appplied only in seq rows
+
+        #### Geting the Consensus line
         idx1 = pd.IndexSlice
-        corte = idx1[idx1['consensus'],idx1[:]]
+        corte = idx1[idx1[f'consensus/{consensus}%'],idx1[:]]
+        ###Getting the sequences from the aligment
         #Getting the firs sequence (fs) row to map the slice:
         idx2 = pd.IndexSlice
         fs = aln.df.query('type == "sequence"').id.iloc[0]    
@@ -1791,7 +1787,7 @@ class sequence(rotifer.pipeline.Annotatable):
 
         headers = {
             'selector': 'th:not(.index_name)',
-            'props': '''font-size: 12px;
+            'props': f'''font-size: {font_size}px;
             text-align: left;
             font-family:"Lucida Console", Monaco, monospace;
             color:black;
@@ -1800,7 +1796,7 @@ class sequence(rotifer.pipeline.Annotatable):
 
         if sys.version_info.minor > 8:
             df_style = aln_r.style.set_properties(**{
-                'font-size': '12px',
+                'font-size': f'{font_size}px',
                 'font-family':'"Lucida Console", Monaco,monospace',
                 "text-align": "center"}
             ).apply(highlight_aln, axis=0, subset=corte2).hide(axis='columns').apply(
@@ -1810,7 +1806,7 @@ class sequence(rotifer.pipeline.Annotatable):
             )
         else:
             df_style = aln_r.style.set_properties(**{
-                'font-size': '12px',
+                'font-size': f'{font_size}px',
                 'font-family':'"Lucida Console", Monaco,monospace',
                 "text-align": "center"}
             ).apply(highlight_aln, axis=0, subset=corte2).hide_columns().apply(
@@ -1997,6 +1993,12 @@ class sequence(rotifer.pipeline.Annotatable):
             (self.residues[gaps.index] != '-').T
         ).groupby('grouper').sum().T
         num_gaps.columns = gap_df['first'].to_list()
+        #### Creating a list of where the gaps are
+        gaps = gaps.index.tolist()
+        nongaps = self.residues.loc[midx].iloc[0].where(lambda x: x !='-').dropna().index
+        start_position = nongaps[0] 
+        end_position =  nongaps[-1]
+
         if adjust_coordinates:
             def add_cordinates_to_aln(seqobj):
                 from rotifer.devel.beta.sequence import sequence
@@ -2012,9 +2014,15 @@ class sequence(rotifer.pipeline.Annotatable):
                 c.df =  c.df.drop(['full_sequence'], axis=1)
                 return c
             cord = add_cordinates_to_aln(self).df[['start', 'end', 'C_term']]
-            num_gaps.iloc[:,-1].update(cord.C_term)
-            num_gaps.iloc[:,0].update(cord.start)
-        return (list(gaps.index),num_gaps)
+            num_gaps[nongaps[-1] + 1] = cord.C_term.mask(cord.C_term < 0,0 )
+            num_gaps.insert(0,nongaps[0] -1 , cord.start)
+            start_position -= 1
+            end_position += 1
+            gaps.insert(0, start_position)
+            gaps.append(end_position)
+
+
+        return (gaps,num_gaps, start_position,end_position)
 
     def _to_df_styleTEX(self, consensus, annotations=False, remove_gaps=False, adjust_coordinates=False):
         """TODO: Docstring for function.
@@ -2034,7 +2042,7 @@ class sequence(rotifer.pipeline.Annotatable):
         import numpy as np
         aln = self.copy()
         if remove_gaps:
-            gaps,gdf = aln.gaps_to_numbers(remove_gaps, adjust_coordinates=adjust_coordinates)
+            gaps,gdf, spo,epo = aln.gaps_to_numbers(remove_gaps, adjust_coordinates=adjust_coordinates)
             gdf.index = aln.df.query('type == "sequence"').id
 
         aromatic = ['F','Y', 'W', 'H']

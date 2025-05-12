@@ -1,0 +1,6 @@
+input_fasta: "./teste2.fa"
+run_profiledb: True
+hmmdb_profiledb: "/netmnt/vast01/cbb01/proteinworld/data/rpsdb/allprofiles"
+run_pfam: True
+hmmdb_pfam: "/netmnt/vast01/cbb01/proteinworld/data/rpsdb/pwld_new_pfam"
+batch_size: 40

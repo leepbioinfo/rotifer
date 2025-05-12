@@ -4,6 +4,7 @@ euryarchaeota
 methanobacteriota
 korarchaeota
 nanoarchaeota
+nanobdellati
 nanobdellota
 thaumarchaeota
 thermoplasmatota
@@ -11,22 +12,24 @@ halobacteriota
 #archaeal_kingdoms
 methanobacteriati
 DPANN group
-nanobdellati
 TACK group
 thermoproteati
 asgard group
 promethearchaeati
 archaea
 #bacterial_classes_hand_sorted
+thermotogota
 gammaproteobacteria
 betaproteobacteria
 zetaproteobacteria
 alphaproteobacteria
-epsilonproteobacteria
+SAR324 cluster
 deltaproteobacteria
 hydrogenophilalia
+bdellovibrionota
 oligoflexia
 proteobacteria
+thermodesulfobacteriota
 thermodesulfobacteria
 spirochaetes
 deferribacteres
@@ -40,6 +43,7 @@ verrucomicrobia
 lentisphaerae
 chlamydiae
 chlamydiae/verrucomicrobia
+elusimicrobiota
 elusimicrobia
 planctomycetes
 kiritimatiellaeota
@@ -57,6 +61,7 @@ aquificae
 caldiserica
 dictyoglomi
 thermotogae
+deinococcota
 deinococci
 deinococcus-Thermus
 synergistetes
@@ -68,9 +73,10 @@ chloroflexi
 armatimonadetes
 tenericutes
 firmicutes
+delta/epsilon subdivisions
+Cyanobacteriota/Melainabacteria group
 cyanobacteria
 cyanobacteriota
-cyanobacteriota/melainabacteria group
 terrabacteria group
 calditrichaeota
 saccharibacteria
@@ -90,9 +96,7 @@ chloroflexota
 chrysiogenota
 thermoproteota
 deferribacterota
-deinococcota
 dictyoglomota
-elusimicrobiota
 fibrobacterota
 bacillota
 fusobacteriota
@@ -108,15 +112,13 @@ spirochaetota
 synergistota
 mycoplasmatota
 nitrososphaerota
-thermodesulfobacteriota
-thermotogota
 verrucomicrobiota
 myxococcota
 campylobacterota
 thermomicrobiota
-bdellovibrionota
 desulfobacterota
 bacillati
+epsilonproteobacteria
 bacteria
 unclassified
 unclassified bacteria
@@ -156,11 +158,9 @@ lobosea
 arcellinida
 dictyosteliida
 dictyostelia
-opisthokonta
 rotosphaerida
 filasterea
 choanoflagellata
-metazoa
 tardigrada
 porifera
 platyhelminthes
@@ -186,7 +186,6 @@ fonticulida
 nucleariidae
 cristidiscoidea
 mycetozoa
-fungi
 zoopagomycota
 mucoromycota
 cryptomycota
@@ -212,6 +211,8 @@ pelobiontida
 discoba
 hacrobia
 metamonada
+fungi
+metazoa
 eukaryota
 #virus
 ssRNA positive strand viruses
@@ -262,5 +263,6 @@ unclassified archaeal viruses
 environmental samples
 unclassified bacterial viruses
 unclassified viruses
+opisthokonta
 # Plasmid
 plasmid

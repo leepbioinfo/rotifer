@@ -1,0 +1,215 @@
+a:
+  group: aromatic
+  color: "#2C68F3"
+  fcolor: "black"
+  residues: ['F', 'Y', 'W', 'H']
+
+l:
+  group: alifatic
+  color: "#2CF3EA"
+  fcolor: "black"
+  residues: ['I', 'V', 'L']
+
+h:
+  group: hydrophobic
+  color: "#F3E42C"
+  fcolor: "black"
+  residues: ['I', 'V', 'L', 'A', 'C', 'F', 'M', 'W', 'Y']
+
+"+":
+  group: positive
+  color: "#2C68F3"
+  fcolor: "black"
+  residues: ['H', 'R', 'K']  
+
+"-":
+  group: negative
+  color: "#F50EF1"
+  fcolor: "black"
+  residues: ['D' ,'E']
+
+c:
+  group: charged
+  color: "#38F50E"
+  fcolor: "black"
+  residues: ['H', 'K', 'R', 'D', 'E']
+
+p:
+  group: polar
+  color: "#0EF5A1"
+  fcolor: "black"
+  residues: ['H', 'K', 'R', 'D', 'E', 'p', 'Q', 'N', 'S', 'T', 'C']
+
+o:
+  group: alcohol
+  color: "#AE5BF8"
+  fcolor: "black"
+  residues: ['S', 'T']
+
+u:
+  group: tiny
+  color: "#EE9C0C"
+  fcolor: "black"
+  residues: ['G', 'A', 'S']
+
+s:
+  group: small
+  color: "#DA1477"
+  fcolor: "black"
+  residues: ['G', 'A', 'S', 'V', 'T', 'D', 'N', 'P', 'C']
+
+b:
+  group: big
+  color: "#A28694"
+  fcolor: "black"
+  residues: ['K', 'F', 'I', 'L', 'M', 'Q', 'R', 'W', 'Y', 'E']
+
+ALL:
+  group: all
+  color: 'black'
+  fcolor: "white"
+  residues: ['G','A','V','I','L','M','F','Y','W','H','C','P','K','R','D','E','Q','N','S','T']
+
+G:
+  group: all_aa
+  color: "black"
+  fcolor: "white"
+  residues: ['G']
+
+A:
+  group: all_aa
+  color: "black"
+  fcolor: "white"
+  residues: ['A']
+
+V:
+  group: all_aa
+  color: "black"
+  fcolor: "white"
+  residues: ['V']
+
+I:
+  group: all_aa
+  color: "black"
+  fcolor: "white"
+  residues: ['I']
+
+L:
+  group: all_aa
+  color: "black"
+  fcolor: "white"
+  residues: ['L']
+
+M:
+  group: all_aa
+  color: "black"
+  fcolor: "white"
+  residues: ['M']
+
+F:
+  group: all_aa
+  color: "black"
+  fcolor: "white"
+  residues: ['F']
+
+Y:
+  group: all_aa
+  color: "black"
+  fcolor: "white"
+  residues: ['Y']
+
+W:
+  group: all_aa
+  color: "black"
+  fcolor: "white"
+  residues: ['W']
+
+H:
+  group: all_aa
+  color: "black"
+  fcolor: "white"
+  residues: ['H']
+
+C:
+  group: all_aa
+  color: "black"
+  fcolor: "white"
+  residues: ['C']
+
+P:
+  group: all_aa
+  color: "black"
+  fcolor: "white"
+  residues: ['P']
+
+K:
+  group: all_aa
+  color: "black"
+  fcolor: "white"
+  residues: ['K']
+
+R:
+  group: all_aa
+  color: "black"
+  fcolor: "white"
+  residues: ['R']
+
+D:
+  group: all_aa
+  color: "black"
+  fcolor: "white"
+  residues: ['D']
+
+E:
+  group: all_aa
+  color: "black"
+  fcolor: "white"
+  residues: ['E']
+
+Q:
+  group: all_aa
+  color: "black"
+  fcolor: "white"
+  residues: ['Q']
+
+N:
+  group: all_aa
+  color: "black"
+  fcolor: "white"
+  residues: ['N']
+
+S:
+  group: all_aa
+  color: "black"
+  fcolor: "white"
+  residues: ['S']
+
+T:
+  group: all_aa
+  color: "black"
+  fcolor: "white"
+  residues: ['T']
+
+" ":
+  group: all_aa
+  color: "white"
+  fcolor: "white"
+  residues: [' ']
+
+"  ":
+  group: all_aa
+  color: "white"
+  fcolor: "white"
+  residues: ['  ']
+
+"_":
+  group: all_aa
+  color: "white"
+  fcolor: "black"
+  residues: ['-']
+
+".":
+  group: all_aa
+  color: "white"
+  fcolor: "white"
+  residues: ['.']

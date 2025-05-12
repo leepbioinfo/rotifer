@@ -1,0 +1,105 @@
+aromatic:
+  - F
+  - Y
+  - W
+  - H
+
+alifatic:
+  - I
+  - V
+  - L
+
+hydrophobic:
+  - I
+  - V
+  - L
+  - A
+  - C
+  - F
+  - M
+  - W
+  - Y
+
+positive:
+  - H
+  - K
+  - R
+
+negative:
+  - D
+  - E
+
+charged:
+  - H
+  - K
+  - R
+  - D
+  - E
+
+polar:
+  - H
+  - K
+  - R
+  - D
+  - E
+  - p
+  - Q
+  - N
+  - S
+  - T
+  - C
+
+alcohol:
+  - S
+  - T
+
+tiny:
+  - G
+  - A
+  - S
+
+small:
+  - G
+  - A
+  - S
+  - V
+  - T
+  - D
+  - N
+  - P
+  - C
+
+big:
+  - K
+  - F
+  - I
+  - L
+  - M
+  - Q
+  - R
+  - W
+  - Y
+  - E
+
+all_aa:
+  - G
+  - A
+  - V
+  - I
+  - L
+  - M
+  - F
+  - Y
+  - W
+  - H
+  - C
+  - P
+  - K
+  - R
+  - D
+  - E
+  - Q
+  - N
+  - S
+  - T
+

@@ -1,0 +1,10 @@
+jobs: 100
+use-conda: true
+keep-going: true
+rerun-incomplete: true
+latency-wait: 10
+restart-times: 5
+
+cluster: "sleep {cluster.sleep_time};qsub -V -v {cluster.facilities} -P {cluster.project} -l h_rt={cluster.runtime},h_vmem={cluster.h_vmem},mem_free={cluster.mem_free},ul1=3 -o {output.out_file} -m n"
+cluster-config: "./cluster.yaml"
+configfile: "./config.yaml"

@@ -1,0 +1,87 @@
+#!/usr/bin/env /netmnt/vast01/cbb01/proteinworld/tools/conda/envs/rotifer2/bin/python
+from rotifer.devel.alpha import aln2pdf
+import tempfile
+import rotifer.core.cli as corecli
+
+__version__ = 0.1
+__authors__ = 'Gianlucca G. Nicastro'
+
+
+def parse_args():
+    parser = corecli.parser( description= \
+            '''
+            Draw operon figures from a given list of PIDs or from an TASS Operon2neighborhood output table.
+            List of output formats:
+            PDF, PNG, SVG, EPS, PS, JPEG/JPG, TIFF, GIF, BMP, DOT, IMAP, XDOT, PLAIN, JSON
+            Usage:
+            cat protein_accession_list |acc2operon_fig -f -of te.pdf
+            acc2operon_fig  -of te.pdf protein_accession_list -f
+            cat  operon2neighborhood_file| acc2operon_fig -of te.pdf
+            acc2operon_fig -of te.pdf operon2neighborhood_file
+
+Written by Gianlucca G. Nicastro
+                            ''')
+
+
+   # parser.add(':cli.core')
+
+    parser.add(helper = 'Operon2neighborhood output file or acc list if -f option enable',
+               nargs = '*',
+               dest = 'input',
+               action = corecli.action.add_stdin)
+
+    parser.add(long_arg = '--columns_per_line',
+               short_arg = '-c',
+               helper = 'Number of residues per line',
+               dest = 'residues_per_line',
+               default = 80,
+               action = 'store',
+               arg_type = int)
+
+    parser.add(long_arg = '--ss_polygon',
+               short_arg = '-ss',
+               helper = 'Draw the seconday structure as arrows ans helices',
+               dest = 'ss_as_polygon',
+               action = 'store_true',
+               default=False)
+
+    parser.add(long_arg = '--font_size',
+               short_arg = '-f',
+               helper = 'Font size',
+               dest = 'font_size',
+               action = 'store',
+               default = 4.5,
+               arg_type = float)
+
+    parser.add(long_arg = '--output_file',
+               short_arg = '-o',
+               helper = 'Output file',
+               dest = 'output',
+               action = 'store',
+               arg_type = str)
+
+    args = parser.parse_args()
+    return(args)
+
+
+args=parse_args()
+input_file = args.input[0]
+
+
+#### Loading Polish alingment to residue DF:
+rdf = aln2pdf.polish_2_residues_df(input_file)
+
+if args.ss_as_polygon:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        aln2pdf.veremos(rdf,
+                        font_size=args.font_size,
+                        output=f'{tmpdir}/tmp.pdf',
+                        aln_length=args.residues_per_line,
+                        ss_as_polygon=args.ss_as_polygon)
+        aln2pdf.add_SS_diagrams_pages(f'{tmpdir}/tmp.pdf', args.output)
+else:    
+    aln2pdf.veremos(rdf,
+                    font_size=args.font_size,
+                    output=args.output,
+                    aln_length=args.residues_per_line,
+                    ss_as_polygon=args.ss_as_polygon)
