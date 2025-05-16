@@ -50,16 +50,9 @@ def taxon_summary(
     ndftax = tc.fetchall(df.taxid.drop_duplicates().tolist()) 
     
     # Creating a table to display the requested taxonomies
-    z = pd.Series(
-        tc.cursors['ete3'].ete3.get_lineage_translator(ndftax.taxid.drop_duplicates().tolist()), 
-        name='lineage'
-    ).reset_index().rename({'index':'taxid'}, axis=1).explode('lineage')
-    z['rank'] = z.lineage.map(
-        tc.cursors['ete3'].ete3.get_rank(z.lineage.drop_duplicates().tolist())
-    )
-    z['taxon'] = z.lineage.map(
-        tc.cursors['ete3'].ete3.get_taxid_translator(z.lineage.drop_duplicates().tolist())
-    )
+    z = pd.Series(tc.cursors['ete3'].ete3.get_lineage_translator(ndftax.taxid.drop_duplicates().tolist()), name='lineage').reset_index().rename({'index':'taxid'}, axis=1).explode('lineage')
+    z['rank'] = z.lineage.map(tc.cursors['ete3'].ete3.get_rank(z.lineage.drop_duplicates().tolist()))
+    z['taxon'] = z.lineage.map( tc.cursors['ete3'].ete3.get_taxid_translator(z.lineage.drop_duplicates().tolist()))
     taxon_df = z[z['rank'].isin(rank)].pivot(index='taxid', columns='rank', values='taxon').reset_index()
     
     # Merging the summary to ndf
