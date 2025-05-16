@@ -1,95 +1,95 @@
 def taxon_summary(
     df,
-    level,
-    column='classification',
-    separator=';',
-    unclassified_terms=[
-        'unclassified',
-        'environmental samples',
-        'uncultured',
-        'incertae sedis',
-        'candidatus',
-        'synthetic construct',
-        'other']
+    rank=['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species'],
+    update=False
 ):
     """
-    Summarizes the taxonomic composition of a dataset at a specified taxonomic level.
+    Generate a taxonomic summary from a DataFrame with NCBI TaxIDs, including query and assembly counts
+    grouped by the specified taxonomic rank.
 
     Parameters
     ----------
-    df : pd.DataFrame
-        Input table containing taxonomic lineage strings.
-    level : int
-        The taxonomic rank to extract (e.g., 1 = kingdom/domain, 2 = phylum, 3 = class, etc.).
-    column : str, default 'classification'
-        Name of the column in `df` that holds the full lineage strings.
-    separator : str, default ';'
-        Character or substring used to split the lineage into ranks.
-    unclassified_terms : list of str, default ['unclassified','environmental samples','uncultured','incertae sedis','candidatus','synthetic construct','other']
-        Keywords which, if found in the extracted term, force it to be labeled 'unclassified'.
+    df : pandas.DataFrame
+        Input DataFrame (usually a ndf) containing at least a 'taxid' column (NCBI Taxonomy ID),
+        a 'query' column (1 or 0 indicating query status), and an 'assembly' column (assembly accession).
+        
+    rank : list of str, optional
+        List of NCBI taxonomic ranks to extract. The final rank in the list (e.g. 'species') will be used
+        to group query and assembly counts. Defaults to the standard 7-rank Linnaean hierarchy:
+        ['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species'].
+        
+    update : bool, optional
+        If True, updates the local NCBI taxonomy database via ETE3 before fetching lineages.
+        This is recommended the first time you run the function or if your taxonomy data may be outdated.
 
     Returns
     -------
-    pd.DataFrame
-        A summary DataFrame with the count and percentage of entries at the specified taxonomic level.
-        Example output:
-                    Count  Percentage
-        bacteria     11350   93.16
-        archaea        658    5.40
-        unclassified   175    1.44
+    df : pandas.DataFrame
+        The original DataFrame with taxonomic columns (from `rank`) merged in.
 
-    Notes
-    -----
-    It is recommended to run `epsoares.update_lineage` on your dataset before using this function.
-
-    Example
-    -------
-    >>> summary = taxon_summary(rad_sam.ndf, 1, column='lineage', separator='>')
-    >>> summary.head()
+    taxon_df : pandas.DataFrame
+        A summary DataFrame, one row per unique taxon at the final rank level,
+        with columns:
+        - 'taxid' and taxonomic ranks (as defined in `rank`)
+        - 'query_tax_count': Number of query sequences mapped to each taxon
+        - 'query_tax_pct': Percentage of queries mapped to each taxon
+        - 'tax_assembly_count': Number of unique assemblies mapped to each taxon
+        - 'tax_assembly_pct': Percentage of assemblies mapped to each taxon
     """
-    
     import pandas as pd
-    import re
-
-    # Pre-compile regex for faster checks (case-insensitive)
-    uncl_pattern = re.compile(
-        r'\b(?:' + '|'.join(re.escape(t) for t in unclassified_terms) + r')\b',
-        flags=re.IGNORECASE
+    from rotifer.db import ncbi
+    from rotifer.db.ncbi import entrez 
+    
+    tc = ncbi.TaxonomyCursor() 
+    
+    # Update database so we can use the most up-to-date taxonomy
+    if update:
+        tc.cursors['ete3'].update_database()
+    
+    # Fetching all taxids
+    ndftax = tc.fetchall(df.taxid.drop_duplicates().tolist()) 
+    
+    # Creating a table to display the requested taxonomies
+    z = pd.Series(
+        tc.cursors['ete3'].ete3.get_lineage_translator(ndftax.taxid.drop_duplicates().tolist()), 
+        name='lineage'
+    ).reset_index().rename({'index':'taxid'}, axis=1).explode('lineage')
+    z['rank'] = z.lineage.map(
+        tc.cursors['ete3'].ete3.get_rank(z.lineage.drop_duplicates().tolist())
     )
+    z['taxon'] = z.lineage.map(
+        tc.cursors['ete3'].ete3.get_taxid_translator(z.lineage.drop_duplicates().tolist())
+    )
+    taxon_df = z[z['rank'].isin(rank)].pivot(index='taxid', columns='rank', values='taxon').reset_index()
+    
+    # Merging the summary to ndf
+    df = df.merge(taxon_df, on='taxid', how='left')
+    
+    # Measuring the amount of queries that belong to each taxa
+    query_df = df[df['query'] == 1]
+    query_counts = (query_df.groupby(rank[-1]).size().rename('query_tax_count').reset_index())
+    total_queries = query_counts['query_tax_count'].sum()
+    query_counts['query_tax_pct'] = (query_counts['query_tax_count'] / total_queries) * 100
 
-    def extract_taxonomic_level(lineage):
-        # Handle missing or empty
-        if pd.isna(lineage) or not isinstance(lineage, str) or not lineage.strip():
-            return 'unclassified'
+    # Measuring the amount of assemblies that belong to each taxa
+    assembly_df = df[['assembly', rank[-1]]].drop_duplicates()
+    assembly_counts = (assembly_df.groupby(rank[-1]).size().rename('tax_assembly_count').reset_index())
+    total_assemblies = assembly_counts['tax_assembly_count'].sum()
+    assembly_counts['tax_assembly_pct'] = (assembly_counts['tax_assembly_count'] / total_assemblies) * 100
 
-        parts = lineage.split(separator)
-        if len(parts) < level:
-            return 'unclassified'
+    taxon_df = taxon_df.merge(query_counts, on=rank[-1], how='left')
+    taxon_df = taxon_df.merge(assembly_counts, on=rank[-1], how='left')
 
-        term = parts[level - 1].strip().lower()
-        # If the term itself is empty, or matches any placeholder keyword, classify as unclassified
-        if not term or uncl_pattern.search(term):
-            return 'unclassified'
+    taxon_df[['query_tax_count', 'query_tax_pct', 'tax_assembly_count', 'tax_assembly_pct']] = (taxon_df[['query_tax_count', 'query_tax_pct', 'tax_assembly_count', 'tax_assembly_pct']].fillna(0))
+    taxon_df['query_tax_count'] = taxon_df['query_tax_count'].astype(int)
+    taxon_df['tax_assembly_count'] = taxon_df['tax_assembly_count'].astype(int)    
+    
+    taxon_df = taxon_df.drop_duplicates(subset=[rank[-1]])
+    columns = ['taxid'] + rank + ['query_tax_count', 'query_tax_pct', 'tax_assembly_count', 'tax_assembly_pct']
+    taxon_df = taxon_df[columns]
+    taxon_df = taxon_df.sort_values(by=['tax_assembly_pct', 'query_tax_pct'], ascending=[False, False])
 
-        return term
-
-    # Extract the specified taxonomic level
-    taxonomic_levels = df[column].apply(extract_taxonomic_level)
-
-    # Calculate absolute and normalized counts
-    absolute_counts = taxonomic_levels.value_counts()
-    normalized_counts = taxonomic_levels.value_counts(normalize=True) * 100
-
-    # Combine results into a single DataFrame
-    summary = pd.DataFrame({
-        'Count': absolute_counts,
-        'Percentage': normalized_counts
-    })
-
-    summary.index.name = 'Taxon'
-    summary.reset_index(inplace=True)
-
-    return summary
+    return df, taxon_df
 
 def shannon(self, ignore_gaps=True):
     """
