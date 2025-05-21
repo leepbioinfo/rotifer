@@ -25,6 +25,10 @@ def update_lineage(ndf, preferred="/home/leep/epsoares/projects/databases/data/p
     return ndf
 
 def extract_envelope(df, seqobj=None, start='estart', end='eend', expand=10, local_database_path='/databases/fadb/nr/nr'):
+    '''
+    Function to extract the envelope of a model match.
+    '''
+
     import pandas as pd
     import rotifer.devel.beta.sequence as rdbs
     import numpy as np
@@ -44,7 +48,7 @@ def extract_envelope(df, seqobj=None, start='estart', end='eend', expand=10, loc
         seqobj.df['start'] = np.where(seqobj.df.start<=expand,1,seqobj.df.start-expand+1)
         seqobj.df['end'] = np.where(seqobj.df.end+expand > seqobj.df.length, seqobj.df.length, seqobj.df.end+expand)
 
-    seqobj.df.sequence = seqobj.df.apply(lambda x: x.sequence[int(x[start])-1:int(x[end])], axis=1)
+    seqobj.df.sequence = seqobj.df.apply(lambda row: row['sequence'][row['start'] - 1:row['end']], axis=1)
     seqobj.df['pid'] = seqobj.df['id']
     seqobj.df['id'] = seqobj.df['id'] + '/' + seqobj.df[start].astype(str) + '-' + seqobj.df[end].astype(str)
     seqobj._reset()
