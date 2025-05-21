@@ -708,7 +708,7 @@ def psiblast(acc,
                       stdout=PIPE,
                       shell=True
                       ).communicate()
-            Popen(f'blast2table {tmpdirname}/out > {tmpdirname}/out.tsv',
+            Popen(f'/netmnt/vast01/cbb01/proteinworld/tools/bin/blast2table {tmpdirname}/out > {tmpdirname}/out.tsv',
                   stdout=PIPE,
                   shell=True).communicate()
             t = pd.read_csv(f'{tmpdirname}/out.tsv', sep="\t", names=cols)
@@ -2564,7 +2564,7 @@ def pid2tax(pidlist,full=False):
                   
                                        how='left'
                                        )
-    result['position'] = result.nucleotide + ":" + result.start.astype(str) + '-' +  + result.stop.astype(str)                 
+    result['position'] = result.nucleotide + ":" + result.start.astype(str) + '-'  + result.stop.astype(str)                 
 
     return result
 
@@ -3879,7 +3879,7 @@ def mmseqs_easy_search(acc,
                   stdout=PIPE,
                   shell=True
                   ).communicate()
-                Popen(f'mmseqs search {tmpdirname}/converted_fasta {db} {tmpdirname}/resultDB {tmpdirname}/tmp --db-load-mode 2 -a -s {sensitivity} --max-seqs {max_out}, --num-iterations {iterations}', 
+                Popen(f'mmseqs search {tmpdirname}/converted_fasta {db} {tmpdirname}/resultDB {tmpdirname}/tmp --db-load-mode 2 -a -s {sensitivity} --max-seqs {max_out} --num-iterations {iterations}', 
                   stdout=PIPE,
                   shell=True
                   ).communicate()
@@ -4309,4 +4309,23 @@ def veremos(aln_r,
     HTML(string=html_full).write_pdf(f"{output}")
 
 
+def add_afdb2seqobj(seqobj, afid, model_sequence):
+    from rotifer.devel.alpha.gian_func import get_alphafold_dssp
+    seq_obj_copy = seqobj.copy()
+    afseq, afdssp = get_alphafold_dssp(afid)
+    model_sequence_aa = seqobj.filter(keep=[model_sequence]).df.sequence[0]
+    model_sequence_Series = pd.Series(list(model_sequence_aa))
+    start_index = afseq.find(model_sequence_aa.replace('-',''))
+    end_index =  len(model_sequence_aa.replace('-','')) + start_index
+    aa = afseq[start_index:end_index]
+    dssp = afdssp[start_index:end_index]
+    aa = pd.Series(list(aa))
+    aa.index = model_sequence_Series.where(lambda x : x!='-').dropna().index
+    dssp = pd.Series(list(dssp))
+    dssp.index = model_sequence_Series.where(lambda x : x!='-').dropna().index
+    model_sequence_Series.update(dssp)
+    dssp_str = ''.join(list(model_sequence_Series))
+    data = {'id':'SS', 'sequence':dssp_str, 'type':'DSSP_from_AF', 'description':f'AF_model:{afid} ncbipd:{model_sequence}'}
+    seq_obj_copy.df = pd.concat([pd.DataFrame([data]),seq_obj_copy.df])
+    return seq_obj_copy
 

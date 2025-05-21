@@ -146,7 +146,6 @@ centroheliozoa
 cryptophyta
 haptophyceae
 archeplastida
-viridiplantae
 streptophyta
 chlorophyta
 rhodophyta
@@ -263,6 +262,7 @@ unclassified archaeal viruses
 environmental samples
 unclassified bacterial viruses
 unclassified viruses
+viridiplantae
 opisthokonta
 # Plasmid
 plasmid

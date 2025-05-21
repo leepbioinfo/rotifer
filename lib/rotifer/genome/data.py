@@ -451,7 +451,8 @@ class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
             containing  a string of  annotation  and strand direction.
             """
 
-            dataframe[annotation].fillna('?', inplace=True)
+            #dataframe[annotation].fillna('?', inplace=True) changed the line to be compatible with pandas 3.0
+            dataframe.fillna({annotation:'?'}, inplace=True)
             dataframe[annotation] = np.where(
                 dataframe['type'] != 'CDS',
                 dataframe['type'],
