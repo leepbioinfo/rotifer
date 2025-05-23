@@ -34,10 +34,18 @@ def get_seq_ids():
 
 SEQ_IDS, NUM_BATCHES = get_seq_ids()
 
-rule all:
-	input:
-		"final.arch.tsv"
-
+if run_pfam and run_profiledb:
+	rule all:
+		input:
+			"combined.arch"
+elif run_pfam:
+	rule all:
+		input:
+			"results_pfam/pfam.arch"
+elif run_profiledb:
+	rule all:
+		input:
+			"results_profiledb/profiledb.arch"
 
 rule rpsblast_profiledb:
     input:
@@ -83,28 +91,13 @@ rule combine_results_pfam:
     shell:
         "cat {input} |tee {output.txt}|rps2arch -fasta {input_fasta} > {output.arch}"  # Concatenate all batch output files into one
 
-rule combine_final:
+
+rule combine_final: 
     input:
-        pfam = lambda wildcards: "results_pfam/all_output.txt" if run_pfam else None,
-        prof = lambda wildcards: "results_profiledb/all_output.txt" if run_profiledb else None,
+        pfam="results_pfam/all_output.txt",
+        prof="results_profiledb/all_output.txt"
     output:
-        txt = "final.arch.tsv"
-    params:
-        input_fasta = input_fasta
-    run:
-        pfam = input.get("pfam")
-        prof = input.get("prof")
-        txt = output.txt
-        fasta = params.input_fasta
-
-        if pfam and prof:
-            shell(f"cat {pfam} {prof} | rps2arch -fasta {fasta} > {txt}")
-        elif pfam:
-            shell(f"cat {pfam} | rps2arch -fasta {fasta} > {txt}")
-        elif prof:
-            shell(f"cat {prof} | rps2arch -fasta {fasta} > {txt}")
-        else:
-            raise ValueError("No input files provided!")
-
-
+        txt="combined.arch"
+    shell:
+        "cat {input.pfam} {input.prof} | rps2arch -fasta {input_fasta} > {output.txt}"
 

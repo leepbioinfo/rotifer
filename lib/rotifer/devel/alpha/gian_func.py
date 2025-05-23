@@ -4328,4 +4328,50 @@ def add_afdb2seqobj(seqobj, afid, model_sequence):
     data = {'id':'SS', 'sequence':dssp_str, 'type':'DSSP_from_AF', 'description':f'AF_model:{afid} ncbipd:{model_sequence}'}
     seq_obj_copy.df = pd.concat([pd.DataFrame([data]),seq_obj_copy.df])
     return seq_obj_copy
+def neighborhood_DF_max_distance(df, max_distance):
+    keep_rows = set()
+    for block_id, block in df.groupby("block_id"):
+        for strand in [+1, -1]:
+            sub = block[block['strand'] == strand].copy()
+            if sub.empty:
+                continue
+            # Sort for biological order:
+            sub = sub.sort_values('start' if strand == 1 else 'end', ascending=(strand == 1))
+            query_idxs = sub.index[sub['query'] == 1].tolist()
+            for query_idx in query_idxs:
+                # Always keep the query
+                keep_rows.add(query_idx)
+                curr_idx = sub.index.get_loc(query_idx)
+
+                # Walk backwards (upstream for strand)
+                prev_idx = curr_idx
+                while prev_idx > 0:
+                    i = prev_idx
+                    j = i - 1
+                    if strand == 1:
+                        dist = sub.iloc[i]['start'] - sub.iloc[j]['end']
+                    else:
+                        dist = sub.iloc[j]['start'] - sub.iloc[i]['end']
+                    if dist <= max_distance:
+                        keep_rows.add(sub.index[j])
+                        prev_idx = j
+                    else:
+                        break
+
+                # Walk forwards (downstream for strand)
+                next_idx = curr_idx
+                while next_idx < len(sub) - 1:
+                    i = next_idx
+                    j = i + 1
+                    if strand == 1:
+                        dist = sub.iloc[j]['start'] - sub.iloc[i]['end']
+                    else:
+                        dist = sub.iloc[i]['start'] - sub.iloc[j]['end']
+                    if dist <= max_distance:
+                        keep_rows.add(sub.index[j])
+                        next_idx = j
+                    else:
+                        break
+    # Return only kept rows (in original DataFrame order)
+    return df.loc[sorted(keep_rows)].copy()
 

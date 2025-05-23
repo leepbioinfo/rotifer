@@ -1,11 +1,14 @@
 from rotifer.db import ncbi
 import pandas as pd
 from rotifer.core import config as CoreConfig
+from rotifer.devel.beta import sequence as rdbs
+from rotifer import config
 import shutil
 import tempfile
 import subprocess
 from pathlib import Path
 from functools import wraps
+import pickle
 
 
 
@@ -25,7 +28,7 @@ def run_snakemake_in_tmp(snake_src_dir, result_file_relpath, snakemake_args=None
     snakemake_args = snakemake_args or []
     input_files = input_files or []
 
-    with tempfile.TemporaryDirectory() as tmpdirname:
+    with tempfile.TemporaryDirectory(dir=f"{config['cache']}") as tmpdirname:
         tmpdir = Path(tmpdirname)
         print(f"[INFO] Temporary Snakemake directory: {tmpdir}")
 
@@ -48,9 +51,17 @@ def run_snakemake_in_tmp(snake_src_dir, result_file_relpath, snakemake_args=None
 
         # Copy result file back to current working directory
         src_result = tmp_snakemake_dir / result_file_relpath
-        dest_result = Path.cwd() / result_file_relpath.name
-        shutil.copy2(src_result, dest_result)
-        print(f"[INFO] Copied result to: {dest_result}")
+        #dest_result = Path.cwd() / result_file_relpath.name
+        #shutil.copy2(src_result, dest_result)
+        print(src_result)
+        if src_result.suffix =='.pkl':
+            with open(src_result, "rb") as f:
+                obj = pickle.load(f)
+        elif src_result.suffix =='.tsv':
+            obj = pd.read_csv(src_result,sep="\t", header=None)
+
+        return obj
+
 
 
 ## The Decorator factory to re uses the more broader snakemake function:
@@ -74,7 +85,7 @@ def snakemake_pipeline(snake_src_dir, result_file_relpath):
             elif not any(arg.startswith("--cores") or arg.startswith("-c") for arg in args_list):
                 args_list = ["--cores", "1"] + args_list  # default fallback
 
-            run_snakemake_in_tmp(
+            return run_snakemake_in_tmp(
                 snake_src_dir=snake_src_dir,
                 result_file_relpath=result_file_relpath,
                 snakemake_args=args_list,
@@ -84,18 +95,28 @@ def snakemake_pipeline(snake_src_dir, result_file_relpath):
     return decorator
 
 @snakemake_pipeline(
-    snake_src_dir=f"{CoreConfig['baseDataDirectory']}/snakemake/neighborhhod",
+    snake_src_dir=f"{CoreConfig['baseDataDirectory']}/snakemake/neighborhood",
     result_file_relpath="results/all_neighborhood.pkl"
 )
 def run_neighbor(input_file, cores=2):
+    # Automatically detect if the input is a list, pandas dataframe or string to run the functions
+    temp_input_path = None
+    if isinstance(input_file, (list, pd.Series)):
+        temp = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt')
+        for item in input_file:
+            temp.write(f"{str(item)}\n")
+        temp.close()
+        temp_input_path = temp.name
+    else:
+        temp_input_path = input_file
     return {
         "snakemake_args": ["--config", "input_file=data/input.txt"],
-        "input_files": [(input_file, "data/input.txt")],
+        "input_files": [(temp_input_path, "data/input.txt")],
         "cores": cores
     }
 
 @snakemake_pipeline(
-    snake_src_dir=f"{CoreConfig['baseDataDirectory']}/snakemake/neighborhhod",
+    snake_src_dir=f"{CoreConfig['baseDataDirectory']}/snakemake/neighborhood",
     result_file_relpath="results/all_neighborhood.pkl"
 )
 def run_neighbor_farm(input_file,
@@ -104,11 +125,57 @@ def run_neighbor_farm(input_file,
                       jobs=100):
     batch_size = str(batch_size)
     jobs = str(jobs)
+    # Automatically detect if the input is a list, pandas dataframe or string to run the functions
+    temp_input_path = None
+    if isinstance(input_file, (list, pd.Series)):
+        temp = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt')
+        for item in input_file:
+            temp.write(f"{str(item)}\n")
+        temp.close()
+        temp_input_path = temp.name
+    else:
+        temp_input_path = input_file
     return {
         "snakemake_args": ["--config", "input_file=data/input.txt",
                            f"batch_size={batch_size}",
                            f"jobs={jobs}",
                            "--profile","profiles/farm"],
-        "input_files": [(input_file, "data/input.txt")],
+        "input_files": [(temp_input_path, "data/input.txt")],
+        "cores": cores
+    }
+
+@snakemake_pipeline(
+    snake_src_dir=f"{CoreConfig['baseDataDirectory']}/snakemake/rps",
+    result_file_relpath="final.arch.tsv"
+)
+def run_dommain_annotation_farm(input_file,
+                      cores=48,
+                      batch_size=40,
+                      profiledb=True,
+                      pfam=True,
+                      hmm_db_profiledb="/netmnt/vast01/cbb01/proteinworld/data/rpsdb/allprofiles",
+                      hmm_db_pfam="/netmnt/vast01/cbb01/proteinworld/data/rpsdb/pwld_new_pfam",      
+                      jobs=100):
+    batch_size = str(batch_size)
+    jobs = str(jobs)
+    # Automatically detect if the input is a list, pandas dataframe or string to run the functions
+    temp_input_path = None
+    if isinstance(input_file, rdbs.sequence):
+        temp = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt')
+        input_file.to_file(temp.name)
+        temp.close()
+        temp_input_path = temp.name
+    else:
+        temp_input_path = input_file
+    return {
+        "snakemake_args": ["--config", "input_fasta=data/fasta.fa",
+                           f"run_profiledb={profiledb}",
+                           f"hmmdb_profiledb={hmm_db_profiledb}",
+                           f"run_pfam={pfam}",
+                           f"hmmdb_pfam={hmm_db_pfam}",
+                           f"batch_size={batch_size}",
+                           f"jobs={jobs}",
+                           "--profile","profiles/farm"],
+        "input_files": [(temp_input_path, "data/fasta.fa")],
         "cores": cores
     }
