@@ -2,6 +2,7 @@ def taxon_summary(
     df,
     rank=['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species'],
     update=False
+    new_ndf=False
 ):
     """
     Generate a taxonomic summary from a DataFrame with NCBI TaxIDs, including query and assembly counts
@@ -22,9 +23,13 @@ def taxon_summary(
         If True, updates the local NCBI taxonomy database via ETE3 before fetching lineages.
         This is recommended the first time you run the function or if your taxonomy data may be outdated.
 
+    new_ndf : bool, optional
+        If True, returns the original DataFrame with taxonomic columns (from 'rank') merged in.
+        Not recommended to run this function on the new_ndf created, usually results in error.
+
     Returns
     -------
-    df : pandas.DataFrame
+    a : pandas.DataFrame
         The original DataFrame with taxonomic columns (from `rank`) merged in.
 
     taxon_df : pandas.DataFrame
@@ -46,26 +51,28 @@ def taxon_summary(
     if update:
         tc.cursors['ete3'].update_database()
     
+    a = df.copy() 
+
     # Fetching all taxids
-    ndftax = tc.fetchall(df.taxid.drop_duplicates().tolist()) 
+    ndftax = tc.fetchall(a.taxid.drop_duplicates().tolist()) 
     
     # Creating a table to display the requested taxonomies
     z = pd.Series(tc.cursors['ete3'].ete3.get_lineage_translator(ndftax.taxid.drop_duplicates().tolist()), name='lineage').reset_index().rename({'index':'taxid'}, axis=1).explode('lineage')
     z['rank'] = z.lineage.map(tc.cursors['ete3'].ete3.get_rank(z.lineage.drop_duplicates().tolist()))
-    z['taxon'] = z.lineage.map( tc.cursors['ete3'].ete3.get_taxid_translator(z.lineage.drop_duplicates().tolist()))
+    z['taxon'] = z.lineage.map(tc.cursors['ete3'].ete3.get_taxid_translator(z.lineage.drop_duplicates().tolist()))
     taxon_df = z[z['rank'].isin(rank)].pivot(index='taxid', columns='rank', values='taxon').reset_index()
     
     # Merging the summary to ndf
-    df = df.merge(taxon_df, on='taxid', how='left')
+    a = a.merge(taxon_df, on='taxid', how='left')
     
     # Measuring the amount of queries that belong to each taxa
-    query_df = df[df['query'] == 1]
+    query_df = a[a['query'] == 1]
     query_counts = (query_df.groupby(rank[-1]).size().rename('query_tax_count').reset_index())
     total_queries = query_counts['query_tax_count'].sum()
     query_counts['query_tax_pct'] = (query_counts['query_tax_count'] / total_queries) * 100
 
     # Measuring the amount of assemblies that belong to each taxa
-    assembly_df = df[['assembly', rank[-1]]].drop_duplicates()
+    assembly_df = a[['assembly', rank[-1]]].drop_duplicates()
     assembly_counts = (assembly_df.groupby(rank[-1]).size().rename('tax_assembly_count').reset_index())
     total_assemblies = assembly_counts['tax_assembly_count'].sum()
     assembly_counts['tax_assembly_pct'] = (assembly_counts['tax_assembly_count'] / total_assemblies) * 100
@@ -81,8 +88,11 @@ def taxon_summary(
     columns = ['taxid'] + rank + ['query_tax_count', 'query_tax_pct', 'tax_assembly_count', 'tax_assembly_pct']
     taxon_df = taxon_df[columns]
     taxon_df = taxon_df.sort_values(by=['tax_assembly_pct', 'query_tax_pct'], ascending=[False, False])
-
-    return df, taxon_df
+    
+    if new_ndf:
+        return a, taxon_df
+    else:
+        return taxon_df
 
 def shannon(self, ignore_gaps=True):
     """
