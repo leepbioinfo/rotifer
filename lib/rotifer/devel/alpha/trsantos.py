@@ -1,7 +1,7 @@
 def taxon_summary(
     df,
     rank=['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species'],
-    update=False
+    update=False,
     new_ndf=False
 ):
     """
