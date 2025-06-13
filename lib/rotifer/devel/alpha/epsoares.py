@@ -2,9 +2,16 @@ import os
 import sys
 import numpy as np
 import pandas as pd
+import pyhmmer
+import rotifer.devel.beta.sequence as rdbs
+from rotifer.db import ncbi
+from rotifer.taxonomy import utils as rtu
+import seaborn as sns
+import matplotlib.pyplot as plt
+import matplotlib.colors as colors
+import ete3
 
 def get_matrix(df, filter_list, rows, columns, n=10, filter_by='pid'):
-        import pandas as pd
         filtered_df = df[df[filter_by].isin(filter_list)]
         frequent_rows = filtered_df[rows].value_counts(rows).nlargest(n).index.tolist()
         filtered_df = filtered_df[filtered_df[rows].isin(frequent_rows)]
@@ -15,8 +22,6 @@ def update_lineage(ndf, preferred="/home/leep/epsoares/projects/databases/data/p
     '''
     A function to update the lineage of Gene Neighborhood cursor;
     '''
-    from rotifer.db import ncbi
-    from rotifer.taxonomy import utils as rtu
     tc = ncbi.TaxonomyCursor()
     tax = tc.fetchall(ndf.taxid.dropna().drop_duplicates().tolist())
     tax['taxid'] = tax.taxid.astype(int)
@@ -28,11 +33,6 @@ def extract_envelope(df, seqobj=None, start='estart', end='eend', expand=10, loc
     '''
     Function to extract the envelope of a model match.
     '''
-
-    import pandas as pd
-    import rotifer.devel.beta.sequence as rdbs
-    import numpy as np
-
     if len(df) == 0:
         print(f'Empty input')
         seqobj = rdbs.sequence()
@@ -151,11 +151,6 @@ def make_heatmap(
     the heatmap will sort the occurrences by the order of the tree.
     '''
  
-    import seaborn as sns
-    import matplotlib.pyplot as plt
-    import matplotlib.colors as colors
-    import pandas as pd
-              
     if format_table == True:
         hm = ndf.set_index('pid')[['block_id']]
         hm['neighbors'] = hm.block_id.map(ndf.query('query == 0').groupby('block_id').agg(neighbors = ('pfam','sum')).neighbors.to_dict())
@@ -167,7 +162,6 @@ def make_heatmap(
         df = hm[domain_list]
                                                                    
     if tree == True:
-        import ete3
         t = ete3.Tree(f'{tree_file}')
         df = df.reindex(df.reindex(t.get_leaf_names()).index.str.replace('\'','')).fillna(0).astype(int)
     
@@ -181,4 +175,28 @@ def make_heatmap(
     sns.heatmap(data = df, cmap = cmap, cbar = cbar, fmt = fmt, annot = annot, linewidths = linewidths, ax=ax)
     plt.savefig(f'{name}', bbox_inches='tight')
     plt.close(fig)
+
+def hmmscan(sequences, pfam_database_path='/databases/pfam/Pfam-A.hmm', cpus=0):
+    with ph.hmmer.HMMFile(pfam_database_path) as hmm_file:
+        hmms = list(hmm_file.optimized_profiles())
+    seqs = ph.easel.SequenceFile(sequences, digital=True)
+    h = list(ph.hmmer.hmmscan(seqs, targets, cpus=cpus))
+    r = []
+    for th in h:
+        for x in th:
+            for y in x.domains:
+                r.append({
+                         'sequence' : y.alignment.target_name.decode(),
+                         'model' : y.alignment.hmm_name.decode(),
+                         'evalue' : y.i_evalue,
+                         'score' : y.score,
+                         'escore' : y.envelope_score,
+                         'qstart' : y.alignment.target_from,
+                         'qend' : y.alignment.target_to,
+                         'talilen' : y.alignment.target_length,
+                         'hmmlen' : y.alignment.hmm_length,
+                         'estart' : y.env_from,
+                         'eend' : y.env_to})
+    df = pd.DataFrame(r)
+    return df
 
