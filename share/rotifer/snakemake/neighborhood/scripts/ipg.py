@@ -3,8 +3,10 @@ from rotifer.db import ncbi
 import pandas as pd
 input_file = snakemake.input["acc"]
 output_file = snakemake.output["out_file"]
-batch_size = snakemake.config.get("ipg_batch_size",500)
-thread = snakemake.config.get("ipg_thread",500)
+batch_size = snakemake.config.get("ipg_batch_size",60)
+thread = snakemake.config.get("ipg_thread",3)
+print(thread)
+print(batch_size)
 with open(input_file) as f:
     pid = [line.strip() for line in f if line.strip()]
 

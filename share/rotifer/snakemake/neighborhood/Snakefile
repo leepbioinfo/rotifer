@@ -1,6 +1,7 @@
 import os 
 from Bio import SeqIO
 
+
 configfile: "config.yaml"
 localrules: ipgs, combine_neighborhood, add_taxonomy
 
@@ -38,7 +39,7 @@ rule ipgs:
         out_file="results/ipg.pkl"
     resources:
         mem_mb=4000,
-        threads=1
+        threads=8
     script:
         "scripts/ipg.py"
 rule add_taxonomy:

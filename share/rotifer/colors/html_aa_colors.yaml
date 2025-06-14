@@ -211,5 +211,5 @@ T:
 ".":
   group: all_aa
   color: "white"
-  fcolor: "white"
+  fcolor: "black"
   residues: ['.']

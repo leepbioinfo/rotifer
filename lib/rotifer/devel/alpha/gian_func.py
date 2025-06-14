@@ -1721,6 +1721,7 @@ def pick_colors(df,column='dom',top_domains=20, pallets = ['pastel','deep','mute
     import seaborn as sns
     import pandas as pd
     from rotifer.core import functions as rcf
+    from packaging import version
     df = df.copy()
     ### Creating a pd.Series with  hex colors from sns pallet function:
     colors = []
@@ -1738,9 +1739,14 @@ def pick_colors(df,column='dom',top_domains=20, pallets = ['pastel','deep','mute
 
         
     ### Using the dataframe to rank the most commons domains to be colored
-    domain_rank = df[column].value_counts().reset_index().rename({'index':'domain'}, axis=1).reset_index().query( 'domain not in [ "-", "?", "|", "", " ", "LIPO", "TM", "SIG", "SP"]').rename({'index':'rank'}, axis=1)[['rank', 'domain']]
+    if version.parse(pd.__version__) >= version.parse("2.0.0"):
+        domain_rank = df[column].value_counts().reset_index().rename({'dom':'domain'}, axis=1).reset_index().query( 'domain not in [ "-", "?", "|", "", " ", "LIPO", "TM", "SIG", "SP"]').rename({'index':'rank'}, axis=1)[['rank', 'domain']]
+    else:
+        domain_rank = df[column].value_counts().reset_index().rename({'index':'domain'}, axis=1).reset_index().query( 'domain not in [ "-", "?", "|", "", " ", "LIPO", "TM", "SIG", "SP"]').rename({'index':'rank'}, axis=1)[['rank', 'domain']]
+
     domain_rank = domain_rank.merge(colors, how='left')
     domain_rank['colors'] = domain_rank['colors'].apply(lambda x: x if not pd.isna(x) else domain_rank['colors'].dropna().sample(1).values[0])
+
     if top_domains:
         domain_rank.loc[top_domains:, 'colors'] = "#D3D3D3"
     #Creating the color_dict:
@@ -2899,9 +2905,34 @@ def domain2compact(domdf, domain_rename=False):
     return g
 
 def domtable_to_yaml_names(domtable, cutoff=0, to_file=False, color=False):
+    def safe_for_yaml(x):
+        try:
+            # First handle np.nan, None
+            if pd.isna(x):
+                return ''
+            # Now handle string "nan" (case insensitive)
+            if isinstance(x, (str, np.str_)):
+                if x.strip().lower() == 'nan':
+                    return ''
+                else:
+                    return str(x)
+            # Safe types
+            elif isinstance(x, (int, float, bool)):
+                return x
+            else:
+                # fallback: convert to string
+                return str(x)
+        except Exception:
+            # In case x is weird object or array, fallback
+            return ''
+
+
+
     to_remove = ["TM", "SP", "LP", "LIPO", '-', '?', 'SIG', 'tRNA', 'PSE']
     to_remove = domtable.query('dom in @to_remove').dom.unique().tolist()
     to_dict = domtable.dom.value_counts().to_frame()
+    if pd.__version__.startswith('2.'):
+        to_dict.rename({'count': 'dom'}, axis=1, inplace=True) # Add to finx compatibility
     to_dict.loc[to_dict.dom > cutoff, 'Display_name'] = to_dict.loc[to_dict.dom > cutoff].index.tolist()
     to_dict['Include']= 0
     to_dict.loc[to_dict.dom > cutoff, 'Include'] = 1
@@ -2917,7 +2948,9 @@ def domtable_to_yaml_names(domtable, cutoff=0, to_file=False, color=False):
         else:
             print('color must be a domain color dict (gf.pickcolor on domtable)') 
 
-    to_dict = to_dict.drop('dom', axis=1).to_dict(orient='index')
+    to_dict = to_dict.drop('dom', axis=1)
+    to_dict = to_dict.applymap(safe_for_yaml) 
+    to_dict = to_dict.to_dict(orient='index')
     if to_file:
         import yaml
         with open(to_file, 'w') as file:

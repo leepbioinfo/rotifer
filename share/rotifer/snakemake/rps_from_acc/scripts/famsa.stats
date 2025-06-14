@@ -1,0 +1,12 @@
+[stats]
+alignment.length=409
+guide_tree.sackin=300609
+guide_tree.sackin_norm=256.273657
+input.n_sequences=1173
+time.alignment=0.320196
+time.refinement=0.000005
+time.save=0.004368
+time.sort=0.000364
+time.total=0.398059
+time.tree_build=0.064699
+time.tree_store=0.000000

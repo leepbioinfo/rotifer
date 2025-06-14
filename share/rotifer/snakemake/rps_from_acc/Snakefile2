@@ -1,0 +1,183 @@
+import os 
+from Bio import SeqIO
+
+configfile: "config.yaml"
+localrules: 
+
+input_file = config["input_fasta"]
+input_fasta = config["input_fasta"]
+hmmdb_pfam = config["hmmdb_pfam"]
+hmmdb_profiledb = config["hmmdb_profiledb"]
+batch_size = config["batch_size"]
+
+#### conditionaly running 
+run_pfam = config.get("run_pfam", True)
+run_profiledb = config.get("run_profiledb", True)
+
+
+
+def get_seq_ids():
+    with open(input_file) as f:
+        records = [line.strip() for line in f if line.strip()]
+
+    os.makedirs("split", exist_ok=True)
+
+    # Split the records into batches
+    batched_records = [records[i:i + batch_size] for i in range(0, len(records), batch_size)]
+
+    seq_ids = []
+    for batch_num, batch in enumerate(batched_records, start=1):
+        batch_filename = f"split/batch_{batch_num}.acc"
+        with open(batch_filename, "w") as out:
+            for pid in batch:
+                out.write(pid + "\n")
+                seq_ids.append(pid)
+
+    return seq_ids, len(batched_records)
+SEQ_IDS, NUM_BATCHES = get_seq_ids()
+
+rule all:
+	input:
+		"final.pkl"
+
+
+rule gi2fasta:
+    input:
+        fasta="split/batch_{batch_num}.acc"
+    output:
+        txt="split/batch_{batch_num}.faa"  # Temporary output for each batch
+    log:
+        err="split/batch_{batch_num}.faa.err"
+    retries: 5 	
+    resources:
+        mem_mb=8000,
+        threads=4
+    shell:
+        "gi2fasta {input.fasta}  > {output.txt} 2>{log.err}"
+		
+rule combine_fasta:
+    input:
+        expand("split/batch_{batch_num}.faa", batch_num=range(1, NUM_BATCHES + 1))  # Collect all batch outputs
+    output:
+        txt="all.fa",  # Final combined output
+    shell:
+        "cat {input} > {output.txt}"
+
+rule mmseqs: 
+    input:
+        txt="all.fa",  # Final combined output
+    output:
+        txt="mmseqs.c80e3",  # Final combined output
+    threads: 96
+    resources:
+        mem_mb=128000
+    shell:
+        """
+		mmseqs easy-cluster {input.txt}  {output.txt} tmp
+		mv {output.txt}_cluster.tsv {output.txt}
+		"""
+
+rule rpsblast_profiledb:
+    input:
+        fasta="split/batch_{batch_num}.faa"
+    output:
+        txt="results_profiledb/temp_batch_{batch_num}.txt"  # Temporary output for each batch
+    log:
+        err="logs_profiledb/hmmscan.batch_{batch_num}.err"
+    resources:
+        mem_mb=8000,
+        threads=2
+    shell:
+        "rpsblast -query {input.fasta} -db {hmmdb_profiledb}  > {output.txt} 2>{log.err}"
+
+rule profiledb_arch:
+    input:
+        profiledb="results_profiledb/temp_batch_{batch_num}.txt",  # Temporary output for each batch
+        fasta="split/batch_{batch_num}.faa"  # Temporary output for each batch
+    output:
+        txt="results_profiledb/temp_batch_{batch_num}.arch.txt"  # Final combined output
+    retries: 5 	
+    shell:
+        "cat {input.profiledb} |rps2arch -fasta $(readlink -f {input.fasta}) > {output.txt}"
+
+rule combine_results:
+    input:
+        profiledb = expand("results_profiledb/temp_batch_{batch_num}.arch.txt", batch_num=range(1, NUM_BATCHES + 1)),  # Collect all batch outputs
+    output:
+        txt="results_profiledb/profiledb.arch"  # Final combined output
+    shell:
+        "cat {input.profiledb} > {output.txt}"
+
+rule rpsblast_pfam: 
+    input:
+        fasta="split/batch_{batch_num}.faa"
+    output:
+        txt="results_pfam/temp_batch_{batch_num}.txt"  # Temporary output for each batch
+    log:
+        err="logs_pfam/hmmscan.batch_{batch_num}.err"
+    resources:
+        mem_mb=8000,
+        threads=2
+    shell:
+        "rpsblast -query {input.fasta} -db {hmmdb_pfam}  > {output.txt} 2>{log.err}"
+
+rule pfam_arch:
+    input:
+        pfam="results_pfam/temp_batch_{batch_num}.txt",  # Temporary output for each batch
+	    fasta="split/batch_{batch_num}.faa"  # Temporary output for each batch
+    output:
+        txt="results_pfam/temp_batch_{batch_num}.arch.txt"  # Final combined output
+    retries: 5 	
+    shell:
+        "cat {input.pfam} |rps2arch -fasta $(readlink -f {input.fasta}) > {output.txt}"
+rule combine_results_pfam:
+    input:
+        pfam = expand("results_pfam/temp_batch_{batch_num}.arch.txt", batch_num=range(1, NUM_BATCHES + 1)),  # Collect all batch outputs
+    output:
+        txt="results_pfam/pfam.arch"  # Final combined output
+    shell:
+        "cat {input.pfam} > {output.txt}"  # Concatenate all batch output files into one
+
+rule combine_arch:
+    input:
+        pfam = lambda wildcards: "results_pfam/temp_batch_{batch_num}.txt" if run_pfam else None,
+        prof = lambda wildcards: "results_profiledb/temp_batch_{batch_num}.txt" if run_profiledb else None,
+	    fasta = "split/batch_{batch_num}.faa"
+    output:
+        txt = "batch_{batch_num}.arch.txt"
+    params:
+        input_fasta = input_fasta
+    run:
+        pfam = input.get("pfam")
+        prof = input.get("prof")
+        txt = output.txt
+        fasta = input.get("fasta")
+
+        if pfam and prof:
+            shell(f"cat {pfam} {prof} | rps2arch -fasta $(readlink -f {input.fasta}) > {txt}")
+        elif pfam:
+            shell(f"cat {pfam} | rps2arch -fasta $(readlink -f {input.fasta}) > {txt}")
+        elif prof:
+            shell(f"cat {prof} | rps2arch -fasta $(readlink -f {input.fasta}) > {txt}")
+        else:
+            raise ValueError("No input files provided!")
+
+rule combine_all_archs:
+    input:
+        combined_arch = expand("batch_{batch_num}.arch.txt", batch_num=range(1, NUM_BATCHES + 1)),  # Collect all batch outputs
+    output:
+        txt="final.arch.tsv"  # Final combined output
+    shell:
+        "cat {input.combined_arch} > {output.txt}"  # Concatenate all batch output files into one
+
+rule combine_final:
+    input:
+        arch = "final.arch.tsv",
+        pfam = lambda wildcards: "results_pfam/pfam.arch" if run_pfam else None,
+        profiledb = lambda wildcards: "results_profiledb/profiledb.arch" if run_profiledb else None,
+        cluster = "mmseqs.c80e3",
+    output:
+        txt = "final.pkl"
+    script:
+        "scripts/making_table.py"
+

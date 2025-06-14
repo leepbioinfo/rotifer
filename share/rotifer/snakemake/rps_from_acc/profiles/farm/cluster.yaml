@@ -1,0 +1,14 @@
+__default__:
+  facilities: "SGE_FACILITIES"
+  project: "unified"
+  runtime: "28800"
+  h_vmem: "8G"
+  mem_free: "8G"
+  retries: 5
+
+mmseqs:
+  runtime: "12:00:00"
+  h_vmem: "128G"
+  mem_free: "128G"
+  facilities: "SGE_FACILITIES"
+  project: "unified"

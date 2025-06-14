@@ -1130,10 +1130,11 @@ class sequence(rotifer.pipeline.Annotatable):
         collections.Iterable = collections.abc.Iterable
         print(f'Total proteins: {len(self.df)}')
         a = self.df['length'].value_counts().to_frame().reset_index()
-        a = a.sort_values('index')
-        a['raw_bin'] = pd.cut(a['index'],bins,precision=0)
+        a.columns = ['length', 'count']
+        a = a.sort_values('length')
+        a['raw_bin'] = pd.cut(a['length'],bins,precision=0)
         a['bin'] = a.raw_bin.apply(lambda x : '{} - {}'.format(int(x.left),int(x.right)))
-        test = a.groupby('bin').agg({'length':'sum'}).reset_index().apply(tuple, axis=1)
+        test = a.groupby('bin').agg({'count':'sum'}).reset_index().apply(tuple, axis=1)
         graph = Pyasciigraph()
         for line in  graph.graph('count \t sequence size', test):
             print(line)
