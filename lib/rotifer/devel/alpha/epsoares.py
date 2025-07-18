@@ -2,7 +2,7 @@ import os
 import sys
 import numpy as np
 import pandas as pd
-import pyhmmer
+import pyhmmer as ph
 import rotifer.devel.beta.sequence as rdbs
 from rotifer.db import ncbi
 from rotifer.taxonomy import utils as rtu
@@ -59,7 +59,7 @@ def to_network(df, target=['pfam'], ftype=['CDS'], interaction=True, ignore = []
     if isinstance(ftype, str):
         ftype = [ftype]
     if isinstance(target, str):
-        target = [target]
+        itarget = [target]
 
     w = df.copy()
     if strand:
