@@ -5,7 +5,6 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 from rotifer.devel.alpha import gian_func as gf
-
 # Enable SVG export
 cyto.load_extra_layouts()
 
@@ -134,21 +133,16 @@ def convert_to_cytoscape(G, positions, layout_key, scaling_factor=900, x_scale=1
     return cy["elements"]["nodes"] + cy["elements"]["edges"]
 
 
-def network_dash(G,pos_dict, xx, function, color_schemes):
+def network_dash(G,pos_dict, xx, function):
     from dash import Dash, dcc, html, Input, Output, ctx, callback, State
     import dash
     import dash_cytoscape as cyto
     import networkx as nx
-    from networkx.readwrite import json_graph
     import numpy as np
     import pandas as pd
     from rotifer.devel.alpha import net_functions
-    from dash.exceptions import PreventUpdate
-
-
-    # Serializing G to save it od dash  as dcc.store, that way we could manipulate in any way that we need
-    G_serialized = json_graph.node_link_data(G.copy())
-
+    
+    
     app = dash.Dash(__name__)
     default_stylesheet = [
         {
@@ -227,62 +221,12 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
                 style={'width': '30px'}
             ),
         html.Button("Update layouts", id="up_lay"),
-        dcc.Input(id='new-group-key', type='text', placeholder='Group name'),
-        dcc.Input(id='new-group-color', type='text', placeholder='Color hex'),
-        html.Button('Add group', id='add-group-button', n_clicks=0),
-    html.Div([
-        html.Div([
-            # Source option with radio and input
-            html.Div([
-                dcc.RadioItems(
-                    id="select-mode",
-                    options=[
-                        {"label": "Source", "value": "source"},
-                        {"label": "Target", "value": "target"}
-                    ],
-                    value="source",
-                    labelStyle={'display': 'inline-block', 'margin-right': '15px'}
-                )
-            ], style={"margin-bottom": "10px"}),
-            html.Div([
-                html.Label("Source Node", htmlFor="select_source", style={"margin-right": "5px"}),
-                dcc.Input(id="select_source", type="text", placeholder="Source Node", style={"width": "150px"})
-            ], style={"display": "inline-block", "margin-right": "30px"}),
-            html.Div([
-                html.Label("Target Node", htmlFor="select_target", style={"margin-right": "5px"}),
-                dcc.Input(
-                    id="select_target",
-                    type="text",
-                    placeholder="Target Node",
-                    style={"width": "150px", "margin-right": "10px"}
-                    ),
-                html.Button("Add Edge", id="add-edge-button", n_clicks=0, style={"margin-right": "5px"}),
-                html.Button("Remove Edge", id="remove-edge-button", n_clicks=0),
-                html.Button("Update Communities", id="update-communities-btn", n_clicks=0)
-                ], style={"display": "inline-block"})
-        ])
-    ]),
-
-    html.Div(id="node-input-box"),
-
-         html.Div([
-             dcc.Dropdown(
-                 id="colorscheme",
-                 options=[],   # preenchido no callback
-                 value=None,   # será definido no callback também
-                 placeholder="Select color scheme",
-                 style={"flex": "0 0 10%", "margin-right": "10px"}
-                 ),
-             dcc.Dropdown(
-                 id='group_selection',
-                 options=[],
-                 value=[],
-                 multi=True,
-                 placeholder="Select groups",
-                 style={"flex": "1"}
-                 )
-             ], style={"display": "flex", "align-items": "center", "margin-bottom": "10px"}),
-
+        dcc.Dropdown(
+        id='group_selection',    
+        options = list(xx.keys()),
+        value = list(xx.keys()),
+        multi=True
+        ),
         cyto.Cytoscape(
             id='cytoscape',
             layout={'name': 'preset'},
@@ -357,29 +301,13 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
         dcc.Store(id="last-edge-click", data={"id": None, "time": 0}),
         dcc.Store(id="last-node-click", data={"id": None, "time": 0}),
         dcc.Store(id="node-color-cycle", data=[]),
-        ### Adding stroe for groups
-        dcc.Store(id="xx-store", data=xx),
-        dcc.Store(id="function-store", data=function),
-        dcc.Store(id="color-schemes-store", data=color_schemes),
-
-        ### Saving position
-        dcc.Store(id="pos-dict-store", data=pos_dict),
-        #### Saving the networkX G object 
-        dcc.Store(id="graph-store", data=G_serialized),
-
-        ### Dummy store to update add and remove edges on fly
-        dcc.Store(id="edge-modification-trigger", data=0),
-
-
 
 
         dcc.Store(id="saved-pos-store", data={}, clear_data=True, storage_type='memory'),
         html.Div(id="output"),  # Output for display
         
     ])
-   
-
-
+    
     @app.callback(
         Output('cytoscape', 'stylesheet'),
         [Input('font-size-input', 'value'),  # Font size input
@@ -456,21 +384,6 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
         return element
     """ 
 
-    @callback(
-        Output("select_source", "value"),
-        Output("select_target", "value"),
-        Input("cytoscape", "tapNodeData"),
-        State("select-mode", "value"),
-    )
-    def update_input_boxes(node_data,toggle):
-        if node_data and "id" in node_data:
-            node_id = node_data["id"]
-            if  toggle == "source":
-                return node_id, dash.no_update
-            elif toggle == "target":
-                return dash.no_update, node_id
-        return dash.no_update, dash.no_update
-
 
     # Dicionários para armazenar estilos personalizados
     edge_style_overrides = {}
@@ -482,7 +395,6 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
         Output("edge-color-cycle", "data"),
         Output("last-node-click", "data"),
         Output("node-color-cycle", "data"),
-        Output("function-store", "data"),
         Input("cytoscape", "tapEdgeData"),
         Input("cytoscape", "tapNodeData"),
         Input("layout-selector", "value"),
@@ -492,22 +404,16 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
         Input("x_scale", "value"),
         Input("y_scale", "value"),
         Input("scale-size-input", "value"),
-        Input("pos-dict-store", "data"),
-        Input("edge-modification-trigger", "data"),
         State("cytoscape", "elements"),
         State("last-edge-click", "data"),
         State("edge-color-cycle", "data"),
         State("last-node-click", "data"),
         State("node-color-cycle", "data"),
-        State('xx-store', 'data'),
-        State("function-store", "data"),
-        State("pos-dict-store", "data"),
-        State("graph-store", "data"),
     )
     def update_elements_or_cycle(
         edge_data, node_data,
-        selected_option, groups, min_connections, node_scale, x_scale, y_scale, scale_value,pos_dict_input,dummy_call,
-        elements, last_click, color_cycle, last_node_click, node_color_cycle, func_color_dict, function_data, pos_dict_data, serial_graph
+        selected_option, groups, min_connections, node_scale, x_scale, y_scale, scale_value,
+        elements, last_click, color_cycle, last_node_click, node_color_cycle
     ):
 
         from dash import callback, Input, Output, State, ctx, no_update
@@ -518,14 +424,14 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
         # Duplo clique em aresta
         if triggered_id == "cytoscape" and ctx.triggered[0]["prop_id"] == "cytoscape.tapEdgeData":
             if not edge_data or "id" not in edge_data:
-                return no_update, last_click, color_cycle, last_node_click, node_color_cycle, function_data
+                return no_update, last_click, color_cycle, last_node_click, node_color_cycle
 
             edge_id = f"{edge_data['source']}|{edge_data['target']}"
             now = time.time()
             double_click = (last_click["id"] == edge_id and (now - last_click["time"]) < 0.3)
 
             if not double_click:
-                return no_update, {"id": edge_id, "time": now}, color_cycle, last_node_click, node_color_cycle, function_data
+                return no_update, {"id": edge_id, "time": now}, color_cycle, last_node_click, node_color_cycle
 
             # Captura estilos únicos de arestas visíveis
             if not color_cycle:
@@ -564,24 +470,22 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
 
                 new_elements.append(el)
 
-            return new_elements, {"id": edge_id, "time": now}, color_cycle, last_node_click, node_color_cycle, function_data
+            return new_elements, {"id": edge_id, "time": now}, color_cycle, last_node_click, node_color_cycle
 
         # Duplo clique em nó
         if triggered_id == "cytoscape" and ctx.triggered[0]["prop_id"] == "cytoscape.tapNodeData":
             if not node_data or "id" not in node_data:
-                return no_update, last_click, color_cycle, last_node_click, node_color_cycle, function_data
+                return no_update, last_click, color_cycle, last_node_click, node_color_cycle
 
             node_id = node_data["id"]
             now = time.time()
             double_click = (last_node_click["id"] == node_id and (now - last_node_click["time"]) < 0.3)
 
             if not double_click:
-                return no_update, last_click, color_cycle, {"id": node_id, "time": now}, node_color_cycle, function_data
-            """
+                return no_update, last_click, color_cycle, {"id": node_id, "time": now}, node_color_cycle
+
             if not node_color_cycle:
-                node_color_cycle = list(func_color_dict.values())
-            """
-            node_color_cycle = list(func_color_dict.values())
+                node_color_cycle = list(xx.values())
 
             new_elements = []
             for el in elements:
@@ -597,33 +501,18 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
                     el["style"] = el.get("style", {})
                     el["style"]["background-color"] = next_color
                     node_style_overrides[node_id] = next_color
-                    """
-                    for func_name, color in func_color_dict.items():
+                    for func_name, color in xx.items():
                         if color == next_color:
-                            function_data[node_id] = func_name
+                            function[node_id] = func_name
                             break
-                    """        
-                    # Procura o nome da função correspondente à cor
-                    matched_group = next((func_name for func_name, color in func_color_dict.items() if color == next_color), None)
-
-                    if matched_group is not None:
-                        function_data[node_id] = matched_group
-                    else:
-                        # Cor não está no dicionário original, tenta buscar no xx-store atualizado
-                        for func_name, color in xx.items():
-                            if color == next_color:
-                                function_data[node_id] = func_name
-                                break
-
                 new_elements.append(el)
 
-            return new_elements, last_click, color_cycle, {"id": node_id, "time": now}, node_color_cycle, function_data
+            return new_elements, last_click, color_cycle, {"id": node_id, "time": now}, node_color_cycle
 
         # Atualização normal do grafo
         scale_value = int(scale_value)
-        filter_nodes = list({key: value for key, value in function_data.items() if value in groups}.keys())
-        stored_G = json_graph.node_link_graph(serial_graph)
-        G_filtered = stored_G.subgraph(filter_nodes)
+        filter_nodes = list({key: value for key, value in function.items() if value in groups}.keys())
+        G_filtered = G.subgraph(filter_nodes)
 
         filter_edges = [(u, v) for u, v, attrs in G_filtered.edges(data=True)
                         if attrs.get('edge_total', 0) >= min_connections]
@@ -637,10 +526,10 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
                 edge[2]['line_style'] = style
                 edge[2]['opacity'] = opacity
                 edge[2]['edge_color'] = color
-            elif function_data[edge[0]] == function_data[edge[1]]:
+            elif function[edge[0]] == function[edge[1]]:
                 edge[2]['line_style'] = 'solid'
                 edge[2]['opacity'] = 1
-                edge[2]['edge_color'] = func_color_dict[function_data[edge[0]]]
+                edge[2]['edge_color'] = xx[function[edge[0]]]
             else:
                 edge[2]['line_style'] = 'dotted'
                 edge[2]['opacity'] = 0.3
@@ -651,29 +540,26 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
             if node in node_style_overrides:
                 attrs['node_color'] = node_style_overrides[node]
             else:
-                attrs['node_color'] = func_color_dict[function_data[node]]
+                attrs['node_color'] = xx[function[node]]
 
         new_elements = convert_to_cytoscape(
-            subgraph, pos_dict_data, selected_option,
+            subgraph, pos_dict, selected_option,
             x_scale=x_scale, y_scale=y_scale, scaling_factor=scale_value
         )
-        return new_elements, last_click, color_cycle, last_node_click, node_color_cycle, function_data
+        return new_elements, last_click, color_cycle, last_node_click, node_color_cycle
 
     @app.callback(
         [Output("saved-pos-store", "data"),
-        Output("layout-selector", "options"),
-        Output("pos-dict-store","data"),
-        Output("layout-selector", "value")],
+        Output("layout-selector", "options")],
         [Input("save-button", "n_clicks"),
         State("Saved_position_text", "value"),
         State('x_scale', 'value'),
         State('y_scale', 'value'),
         State('scale-size-input', 'value'),
-        State("cytoscape", "elements"),
-        State("pos-dict-store", "data"),],
+        State("cytoscape", "elements")],
         prevent_initial_call=True,
     )
-    def save_positions(n_clicks, text,x_scale,y_scale, scale, n_elements, current_pos_dict):
+    def save_positions(n_clicks, text,x_scale,y_scale, scale, n_elements):
         # Extract positions from the Cytoscape graph
         positions = {
             node["data"]["id"]: node.get("position", {})
@@ -681,9 +567,9 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
         }
         positions = {key: np.array([value['y']/scale/y_scale, value['x']/scale/x_scale]) for key, value in positions.items()}
         #global p
-        current_pos_dict[text] = positions
-        to_selector = [{'label': key, 'value': key} for key, value in current_pos_dict.items()]
-        return positions, to_selector, current_pos_dict, text
+        pos_dict[text] = positions
+        to_selector = [{'label': key, 'value': key} for key, value in pos_dict.items()]
+        return positions, to_selector
     
     
     @app.callback(
@@ -717,61 +603,18 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
         ftype = file_type_map.get(triggered_id, 'jpg')
         action = 'download' if ftype == 'svg' else 'both'
         return {'type': ftype, 'action': action}
-  
-    ##### Adding dinamically groups to dropdown menu:
-    @callback(
-        Output("group_selection", "options"),
-        Output("group_selection", "value"),
-        Output("function-store", "data", allow_duplicate=True),  # <-- adicionado
-        Output("xx-store", "data", allow_duplicate=True),  # <-- adicionado
-        Input("colorscheme", "value"),
-        State("color-schemes-store", "data"),
-        prevent_initial_call=True
-    )
-    def update_group_selection(selected_scheme, color_schemes_data):
-        if not selected_scheme or selected_scheme not in color_schemes_data:
-            return [], [], dash.no_update
-
-        function_dict, color_dict = color_schemes_data[selected_scheme]
-
-        # Transforma o dicionário de funções para string-string (caso necessário)
-        function_dict = {str(k): str(v) for k, v in function_dict.items()}
-
-        options = [{"label": g, "value": g} for g in color_dict.keys()]
-        return options, list(color_dict.keys()), function_dict, color_dict
-
-    
-    @app.callback(
-        Output('xx-store', 'data'),
-        Input('add-group-button', 'n_clicks'),
-        State('new-group-key', 'value'),
-        State('new-group-color', 'value'),
-        State('xx-store', 'data'),
-        prevent_initial_call=True
-    )
-    def add_group(n_clicks, new_key, new_color, current_xx):
-        if not new_key or not new_color:
-            return dash.no_update
-        current_xx[new_key] = new_color
-        return current_xx
-
-
-
+   
     @app.callback(
         Output("layout-selector", "options", allow_duplicate=True),
-        Output("pos-dict-store","data", allow_duplicate=True),
         Input("up_lay", "n_clicks"),
         State('group_selection', 'value'),
         State('iterations-input', 'value'),
         State('connections-input', 'value'),
-        State("pos-dict-store", "data"),
-        State("graph-store", "data"),
         prevent_initial_call=True,  # Prevent execution on page load
     )
-    def update_layouts(n_clicks, groups,Spring_lay_iteractions, min_connections, pos_dict, serial_graph):
-        stored_G = json_graph.node_link_graph(serial_graph)
+    def update_layouts(n_clicks, groups,Spring_lay_iteractions, min_connections):
         filter_nodes = list({key: value for key, value in function.items() if value in groups}.keys())
-        G_filtered = stored_G.subgraph(filter_nodes)
+        G_filtered = G.subgraph(filter_nodes)
         ### Edge filtered based in total Edge count
         filter_edges = [(u, v) for u, v, attrs in G_filtered.edges(data=True) if attrs.get('edge_total', 0) >= min_connections]
         subgraph = G_filtered.edge_subgraph(filter_edges).copy()
@@ -782,48 +625,10 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
         pos_dict['updated Kamada'] = newp['Kamada-Kawai']
         pos_dict['updated Circular'] = newp['Circular']
         to_selector = [{'label': key, 'value': key} for key, value in pos_dict.items()]
-        return to_selector, pos_dict
+        return to_selector
 
 
-    @app.callback(
-        Output("graph-store", "data", allow_duplicate=True),
-        Output("edge-modification-trigger", "data", allow_duplicate=True),
-        Input("add-edge-button", "n_clicks"),
-        Input("remove-edge-button", "n_clicks"),
-        State("select_source", "value"),
-        State("select_target", "value"),
-        State("graph-store", "data"),
-        State("edge-modification-trigger", "data"),
-        prevent_initial_call=True
-    )
-    def modify_edge(add_clicks, remove_clicks, source, target, graph_data, trigger_count):
-        triggered_id = ctx.triggered_id
-        if not source or not target:
-            raise PreventUpdate
 
-        G = json_graph.node_link_graph(graph_data)
-
-        if triggered_id == "add-edge-button":
-            G.add_edge(source, target, edge_type="manual", edge_count=1, edge_total=1)
-        elif triggered_id == "remove-edge-button":
-            try:
-                G.remove_edge(source, target)
-            except:
-                pass
-
-        return json_graph.node_link_data(G), trigger_count + 1
-
-    @callback(
-        Output("colorscheme", "options"),
-        Output("colorscheme", "value"),
-        Input("color-schemes-store", "data")
-    )
-    def populate_colorscheme_dropdown(color_data):
-        if not color_data:
-            return [], None
-        keys = list(color_data.keys())
-        options = [{"label": k, "value": k} for k in keys]
-        return options, keys[0]  # seleciona o primeiro por padrão
 
 
 

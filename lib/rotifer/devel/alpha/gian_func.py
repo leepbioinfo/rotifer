@@ -1740,7 +1740,7 @@ def pick_colors(df,column='dom',top_domains=20, pallets = ['pastel','deep','mute
         
     ### Using the dataframe to rank the most commons domains to be colored
     if version.parse(pd.__version__) >= version.parse("2.0.0"):
-        domain_rank = df[column].value_counts().reset_index().rename({'dom':'domain'}, axis=1).reset_index().query( 'domain not in [ "-", "?", "|", "", " ", "LIPO", "TM", "SIG", "SP"]').rename({'index':'rank'}, axis=1)[['rank', 'domain']]
+        domain_rank = df[column].value_counts().reset_index().rename({column:'domain'}, axis=1).reset_index().query( 'domain not in [ "-", "?", "|", "", " ", "LIPO", "TM", "SIG", "SP"]').rename({'index':'rank'}, axis=1)[['rank', 'domain']]
     else:
         domain_rank = df[column].value_counts().reset_index().rename({'index':'domain'}, axis=1).reset_index().query( 'domain not in [ "-", "?", "|", "", " ", "LIPO", "TM", "SIG", "SP"]').rename({'index':'rank'}, axis=1)[['rank', 'domain']]
 

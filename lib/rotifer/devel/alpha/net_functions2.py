@@ -134,7 +134,7 @@ def convert_to_cytoscape(G, positions, layout_key, scaling_factor=900, x_scale=1
     return cy["elements"]["nodes"] + cy["elements"]["edges"]
 
 
-def network_dash(G,pos_dict, xx, function, color_schemes):
+def network_dash(G,pos_dict, xx, function):
     from dash import Dash, dcc, html, Input, Output, ctx, callback, State
     import dash
     import dash_cytoscape as cyto
@@ -257,32 +257,20 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
                     style={"width": "150px", "margin-right": "10px"}
                     ),
                 html.Button("Add Edge", id="add-edge-button", n_clicks=0, style={"margin-right": "5px"}),
-                html.Button("Remove Edge", id="remove-edge-button", n_clicks=0),
-                html.Button("Update Communities", id="update-communities-btn", n_clicks=0)
+                html.Button("Remove Edge", id="remove-edge-button", n_clicks=0)
                 ], style={"display": "inline-block"})
         ])
     ]),
 
     html.Div(id="node-input-box"),
 
-         html.Div([
-             dcc.Dropdown(
-                 id="colorscheme",
-                 options=[],   # preenchido no callback
-                 value=None,   # será definido no callback também
-                 placeholder="Select color scheme",
-                 style={"flex": "0 0 10%", "margin-right": "10px"}
-                 ),
-             dcc.Dropdown(
-                 id='group_selection',
-                 options=[],
-                 value=[],
-                 multi=True,
-                 placeholder="Select groups",
-                 style={"flex": "1"}
-                 )
-             ], style={"display": "flex", "align-items": "center", "margin-bottom": "10px"}),
-
+        dcc.Dropdown(
+        id='group_selection',    
+        options = [],
+        value = [],
+        multi=True,
+        placeholder="Select groups"
+        ),
         cyto.Cytoscape(
             id='cytoscape',
             layout={'name': 'preset'},
@@ -360,8 +348,6 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
         ### Adding stroe for groups
         dcc.Store(id="xx-store", data=xx),
         dcc.Store(id="function-store", data=function),
-        dcc.Store(id="color-schemes-store", data=color_schemes),
-
         ### Saving position
         dcc.Store(id="pos-dict-store", data=pos_dict),
         #### Saving the networkX G object 
@@ -719,28 +705,14 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
         return {'type': ftype, 'action': action}
   
     ##### Adding dinamically groups to dropdown menu:
-    @callback(
+    @app.callback(
         Output("group_selection", "options"),
         Output("group_selection", "value"),
-        Output("function-store", "data", allow_duplicate=True),  # <-- adicionado
-        Output("xx-store", "data", allow_duplicate=True),  # <-- adicionado
-        Input("colorscheme", "value"),
-        State("color-schemes-store", "data"),
-        prevent_initial_call=True
+        Input("xx-store", "data")
     )
-    def update_group_selection(selected_scheme, color_schemes_data):
-        if not selected_scheme or selected_scheme not in color_schemes_data:
-            return [], [], dash.no_update
-
-        function_dict, color_dict = color_schemes_data[selected_scheme]
-
-        # Transforma o dicionário de funções para string-string (caso necessário)
-        function_dict = {str(k): str(v) for k, v in function_dict.items()}
-
-        options = [{"label": g, "value": g} for g in color_dict.keys()]
-        return options, list(color_dict.keys()), function_dict, color_dict
-
-    
+    def update_group_dropdown(xx_data):
+        options = [{"label": k, "value": k} for k in xx_data.keys()]
+        return options, list(xx_data.keys())
     @app.callback(
         Output('xx-store', 'data'),
         Input('add-group-button', 'n_clicks'),
@@ -813,17 +785,6 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
 
         return json_graph.node_link_data(G), trigger_count + 1
 
-    @callback(
-        Output("colorscheme", "options"),
-        Output("colorscheme", "value"),
-        Input("color-schemes-store", "data")
-    )
-    def populate_colorscheme_dropdown(color_data):
-        if not color_data:
-            return [], None
-        keys = list(color_data.keys())
-        options = [{"label": k, "value": k} for k in keys]
-        return options, keys[0]  # seleciona o primeiro por padrão
 
 
 

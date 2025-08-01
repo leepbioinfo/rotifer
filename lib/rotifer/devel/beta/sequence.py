@@ -1596,11 +1596,15 @@ class sequence(rotifer.pipeline.Annotatable):
         Remove all columns with more than 70% of gaps.
         >>> aln.trim(70)
         '''
-        columns_to_keep = self.residue_frequencies.T.query('gap <= @max_perc_gaps').T.columns.to_list()
+        columns_to_keep = self.residue_frequencies.T
         result = self.copy()
-        result.df['sequence'] = result.residues.loc[:, columns_to_keep].sum(axis=1)
-        result._reset()
-        return result
+        if 'gap' not in columns_to_keep.columns:
+            return result
+        else:
+            columns_to_keep = columns_to_keep.query('gap <= @max_perc_gaps').T.columns.to_list()
+            result.df['sequence'] = result.residues.loc[:, columns_to_keep].sum(axis=1)
+            result._reset()
+            return result
 
     def add_jpred(self, email=False, symbol=False):
         ''' 
@@ -1840,7 +1844,7 @@ class sequence(rotifer.pipeline.Annotatable):
         aln = self.copy()
         aln_r = aln.residues
         if remove_gaps:
-            gaps,gdf = aln.gaps_to_numbers(remove_gaps, adjust_coordinates=adjust_coordinates)
+            gaps,gdf,_,_ = aln.gaps_to_numbers(remove_gaps, adjust_coordinates=adjust_coordinates)
             gdf.index = aln.df.query('type == "sequence"').id
 
         aln_r = aln_r.set_index(aln.df.query('type == "sequence"').id)

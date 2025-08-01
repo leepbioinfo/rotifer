@@ -283,6 +283,7 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
                  )
              ], style={"display": "flex", "align-items": "center", "margin-bottom": "10px"}),
 
+
         cyto.Cytoscape(
             id='cytoscape',
             layout={'name': 'preset'},
@@ -358,17 +359,18 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
         dcc.Store(id="last-node-click", data={"id": None, "time": 0}),
         dcc.Store(id="node-color-cycle", data=[]),
         ### Adding stroe for groups
-        dcc.Store(id="xx-store", data=xx),
-        dcc.Store(id="function-store", data=function),
-        dcc.Store(id="color-schemes-store", data=color_schemes),
-
         ### Saving position
         dcc.Store(id="pos-dict-store", data=pos_dict),
         #### Saving the networkX G object 
         dcc.Store(id="graph-store", data=G_serialized),
+        dcc.Store(id="graph-original", data=G_serialized),
 
         ### Dummy store to update add and remove edges on fly
         dcc.Store(id="edge-modification-trigger", data=0),
+        #### Saving the colorscheme dictionary on the page memory
+        dcc.Store(id="color-schemes-store", data=color_schemes),
+        dcc.Store(id="function-store", data=function),
+        dcc.Store(id="xx-store", data=xx),
 
 
 
@@ -414,48 +416,6 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
                 }
             }
         ]
-    """    
-    @app.callback(
-        Output('cytoscape', 'elements'),
-        [Input('layout-selector', 'value'),
-        Input('group_selection', 'value'),
-        Input('connections-input', 'value'),
-        Input('Node_scale', 'value'),
-        Input('x_scale', 'value'),
-        Input('y_scale', 'value'),
-        Input('scale-size-input', 'value')]
-    )
-    def update_graph(selected_option, groups,min_connections,node_scale,x_scale,y_scale, scale_value):
-        scale_value = int(scale_value)
-       # y_scale = int(scale_value)
-       # x_scale = int(scale_value)
-        # Dynamically generate elements based on selected_option
-        #### Node filter based on groups:
-        filter_nodes = list({key: value for key, value in function.items() if value in groups}.keys())
-        G_filtered = G.subgraph(filter_nodes)
-        ### Edge filtered based in total Edge count
-        filter_edges = [(u, v) for u, v, attrs in G_filtered.edges(data=True) if attrs.get('edge_total', 0) >= min_connections]
-        subgraph = G_filtered.edge_subgraph(filter_edges).copy()
-        subgraph.remove_nodes_from(list(nx.isolates(subgraph)))
-        for edge in subgraph.edges(data=True):
-            if function[edge[0]] == function[edge[1]]:
-                edge[2]['line_style']='solid'
-                edge[2]['opacity']=1
-                edge[2]['edge_color']= xx[function[edge[0]]]
-            else:
-                edge[2]['line_style']='dotted'
-                edge[2]['opacity']=0.3
-                edge[2]['edge_color']= 'gray'
-
-        ## Scale the node size:
-        for node, attrs in subgraph.nodes(data=True):
-            attrs['size'] = np.sqrt(attrs['degree']) * node_scale
-            attrs['node_color'] = xx[function[node]]
-            
-        element = net_functions.convert_to_cytoscape(subgraph, pos_dict, selected_option,x_scale=x_scale, y_scale=y_scale, scaling_factor=scale_value)
-        return element
-    """ 
-
     @callback(
         Output("select_source", "value"),
         Output("select_target", "value"),
@@ -494,26 +454,27 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
         Input("scale-size-input", "value"),
         Input("pos-dict-store", "data"),
         Input("edge-modification-trigger", "data"),
+        Input("colorscheme", "value"),
         State("cytoscape", "elements"),
         State("last-edge-click", "data"),
         State("edge-color-cycle", "data"),
         State("last-node-click", "data"),
         State("node-color-cycle", "data"),
-        State('xx-store', 'data'),
-        State("function-store", "data"),
+        State("color-schemes-store", "data"),
         State("pos-dict-store", "data"),
         State("graph-store", "data"),
     )
     def update_elements_or_cycle(
         edge_data, node_data,
-        selected_option, groups, min_connections, node_scale, x_scale, y_scale, scale_value,pos_dict_input,dummy_call,
-        elements, last_click, color_cycle, last_node_click, node_color_cycle, func_color_dict, function_data, pos_dict_data, serial_graph
+        selected_option, groups, min_connections, node_scale, x_scale, y_scale, scale_value,pos_dict_input,dummy_call,selected_scheme, elements, last_click, color_cycle, last_node_click, node_color_cycle, color_schemes, pos_dict_data, serial_graph
     ):
 
         from dash import callback, Input, Output, State, ctx, no_update
         import time
         import numpy as np
         triggered_id = ctx.triggered_id
+        func_color_dict = color_schemes[selected_scheme][1]
+        function_data = color_schemes[selected_scheme][0]
 
         # Duplo clique em aresta
         if triggered_id == "cytoscape" and ctx.triggered[0]["prop_id"] == "cytoscape.tapEdgeData":
@@ -621,6 +582,19 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
 
         # Atualização normal do grafo
         scale_value = int(scale_value)
+        if ctx.triggered_id in ["group_selection"] and elements:
+            try:
+                current_positions = {
+                        el["data"]["id"]: [
+                            el["position"]["y"] / scale_value / y_scale,
+                            el["position"]["x"] / scale_value / x_scale
+                            ]
+                        for el in elements if "position" in el
+                        }
+                pos_dict_data["Current"] = {k: np.array(v) for k, v in current_positions.items()}
+                selected_option = "Current"
+            except Exception as e:
+                print("Warning: could not save current layout.", str(e))
         filter_nodes = list({key: value for key, value in function_data.items() if value in groups}.keys())
         stored_G = json_graph.node_link_graph(serial_graph)
         G_filtered = stored_G.subgraph(filter_nodes)
@@ -675,6 +649,10 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
     )
     def save_positions(n_clicks, text,x_scale,y_scale, scale, n_elements, current_pos_dict):
         # Extract positions from the Cytoscape graph
+        scale   = float(scale)   if scale   not in (None, '') else 1.0
+        x_scale = float(x_scale) if x_scale not in (None, '') else 1.0
+        y_scale = float(y_scale) if y_scale not in (None, '') else 1.0
+
         positions = {
             node["data"]["id"]: node.get("position", {})
             for node in n_elements if "position" in node
@@ -686,17 +664,30 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
         return positions, to_selector, current_pos_dict, text
     
     
+    import json
+
     @app.callback(
         Output("output", "children"),
         Input("print-button", "n_clicks"),
-        State("saved-pos-store", "data"),
-        prevent_initial_call=True,  # Prevent execution on page load
+        State("pos-dict-store", "data"),
+        prevent_initial_call=True
     )
-    def print_stored_data(n_clicks, toprint):
-        
-        print("Stored data:", toprint)  # Print to console
-        return f"Printed data: {toprint}"  # Show feedback in the app
-    
+    def print_stored_data(n_clicks, pos_dict):
+        def clean_dict(d):
+            # Make sure it's not None or empty
+            if not d:
+                return {"status": "pos_dict is empty or None"}
+            return {
+                k: {kk: list(vv) for kk, vv in v.items()}
+                for k, v in d.items()
+            }
+
+        cleaned = clean_dict(pos_dict)
+        print("CLEANED:", json.dumps(cleaned, indent=2))  # Terminal print
+        return html.Pre(json.dumps(cleaned, indent=2))     # Dash UI output
+
+
+
     
     @app.callback(
         Output("cytoscape", "generateImage"),
@@ -719,41 +710,30 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
         return {'type': ftype, 'action': action}
   
     ##### Adding dinamically groups to dropdown menu:
-    @callback(
+    @app.callback(
         Output("group_selection", "options"),
         Output("group_selection", "value"),
-        Output("function-store", "data", allow_duplicate=True),  # <-- adicionado
-        Output("xx-store", "data", allow_duplicate=True),  # <-- adicionado
-        Input("colorscheme", "value"),
-        State("color-schemes-store", "data"),
-        prevent_initial_call=True
+        Input("color-schemes-store", "data"),
+        State("colorscheme",  "value"),
     )
-    def update_group_selection(selected_scheme, color_schemes_data):
-        if not selected_scheme or selected_scheme not in color_schemes_data:
-            return [], [], dash.no_update
+    def update_group_dropdown(color_schemes_dicts, colorscheme):
+        if colorscheme == None:
+            colorscheme = list(color_schemes_dicts.keys())[0]
+        options = [{"label": k, "value": k} for k in color_schemes_dicts[colorscheme][1].keys()]
+        return options, list(color_schemes_dicts[colorscheme][1].keys())
 
-        function_dict, color_dict = color_schemes_data[selected_scheme]
-
-        # Transforma o dicionário de funções para string-string (caso necessário)
-        function_dict = {str(k): str(v) for k, v in function_dict.items()}
-
-        options = [{"label": g, "value": g} for g in color_dict.keys()]
-        return options, list(color_dict.keys()), function_dict, color_dict
-
-    
     @app.callback(
-        Output('xx-store', 'data'),
+        Output("color-schemes-store", "data"),
         Input('add-group-button', 'n_clicks'),
         State('new-group-key', 'value'),
         State('new-group-color', 'value'),
-        State('xx-store', 'data'),
+        State("color-schemes-store", "data"),
+        State("colorscheme",  "value"),
         prevent_initial_call=True
     )
-    def add_group(n_clicks, new_key, new_color, current_xx):
-        if not new_key or not new_color:
-            return dash.no_update
-        current_xx[new_key] = new_color
-        return current_xx
+    def add_group(n_clicks, new_key, new_color, color_schemes_dicts, colorscheme):
+        color_schemes_dicts[colorscheme][1][new_key] = new_color
+        return color_schemes_dicts
 
 
 
@@ -766,64 +746,167 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
         State('connections-input', 'value'),
         State("pos-dict-store", "data"),
         State("graph-store", "data"),
+        State("function-store", "data"),
         prevent_initial_call=True,  # Prevent execution on page load
     )
-    def update_layouts(n_clicks, groups,Spring_lay_iteractions, min_connections, pos_dict, serial_graph):
+    def update_layouts(n_clicks, groups,Spring_lay_iteractions, min_connections, pos_dict, serial_graph, function_data):
         stored_G = json_graph.node_link_graph(serial_graph)
-        filter_nodes = list({key: value for key, value in function.items() if value in groups}.keys())
+        filter_nodes = list({key: value for key, value in function_data.items() if value in groups}.keys())
         G_filtered = stored_G.subgraph(filter_nodes)
         ### Edge filtered based in total Edge count
         filter_edges = [(u, v) for u, v, attrs in G_filtered.edges(data=True) if attrs.get('edge_total', 0) >= min_connections]
         subgraph = G_filtered.edge_subgraph(filter_edges).copy()
         subgraph.remove_nodes_from(list(nx.isolates(subgraph)))
         newp = net_functions.calculate_positions(subgraph, Spring_lay_iteractions)
-        pos_dict['updated Spring'] = newp['Spring Layout']
+        pos_dict['Actual_Spring'] = newp['Spring Layout']
         pos_dict['updated Kamada from spring'] = newp['Kamada-Kawai from Spring layout']
         pos_dict['updated Kamada'] = newp['Kamada-Kawai']
         pos_dict['updated Circular'] = newp['Circular']
+        pos_dict = pos_dict.copy()
         to_selector = [{'label': key, 'value': key} for key, value in pos_dict.items()]
         return to_selector, pos_dict
 
 
-    @app.callback(
+    @callback(
         Output("graph-store", "data", allow_duplicate=True),
         Output("edge-modification-trigger", "data", allow_duplicate=True),
+        Output("pos-dict-store", "data", allow_duplicate=True),
+        Output("layout-selector", "options", allow_duplicate=True),
+        Output("layout-selector", "value", allow_duplicate=True),
         Input("add-edge-button", "n_clicks"),
         Input("remove-edge-button", "n_clicks"),
         State("select_source", "value"),
         State("select_target", "value"),
         State("graph-store", "data"),
         State("edge-modification-trigger", "data"),
+        State("cytoscape", "elements"),
+        State("pos-dict-store", "data"),
         prevent_initial_call=True
     )
-    def modify_edge(add_clicks, remove_clicks, source, target, graph_data, trigger_count):
-        triggered_id = ctx.triggered_id
+    def modify_edge_and_store_current(
+        add_clicks, remove_clicks, source, target,
+        graph_data, trigger_count, elements, pos_dict
+    ):
+        from dash.exceptions import PreventUpdate
+        from dash import ctx
+        import numpy as np
+
         if not source or not target:
             raise PreventUpdate
 
         G = json_graph.node_link_graph(graph_data)
 
-        if triggered_id == "add-edge-button":
+        if ctx.triggered_id == "add-edge-button":
             G.add_edge(source, target, edge_type="manual", edge_count=1, edge_total=1)
-        elif triggered_id == "remove-edge-button":
+        elif ctx.triggered_id == "remove-edge-button":
             try:
                 G.remove_edge(source, target)
             except:
                 pass
 
-        return json_graph.node_link_data(G), trigger_count + 1
+        # Save current Cytoscape positions as "Current" layout
+        positions = {
+            el["data"]["id"]: [el["position"]["y"] / 900, el["position"]["x"] / 900]
+            for el in elements if "position" in el
+        }
+        pos_dict["Current"] = {k: np.array(v) for k, v in positions.items()}
+        options = [{'label': key, 'value': key} for key in pos_dict.keys()]
 
-    @callback(
+        return json_graph.node_link_data(G), trigger_count + 1, pos_dict, options, "Current"
+
+    @app.callback(
         Output("colorscheme", "options"),
         Output("colorscheme", "value"),
         Input("color-schemes-store", "data")
     )
     def populate_colorscheme_dropdown(color_data):
-        if not color_data:
-            return [], None
         keys = list(color_data.keys())
         options = [{"label": k, "value": k} for k in keys]
-        return options, keys[0]  # seleciona o primeiro por padrão
+        first_key = keys[0] if keys else None
+        return options, first_key
+
+    @app.callback(
+        Output("function-store", "data", allow_duplicate=True),
+        Output("xx-store", "data", allow_duplicate=True),
+        Input("colorscheme", "value"),
+        State("color-schemes-store", "data"),
+        prevent_initial_call=True
+    )
+    def apply_selected_scheme(selected, color_data):
+        if selected in color_data:
+            func, xx = color_data[selected]
+            return func, xx
+        return dash.no_update, dash.no_update
+
+    @app.callback(
+        Output("color-schemes-store", "data", allow_duplicate=True),
+        Output("colorscheme", "options", allow_duplicate=True),
+        Output("colorscheme", "value", allow_duplicate=True),
+        Input("update-communities-btn", "n_clicks"),
+        State("graph-store", "data"),
+        State("color-schemes-store", "data"),
+        State("group_selection", "value"),
+        State("connections-input", "value"),
+        State("function-store", "data"),
+        prevent_initial_call=True
+    )
+    def update_communities(n_clicks, serialized_G, color_data, selected_groups, min_connections, function_data):
+        from networkx.readwrite import json_graph
+        from rotifer.devel.alpha import net_functions
+
+        G_full = json_graph.node_link_graph(serialized_G)
+
+        if selected_groups:
+            filter_nodes = [n for n, g in function_data.items() if g in selected_groups]
+        else:
+            filter_nodes = list(G_full.nodes)
+
+        G_filtered = G_full.subgraph(filter_nodes)
+
+        edges_filtered = [(u, v) for u, v, d in G_filtered.edges(data=True)
+                          if d.get('edge_total', 0) >= min_connections]
+
+        G_sub = G_filtered.edge_subgraph(edges_filtered).copy()
+        G_sub.remove_nodes_from(list(nx.isolates(G_sub)))
+
+        if G_sub.number_of_nodes() < 3:
+            print("Grafo muito pequeno para detectar comunidades.")
+            return dash.no_update, dash.no_update, dash.no_update
+
+        # 🚨 Aqui permitimos sobrescrever
+        communities = net_functions.get_network_community(G_sub)
+        for name, (func_dict, color_dict) in communities.items():
+            color_data[name] = [func_dict, color_dict]
+
+        keys = list(color_data.keys())
+        options = [{"label": k, "value": k} for k in keys]
+        return color_data, options, list(communities.keys())[0]  # Seleciona o primeiro esquema detectado
+
+    @app.callback(
+        Output("graph-store", "data"),
+        Input("connections-input", "value"),
+        Input("group_selection", "value"),
+        State("graph-original", "data"),
+        State("function-store", "data"),
+    )
+    def update_graph_store(min_connections, selected_groups, original_data, function_data):
+        from networkx.readwrite import json_graph
+        import networkx as nx
+
+        G_full = json_graph.node_link_graph(original_data)
+
+        # Filtrar nós por grupo, se necessário
+        if selected_groups:
+            nodes = [n for n, g in function_data.items() if g in selected_groups]
+            G_full = G_full.subgraph(nodes)
+
+        # Filtrar arestas por edge_total
+        edges = [(u, v) for u, v, d in G_full.edges(data=True)
+                 if d.get("edge_total", 0) >= min_connections]
+        G_filtered = G_full.edge_subgraph(edges).copy()
+        G_filtered.remove_nodes_from(list(nx.isolates(G_filtered)))
+
+        return json_graph.node_link_data(G_filtered)
 
 
 

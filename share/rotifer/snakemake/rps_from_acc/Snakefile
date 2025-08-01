@@ -51,7 +51,7 @@ rule gi2fasta:
         threads=8
     shell:
         """
-		gi2fasta {input.fasta}  > {output.txt}.tmp
+		gi2fasta -t 4 {input.fasta}  > {output.txt}.tmp
 		test -s {output}.tmp
 		mv {output.txt}.tmp {output.txt}
 		"""
@@ -115,10 +115,10 @@ rule phobius:
         txt="results_phobius/temp_batch_{batch_num}.txt"  # Temporary output for each batch
     resources:
         mem_mb=8000,
-        threads=2
+        threads=8
     shell:
         """
-		phobius {input.fasta} |phobius2table -e 0.01 > {output.txt}.tmp
+		cat {input.fasta} |sed -E '/^>/s/^>(\S+).*/>\1/'|sed '/^>/!s/[^ACDEFGHIKLMNPQRSTVWYBXZ]/X/g'| phobius|phobius2table -e 0.01 > {output.txt}.tmp
 		test -s {output}.tmp
 		mv {output.txt}.tmp {output.txt}
 		"""

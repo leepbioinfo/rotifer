@@ -134,7 +134,7 @@ def convert_to_cytoscape(G, positions, layout_key, scaling_factor=900, x_scale=1
     return cy["elements"]["nodes"] + cy["elements"]["edges"]
 
 
-def network_dash(G,pos_dict, xx, function, color_schemes):
+def network_dash(G,pos_dict, xx, function):
     from dash import Dash, dcc, html, Input, Output, ctx, callback, State
     import dash
     import dash_cytoscape as cyto
@@ -257,31 +257,31 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
                     style={"width": "150px", "margin-right": "10px"}
                     ),
                 html.Button("Add Edge", id="add-edge-button", n_clicks=0, style={"margin-right": "5px"}),
-                html.Button("Remove Edge", id="remove-edge-button", n_clicks=0),
-                html.Button("Update Communities", id="update-communities-btn", n_clicks=0)
+                html.Button("Remove Edge", id="remove-edge-button", n_clicks=0)
                 ], style={"display": "inline-block"})
         ])
     ]),
 
     html.Div(id="node-input-box"),
 
-         html.Div([
-             dcc.Dropdown(
-                 id="colorscheme",
-                 options=[],   # preenchido no callback
-                 value=None,   # será definido no callback também
-                 placeholder="Select color scheme",
-                 style={"flex": "0 0 10%", "margin-right": "10px"}
-                 ),
-             dcc.Dropdown(
-                 id='group_selection',
-                 options=[],
-                 value=[],
-                 multi=True,
-                 placeholder="Select groups",
-                 style={"flex": "1"}
-                 )
-             ], style={"display": "flex", "align-items": "center", "margin-bottom": "10px"}),
+
+        html.Div([
+            dcc.Dropdown(
+                id="colorscheme",
+                options=[],   # preenchido no callback
+                value=None,   # será definido no callback também
+                placeholder="Select color scheme",
+                style={"flex": "0 0 10%", "margin-right": "10px"}
+            ),
+            dcc.Dropdown(
+                id='group_selection',    
+                options=[],
+                value=[],
+                multi=True,
+                placeholder="Select groups",
+                style={"flex": "1"}
+            )
+        ], style={"display": "flex", "align-items": "center", "margin-bottom": "10px"}),
 
         cyto.Cytoscape(
             id='cytoscape',
@@ -360,8 +360,6 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
         ### Adding stroe for groups
         dcc.Store(id="xx-store", data=xx),
         dcc.Store(id="function-store", data=function),
-        dcc.Store(id="color-schemes-store", data=color_schemes),
-
         ### Saving position
         dcc.Store(id="pos-dict-store", data=pos_dict),
         #### Saving the networkX G object 
@@ -610,7 +608,7 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
                         function_data[node_id] = matched_group
                     else:
                         # Cor não está no dicionário original, tenta buscar no xx-store atualizado
-                        for func_name, color in xx.items():
+                        for func_name, color in func_color_dict.items():
                             if color == next_color:
                                 function_data[node_id] = func_name
                                 break
@@ -640,7 +638,8 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
             elif function_data[edge[0]] == function_data[edge[1]]:
                 edge[2]['line_style'] = 'solid'
                 edge[2]['opacity'] = 1
-                edge[2]['edge_color'] = func_color_dict[function_data[edge[0]]]
+                edge_group = function_data.get(edge[0], '')
+                edge[2]['edge_color'] = func_color_dict.get(edge_group, '#D3D3D3')
             else:
                 edge[2]['line_style'] = 'dotted'
                 edge[2]['opacity'] = 0.3
@@ -719,28 +718,17 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
         return {'type': ftype, 'action': action}
   
     ##### Adding dinamically groups to dropdown menu:
-    @callback(
-        Output("group_selection", "options"),
-        Output("group_selection", "value"),
-        Output("function-store", "data", allow_duplicate=True),  # <-- adicionado
-        Output("xx-store", "data", allow_duplicate=True),  # <-- adicionado
-        Input("colorscheme", "value"),
-        State("color-schemes-store", "data"),
-        prevent_initial_call=True
-    )
-    def update_group_selection(selected_scheme, color_schemes_data):
-        if not selected_scheme or selected_scheme not in color_schemes_data:
-            return [], [], dash.no_update
+    @app.callback(
+            Output("group_selection", "options"),
+            Output("group_selection", "value"),
+            Input("xx-store", "data"),
+            Input("function-store", "data")
+            )
+    def update_group_dropdown(xx_data, function_data):
+        all_keys = set(xx_data.keys()) | set(function_data.values())
+        options = [{"label": k, "value": k} for k in sorted(all_keys)]
+        return options, list(sorted(all_keys))
 
-        function_dict, color_dict = color_schemes_data[selected_scheme]
-
-        # Transforma o dicionário de funções para string-string (caso necessário)
-        function_dict = {str(k): str(v) for k, v in function_dict.items()}
-
-        options = [{"label": g, "value": g} for g in color_dict.keys()]
-        return options, list(color_dict.keys()), function_dict, color_dict
-
-    
     @app.callback(
         Output('xx-store', 'data'),
         Input('add-group-button', 'n_clicks'),
@@ -766,11 +754,12 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
         State('connections-input', 'value'),
         State("pos-dict-store", "data"),
         State("graph-store", "data"),
+        State("function-store", "data"),
         prevent_initial_call=True,  # Prevent execution on page load
     )
-    def update_layouts(n_clicks, groups,Spring_lay_iteractions, min_connections, pos_dict, serial_graph):
+    def update_layouts(n_clicks, groups,Spring_lay_iteractions, min_connections, pos_dict, serial_graph, saved_func_dict):
         stored_G = json_graph.node_link_graph(serial_graph)
-        filter_nodes = list({key: value for key, value in function.items() if value in groups}.keys())
+        filter_nodes = list({key: value for key, value in saved_func_dict.items() if value in groups}.keys())
         G_filtered = stored_G.subgraph(filter_nodes)
         ### Edge filtered based in total Edge count
         filter_edges = [(u, v) for u, v, attrs in G_filtered.edges(data=True) if attrs.get('edge_total', 0) >= min_connections]
@@ -785,46 +774,52 @@ def network_dash(G,pos_dict, xx, function, color_schemes):
         return to_selector, pos_dict
 
 
-    @app.callback(
-        Output("graph-store", "data", allow_duplicate=True),
-        Output("edge-modification-trigger", "data", allow_duplicate=True),
-        Input("add-edge-button", "n_clicks"),
-        Input("remove-edge-button", "n_clicks"),
-        State("select_source", "value"),
-        State("select_target", "value"),
-        State("graph-store", "data"),
-        State("edge-modification-trigger", "data"),
-        prevent_initial_call=True
-    )
-    def modify_edge(add_clicks, remove_clicks, source, target, graph_data, trigger_count):
-        triggered_id = ctx.triggered_id
+    @callback(
+            Output("graph-store", "data", allow_duplicate=True),
+            Output("edge-modification-trigger", "data", allow_duplicate=True),
+            Output("pos-dict-store", "data", allow_duplicate=True),
+            Output("layout-selector", "options", allow_duplicate=True),
+            Output("layout-selector", "value", allow_duplicate=True),
+            Input("add-edge-button", "n_clicks"),
+            Input("remove-edge-button", "n_clicks"),
+            State("select_source", "value"),
+            State("select_target", "value"),
+            State("graph-store", "data"),
+            State("edge-modification-trigger", "data"),
+            State("cytoscape", "elements"),
+            State("pos-dict-store", "data"),
+            prevent_initial_call=True
+            )
+    def modify_edge_and_store_current(
+            add_clicks, remove_clicks, source, target,
+            graph_data, trigger_count, elements, pos_dict
+            ):
+        from dash.exceptions import PreventUpdate
+        from dash import ctx
+        import numpy as np
+
         if not source or not target:
             raise PreventUpdate
 
         G = json_graph.node_link_graph(graph_data)
 
-        if triggered_id == "add-edge-button":
+        if ctx.triggered_id == "add-edge-button":
             G.add_edge(source, target, edge_type="manual", edge_count=1, edge_total=1)
-        elif triggered_id == "remove-edge-button":
+        elif ctx.triggered_id == "remove-edge-button":
             try:
                 G.remove_edge(source, target)
             except:
                 pass
 
-        return json_graph.node_link_data(G), trigger_count + 1
+        # Save current Cytoscape positions as "Current" layout
+        positions = {
+                el["data"]["id"]: [el["position"]["y"] / 900, el["position"]["x"] / 900]
+                for el in elements if "position" in el
+                }
+        pos_dict["Current"] = {k: np.array(v) for k, v in positions.items()}
+        options = [{'label': key, 'value': key} for key in pos_dict.keys()]
 
-    @callback(
-        Output("colorscheme", "options"),
-        Output("colorscheme", "value"),
-        Input("color-schemes-store", "data")
-    )
-    def populate_colorscheme_dropdown(color_data):
-        if not color_data:
-            return [], None
-        keys = list(color_data.keys())
-        options = [{"label": k, "value": k} for k in keys]
-        return options, keys[0]  # seleciona o primeiro por padrão
-
+        return json_graph.node_link_data(G), trigger_count + 1, pos_dict, options, "Current"
 
 
 

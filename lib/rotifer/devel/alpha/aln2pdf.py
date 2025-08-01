@@ -334,10 +334,10 @@ def polish_2_residues_df(polish_file):
     # Step 6: Save result in pd.DataFrame
     from io import StringIO
     df = pd.read_csv(StringIO(tsv_string), sep='\t', header=None)
-    rdf = df.set_index([0])[2].str.split("", expand=True)
+    rdf = df.set_index([0])[2].astype(str).str.split("", expand=True)
     rdf = drop_leading_empty_columns(rdf)
-    rdf.insert(0,'start',df[1].str.strip().values)
-    rdf['end'] = df[3].str.strip().fillna('').values
+    rdf.insert(0,'start',df[1].astype(str).str.strip().values)
+    rdf['end'] = df[3].astype(str).str.strip().fillna('').values
     rdf.columns = list((range(1,rdf.shape[1]+1)))
     rdf.index = rdf.index.str.strip()
     rdf = rdf.replace('', ' ')
