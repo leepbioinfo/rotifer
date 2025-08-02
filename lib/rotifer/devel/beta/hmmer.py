@@ -5,7 +5,7 @@ import pandas as pd
 import pyhmmer as ph
 import rotifer.devel.beta.sequence as rdbs
 from rotifer.db import ncbi
-from rotifer.interval import utills as riu
+from rotifer.interval import utils as riu
 from rotifer.taxonomy import utils as rtu
 import seaborn as sns
 import matplotlib.pyplot as plt
