@@ -1,170 +1,167 @@
-#!/bin/bash
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
-# Stop at first error
-set -e
+# Import required modules
+import os
+import sys
+import argparse
+import requests
+import asyncio
+import aiohttp
+from bs4 import BeautifulSoup
+from tqdm import tqdm
+from urllib.parse import urljoin
+from pathlib import Path
+import time
+from humanize import naturalsize
+import shutil
 
-# Python
-MYPATH=$(dirname $(dirname $(realpath $0)))
-export PYTHONPATH=$MYPATH/lib
+# Base URL for downloading RefSeq genomes
+BASE_URL = "https://ftp.ncbi.nlm.nih.gov/genomes/refseq"
 
-# Functions
-function show_help() {
-	echo -n "Update a local mirror of the NCBI Genome's FTP site.
-Usage: $(basename $0) [options] <targets>
-
-Available options:
- Option         : Description               : Default
-----------------:---------------------------:---------
- -d <databases> : root databases directory  : $DB
- -e             : include Eukaryotes        : off
- -n             : dry run (test only)       : off
- -r             : update assembly reports   : off
- -t <threads>   : set number of threads     : 15
- -u             : update ETE3's taxonomy DB : off
-
-Rotifer's root: $MYPATH
-"
-exit 1
+# Mapping group names to their respective summary file
+GROUPS = {
+    "bacteria": "assembly_summary_bacteria.txt",
+    "archaea": "assembly_summary_archaea.txt",
+    "viral": "assembly_summary_viral.txt"
 }
 
-function mirror_genome() {
-	db=$1
-	path=$2
-	mypath=$3
-	typeset -i eukaryotes=$4
-	runtest=$5
-	justecho=""
-	if [ "$runtest" != "" ]; then justecho="echo"; fi
-	bn=$(basename $path)
+# Function to download the assembly_summary.txt for a group
+def download_summary_file(group, force=False):
+    url = f"{BASE_URL}/{group}/assembly_summary.txt"
+    filename = f"assembly_summary_{group}.txt"
+    if not os.path.exists(filename) or force:
+        print(f"[INFO] Downloading: {url}")
+        r = requests.get(url)
+        if r.status_code == 200:
+            with open(filename, "w") as f:
+                f.write(r.text)
+        else:
+            raise Exception(f"Failed to download {url}: HTTP {r.status_code}")
+    return filename
 
-	# Load libraries
-	source $mypath/lib/rotifer/rbashpipe/base/00.logger.lib
-	simplelog "Updating target $db/$path"
+# Parse the assembly summary file and extract (ftp_path, prefix_path) tuples
+def parse_assembly_summary(file_path):
+    genomes = []
+    with open(file_path, "r") as f:
+        for line in f:
+            if line.startswith("#"):
+                continue  # Skip comments
+            parts = line.strip().split("\t")
+            if len(parts) >= 20:
+                ftp_path = parts[19]
+                if "genomes/all/" in ftp_path:
+                    sub = ftp_path.split("genomes/all/")[1]
+                    prefix_path = "/".join(sub.split("/")[:3])
+                    genomes.append((ftp_path, prefix_path))
+    return genomes
 
-	# Download/update metadata
-	/usr/bin/rsync -arHv --no-motd --delete --prune-empty-dirs -L --safe-links --mkpath $runtest \
-  	-f ". $mypath/etc/rotifer/rrsw/genome_description.rules" rsync://ftp.ncbi.nlm.nih.gov/$path/ $db/$path/
+# Check if a directory is missing or empty
+def is_empty_or_missing(path):
+    return not os.path.exists(path) or not any(Path(path).rglob("*"))
 
-	# Check if organism is an eukaryote
-	if [ -f "$db/$path/${bn}_assembly_report.txt" ]; then
-		taxid=$(perl -ne '/Taxid:\s+(\d+)/ && do { print "$1" }' $db/$path/${bn}_assembly_report.txt)
-		if [ "$taxid" != "" ]; then
-			#simplelog Fetching superkingdom of taxid $taxid for $db/$path
-			kingdom=$(python3 -c "import rotifer.db.ncbi as ncbi;tc=ncbi.TaxonomyCursor();t=tc[$taxid];t=t.superkingdom.iloc[0] if len(t)>0 else 0; print(t)")
-			#simplelog Superkingdom of taxid $taxid is $kingdom for $db/$path
-			if [ $eukaryotes -eq 0 ]; then
-				if [ "$kingdom" == "" ] || [ "$kingdom" == "0" ]; then
-					simplelog "=====> Unknown taxonomy issue for $db/$path"
-				elif [ "$kingdom" == "Eukaryota" ]; then
-					if [ -f $db/$path/${bn}_genomic.gbff.gz ]; then
-						$justecho rm -f $db/$path/${bn}_genomic.gbff.gz
-					fi
-					simplelog "=====> Skipped eukaryotic genome $db/$path"
-					return 1
-				fi
-			fi
-		fi
-	fi
+# Calculate the total size of files inside a directory
+def get_total_size(path):
+    total = 0
+    for dirpath, _, filenames in os.walk(path):
+        for f in filenames:
+            fp = os.path.join(dirpath, f)
+            if os.path.isfile(fp):
+                try:
+                    total += os.path.getsize(fp)
+                except FileNotFoundError:
+                    continue  # Skip if file disappears during scan
+    return total
 
-	# Check whether ithis genome has genes annotations
-	if [ -f "$db/$path/${bn}_feature_count.txt.gz" ]; then
-		typeset -i cds=$(gunzip -c $db/$path/${bn}_feature_count.txt.gz | awk '/gene.protein_coding/{c=NF-1;s=s+$c};END{print s}')
-		if [ "$cds" == "" ] || [ $cds -eq 0 ]; then
-			if [ -f $db/$path/${bn}_genomic.gbff.gz ]; then
-				$justecho rm -f $db/$path/${bn}_genomic.gbff.gz
-			fi
-			simplelog "=====> Skipped unannotated genome $db/$path"
-			return 1
-		fi
-	fi
+# Function to download a prefix using rsync
+async def run_rsync_download(ftp_path, prefix_path, db_root, semaphore, pbar, download_stats):
+    async with semaphore:
+        target_dir = os.path.join(db_root, "genomes", "all", prefix_path)
+        os.makedirs(target_dir, exist_ok=True)
 
-	# Download GBFF
-	/usr/bin/rsync -arHv --no-motd --delete --prune-empty-dirs -L --safe-links --mkpath $runtest \
-  	-f ". $mypath/etc/rotifer/rrsw/genome_mirror.rules" rsync://ftp.ncbi.nlm.nih.gov/$path/ $db/$path/
+        rsync_path = f"rsync://ftp.ncbi.nlm.nih.gov/genomes/all/{prefix_path}/"
+        cmd = [
+            "rsync", "-a", "--ignore-existing", "--timeout=10",
+            rsync_path, target_dir
+        ]
 
-	simplelog "=====> Target $db/$path updated!"
-}
-export -f mirror_genome
+        # Launch rsync and suppress output
+        start = time.time()
+        proc = await asyncio.create_subprocess_exec(
+          *cmd,
+          stdout=asyncio.subprocess.DEVNULL,
+          stderr=asyncio.subprocess.DEVNULL
+        )
+        await proc.communicate()
+        elapsed = time.time() - start
 
-# Load libraries
-source $MYPATH/lib/rotifer/rbashpipe/base/00.logger.lib
+        # Update downloaded size and speed statistics
+        downloaded_bytes = get_total_size(target_dir)
+        download_stats['bytes'] += downloaded_bytes
+        download_stats['elapsed'] += elapsed
 
-# Parse command line options
-DB=${DATABASES:-"/db"}
-typeset -i EUKARYOTES=0
-typeset -i UPDATE_ETE3_TAXONOMY=0
-typeset -i UPDATE_REPORTS=0
-TEST=""
-THREADS=15
+        current_speed = downloaded_bytes / elapsed if elapsed > 0 else 0
 
-OPTERR=0
-while getopts "d:enrt:u" opt
-do
-    case "$opt" in
-	d)
-	    export DB="$OPTARG"
-	    simplelog INFO "Setting database directory to $DB"
-	    ;;
-	e)
-	    typeset -i EUKARYOTES=1
-	    simplelog INFO "Enabling download of eukaryotic genomes."
-	    ;;
-	n)
-	    TEST="-n"
-	    simplelog INFO "Test mode: show targets..."
-	    ;;
-	r)
-	    typeset -i UPDATE_REPORTS=1
-	    simplelog INFO "Will update assembly reports..."
-	    ;;
-	t)
-	    export THREADS="$OPTARG"
-	    simplelog INFO "setting number of threads to $THREADS"
-	    ;;
-	u)
-	    typeset -i UPDATE_ETE3_TAXONOMY=1
-	    simplelog INFO "Will update ETE3's local taxonomy database..."
-	    ;;
-	*)
-	    show_help
-	    break
-	    ;;
-    esac
-done
-shift $((OPTIND-1))
+        # Update the progress bar
+        pbar.update(1)
+        pbar.set_postfix({
+            "Downloaded": naturalsize(download_stats['bytes']),
+            "Speed": f"{current_speed / (1024**2):.2f} MB/s"
+        })
 
-OPTIND=0
-OPTERR=1
-TARGETS="$@"
-if [ ! -d $DB ]; then
-	simplelog ERROR "No root database directory $DB"
-	exit 1
-fi
-if [ "$TARGETS" == "" ]; then
-	TARGETS=$(echo ${DB}/genomes/ASSEMBLY_REPORTS/assembly_summary_{refseq,genbank}.txt)
-	for f in $TARGETS
-	do
-		if [ ! -f $f ]; then
-			simplelog ERROR "Target $f not found!"
-			exit 0
-		fi
-	done
-fi
+# Main logic to select groups, parse summaries and manage downloads
+async def main(args):
+    selected = []
+    if args.bacteria: selected.append("bacteria")
+    if args.archaea: selected.append("archaea")
+    if args.viral: selected.append("viral")
 
-# Update reports
-if [ $UPDATE_REPORTS -eq 1 ]; then
-	$MYPATH/bin/rrsw $TEST -p $DB -s $DB/src --tmp $DB/tmp genomes
-fi
+    if not selected:
+        print("[ERROR] Select at least one group: -b, -a, -v")
+        sys.exit(1)
 
-# Update taxonomy
-if [ $UPDATE_ETE3_TAXONOMY -eq 1 ]; then
-	python3 -c 'from rotifer.db.local import ete3; tc = ete3.TaxonomyCursor(); tc.update_database()'
-fi
+    all_genomes = []
+    for group in selected:
+        f = download_summary_file(group, args.update_assembly)
+        genomes = parse_assembly_summary(f)
+        print(f"[INFO] {len(genomes)} genomes found in {group}")
+        all_genomes.extend(genomes)
 
-# Sync assemblies
-grep -v '^#' ${TARGETS} \
-| cut -f 20 | cut -f 4- -d / | grep -v '^na$' | sort -u \
-| parallel -N1 -j$THREADS mirror_genome $DB {} $MYPATH $EUKARYOTES $TEST
+    print(f"[INFO] Total {len(all_genomes)} genomes to check.")
 
-# Exit cleanly
-exit $?
+    # Filter genomes to download (only if folder is empty/missing)
+    genomes_to_download = []
+    for ftp_path, prefix_path in all_genomes:
+        target_dir = os.path.join(args.database, "genomes", "all", prefix_path)
+        if is_empty_or_missing(target_dir):
+            genomes_to_download.append((ftp_path, prefix_path))
+
+    print(f"[INFO] {len(genomes_to_download)} genomes to download.")
+
+    semaphore = asyncio.Semaphore(args.threads)
+    tasks = []
+    download_stats = {'bytes': 0, 'elapsed': 0.00001}
+
+    # Create a progress bar
+    pbar = tqdm(total=len(genomes_to_download), desc="Downloading genomes", unit="genome")
+    for ftp_path, prefix_path in genomes_to_download:
+        task = asyncio.create_task(
+            run_rsync_download(ftp_path, prefix_path, args.database, semaphore, pbar, download_stats)
+        )
+        tasks.append(task)
+
+    await asyncio.gather(*tasks)
+    pbar.close()
+
+# Entry point for the script
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Download RefSeq genomes using rsync if folder is empty")
+    parser.add_argument("-d", "--database", default="./db", help="Target download directory")
+    parser.add_argument("-b", "--bacteria", action="store_true", help="Include bacterial genomes")
+    parser.add_argument("-a", "--archaea", action="store_true", help="Include archaeal genomes")
+    parser.add_argument("-v", "--viral", action="store_true", help="Include viral genomes")
+    parser.add_argument("-t", "--threads", type=int, default=5, help="Number of concurrent genome downloads")
+    parser.add_argument("--update-assembly", action="store_true", help="Force redownload of summary files")
+    args = parser.parse_args()
+
+    asyncio.run(main(args))

@@ -623,8 +623,7 @@ class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
         blks = deepcopy(self)
 
         # Make sure data is sorted and has compatible internal ids
-        blks.sort_values(['assembly','nucleotide','block_id','feature_order','start','end'], ascending=[True,True,True,True,False,False], inplace=True)
-        blks.internal_id = list(range(0,len(blks)))
+        blks.sort_values(['assembly','nucleotide','block_id','internal_id'], ascending=[True,True,True,True], inplace=True)
 
         # Build boolean pandas.Series to mark targets
         select = True
@@ -818,8 +817,7 @@ class NeighborhoodDF(pd.DataFrame, rotifer.pipeline.Annotatable):
         df = deepcopy(self)
 
         # Make sure data is sorted and has compatible internal ids
-        df.sort_values(['assembly','nucleotide','block_id','feature_order','start','end'], ascending=[True,True,True,True,False,False], inplace=True)
-        df.internal_id = list(range(0,len(df)))
+        df.sort_values(['assembly','nucleotide','block_id','internal_id'], ascending=[True,True,True,True], inplace=True)
 
         # Build boolean pandas.Series to mark targets
         select = True
