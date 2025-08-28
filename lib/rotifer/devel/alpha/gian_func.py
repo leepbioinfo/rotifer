@@ -4408,3 +4408,151 @@ def neighborhood_DF_max_distance(df, max_distance):
     # Return only kept rows (in original DataFrame order)
     return df.loc[sorted(keep_rows)].copy()
 
+# pip install "https://github.com/etetoolkit/ete/archive/ete4.zip"  # ETE4
+# (or) pip install ete3
+
+
+
+def taxids_to_rank_dataframe(
+    taxids,
+    ranks=("superkingdom", "kingdom", "phylum", "class", "order", "family", "genus", "species"),
+    include_taxid_cols=False,
+    rank_synonyms=None,
+    ncbi_instance=None,
+):
+    from collections import defaultdict
+    import pandas as pd
+
+    try:
+        # Prefer ETE4
+        from ete4.ncbi_taxonomy import NCBITaxa
+    except Exception:
+        # Fallback to ETE3
+        from ete3 import NCBITaxa
+    """
+    Build a DataFrame (indexed by NCBI taxid) with one column per requested taxonomic rank.
+
+    Parameters
+    ----------
+    taxids : Iterable[int]
+        List/iterable of NCBI taxonomy IDs.
+    ranks : Iterable[str], optional
+        Which ranks to include as columns. Default:
+        ('superkingdom','kingdom','phylum','class','order','family','genus','species').
+    include_taxid_cols : bool, optional
+        If True, besides the taxon name also includes columns '{rank}_taxid'
+        with the corresponding NCBI taxid. Default: False.
+    rank_synonyms : dict[str,str], optional
+        Mapping from rank synonyms to canonical names
+        (e.g., {'division':'phylum','domain':'superkingdom'}). If None, a default map is used.
+    ncbi_instance : NCBITaxa, optional
+        An existing NCBITaxa instance (to reuse for speed). If None, one is created.
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame indexed by 'taxid' with one column per requested rank.
+        If include_taxid_cols=True, also contains '{rank}_taxid'.
+
+    Notes on Taxonomic Ranks (NCBI Taxonomy)
+    ----------------------------------------
+    The NCBI hierarchy may include many intermediate levels. Common ones are:
+
+    - superkingdom (≈domain; synonym 'domain') → e.g. Bacteria, Archaea, Eukaryota
+    - kingdom
+    - subkingdom
+    - superphylum
+    - phylum (sometimes called 'division' in plants/algae; synonym normalized here)
+    - subphylum
+    - superclass
+    - class
+    - subclass
+    - infraclass
+    - superorder
+    - order
+    - suborder
+    - infraorder
+    - parvorder
+    - superfamily
+    - family
+    - subfamily
+    - tribe
+    - subtribe
+    - genus
+    - subgenus
+    - species group
+    - species subgroup
+    - species
+    - subspecies
+    - variety
+    - form
+
+    Depending on the lineage, some or none of these may be present. The function
+    normalizes 'division' → 'phylum' and 'domain' → 'superkingdom'.
+
+    Disclaimer
+    ----------
+    This function (including docstring) was generated with assistance from GPT-5.
+
+    """
+
+    ncbi = ncbi_instance or NCBITaxa()
+
+    if rank_synonyms is None:
+        rank_synonyms = {
+            "division": "phylum",
+            "domain": "superkingdom",
+        }
+
+    def _canon_rank(rank: str):
+        if not rank:
+            return None
+        r = rank.strip().lower()
+        return rank_synonyms.get(r, r)
+
+    ranks = tuple(ranks)
+    taxids = [int(t) for t in taxids]
+
+    # Collect lineages
+    lineage_map = {}
+    all_lineage_taxids = set()
+    for t in taxids:
+        try:
+            lin = ncbi.get_lineage(t) or []
+        except Exception:
+            lin = []
+        lineage_map[t] = lin
+        all_lineage_taxids.update(lin)
+
+    # Bulk fetch ranks and names
+    ranks_all = ncbi.get_rank(list(all_lineage_taxids)) if all_lineage_taxids else {}
+    names_all = ncbi.get_taxid_translator(list(all_lineage_taxids)) if all_lineage_taxids else {}
+
+    rows = []
+    for t in taxids:
+        lin = lineage_map.get(t, [])
+        per_rank_tid = {}
+        per_rank_name = {}
+
+        for tid in lin:
+            rk = _canon_rank(ranks_all.get(tid))
+            if rk in ranks and rk not in per_rank_tid:
+                per_rank_tid[rk] = tid
+                per_rank_name[rk] = names_all.get(tid)
+
+        # If the queried node itself is at a requested rank
+        self_rank = _canon_rank(ranks_all.get(t))
+        if self_rank in ranks and self_rank not in per_rank_tid:
+            per_rank_tid[self_rank] = t
+            per_rank_name[self_rank] = names_all.get(t) or ncbi.get_taxid_translator([t]).get(t)
+
+        row = {rk: per_rank_name.get(rk) for rk in ranks}
+        if include_taxid_cols:
+            for rk in ranks:
+                row[f"{rk}_taxid"] = per_rank_tid.get(rk)
+        row["taxid"] = t
+        rows.append(row)
+
+    return pd.DataFrame(rows).set_index("taxid")
+
+

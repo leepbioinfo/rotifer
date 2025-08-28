@@ -118,7 +118,10 @@ rule phobius:
         threads=8
     shell:
         """
-		cat {input.fasta} |sed -E '/^>/s/^>(\S+).*/>\1/'|sed '/^>/!s/[^ACDEFGHIKLMNPQRSTVWYBXZ]/X/g'| phobius|phobius2table -e 0.01 > {output.txt}.tmp
+		 cat {input.fasta} \
+    	| sed -E '/^>/ {{ s/^>([^[:space:]]+).*/>\\1/; b }}; s/[^ACDEFGHIKLMNPQRSTVWYBXZ]/X/g' \
+    	| phobius \
+    	| phobius2table -e 0.01 > {output.txt}.tmp
 		test -s {output}.tmp
 		mv {output.txt}.tmp {output.txt}
 		"""
