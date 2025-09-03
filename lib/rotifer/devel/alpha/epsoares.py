@@ -42,8 +42,8 @@ def extract_envelope(df, seqobj=None, start='estart', end='eend', expand=10, loc
         seqobj = rdbs.sequence(df.sequence.drop_duplicates().to_list(), local_database_path=local_database_path)
 
     seqobj.df = seqobj.df.merge(df.rename({'sequence':'id'},axis=1), how='left')
-    seqobj.df.end = seqobj.df[end].fillna(seqobj.df.length)
-    seqobj.df.start = seqobj.df[start].fillna(1)
+    seqobj.df['end'] = seqobj.df[end].fillna(seqobj.df.length).astype(int)
+    seqobj.df['start'] = seqobj.df[start].fillna(1).astype(int)
 
     if expand:
         seqobj.df['start'] = np.where(seqobj.df.start<=expand,1,seqobj.df.start-expand+1)
@@ -202,7 +202,13 @@ def hmmscan(sequences, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm
 
     #HMM load
     with ph.plan7.HMMFile(pfam_database_path) as hmm_file:
-        hmms = list(hmm_file.optimized_profiles())
+       if hmm_file.is_pressed:
+           hmms = list(hmm_file.optimized_profiles())
+       else:
+           hmms = list(hmm_file)
+
+    #with ph.plan7.HMMFile(pfam_database_path) as hmm_file:
+    #    hmms = list(hmm_file.optimized_profiles())
 
     #Sequences load
     abc = ph.easel.Alphabet.amino()
@@ -256,11 +262,11 @@ def hmmscan(sequences, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm
 
     return df
 
-def add_arch_to_df(df, column='pid'):
+def add_arch_to_df(df, column='pid', cpus=0, pfam_database_path='/databases/pfam/Pfam-A.hmm'):
     '''
     Add a column pfam with the domain architecture for the input accessions.
     '''
-    h = hmmscan(df[column].dropna().tolist())
+    h = hmmscan(df[column].dropna().tolist(), cpus=cpus, pfam_database_path=pfam_database_path)
     h.rename({'aln_target_name':'sequence','aln_hmm_name':'model','i_evalue':'evalue','env_from':'estart', 'env_to':'eend'}, axis=1, inplace=True)
     arch = riu.filter_nonoverlapping_regions(h, **riu.config['hmmer']).groupby('sequence').agg(pfam = ('model',lambda x: '+'.join(x.astype(str)))).reset_index()
     arch.rename({'sequence':column}, axis = 1, inplace = True)
