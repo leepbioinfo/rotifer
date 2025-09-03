@@ -73,8 +73,8 @@ cd $new
 	mmseqs convert2fasta nrDB nr
 	esl-sfetch --index nr
 
-	echo "Using linclust to cluster NR database: 50% identity and 80% alignment coverage"
-	mmseqs cluster nrDB nr50clu tmp2 --min-seq-id 0.5 --target-cov 0.9 --threads 20 --split-memory-limit 64G
+	echo "Using linclust to cluster NR database: 50% identity and 90% alignment coverage"
+	mmseqs cluster nrDB nr50clu tmp2 --min-seq-id 0.5 -c 0.9 --cov-mode 0 --threads 20 --split-memory-limit 64G
 	mmseqs createtsv nrDB nr50clu nr50clu.tsv
 	mmseqs result2repseq nrDB nr50clu nr50rep -v 0
 	mmseqs result2flat nrDB nrDB nr50rep nr50 --use-fasta-header  -v 0
