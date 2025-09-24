@@ -312,13 +312,13 @@ def main(args):
     # back to main
     print_features(genomes, args, mode=mode, header=header, name=gembase_name, strain=gembase_strain, protein_dict=gembase_dict)
 
-def print_features(df, args, mode, header, name=None, strain=None, protein_dict=None):
-    if len(df) == 0:
+def print_features(seqrecords, args, mode, header, name=None, strain=None, protein_dict=None):
+    if len(seqrecords) == 0:
         return
     autopid = args.autopid
     if "gembase" in args.autopid:
         autopid = 'auto'
-    df = rgutils.seqrecords_to_dataframe(df, exclude_type=args.exclude_type, codontable=args.codontable, autopid=autopid)
+    df = rgutils.seqrecords_to_dataframe(seqrecords, exclude_type=args.exclude_type, codontable=args.codontable, autopid=autopid)
     if not df.empty:
         if name != None:
             rgutils.gembase(df, name=name, strain=strain, inplace=True, protein_dict=protein_dict)
