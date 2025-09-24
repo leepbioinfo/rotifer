@@ -1,3 +1,9 @@
+import numpy as np
+import pandas as pd
+from collections import Counter
+from rotifer.db import ncbi
+from rotifer.db.ncbi import entrez
+
 def taxon_summary(
     df,
     rank=['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species'],
@@ -41,9 +47,6 @@ def taxon_summary(
         - 'tax_assembly_count': Number of unique assemblies mapped to each taxon
         - 'tax_assembly_pct': Percentage of assemblies mapped to each taxon
     """
-    import pandas as pd
-    from rotifer.db import ncbi
-    from rotifer.db.ncbi import entrez 
     
     tc = ncbi.TaxonomyCursor() 
     
@@ -115,11 +118,6 @@ def shannon(self, ignore_gaps=True):
     entropy : pd.Series
         A pandas Series with entropy values indexed by column number.
     """
-
-    from collections import Counter
-    import numpy as np
-    import pandas as pd
-
 
     # Make sure we only work with sequences
     sequences = self.df[self.df['type'] == 'sequence']['sequence'].tolist()
