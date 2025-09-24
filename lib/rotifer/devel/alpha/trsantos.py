@@ -145,3 +145,45 @@ def shannon(self, ignore_gaps=True):
         entropy_values.append(entropy)
 
     return pd.Series(entropy_values, name='shannon_entropy')
+
+def flag_best_id(group):
+    """
+    Flags one "best" identifier per group of sequence records.
+
+    Priority: 
+    1. Randomly select one with `id_type == 'RefSeq'` (if present).  
+    2. Otherwise, randomly select one with `id_type == 'EMBL-CDS'`.  
+    3. If neither, all flags remain 0.
+
+    Parameters
+    ----------
+    group : pandas.DataFrame
+        Must contain an `'id_type'` column.
+
+    Returns
+    -------
+    numpy.ndarray
+        Array of 0/1 flags (same length as `group`).
+
+    Example
+    -------
+    cluster5['flag'] = cluster5.groupby('qid', group_keys=False).apply(flag_best_id)
+    """
+    # Default: all zeros
+    flag = np.zeros(len(group), dtype=int)
+
+    # First try RefSeq
+    refseq_idx = group[group['id_type'] == 'RefSeq'].index
+    if len(refseq_idx) > 0:
+        chosen = np.random.choice(refseq_idx, 1)
+        flag[group.index.get_loc(chosen[0])] = 1
+        return flag
+
+    # Then try EMBL-CDS
+    embl_idx = group[group['id_type'] == 'EMBL-CDS'].index
+    if len(embl_idx) > 0:
+        chosen = np.random.choice(embl_idx, 1)
+        flag[group.index.get_loc(chosen[0])] = 1
+
+    return flag
+
