@@ -1,0 +1,18 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import pandas as pd
+import rotifer
+from rotifer.db import ncbi
+
+genomesdir = os.path.join("/databases","genomes")
+print(genomesdir)
+gc = ncbi.GenomeCursor(mirror=genomesdir)
+dirs = []
+for x in sys.stdin.readlines():
+    x = x.strip()
+    dirs.append((x, gc.cursors["mirror"].genome_path(x)))
+dirs = pd.DataFrame(dirs, columns=["accession","path"])
+dirs.to_csv(sys.stdout, sep="\t", index=False)
+exit(0)
