@@ -236,12 +236,6 @@ def gembase(ndf, name, strain=0, inplace=True, protein_dict=None):
     from datetime import datetime
     isProtein = ndf.type == "CDS"
     assemblyChange = ndf.assembly != ndf.assembly.shift(1)
-    contigChange = ndf.nucleotide != ndf.nucleotide.shift(1)
-    ncontig = contigChange.cumsum()
-    contig_number = np.where(assemblyChange, ncontig - 1, np.NaN)
-    contig_number = ncontig - pd.Series(contig_number).ffill()
-    contig_number = contig_number.astype(int).astype(str).str.zfill(5)
-    contig_place = pd.Series(np.where(contigChange | (ndf.nucleotide != ndf.nucleotide.shift(-1)), "b", "i"))
     gembase_strain = (assemblyChange.cumsum() + int(strain) - 1).astype(str).str.zfill(5)
     protein_number = isProtein.cumsum() - pd.Series(np.where(assemblyChange, isProtein.cumsum() - 1, np.NaN)).ffill()
     protein_number = protein_number.astype(int).astype(str).str.zfill(5)
@@ -250,6 +244,12 @@ def gembase(ndf, name, strain=0, inplace=True, protein_dict=None):
         gembase = gembase_strain + ":" + protein_number
         gembase = gembase.map(protein_dict).fillna("")
     else:
+        contigChange = ndf.nucleotide != ndf.nucleotide.shift(1)
+        ncontig = contigChange.cumsum()
+        contig_number = np.where(assemblyChange, ncontig - 1, np.NaN)
+        contig_number = ncontig - pd.Series(contig_number).ffill()
+        contig_number = contig_number.astype(int).astype(str).str.zfill(5)
+        contig_place = pd.Series(np.where(contigChange | (ndf.nucleotide != ndf.nucleotide.shift(-1)), "b", "i"))
         gembase = name + "." + datetime.now().strftime("%m") + datetime.now().strftime("%y")
         gembase = gembase + "." + gembase_strain
         gembase = pd.Series(np.where(isProtein, gembase + "." + contig_number + contig_place + "_", ""))
