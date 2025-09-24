@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 # Required libraries
-import datetime
+from datetime import datetime
 from Bio import SeqIO
 from rotifer.genome import io as rgio
 from rotifer.genome.io import GenbankAssemblyFromFilename
@@ -190,6 +190,16 @@ There are two ways you can name your genomes:
     return args
 
 def main(args):
+    # Initiate gembase prefix
+    gembase_name = None
+    gembase_strain_start = 1
+    if "gembase" in args.autopid:
+        gembase = args.autopid.split(":")
+        if len(gembase) == 3:
+            gembase_strain_start = int(gembase[2])
+        gembase_name = gembase[1]
+        gembase_prefix = gembase_name + "." + datetime.now().strftime("%m") + datetime.now().strftime("%y")
+
     # Prepare DNA output stream
     if args.dna:
         if args.dna == 'stdout':
@@ -212,12 +222,29 @@ def main(args):
 
     # Process input files
     lastassembly = None
+    gembase_strain = gembase_strain_start - 1
     genome_order = 0
-    block_id = -1
+    protein_order = 0
+    gembase_contig = 0
+    gembase_dict = {}
+    genomes = []
     for s in rgio.parse(args.files, args.informat, organism=args.organism, strain=args.strain, assembly=args.assembly, topology=args.topology, keywords=args.keywords):
-        if hasattr(s,'assembly') and s.assembly != lastassembly:
+        assembly = [ x.replace("Assembly:","") for x in s.dbxrefs if "Assembly:" == x[0:9] ][0]
+        if hasattr(s,'assembly'):
+            assembly = s.assembly
+        if assembly != lastassembly:
+            if len(genomes) > 0:
+                print_features(genomes, args, mode=mode, header=header, name=gembase_name, strain=gembase_strain, protein_dict=gembase_dict)
+                header = False
+                mode = 'a'
             genome_order = 0
-            lastassembly = s.assembly
+            protein_order = 0
+            gembase_strain += 1
+            gembase_contig = 0
+            gembase_dict = {}
+            lastassembly = assembly
+            genomes = []
+        gembase_contig += 1
 
         # Dump DNA sequence
         if args.dna:
@@ -227,9 +254,16 @@ def main(args):
         if args.protein:
             if args.protein == 'stdout':
                 args.protein = sys.stdout
+            first_protein = [ x+1 for x in range(0,len(s.features)) if s.features[x].type == "CDS" and ('pseudo' not in s.features[x].qualifiers) ]
+            if len(first_protein):
+                last_protein = first_protein[-1]
+                first_protein = first_protein[0]
+            protein_in_contig = 0
             for f in s.features:
                 genome_order += 1
+                protein_in_contig += 1
                 if (f.type == 'CDS') and ('pseudo' not in f.qualifiers):
+                    protein_order += 1
                     if 'translation' in f.qualifiers:
                         #from Bio.Alphabet import IUPAC
                         from Bio.Seq import Seq
@@ -248,6 +282,13 @@ def main(args):
                         p.id = f.qualifiers['locus_tag'][0]
                     else:
                         p.id = f'{s.name}_{genome_order:06}'
+                    if "gembase" in args.autopid:
+                        gembase_place = "i"
+                        if protein_in_contig == first_protein or protein_in_contig == last_protein:
+                            gembase_place = "b"
+                        gembase_id = f'{gembase_prefix}.{gembase_strain:05}.{gembase_contig:06}{gembase_place}_{protein_order:05}'
+                        gembase_dict[f'{gembase_strain:05}:{protein_order:05}'] = gembase_id 
+                        p.id = f'{gembase_id} {p.id}'
                     p.name = p.id
 
                     # Description
@@ -266,12 +307,22 @@ def main(args):
 
         # Print features
         if args.features:
-            df = rgutils.seqrecords_to_dataframe(s, exclude_type=args.exclude_type, codontable=args.codontable, autopid=args.autopid)
-            if not df.empty:
-                df.to_csv(args.features, mode=mode, index=False, header=header, sep=args.output_delimiter)
-                header = False
-                mode = 'a'
-            block_id -= 1
+            genomes.append(s)
+
+    # back to main
+    print_features(genomes, args, mode=mode, header=header, name=gembase_name, strain=gembase_strain, protein_dict=gembase_dict)
+
+def print_features(df, args, mode, header, name=None, strain=None, protein_dict=None):
+    if len(df) == 0:
+        return
+    autopid = args.autopid
+    if "gembase" in args.autopid:
+        autopid = 'auto'
+    df = rgutils.seqrecords_to_dataframe(df, exclude_type=args.exclude_type, codontable=args.codontable, autopid=autopid)
+    if not df.empty:
+        if name != None:
+            rgutils.gembase(df, name=name, strain=strain, inplace=True, protein_dict=protein_dict)
+        df.to_csv(args.features, mode=mode, index=False, header=header, sep=args.output_delimiter)
 
 if __name__ == "__main__":
     main(parse_cli())
