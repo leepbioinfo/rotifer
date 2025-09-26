@@ -1,3 +1,9 @@
+import numpy as np
+import pandas as pd
+from collections import Counter
+from rotifer.db import ncbi
+from rotifer.db.ncbi import entrez
+
 def taxon_summary(
     df,
     rank=['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species'],
@@ -41,9 +47,6 @@ def taxon_summary(
         - 'tax_assembly_count': Number of unique assemblies mapped to each taxon
         - 'tax_assembly_pct': Percentage of assemblies mapped to each taxon
     """
-    import pandas as pd
-    from rotifer.db import ncbi
-    from rotifer.db.ncbi import entrez 
     
     tc = ncbi.TaxonomyCursor() 
     
@@ -116,11 +119,6 @@ def shannon(self, ignore_gaps=True):
         A pandas Series with entropy values indexed by column number.
     """
 
-    from collections import Counter
-    import numpy as np
-    import pandas as pd
-
-
     # Make sure we only work with sequences
     sequences = self.df[self.df['type'] == 'sequence']['sequence'].tolist()
 
@@ -145,3 +143,27 @@ def shannon(self, ignore_gaps=True):
         entropy_values.append(entropy)
 
     return pd.Series(entropy_values, name='shannon_entropy')
+
+def flag_best_id(group):
+    """
+    Flag one "best" id per group.
+
+    Priority: pick a random row with id_type 'RefSeq', else 'EMBL-CDS'.
+    Returns the same group DataFrame with a new integer 'flag' column (0/1).
+    Example:
+        radsamorg = radsamorg.groupby('qid', group_keys=False).apply(flag_best_id)
+    """
+    n = len(group)
+    flags = np.zeros(n, dtype=int)
+
+    id_types = group['id_type'].to_numpy()
+    for t in ("RefSeq", "EMBL-CDS"):
+        pos = np.flatnonzero(id_types == t)   # positions within the group (0..n-1)
+        if pos.size:
+            choice = np.random.choice(pos)
+            flags[choice] = 1
+            break
+
+    group = group.copy()     # avoid SettingWithCopyWarning
+    group['flag'] = flags
+    return group
