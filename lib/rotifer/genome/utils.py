@@ -253,6 +253,7 @@ def gembase(ndf, name, strain=0, inplace=True, protein_dict=None):
         gembase = name + "." + datetime.now().strftime("%m") + datetime.now().strftime("%y")
         gembase = gembase + "." + gembase_strain
         gembase = pd.Series(np.where(isProtein, gembase + "." + contig_number + contig_place + "_", ""))
+        gembase = gembase + protein_number
     if inplace == True:
         ndf['gembase'] = gembase
     else:
