@@ -286,14 +286,19 @@ def hmmscan(sequences, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm
                     "aln_target_to":         y.alignment.target_to,
                     'aln_target_length':     y.alignment.target_length
                     })
+    
     df = pd.DataFrame(r)
 
     if columns:
         df = df[columns]
     
-    if rename:	
-	df.rename({'aln_target_name':'sequence','aln_hmm_name':'model','i_evalue':'evalue','env_from':'estart', 'env_to':'eend'}, axis=1, inplace=True)
-    
+    if rename:
+    	df.rename({'aln_target_name': 'sequence',
+                   'aln_hmm_name': 'model',
+                   'i_evalue': 'evalue',
+                   'env_from': 'estart',
+                   'env_to': 'eend'}, axis=1, inplace=True)
+
     return df
 
 def add_arch_to_df(df, column='pid', cpus=0, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm'):
