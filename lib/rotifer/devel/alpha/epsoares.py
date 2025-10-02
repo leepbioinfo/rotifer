@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import pyhmmer as ph
 import rotifer.devel.beta.sequence as rdbs
+from rotifer.devel.alpha import trsantos as rdat
 from rotifer.db import ncbi
 from rotifer.taxonomy import utils as rtu
 from rotifer.interval import utils as riu
@@ -101,28 +102,61 @@ def to_network(df, target=['pfam'], ftype=['CDS'], interaction=True, ignore = []
     w = w.agg(weight=('block_id', 'count'), blocks=('block_id', 'nunique')).reset_index()
     return w
 
-def compact_for_treeviewer(
-        ndf,
-        acc,
-        columns=['pid','assembly','nucleotide','block_id','organism','lineage','classification','pfam','aravind','compact','compacts'],
-        save=None,
-    ):
+def make_palette(categories):
+    """
+    Generate a color-blind safe palette dictionary 
+    for the given list of category names (max 10 entries).
+    """
+    safe_colors = [
+        "#E69F00", "#56B4E9", "#009E73", "#F0E442",
+        "#0072B2", "#D55E00", "#CC79A7", "#999999",
+        "#117733", "#882255"
+    ]
+
+    # Keep only as many as the safe palette allows
+    categories = categories[:len(safe_colors)]
+
+    palette = {cat: safe_colors[i] for i, cat in enumerate(categories)}
+
+    return palette
+
+def attribute_table(
+    ndf,
+    columns_list=['pid', 'pfam', 'compact_total', 'compact_same_strand', 'kingdom', 'phylum', 'class', 'classification'],
+    tax_parser= True,
+    color_by_tax='phylum',
+    save=None):
+
     '''
-    Add a compact GeneNeighborhoodDF representation, select
-    and reorder columns to match those required by TreeViewer
-    and FigTree (leaf identifier as first column).
+    Make a attribute table using the Neighborhood dataframe with a architecure column, 
+    select and reorder columns to match those required by TreeViewer (leaf identifier 
+    as first column). Also permits automatic coloring by taxonomy.
     '''
+
     ndfc = ndf.compact()
     ndfcs = ndf.select_neighbors(strand = True).compact()
-    ndf_acc = ndf[ndf.pid.isin(acc)]
-    ndf_acc['compact'] = ndf_acc.block_id.map(ndfc['compact'].to_dict())
-    ndf_acc['compacts'] = ndf_acc.block_id.map(ndfcs['compact'].to_dict())
-    table = ndf_acc[columns].drop_duplicates(columns[0])
+    att = ndf[ndf.pid.isin(ndf.query('query == 1').pid)].drop_duplicates('pid')
+    att['compact_total'] = att.block_id.map(ndfc['compact'].to_dict())
+    att['compact_same_strand'] = att.block_id.map(ndfcs['compact'].to_dict())
+
+    if tax_parser:
+        tax = rdat.taxon_summary(att).set_index('taxid')
+        for col in tax.columns:
+            att[col] = att['taxid'].map(tax[col].to_dict())
+
+    if columns_list:
+        att = att[columns_list]
+
+    if color_by_tax:
+        palette = make_palette(att[color_by_tax].value_counts().head(10).index.tolist())
+        att['Color'] = att[color_by_tax].map(palette).fillna('#000000')
+
     if save:
-        table.to_csv(save, sep = '\t', index = False)
+        att.to_csv(save, sep = '\t', index = False)
         print(f'Table saved to {save}')
+
     else:
-        return table
+        return att
 
 def make_heatmap(
         ndf,
