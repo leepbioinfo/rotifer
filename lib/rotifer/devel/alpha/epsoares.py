@@ -211,7 +211,7 @@ def make_heatmap(
     plt.savefig(f'{name}', bbox_inches='tight')
     plt.close(fig)
 
-def hmmscan(sequences, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm', cpus=0, columns=['aln_target_name', 'aln_hmm_name','i_evalue','c_evalue','score','env_score','aln_target_from','aln_target_to', 'aln_target_length', 'aln_hmm_length', 'env_from', 'env_to']):
+def hmmscan(sequences, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm', cpus=0, columns=['aln_target_name', 'aln_hmm_name','i_evalue','c_evalue','score','env_score','aln_target_from','aln_target_to', 'aln_target_length', 'aln_hmm_length', 'env_from', 'env_to'], rename=True):
     
     '''
     Perform an hmmscan of protein sequences against a Pfam HMM database.
@@ -240,9 +240,6 @@ def hmmscan(sequences, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm
            hmms = list(hmm_file.optimized_profiles())
        else:
            hmms = list(hmm_file)
-
-    #with ph.plan7.HMMFile(pfam_database_path) as hmm_file:
-    #    hmms = list(hmm_file.optimized_profiles())
 
     #Sequences load
     abc = ph.easel.Alphabet.amino()
@@ -293,16 +290,19 @@ def hmmscan(sequences, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm
 
     if columns:
         df = df[columns]
-
+    
+    if rename:	
+	df.rename({'aln_target_name':'sequence','aln_hmm_name':'model','i_evalue':'evalue','env_from':'estart', 'env_to':'eend'}, axis=1, inplace=True)
+    
     return df
 
-def add_arch_to_df(df, column='pid', cpus=0, pfam_database_path='/databases/pfam/Pfam-A.hmm'):
+def add_arch_to_df(df, column='pid', cpus=0, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm'):
     '''
     Add a column pfam with the domain architecture for the input accessions.
     '''
-    h = hmmscan(df[column].dropna().tolist(), cpus=cpus, pfam_database_path=pfam_database_path)
+    h = hmmscan(df[column].dropna().tolist(), cpus=cpus, file=file, pfam_database_path=pfam_database_path)
     h.rename({'aln_target_name':'sequence','aln_hmm_name':'model','i_evalue':'evalue','env_from':'estart', 'env_to':'eend'}, axis=1, inplace=True)
-    arch = riu.filter_nonoverlapping_regions(h, **riu.config['hmmer']).groupby('sequence').agg(pfam = ('model',lambda x: '+'.join(x.astype(str)))).reset_index()
+    arch = riu.filter_nonoverlapping_regions(h.loc[h.groupby(['sequence','model']).score.idxmax()], **riu.config['hmmer']).groupby('sequence').agg(pfam = ('model',lambda x: '+'.join(x.astype(str)))).reset_index()
     arch.rename({'sequence':column}, axis = 1, inplace = True)
     arch = arch.set_index(column).pfam.to_dict()
     df['pfam'] = df[column].map(arch)
