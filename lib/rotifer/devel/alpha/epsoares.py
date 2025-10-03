@@ -125,6 +125,7 @@ def attribute_table(
     columns_list=['pid', 'pfam', 'compact_total', 'compact_same_strand', 'kingdom', 'phylum', 'class', 'classification'],
     tax_parser= True,
     color_by_tax='phylum',
+    number_of_taxa=5
     save=None):
 
     '''
@@ -148,7 +149,7 @@ def attribute_table(
         att = att[columns_list]
 
     if color_by_tax:
-        palette = make_palette(att[color_by_tax].value_counts().head(10).index.tolist())
+        palette = make_palette(att[color_by_tax].value_counts().head(number_of_taxa).index.tolist())
         att['Color'] = att[color_by_tax].map(palette).fillna('#000000')
 
     if save:
