@@ -125,7 +125,7 @@ def attribute_table(
     columns_list=['pid', 'pfam', 'compact_total', 'compact_same_strand', 'kingdom', 'phylum', 'class', 'classification'],
     tax_parser= True,
     color_by_tax='phylum',
-    number_of_taxa=5
+    number_of_taxa=5,
     save=None):
 
     '''
