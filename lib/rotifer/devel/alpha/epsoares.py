@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import pyhmmer as ph
 import rotifer.devel.beta.sequence as rdbs
+from rotifer.devel.alpha import trsantos as rdat
 from rotifer.db import ncbi
 from rotifer.taxonomy import utils as rtu
 from rotifer.interval import utils as riu
@@ -101,28 +102,62 @@ def to_network(df, target=['pfam'], ftype=['CDS'], interaction=True, ignore = []
     w = w.agg(weight=('block_id', 'count'), blocks=('block_id', 'nunique')).reset_index()
     return w
 
-def compact_for_treeviewer(
-        ndf,
-        acc,
-        columns=['pid','assembly','nucleotide','block_id','organism','lineage','classification','pfam','aravind','compact','compacts'],
-        save=None,
-    ):
+def make_palette(categories):
+    """
+    Generate a color-blind safe palette dictionary 
+    for the given list of category names (max 10 entries).
+    """
+    safe_colors = [
+        "#E69F00", "#56B4E9", "#009E73", "#F0E442",
+        "#0072B2", "#D55E00", "#CC79A7", "#999999",
+        "#117733", "#882255"
+    ]
+
+    # Keep only as many as the safe palette allows
+    categories = categories[:len(safe_colors)]
+
+    palette = {cat: safe_colors[i] for i, cat in enumerate(categories)}
+
+    return palette
+
+def attribute_table(
+    ndf,
+    columns_list=['pid', 'pfam', 'compact_total', 'compact_same_strand', 'kingdom', 'phylum', 'class', 'classification'],
+    tax_parser= True,
+    color_by_tax='phylum',
+    number_of_taxa=5,
+    save=None):
+
     '''
-    Add a compact GeneNeighborhoodDF representation, select
-    and reorder columns to match those required by TreeViewer
-    and FigTree (leaf identifier as first column).
+    Make a attribute table using the Neighborhood dataframe with a architecure column, 
+    select and reorder columns to match those required by TreeViewer (leaf identifier 
+    as first column). Also permits automatic coloring by taxonomy.
     '''
+
     ndfc = ndf.compact()
     ndfcs = ndf.select_neighbors(strand = True).compact()
-    ndf_acc = ndf[ndf.pid.isin(acc)]
-    ndf_acc['compact'] = ndf_acc.block_id.map(ndfc['compact'].to_dict())
-    ndf_acc['compacts'] = ndf_acc.block_id.map(ndfcs['compact'].to_dict())
-    table = ndf_acc[columns].drop_duplicates(columns[0])
+    att = ndf[ndf.pid.isin(ndf.query('query == 1').pid)].drop_duplicates('pid')
+    att['compact_total'] = att.block_id.map(ndfc['compact'].to_dict())
+    att['compact_same_strand'] = att.block_id.map(ndfcs['compact'].to_dict())
+
+    if tax_parser:
+        tax = rdat.taxon_summary(att).set_index('taxid')
+        for col in tax.columns:
+            att[col] = att['taxid'].map(tax[col].to_dict())
+
+    if columns_list:
+        att = att[columns_list]
+
+    if color_by_tax:
+        palette = make_palette(att[color_by_tax].value_counts().head(number_of_taxa).index.tolist())
+        att['Color'] = att[color_by_tax].map(palette).fillna('#000000')
+
     if save:
-        table.to_csv(save, sep = '\t', index = False)
+        att.to_csv(save, sep = '\t', index = False)
         print(f'Table saved to {save}')
+
     else:
-        return table
+        return att
 
 def make_heatmap(
         ndf,
@@ -177,7 +212,7 @@ def make_heatmap(
     plt.savefig(f'{name}', bbox_inches='tight')
     plt.close(fig)
 
-def hmmscan(sequences, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm', cpus=0, columns=['aln_target_name', 'aln_hmm_name','i_evalue','c_evalue','score','env_score','aln_target_from','aln_target_to', 'aln_target_length', 'aln_hmm_length', 'env_from', 'env_to']):
+def hmmscan(sequences, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm', cpus=0, columns=['aln_target_name', 'aln_hmm_name','i_evalue','c_evalue','score','env_score','aln_target_from','aln_target_to', 'aln_target_length', 'aln_hmm_length', 'env_from', 'env_to'], rename=True):
     
     '''
     Perform an hmmscan of protein sequences against a Pfam HMM database.
@@ -206,9 +241,6 @@ def hmmscan(sequences, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm
            hmms = list(hmm_file.optimized_profiles())
        else:
            hmms = list(hmm_file)
-
-    #with ph.plan7.HMMFile(pfam_database_path) as hmm_file:
-    #    hmms = list(hmm_file.optimized_profiles())
 
     #Sequences load
     abc = ph.easel.Alphabet.amino()
@@ -255,20 +287,28 @@ def hmmscan(sequences, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm
                     "aln_target_to":         y.alignment.target_to,
                     'aln_target_length':     y.alignment.target_length
                     })
+    
     df = pd.DataFrame(r)
 
     if columns:
         df = df[columns]
+    
+    if rename:
+    	df.rename({'aln_target_name': 'sequence',
+                   'aln_hmm_name': 'model',
+                   'i_evalue': 'evalue',
+                   'env_from': 'estart',
+                   'env_to': 'eend'}, axis=1, inplace=True)
 
     return df
 
-def add_arch_to_df(df, column='pid', cpus=0, pfam_database_path='/databases/pfam/Pfam-A.hmm'):
+def add_arch_to_df(df, column='pid', cpus=0, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm'):
     '''
     Add a column pfam with the domain architecture for the input accessions.
     '''
-    h = hmmscan(df[column].dropna().tolist(), cpus=cpus, pfam_database_path=pfam_database_path)
+    h = hmmscan(df[column].dropna().tolist(), cpus=cpus, file=file, pfam_database_path=pfam_database_path)
     h.rename({'aln_target_name':'sequence','aln_hmm_name':'model','i_evalue':'evalue','env_from':'estart', 'env_to':'eend'}, axis=1, inplace=True)
-    arch = riu.filter_nonoverlapping_regions(h, **riu.config['hmmer']).groupby('sequence').agg(pfam = ('model',lambda x: '+'.join(x.astype(str)))).reset_index()
+    arch = riu.filter_nonoverlapping_regions(h.loc[h.groupby(['sequence','model']).score.idxmax()], **riu.config['hmmer']).groupby('sequence').agg(pfam = ('model',lambda x: '+'.join(x.astype(str)))).reset_index()
     arch.rename({'sequence':column}, axis = 1, inplace = True)
     arch = arch.set_index(column).pfam.to_dict()
     df['pfam'] = df[column].map(arch)
