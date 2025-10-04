@@ -233,17 +233,17 @@ def seqrecords_to_dataframe(seqrecs=None, exclude_type=[], autopid=False, assemb
         return(NeighborhoodDF(pd.DataFrame(columns=_columns)))
 
 def gembase(ndf, name, strain=0, inplace=True, protein_dict=None):
-    from datetime import datetime
-    isProtein = ndf.type == "CDS"
     assemblyChange = ndf.assembly != ndf.assembly.shift(1)
     gembase_strain = (assemblyChange.cumsum() + int(strain) - 1).astype(str).str.zfill(5)
-    protein_number = isProtein.cumsum() - pd.Series(np.where(assemblyChange, isProtein.cumsum() - 1, np.NaN)).ffill()
-    protein_number = protein_number.astype(int).astype(str).str.zfill(5)
-    protein_number = pd.Series(np.where(isProtein, protein_number, ""))
+    tmp = ndf.query('type == "CDS"')
+    protein_number = pd.Series(1, index=tmp.index.copy()).cumsum()
+    tmp = ((tmp.assembly != tmp.assembly.shift(1)) * protein_number).cummax()
+    protein_number = (protein_number - tmp + 1).astype(int).astype(str).str.zfill(5)
     if protein_dict:
         gembase = gembase_strain + ":" + protein_number
         gembase = gembase.map(protein_dict).fillna("")
     else:
+        from datetime import datetime
         contigChange = ndf.nucleotide != ndf.nucleotide.shift(1)
         ncontig = contigChange.cumsum()
         contig_number = np.where(assemblyChange, ncontig - 1, np.NaN)

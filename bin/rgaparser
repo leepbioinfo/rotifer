@@ -73,6 +73,16 @@ There are two ways you can name your genomes:
 ''',
     default = ":genbank")
 
+    parser.add(long_arg = '--cds',
+                dest = 'cds',
+                helper = 'Set path to save the DNA sequences of coding regions.',
+                default = None)
+
+    parser.add(long_arg = '--cds_format',
+                dest = 'cds_format',
+                helper = 'Set format for nucleotide coding sequences.',
+                default = 'fasta')
+
     parser.add(long_arg = '--codontable',
                 dest = 'codontable',
                 helper = "Codon table to use for translating CDS's.",
@@ -200,6 +210,13 @@ def main(args):
         gembase_name = gembase[1]
         gembase_prefix = gembase_name + "." + datetime.now().strftime("%m") + datetime.now().strftime("%y")
 
+    # Prepare CDS output stream
+    if args.cds:
+        if args.cds == 'stdout':
+            cds = sys.stdout
+        else:
+            cds = open(args.cds, mode="w")
+
     # Prepare DNA output stream
     if args.dna:
         if args.dna == 'stdout':
@@ -215,7 +232,7 @@ def main(args):
             protein = open(args.protein, mode="w")
 
     # Prepare feature output stream
-    if (args.features == 'stdout') or not (args.features or args.dna or args.protein):
+    if (args.features == 'stdout') or not (args.features or args.dna or args.protein or args.cds):
         args.features = sys.stdout
     header = args.header
     mode = "w"
@@ -223,12 +240,16 @@ def main(args):
     # Process input files
     lastassembly = None
     gembase_strain = gembase_strain_start - 1
-    genome_order = 0
+    genome_order = -1
     protein_order = 0
     gembase_contig = 0
     gembase_dict = {}
     genomes = []
     for s in rgio.parse(args.files, args.informat, organism=args.organism, strain=args.strain, assembly=args.assembly, topology=args.topology, keywords=args.keywords):
+        gembase_contig += 1
+        topology = 'linear'
+        if 'topology' in s.annotations:
+            topology = s.annotations['topology']
         assembly = [ x.replace("Assembly:","") for x in s.dbxrefs if "Assembly:" == x[0:9] ][0]
         if hasattr(s,'assembly'):
             assembly = s.assembly
@@ -237,73 +258,81 @@ def main(args):
                 print_features(genomes, args, mode=mode, header=header, name=gembase_name, strain=gembase_strain, protein_dict=gembase_dict)
                 header = False
                 mode = 'a'
-            genome_order = 0
+            genome_order = -1
             protein_order = 0
             gembase_strain += 1
             gembase_contig = 0
             gembase_dict = {}
             lastassembly = assembly
             genomes = []
-        gembase_contig += 1
 
         # Dump DNA sequence
         if args.dna:
             SeqIO.write(s, dna, args.dna_format)
 
         # Dump translated CDS (protein) sequences
-        if args.protein:
-            if args.protein == 'stdout':
-                args.protein = sys.stdout
-            first_protein = [ x+1 for x in range(0,len(s.features)) if s.features[x].type == "CDS" and ('pseudo' not in s.features[x].qualifiers) ]
+        if args.protein or args.cds:
+            first_protein = [ x for x in range(0,len(s.features)) if s.features[x].type == "CDS" and ('pseudo' not in s.features[x].qualifiers) ]
             if len(first_protein):
                 last_protein = first_protein[-1]
                 first_protein = first_protein[0]
-            protein_in_contig = 0
+            protein_in_contig = -1
+            feature_order = -1
             for f in s.features:
+                feature_order += 1
                 genome_order += 1
-                protein_in_contig += 1
                 if (f.type == 'CDS') and ('pseudo' not in f.qualifiers):
                     protein_order += 1
-                    if 'translation' in f.qualifiers:
-                        #from Bio.Alphabet import IUPAC
-                        from Bio.Seq import Seq
-                        from Bio.SeqRecord import SeqRecord
-                        #p = SeqRecord(Seq(f.qualifiers['translation'][0], IUPAC.protein))
-                        p = SeqRecord(Seq(f.qualifiers['translation'][0]))
-                    else:
-                        if (len(f) % 3 == 0):
-                            s = s[0:3*int(len(f)/3)]
-                        p = f.translate(s, table=args.codontable)
+                    protein_in_contig += 1
 
-                    # Set protein accession
+                    # Set protein/CDS identifier
+                    pid = f'{s.name}_{genome_order:06}'
                     if 'protein_id' in f.qualifiers:
-                        p.id = f.qualifiers['protein_id'][0]
+                        pid = f.qualifiers['protein_id'][0]
                     elif 'locus_tag' in f.qualifiers:
-                        p.id = f.qualifiers['locus_tag'][0]
-                    else:
-                        p.id = f'{s.name}_{genome_order:06}'
+                        pid = f.qualifiers['locus_tag'][0]
                     if "gembase" in args.autopid:
                         gembase_place = "i"
-                        if protein_in_contig == first_protein or protein_in_contig == last_protein:
+                        #if (topology == "circular") and (feature_order == first_protein or feature_order == last_protein):
+                        if (feature_order == first_protein or feature_order == last_protein):
                             gembase_place = "b"
                         gembase_id = f'{gembase_prefix}.{gembase_strain:05}.{gembase_contig:06}{gembase_place}_{protein_order:05}'
                         gembase_dict[f'{gembase_strain:05}:{protein_order:05}'] = gembase_id 
-                        p.id = f'{gembase_id} {p.id}'
-                    p.name = p.id
+                        pid = f'{gembase_id} {pid}'
 
                     # Description
+                    description = 'hypothetical protein'
                     if 'product' in f.qualifiers:
-                        p.description = f.qualifiers['product'][0].rstrip(";")
-                    else:
-                        p.description = 'hypothetical protein'
+                        description = f.qualifiers['product'][0].rstrip(";")
 
-                    # Copy annotations
-                    for tag in "organism taxonomy".split(" "):
-                        if tag in s.annotations:
-                            p.annotations[tag] = s.annotations[tag]
+                    # Dump CDS sequence
+                    if args.cds:
+                        c = f.extract(s)
+                        c.id = pid
+                        c.name = pid
+                        c.description = description
+                        for tag in "organism taxonomy".split(" "):
+                            if tag in s.annotations:
+                                c.annotations[tag] = s.annotations[tag]
+                        SeqIO.write(c, cds, args.cds_format)
 
-                    # Dump sequence
-                    SeqIO.write(p, protein, args.protein_format)
+                    # Dump protein sequence
+                    if args.protein:
+                        if 'translation' in f.qualifiers:
+                            from Bio.Seq import Seq
+                            from Bio.SeqRecord import SeqRecord
+                            p = SeqRecord(Seq(f.qualifiers['translation'][0]))
+                        else:
+                            if (len(f) % 3 == 0):
+                                s = s[0:3*int(len(f)/3)]
+                            p = f.translate(s, table=args.codontable)
+                        p.id = pid
+                        p.name = pid
+                        p.description = description
+                        for tag in "organism taxonomy".split(" "):
+                            if tag in s.annotations:
+                                p.annotations[tag] = s.annotations[tag]
+                        SeqIO.write(p, protein, args.protein_format)
 
         # Print features
         if args.features:
