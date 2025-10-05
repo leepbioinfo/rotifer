@@ -243,32 +243,28 @@ def main(args):
     genome_order = -1
     protein_order = 0
     gembase_contig = 0
-    gembase_dict = {}
-    genomes = []
     for s in rgio.parse(args.files, args.informat, organism=args.organism, strain=args.strain, assembly=args.assembly, topology=args.topology, keywords=args.keywords):
-        gembase_contig += 1
         topology = 'linear'
         if 'topology' in s.annotations:
             topology = s.annotations['topology']
         assembly = [ x.replace("Assembly:","") for x in s.dbxrefs if "Assembly:" == x[0:9] ][0]
-        if hasattr(s,'assembly'):
-            assembly = s.assembly
         if assembly != lastassembly:
-            if len(genomes) > 0:
-                print_features(genomes, args, mode=mode, header=header, name=gembase_name, strain=gembase_strain, protein_dict=gembase_dict)
-                header = False
-                mode = 'a'
             genome_order = -1
             protein_order = 0
             gembase_strain += 1
             gembase_contig = 0
-            gembase_dict = {}
             lastassembly = assembly
-            genomes = []
+        gembase_contig += 1
+        if "gembase" in args.autopid:
+            contig_prefix = f'{gembase_prefix}.{gembase_strain:05}.{gembase_contig:05}'
 
         # Dump DNA sequence
         if args.dna:
+            origID = s.id
+            if "gembase" in args.autopid:
+                s.id = f'{contig_prefix} {s.id}'
             SeqIO.write(s, dna, args.dna_format)
+            s.id = origID
 
         # Dump translated CDS (protein) sequences
         if args.protein or args.cds:
@@ -276,14 +272,13 @@ def main(args):
             if len(first_protein):
                 last_protein = first_protein[-1]
                 first_protein = first_protein[0]
-            protein_in_contig = -1
+
             feature_order = -1
             for f in s.features:
                 feature_order += 1
                 genome_order += 1
                 if (f.type == 'CDS') and ('pseudo' not in f.qualifiers):
                     protein_order += 1
-                    protein_in_contig += 1
 
                     # Set protein/CDS identifier
                     pid = f'{s.name}_{genome_order:06}'
@@ -291,14 +286,14 @@ def main(args):
                         pid = f.qualifiers['protein_id'][0]
                     elif 'locus_tag' in f.qualifiers:
                         pid = f.qualifiers['locus_tag'][0]
+
+                    # Build gembase identifier
                     if "gembase" in args.autopid:
                         gembase_place = "i"
-                        #if (topology == "circular") and (feature_order == first_protein or feature_order == last_protein):
-                        if (feature_order == first_protein or feature_order == last_protein):
+                        if (topology != "circular") and (feature_order == first_protein or feature_order == last_protein):
                             gembase_place = "b"
-                        gembase_id = f'{gembase_prefix}.{gembase_strain:05}.{gembase_contig:06}{gembase_place}_{protein_order:05}'
-                        gembase_dict[f'{gembase_strain:05}:{protein_order:05}'] = gembase_id 
-                        pid = f'{gembase_id} {pid}'
+                        f.qualifiers['gembase'] = [f'{contig_prefix}{gembase_place}_{protein_order:05}']
+                        pid = f'{f.qualifiers["gembase"][0]} {pid}'
 
                     # Description
                     description = 'hypothetical protein'
@@ -336,22 +331,18 @@ def main(args):
 
         # Print features
         if args.features:
-            genomes.append(s)
-
+            print_features(s, args, mode, header)
+            header = False
+            mode = 'a'
     # back to main
-    print_features(genomes, args, mode=mode, header=header, name=gembase_name, strain=gembase_strain, protein_dict=gembase_dict)
 
-def print_features(seqrecords, args, mode, header, name=None, strain=None, protein_dict=None):
-    if len(seqrecords) == 0:
-        return
-    autopid = args.autopid
+def print_features(seqrecords, args, mode, header):
+    kwargs = {}
     if "gembase" in args.autopid:
-        autopid = 'auto'
-    df = rgutils.seqrecords_to_dataframe(seqrecords, exclude_type=args.exclude_type, codontable=args.codontable, autopid=autopid)
-    if not df.empty:
-        if name != None:
-            rgutils.gembase(df, name=name, strain=strain, inplace=True, protein_dict=protein_dict)
-        df.to_csv(args.features, mode=mode, index=False, header=header, sep=args.output_delimiter)
+        kwargs["autopid"] = 'auto'
+        kwargs["parsers"] = {"gembase":rgutils._parse_qualifiers}
+    df = rgutils.seqrecords_to_dataframe(seqrecords, exclude_type=args.exclude_type, codontable=args.codontable, **kwargs)
+    df.to_csv(args.features, mode=mode, index=False, header=header, sep=args.output_delimiter)
 
 if __name__ == "__main__":
     main(parse_cli())
