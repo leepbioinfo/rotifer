@@ -267,7 +267,7 @@ def main(args):
             s.id = origID
 
         # Dump translated CDS (protein) sequences
-        if args.protein or args.cds:
+        if "gembase" in args.autopid or args.protein or args.cds:
             first_protein = [ x for x in range(0,len(s.features)) if s.features[x].type == "CDS" and ('pseudo' not in s.features[x].qualifiers) ]
             if len(first_protein):
                 last_protein = first_protein[-1]
