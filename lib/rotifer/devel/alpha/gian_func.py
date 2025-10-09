@@ -690,7 +690,7 @@ def psiblast(acc,
     elif db == "af":
         db = f'{os.environ["FADB"]}/uniref50.fa'
     else:
-        db = f'{os.environ["FADB"]}/all.fa'
+        db = db
 
     cwd = os.getcwd()
 
