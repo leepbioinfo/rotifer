@@ -15,6 +15,7 @@ import pandas as pd
 # Required libraries
 from datetime import datetime
 from Bio import SeqIO
+from Bio.Data import CodonTable
 from rotifer.genome import io as rgio
 from rotifer.genome.io import GenbankAssemblyFromFilename
 from rotifer.genome import utils as rgutils
@@ -210,6 +211,17 @@ def main(args):
         gembase_name = gembase[1]
         gembase_prefix = gembase_name + "." + datetime.now().strftime("%m") + datetime.now().strftime("%y")
 
+    # Verifying genetic code table is known
+    if args.codontable in CodonTable.unambiguous_dna_by_id:
+        unambiguous_codontable = CodonTable.unambiguous_dna_by_id[args.codontable]
+        ambiguous_codontable = CodonTable.ambiguous_dna_by_id[args.codontable]
+    elif args.codontable in CodonTable.unambiguous_dna_by_name:
+        unambiguous_codontable = CodonTable.unambiguous_dna_by_name[args.codontable]
+        ambiguous_codontable = CodonTable.ambiguous_dna_by_name[args.codontable]
+    else:
+        rotifer.logger.fatal(f'Unknown translation table {args.codontable}')
+        exit(1)
+
     # Prepare CDS output stream
     if args.cds:
         if args.cds == 'stdout':
@@ -301,26 +313,32 @@ def main(args):
                         description = f.qualifiers['product'][0].rstrip(";")
 
                     # Dump CDS sequence
-                    if args.cds:
+                    if args.cds or args.protein:
                         c = f.extract(s)
-                        c.id = pid
-                        c.name = pid
-                        c.description = description
-                        for tag in "organism taxonomy".split(" "):
-                            if tag in s.annotations:
-                                c.annotations[tag] = s.annotations[tag]
-                        SeqIO.write(c, cds, args.cds_format)
+                        if 'codon_start' in f.qualifiers:
+                            codon_start = int(f.qualifiers['codon_start'][0]) - 1
+                            c = c[codon_start:]
+                        if len(c) % 3 > 0:
+                            c = c + (3 - (len(c) % 3)) * "N" # Add to make sure CDS' s length is a multiple of three
+                        if str(c.seq)[-3:] not in ambiguous_codontable.stop_codons:
+                            c = c + unambiguous_codontable.stop_codons[0] # Fake stop codon to avoid translate() fatal errors
+                        if args.cds:
+                            c.id = pid
+                            c.name = pid
+                            c.description = description
+                            for tag in "organism taxonomy".split(" "):
+                                if tag in s.annotations:
+                                    c.annotations[tag] = s.annotations[tag]
+                            SeqIO.write(c, cds, args.cds_format)
 
                     # Dump protein sequence
                     if args.protein:
-                        if 'translation' in f.qualifiers:
-                            from Bio.Seq import Seq
-                            from Bio.SeqRecord import SeqRecord
-                            p = SeqRecord(Seq(f.qualifiers['translation'][0]))
-                        else:
-                            if (len(f) % 3 == 0):
-                                s = s[0:3*int(len(f)/3)]
-                            p = f.translate(s, table=args.codontable)
+#                        if 'translation' in f.qualifiers:
+#                            from Bio.Seq import Seq
+#                            from Bio.SeqRecord import SeqRecord
+#                            p = SeqRecord(Seq(f.qualifiers['translation'][0]))
+#                        else:
+                        p = c.translate(table=ambiguous_codontable, to_stop=True)
                         p.id = pid
                         p.name = pid
                         p.description = description
