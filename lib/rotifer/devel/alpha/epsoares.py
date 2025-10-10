@@ -334,12 +334,12 @@ def hmmscan(sequences, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm
     if file:
     	 seqs = ph.easel.SequenceFile(file, digital = True, alphabet=abc)
     else:
-   	 if type(sequences) == list:
-   	     seqobj = rdbs.sequence(sequences)
-   	     seqs = digitalize_seqobj(seqobj)
+   	if type(sequences) == list:
+   	    seqobj = rdbs.sequence(sequences)
+   	    seqs = digitalize_seqobj(seqobj)
 
    	elif type(sequences) == rotifer.devel.beta.sequence.sequence:
-             seqs = digitalize_seqobj(sequences)
+            seqs = digitalize_seqobj(sequences)
 
     #Hmmscan run and file processment
     h = list(ph.hmmer.hmmscan(seqs, hmms, cpus=cpus))
