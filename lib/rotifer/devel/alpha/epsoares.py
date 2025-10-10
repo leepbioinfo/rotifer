@@ -3,6 +3,7 @@ import sys
 import numpy as np
 import pandas as pd
 import pyhmmer as ph
+import rotifer
 import rotifer.devel.beta.sequence as rdbs
 from rotifer.devel.alpha import trsantos as rdat
 from rotifer.db import ncbi
