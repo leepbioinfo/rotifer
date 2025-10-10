@@ -4,7 +4,238 @@ from collections import Counter
 from rotifer.db import ncbi
 from rotifer.db.ncbi import entrez
 from rotifer.devel.alpha import epsoares as rdae
-from rotifer.intervals import utils as riu
+from rotifer.interval import utils as riu
+import os
+os.environ["MKL_THREADING_LAYER"] = "GNU"
+import subprocess
+import time
+import psutil
+import tempfile
+import pathlib
+import traceback
+from glob import glob
+
+# --- GPU support via pynvml ---
+try:
+    import pynvml
+    pynvml.nvmlInit()
+    gpu_available = True
+except Exception:
+    gpu_available = False
+
+def get_gpu_stats():
+    """
+    Collect current GPU utilization and memory usage for all available GPUs.
+
+    Returns
+    -------
+    list[dict]
+        A list of dictionaries, one per GPU, each containing:
+        - "gpu_id" (int): The GPU index.
+        - "gpu_util" (float): Current GPU utilization percentage.
+        - "gpu_mem" (float): GPU memory usage in megabytes (MB).
+
+    Notes
+    -----
+    - If `pynvml` is not available or fails to initialize, returns an empty list.
+    - This function assumes NVIDIA GPUs accessible via NVML.
+    """
+    stats = []
+    if not gpu_available:
+        return stats
+    device_count = pynvml.nvmlDeviceGetCount()
+    for i in range(device_count):
+        handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+        util = pynvml.nvmlDeviceGetUtilizationRates(handle)
+        mem = pynvml.nvmlDeviceGetMemoryInfo(handle)   # ✅ fixed
+        stats.append({
+            "gpu_id": i,
+            "gpu_util": util.gpu,            # percent
+            "gpu_mem": mem.used / (1024**2)  # MB
+        })
+    return stats
+
+
+def profile_command(command, poll_interval=0.1, output_file=None, shell=False):
+    """
+    Run an external command while profiling its CPU, memory, and (if available) GPU usage.
+
+    Parameters
+    ----------
+    command : list[str] | str
+        The command to execute, either as a list of arguments (recommended) or as a shell string.
+    poll_interval : float, optional
+        Time interval (in seconds) between sampling events. Default is 0.1 seconds.
+    output_file : str | None, optional
+        File path to write command stdout/stderr. If None, a temporary log file is created.
+    shell : bool, optional
+        Whether to execute the command through the shell. Default is False.
+
+    Returns
+    -------
+    dict
+        A dictionary summarizing the execution and profiling results:
+        - "runtime_sec" (float): Total runtime of the command in seconds.
+        - "avg_cpu_percent" (float | None): Average CPU utilization percentage across all processes.
+        - "peak_mem_mb" (float | None): Peak memory usage in megabytes.
+        - "avg_gpu_util_percent" (float | None): Average GPU utilization percentage (if available).
+        - "peak_gpu_mem_mb" (float | None): Peak GPU memory usage in megabytes (if available).
+        - "return_code" (int | None): Process return code.
+        - "error" (str | None): Error message if profiling failed.
+        - "traceback" (str | None): Full traceback if an error occurred.
+        - "output_file" (str): Path to the log file with stdout/stderr output.
+
+    Notes
+    -----
+    - Uses `psutil` for CPU and memory sampling, and `pynvml` for GPU statistics.
+    - Captures resource usage across all child processes spawned by the command.
+    - The function blocks until the process finishes.
+    
+    Example
+    ------
+all_stats = []
+for pdb_file in sorted(glob("WeakConsensus/*.pdb")):
+    pdb_stem = pathlib.Path(pdb_file).stem
+    out_path = f"eguchicnn_weakconsensus_output/{pdb_stem}.txt"
+    log_out = f"eguchicnn_weakconsensus_logs/{pdb_stem}.log"
+    pathlib.Path("eguchicnn_weakconsensus_output").mkdir(exist_ok=True)
+    pathlib.Path("eguchicnn_weakconsensus_logs").mkdir(exist_ok=True)
+
+    result = profile_command(
+        [
+            "python", "../../data/software/EguchiCNN/eguchicnn_wrapper.py",
+            "-i", str(pdb_file),
+            "-o", out_path
+        ],
+        poll_interval=0.05,
+        output_file=log_out,
+        shell=False
+    )
+
+    result.update({
+        "pdb": pdb_stem,
+        "eguchicnn_out": out_path,
+        "log_out": log_out
+    })
+    all_stats.append(result)
+    """
+    # ensure we always have a file to write stdout/stderr to
+    temp_file = None
+    if output_file is None:
+        tf = tempfile.NamedTemporaryFile(prefix="profile_cmd_", suffix=".log", delete=False)
+        output_file = tf.name
+        tf.close()
+        temp_file = output_file
+
+    start_time = time.time()
+
+    try:
+        f = open(output_file, "w")
+    except Exception as e:
+        return {
+            "runtime_sec": None,
+            "avg_cpu_percent": None,
+            "peak_mem_mb": None,
+            "avg_gpu_util_percent": None,
+            "peak_gpu_mem_mb": None,
+            "return_code": None,
+            "error": f"Could not open output file {output_file}: {e}",
+            "traceback": traceback.format_exc(),
+            "output_file": output_file
+        }
+
+    try:
+        process = subprocess.Popen(command, stdout=f, stderr=f, shell=shell)
+    except Exception as e:
+        f.close()
+        return {
+            "runtime_sec": None,
+            "avg_cpu_percent": None,
+            "peak_mem_mb": None,
+            "avg_gpu_util_percent": None,
+            "peak_gpu_mem_mb": None,
+            "return_code": None,
+            "error": f"Popen failed: {e}",
+            "traceback": traceback.format_exc(),
+            "output_file": output_file
+        }
+
+    # attach psutil for CPU/mem tracking
+    try:
+        p = psutil.Process(process.pid)
+        # prime cpu_percent so that the first nonzero measurement works
+        p.cpu_percent(interval=None)
+    except Exception:
+        p = None
+
+    cpu_samples, mem_samples = [], []
+    gpu_samples, gpu_mem_samples = [], []
+
+    try:
+        while True:
+            if process.poll() is not None:
+                break
+
+            try:
+                if p is not None:
+                    procs = [p] + p.children(recursive=True)
+                    total_cpu = sum(proc.cpu_percent(interval=None) for proc in procs if proc.is_running())
+                    total_mem = sum(proc.memory_info().rss for proc in procs if proc.is_running())
+                else:
+                    total_cpu, total_mem = None, None
+
+                if total_cpu is not None:
+                    cpu_samples.append(total_cpu)
+                if total_mem is not None:
+                    mem_samples.append(total_mem / (1024**2))  # MB
+
+                if gpu_available:
+                    gstats = get_gpu_stats()
+                    if gstats:
+                        avg_gpu = np.mean([g["gpu_util"] for g in gstats])
+                        sum_gmem = np.sum([g["gpu_mem"] for g in gstats])
+                        gpu_samples.append(avg_gpu)
+                        gpu_mem_samples.append(sum_gmem)
+
+            except psutil.NoSuchProcess:
+                break
+
+            time.sleep(poll_interval)
+
+        return_code = process.wait()
+
+    except Exception as e:
+        try:
+            process.kill()
+        except Exception:
+            pass
+        return_code = getattr(process, "returncode", None)
+        f.close()
+        return {
+            "runtime_sec": time.time() - start_time,
+            "avg_cpu_percent": (np.nanmean(cpu_samples) if cpu_samples else None),
+            "peak_mem_mb": (np.nanmax(mem_samples) if mem_samples else None),
+            "avg_gpu_util_percent": (np.nanmean(gpu_samples) if gpu_samples else None),
+            "peak_gpu_mem_mb": (np.nanmax(gpu_mem_samples) if gpu_mem_samples else None),
+            "return_code": return_code,
+            "error": f"Sampling failed: {e}",
+            "traceback": traceback.format_exc(),
+            "output_file": output_file
+        }
+
+    f.close()
+
+    return {
+        "runtime_sec": time.time() - start_time,
+        "avg_cpu_percent": (np.nanmean(cpu_samples) if cpu_samples else None),
+        "peak_mem_mb": (np.nanmax(mem_samples) if mem_samples else None),
+        "avg_gpu_util_percent": (np.nanmean(gpu_samples) if gpu_samples else None),
+        "peak_gpu_mem_mb": (np.nanmax(gpu_mem_samples) if gpu_mem_samples else None),
+        "return_code": return_code,
+        "error": None,
+        "traceback": None,
+        "output_file": output_file
+    }
 
 def taxon_summary(
     df,
@@ -28,8 +259,8 @@ def taxon_summary(
         ['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species'].
         
     update : bool, optional
-        If True, updates the local NCBI taxonomy database via ETE3 before fetching lineages.
-        This is recommended the first time you run the function or if your taxonomy data may be outdated.
+	If True, updates the local NCBI taxonomy database via ETE3 before fetching lineages.
+	This is recommended the first time you run the function or if your taxonomy data may be outdated.
 
     new_ndf : bool, optional
         If True, returns the original DataFrame with taxonomic columns (from 'rank') merged in.
