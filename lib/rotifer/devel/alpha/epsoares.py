@@ -391,7 +391,7 @@ def hmmscan(sequences, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm
 
     return df
 
-def add_arch_to_df(df, column='pid', cpus=0, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm'):
+def add_arch_to_df(df, column='pid', cpus=0, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm', inplace=False):
   
     '''
     Add a column pfam with the domain architecture for the input accessions.
