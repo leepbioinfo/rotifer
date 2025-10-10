@@ -4,6 +4,7 @@ from collections import Counter
 from rotifer.db import ncbi
 from rotifer.db.ncbi import entrez
 from rotifer.devel.alpha import epsoares as rdae
+from rotifer.devel.beta import sequence as rdbs
 from rotifer.interval import utils as riu
 import os
 os.environ["MKL_THREADING_LAYER"] = "GNU"
