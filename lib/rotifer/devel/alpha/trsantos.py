@@ -6,6 +6,9 @@ from rotifer.db.ncbi import entrez
 from rotifer.devel.alpha import epsoares as rdae
 from rotifer.devel.beta import sequence as rdbs
 from rotifer.interval import utils as riu
+ic = ncbi.IPGCursor()
+gnc = ncbi.GeneNeighborhoodCursor()
+tc = ncbi.TaxonomyCursor()
 import os
 os.environ["MKL_THREADING_LAYER"] = "GNU"
 import subprocess
