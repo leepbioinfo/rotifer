@@ -3,6 +3,8 @@ import pandas as pd
 from collections import Counter
 from rotifer.db import ncbi
 from rotifer.db.ncbi import entrez
+from rotifer.devel.alpha import epsoares as rdae
+from rotifer.intervals import utils as riu
 
 def taxon_summary(
     df,
@@ -167,3 +169,132 @@ def flag_best_id(group):
     group = group.copy()     # avoid SettingWithCopyWarning
     group['flag'] = flags
     return group
+
+def create_attable(ids, update=False, ndf=None, ipg=None):
+    """
+    Create an enriched sequence object with attribute table, neighborhoods, and Pfam architecture.
+
+    This function initializes a sequence object, fetches genome neighborhoods, IPG information,
+    and taxonomy, and compiles them into a unified attribute table (.df). Neighborhoods are
+    mapped only for query proteins, and Pfam domains are integrated from HMM scans.
+
+    Parameters
+    ----------
+    ids : list
+        Accession IDs to build the attribute table from.
+    update : bool, optional
+        If True, updates the ETE3 taxonomy database before fetching.
+    ndf : pd.DataFrame, optional
+        Precomputed genome neighborhood DataFrame. If given, skips fetching.
+    ipg : pd.DataFrame, optional
+        Precomputed IPG information. If given, skips fetching.
+
+    Returns
+    -------
+    a : rotifer.devel.beta.sequence
+        Sequence object with:
+        - a.df : main attribute table with assembly, taxonomy ranks, neighborhood info, and Pfam architecture
+        - a.ndf : genome neighborhood DataFrame
+        - a.ipg : IPG information
+        - a.tax : taxonomy table (pivoted)
+        - a.hsdf : Pfam HMM scan results
+    """
+    
+    # Step 1: Initialize sequence object
+    print("Step 1: Initializing sequence object...")
+    a = rdbs.sequence(ids)
+    print("Step 1 done.")
+
+    # Step 2: Fetch IPG info if not provided
+    if ipg is None:
+        print("Step 2: Fetching IPG info...")
+        a.ipg = ic.fetchall(ids)
+        print("Step 2 done.")
+    else:
+        a.ipg = ipg
+        print("Step 2 skipped (using provided IPG).")
+
+    # Step 3: Fetch genome neighborhood if not provided
+    if ndf is None:
+        print("Step 3: Fetching genome neighborhood...")
+        a.ndf = rdae.add_arch_to_df(gnc.fetchall(ids, ipgs=a.ipg))
+        print("Step 3 done.")
+    else:
+        a.ndf = ndf
+        print("Step 3 skipped (using provided NDF).")
+
+    # Step 4: Fetch taxonomy info
+    print("Step 4: Fetching taxonomy info...")
+    if update:
+        print("Updating ETE3 taxonomy database...")
+        tc.cursors['ete3'].update_database()
+    unique_taxids = a.ndf['taxid'].drop_duplicates()
+    tax = tc.fetchall(unique_taxids)
+    print("Step 4 done.")
+
+    # Step 5: Expand lineages
+    print("Step 5: Expanding lineages...")
+    lineage_dict = tc.cursors['ete3'].ete3.get_lineage_translator(unique_taxids.tolist())
+    lineage_series = pd.Series(lineage_dict).explode()
+    z = lineage_series.reset_index().rename(columns={'index': 'taxid', 0: 'lineage'})
+    rank_dict = tc.cursors['ete3'].ete3.get_rank(z['lineage'].tolist())
+    taxon_dict = tc.cursors['ete3'].ete3.get_taxid_translator(z['lineage'].tolist())
+    z['rank'] = z['lineage'].map(rank_dict)
+    z['taxon'] = z['lineage'].map(taxon_dict)
+    print("Step 5 done.")
+
+    # Step 6: Pivot taxonomy table
+    print("Step 6: Pivoting taxonomy table...")
+    ranks = ['domain', 'kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
+    taxon_df = (
+        z[z['rank'].isin(ranks)]
+        .pivot(index='taxid', columns='rank', values='taxon')
+        .reset_index()
+    )
+    print("Step 6 done.")
+
+    # Step 7: Merge taxonomy to main df
+    print("Step 7: Mapping taxonomy and assembly to .df...")
+    tmp_tax = a.ndf[['pid', 'taxid', 'assembly']].drop_duplicates()
+    tmp_tax = tmp_tax.merge(taxon_df, on='taxid', how='left')
+    a.df = a.df.merge(tmp_tax, left_on='id', right_on='pid', how='left', suffixes=('', '_y'))
+    a.df.drop(columns=['pid'], inplace=True, errors='ignore')
+    a.tax = taxon_df
+    print("Step 7 done.")
+
+    # Step 8: Map neighborhoods only for query proteins
+    print("Step 8: Mapping neighborhood and ss_neighborhood...")
+    cndf = a.ndf.compact()          # default compact
+    cndf_ss = a.ndf.compact(strand=True)  # strand-specific
+
+    # Map block_id to .df only for query proteins
+    query_block_map = a.ndf[a.ndf['query'] == 1][['pid', 'block_id']].drop_duplicates()
+    a.df.loc[a.df['id'].isin(query_block_map['pid']), 'block_id'] = \
+        a.df['id'].map(dict(zip(query_block_map['pid'], query_block_map['block_id'])))
+
+    # Map neighborhoods using index-based mapping (clean)
+    mask = a.df['block_id'].notna()
+    a.df.loc[mask, 'neighborhood'] = a.df.loc[mask, 'block_id'].map(cndf['compact'])
+    a.df.loc[mask, 'ss_neighborhood'] = a.df.loc[mask, 'block_id'].map(cndf_ss['compact'])
+
+    # Drop block_id column (optional)
+    a.df.drop(columns=['block_id'], inplace=True, errors='ignore')
+
+    # Step 9: Fill missing values
+    a.df.fillna('Missing', inplace=True)
+    a.tax.fillna('Missing', inplace=True)
+
+    print("Step 8-9 done. Attribute table ready.")
+
+    # Step 10: Pfam integration
+    hsdf = rdae.hmmscan(a.df.id.to_list())
+    a.hsdf = hsdf
+    hsdff = riu.filter_nonoverlapping_regions(hsdf, **riu.config['hmmer'])
+    idx = hsdf.groupby('sequence')['evalue'].idxmin()
+    best_hits = hsdf.loc[idx, ['sequence', 'model']].set_index('sequence')['model']
+    a.df['arch'] = a.df['id'].map(best_hits).fillna('Missing')
+
+    print("Step 10 done. Pfam column added.")
+
+    return a
+
