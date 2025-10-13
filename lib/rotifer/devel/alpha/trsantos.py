@@ -18,6 +18,13 @@ import tempfile
 import pathlib
 import traceback
 from glob import glob
+from typing import Optional, Union, List, Dict
+from io import StringIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+from Bio.Align import MultipleSeqAlignment
+from Bio.Phylo.TreeConstruction import DistanceCalculator, DistanceTreeConstructor
+from Bio import Phylo
 
 # --- GPU support via pynvml ---
 try:
@@ -434,7 +441,7 @@ def create_attable(ids, update=False, ndf=None, ipg=None):
         - a.tax : taxonomy table (pivoted)
         - a.hsdf : Pfam HMM scan results
     """
-    
+
     # Step 1: Initialize sequence object
     print("Step 1: Initializing sequence object...")
     a = rdbs.sequence(ids)
@@ -499,21 +506,14 @@ def create_attable(ids, update=False, ndf=None, ipg=None):
 
     # Step 8: Map neighborhoods only for query proteins
     print("Step 8: Mapping neighborhood and ss_neighborhood...")
-    cndf = a.ndf.compact()          # default compact
-    cndf_ss = a.ndf.compact(strand=True)  # strand-specific
+    cndf = a.ndf.compact().reset_index()          # default compact
+    cndf_ss = a.ndf.compact(strand=True).reset_index()  # strand-specific
 
     # Map block_id to .df only for query proteins
-    query_block_map = a.ndf[a.ndf['query'] == 1][['pid', 'block_id']].drop_duplicates()
-    a.df.loc[a.df['id'].isin(query_block_map['pid']), 'block_id'] = \
-        a.df['id'].map(dict(zip(query_block_map['pid'], query_block_map['block_id'])))
+    a.df['block_id'] = a.df.id.map(dict(zip(a.ndf[a.ndf['query'] == 1].pid, a.ndf[a.ndf['query'] == 1].block_id)))
 
-    # Map neighborhoods using index-based mapping (clean)
-    mask = a.df['block_id'].notna()
-    a.df.loc[mask, 'neighborhood'] = a.df.loc[mask, 'block_id'].map(cndf['compact'])
-    a.df.loc[mask, 'ss_neighborhood'] = a.df.loc[mask, 'block_id'].map(cndf_ss['compact'])
-
-    # Drop block_id column (optional)
-    a.df.drop(columns=['block_id'], inplace=True, errors='ignore')
+    a.df['neighborhood'] = a.df.block_id.map(dict(zip(cndf.block_id, cndf.compact)))
+    a.df['ss_neighborhood'] = a.df.block_id.map(dict(zip(cndf_ss.block_id, cndf_ss.compact)))
 
     # Step 9: Fill missing values
     a.df.fillna('Missing', inplace=True)
@@ -532,4 +532,206 @@ def create_attable(ids, update=False, ndf=None, ipg=None):
     print("Step 10 done. Pfam column added.")
 
     return a
+
+class PhyloBuilder:
+    """
+    Build and hold a simple phylogeny (NJ or UPGMA) from a rotifer.sequence object
+    (or from a Biopython MultipleSeqAlignment / list of SeqRecords).
+
+    Key features:
+    - Automatically builds the tree when an aligned rdbs.sequence is provided.
+    - If a rdbs.sequence is not aligned, it will call `.align()` (non-inplace) to align.
+    - Stores the alignment (msa), distance matrix (Bio object and pd.DataFrame),
+      the tree (Bio.Phylo tree), and metadata.
+    - Visualization via Bio.Phylo.draw and export to Newick.
+
+    Parameters
+    ----------
+    seqs : optional
+        A rotifer.devel.beta.sequence object (preferred), or a Bio.Align.MultipleSeqAlignment,
+        or a list of Bio.SeqRecord, or a list/Series of sequence strings (ids must be provided).
+    method : int, optional
+        1 => UPGMA, 2 => Neighbor-Joining (default 2).
+    matrix : str, optional
+        Substitution matrix name accepted by Bio.Phylo.TreeConstruction.DistanceCalculator.
+        Default 'blosum62'.
+    metadata : dict, optional
+        Arbitrary metadata to store with the object.
+    build_on_init : bool, optional
+        If True and seqs is provided, automatically run build() on init (default True).
+    """
+    def __init__(
+        self,
+        seqs: Optional[Union['rdbs.sequence', MultipleSeqAlignment, List[SeqRecord], List[str]]] = None,
+        method: int = 2,
+        matrix: str = 'blosum62',
+        metadata: Optional[Dict] = None,
+        build_on_init: bool = True,
+    ):
+        self.seqs_input = seqs
+        self.method = int(method)
+        self.matrix = matrix
+        self.metadata = dict(metadata) if metadata is not None else {}
+        self.msa: Optional[MultipleSeqAlignment] = None
+        self.distance_matrix = None  # Bio DistanceMatrix object
+        self.dm_df: Optional[pd.DataFrame] = None
+        self.tree = None  # Bio.Phylo tree
+        # If user passed a rotifer sequence object (rdbs.sequence), keep reference
+        self._rseq = None
+
+        if seqs is not None and build_on_init:
+            self.build()
+
+    def _to_msa_from_rdbs(self, rseq) -> MultipleSeqAlignment:
+        """
+        Convert a rotifer.sequence object to a Biopython MultipleSeqAlignment.
+        If the rseq is not aligned, call its .align() (non-inplace) to obtain an aligned object.
+        """
+        # Prefer using rseq.align() if sequences are not same length (i.e. not aligned)
+        seq_df = rseq.df.query('type == "sequence"').copy()
+        # check if aligned
+        if seq_df.sequence.str.len().nunique() != 1:
+            # call align non-inplace to avoid mutating input object
+            try:
+                aligned = rseq.align(inplace=False)
+            except Exception as e:
+                raise RuntimeError(f"Failed to align sequence object automatically: {e}")
+            seq_df = aligned.df.query('type == "sequence"').copy()
+            rseq = aligned
+
+        # Build SeqRecords
+        seq_records = []
+        for _, row in seq_df.iterrows():
+            seq_records.append(SeqRecord(Seq(row['sequence']), id=str(row['id']), description=''))
+
+        msa = MultipleSeqAlignment(seq_records)
+        self._rseq = rseq  # store reference to possibly aligned sequence object
+        return msa
+
+    def _to_msa_from_generic(self, seqs) -> MultipleSeqAlignment:
+        """
+        Convert a generic input to MultipleSeqAlignment:
+        - If already MultipleSeqAlignment: return as is
+        - If list of SeqRecord: wrap
+        - If list/Series of strings: require that it's paired with a list of ids (not handled here)
+        """
+        if isinstance(seqs, MultipleSeqAlignment):
+            return seqs
+        # list of SeqRecord
+        if isinstance(seqs, list) and all(isinstance(x, SeqRecord) for x in seqs):
+            return MultipleSeqAlignment(seqs)
+        # list/Series of strings -> require ids embedded? try to use indices as ids
+        if isinstance(seqs, (list, pd.Series)) and all(isinstance(x, str) for x in seqs):
+            seq_records = [SeqRecord(Seq(s), id=f"seq{i}") for i, s in enumerate(seqs)]
+            return MultipleSeqAlignment(seq_records)
+
+        raise TypeError("Unsupported seqs type for conversion to MultipleSeqAlignment.")
+
+    def build(self, overwrite: bool = True):
+        """
+        Build the distance matrix and tree from the provided sequences.
+
+        overwrite: if False, will not rebuild if a tree already exists.
+        """
+        if (self.tree is not None) and (not overwrite):
+            return
+
+        # Prepare MSA
+        seqs = self.seqs_input
+        if seqs is None:
+            raise ValueError("No sequences provided to build the phylogeny.")
+
+        if hasattr(seqs, '__class__') and seqs.__class__.__name__ == 'sequence':
+            # assume rotifer.devel.beta.sequence class instance
+            msa = self._to_msa_from_rdbs(seqs)
+        else:
+            msa = self._to_msa_from_generic(seqs)
+
+        self.msa = msa
+
+        # Calculate distances
+        try:
+            calculator = DistanceCalculator(self.matrix)
+        except Exception as e:
+            raise ValueError(f"DistanceCalculator could not be initialized with model '{self.matrix}': {e}")
+
+        # get_distance expects a MultipleSeqAlignment
+        dm = calculator.get_distance(msa)
+        self.distance_matrix = dm
+
+        # keep a pandas copy for convenience
+        names = dm.names
+        mat = dm.matrix
+        # dm.matrix is a lower-triangular list of lists (Bio's DistanceMatrix), convert to full DataFrame
+        df = pd.DataFrame(0.0, index=names, columns=names, dtype=float)
+        for i, n in enumerate(names):
+            row = mat[i]
+            # row length equals i+1
+            for j, val in enumerate(row):
+                df.iat[i, j] = val
+                df.iat[j, i] = val
+        self.dm_df = df
+
+        # Build tree
+        constructor = DistanceTreeConstructor()
+        if self.method == 1:
+            self.tree = constructor.upgma(dm)
+        else:
+            self.tree = constructor.nj(dm)
+
+        # store some metadata
+        self.metadata.setdefault('method', 'upgma' if self.method == 1 else 'nj')
+        self.metadata.setdefault('matrix', self.matrix)
+        self.metadata.setdefault('nseq', len(self.msa))
+        return self
+
+    def draw(self, show: bool = True, **phylo_draw_kwargs):
+        """
+        Draw the current tree using Bio.Phylo.draw.
+        Returns the matplotlib Axes if available.
+        """
+        if self.tree is None:
+            raise RuntimeError("No tree built yet. Call build() first.")
+        ax = Phylo.draw(self.tree, **phylo_draw_kwargs)
+        if show:
+            try:
+                import matplotlib.pyplot as plt
+                plt.show()
+            except Exception:
+                pass
+        return ax
+
+    def to_newick(self) -> str:
+        """Return tree as Newick string (or empty string if no tree)."""
+        if self.tree is None:
+            raise RuntimeError("No tree built yet. Call build() first.")
+        buf = StringIO()
+        Phylo.write(self.tree, buf, "newick")
+        return buf.getvalue().strip()
+
+    def export(self, path: str, fmt: str = "newick"):
+        """
+        Export tree to file in a supported format (newick, nexus, phyloxml, etc.).
+        """
+        if self.tree is None:
+            raise RuntimeError("No tree built yet. Call build() first.")
+        Phylo.write(self.tree, path, fmt)
+
+    def get_distance_dataframe(self) -> pd.DataFrame:
+        """
+        Return the distance matrix as a pandas DataFrame.
+        """
+        if self.dm_df is None:
+            raise RuntimeError("Distance matrix not available; call build() first.")
+        return self.dm_df.copy()
+
+    def attach_metadata(self, d: Dict):
+        """Merge provided metadata dict into builder metadata."""
+        if not isinstance(d, dict):
+            raise TypeError("metadata must be a dict")
+        self.metadata.update(d)
+
+    def __repr__(self):
+        info = f"<PhyloBuilder nseq={len(self.msa) if self.msa is not None else 0} method={'UPGMA' if self.method==1 else 'NJ'} matrix={self.matrix}>"
+        return info
 
