@@ -347,8 +347,8 @@ def hmmscan(sequences, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm
     h = list(ph.hmmer.hmmscan(seqs, hmms, cpus=cpus))
     r = []
     for th in h:
-	target_name = th.query.name.decode() if th.query.name else None
-	found = False
+        target_name = th.query.name.decode() if th.query.name else None
+        found = False
         for x in th:
             for y in x.domains:
                 r.append({
