@@ -347,6 +347,8 @@ def hmmscan(sequences, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm
     h = list(ph.hmmer.hmmscan(seqs, hmms, cpus=cpus))
     r = []
     for th in h:
+	target_name = th.query.name.decode() if th.query.name else None
+	found = False
         for x in th:
             for y in x.domains:
                 r.append({
@@ -377,8 +379,39 @@ def hmmscan(sequences, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm
                     "aln_target_to":         y.alignment.target_to,
                     'aln_target_length':     y.alignment.target_length
                     })
+                    
+        if not found:
+    	    r.append({
+		    "hit":None,
+		    "bias":None,
+		    "c_evalue":None,
+		    "correction":None,
+		    "env_from":None,
+		    "env_to":None,
+		    "env_score":None,
+		    "i_evalue":None,
+		    "pvalue":None,
+		    "score":None,
+		    "aln_domain":None,
+		    "aln_hmm_accession":None,
+		    "aln_hmm_from":None,
+		    "aln_hmm_name":None,
+		    "aln_hmm_sequence":None,
+		    "aln_hmm_to":None,
+		    "aln_hmm_length":None,
+		    "aln_identity_sequence":None,
+		    "aln_target_from":None,
+		    "aln_target_name":target_name,
+		    "aln_target_sequence":None,
+		    "aln_target_to":None,
+		    'aln_target_length':None})
+		 
     
     df = pd.DataFrame(r)
+    
+    if df.empty:
+        print("No results found in HMMER output.")
+	return pd.DataFrame(columns=columns)
 
     if columns:
         df = df[columns]
