@@ -411,7 +411,7 @@ def hmmscan(sequences, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm
     
     if df.empty:
         print("No results found in HMMER output.")
-	return pd.DataFrame(columns=columns)
+        return pd.DataFrame(columns=columns)
 
     if columns:
         df = df[columns]
