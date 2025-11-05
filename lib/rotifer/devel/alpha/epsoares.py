@@ -431,7 +431,7 @@ def hmmscan(sequences, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm
 
     return df
 
-def add_arch_to_df(df, column='pid', cpus=0, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm', inplace=False):
+def add_arch_to_df(df, column='pid', cpus=0, file=None, evalue_filter=1e-3, score_filter=20, pfam_database_path='/databases/pfam/Pfam-A.hmm', inplace=False):
   
     '''
     Add a column pfam with the domain architecture for the input accessions.
@@ -442,7 +442,8 @@ def add_arch_to_df(df, column='pid', cpus=0, file=None, pfam_database_path='/dat
     
     h = hmmscan(df[column].dropna().tolist(), cpus=cpus, file=file, pfam_database_path=pfam_database_path)
     h.rename({'aln_target_name':'sequence','aln_hmm_name':'model','i_evalue':'evalue','env_from':'estart', 'env_to':'eend'}, axis=1, inplace=True)
-    h = h[h.evalue <= evalue_filter and h.score >= score_filter]
+    h = h[h.evalue <= evalue_filter]
+    h = h[h.score >= score_filter]
     h = riu.filter_nonoverlapping_regions(h, **riu.config['hmmer'])
     h = h.loc[h.groupby(['sequence','model']).score.idxmax()]
     arch = h.groupby('sequence').agg(pfam = ('model',lambda x: '+'.join(x.astype(str)))).reset_index()
