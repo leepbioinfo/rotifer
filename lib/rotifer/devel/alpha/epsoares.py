@@ -13,6 +13,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import ete3
+from tqdm import tqdm
 
 def get_matrix(df, filter_list, rows, columns, n=10, filter_by='pid'):
         filtered_df = df[df[filter_by].isin(filter_list)]
@@ -322,7 +323,10 @@ def hmmscan(sequences, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm
         Subset of result column names to include in the output DataFrame.
         Default columns include basic domain and alignment metrics.
     '''
-
+    #Progress bar callback
+    def callback(hmm, hits):
+        pbar.update(1)
+        
     #HMM load
     with ph.plan7.HMMFile(pfam_database_path) as hmm_file:
        if hmm_file.is_pressed:
@@ -342,9 +346,11 @@ def hmmscan(sequences, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm
 
        elif type(sequences) == rotifer.devel.beta.sequence.sequence:
        		seqs = digitalize_seqobj(sequences)
-
+    
+    pbar = tqdm(total=len(seqs), desc='hmmscan')
+    
     #Hmmscan run and file processment
-    h = list(ph.hmmer.hmmscan(seqs, hmms, cpus=cpus))
+    h = list(ph.hmmer.hmmscan(seqs, hmms, cpus=cpus, callback=callback))
     r = []
     for th in h:
         target_name = th.query.name.decode() if th.query.name else None
@@ -436,7 +442,10 @@ def add_arch_to_df(df, column='pid', cpus=0, file=None, pfam_database_path='/dat
     
     h = hmmscan(df[column].dropna().tolist(), cpus=cpus, file=file, pfam_database_path=pfam_database_path)
     h.rename({'aln_target_name':'sequence','aln_hmm_name':'model','i_evalue':'evalue','env_from':'estart', 'env_to':'eend'}, axis=1, inplace=True)
-    arch = riu.filter_nonoverlapping_regions(h.loc[h.groupby(['sequence','model']).score.idxmax()], **riu.config['hmmer']).groupby('sequence').agg(pfam = ('model',lambda x: '+'.join(x.astype(str)))).reset_index()
+    h = h[h.evalue <= evalue_filter and h.score >= score_filter]
+    h = riu.filter_nonoverlapping_regions(h, **riu.config['hmmer'])
+    h = h.loc[h.groupby(['sequence','model']).score.idxmax()]
+    arch = h.groupby('sequence').agg(pfam = ('model',lambda x: '+'.join(x.astype(str)))).reset_index()
     arch.rename({'sequence':column}, axis = 1, inplace = True)
     arch = arch.set_index(column).pfam.to_dict()
     df['pfam'] = df[column].map(arch)
