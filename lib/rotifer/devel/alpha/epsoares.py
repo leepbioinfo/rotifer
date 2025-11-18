@@ -300,6 +300,85 @@ def make_hmm(seqobj, hmm_name='alignment', save='alignment.hmm'):
         print(f'HMM saved in {save}')
         
     return hmm
+    
+def hmmer_output_parser(output, columns=['aln_target_name', 'aln_hmm_name','i_evalue','c_evalue','score','env_score','aln_target_from','aln_target_to', 'aln_target_length', 'aln_hmm_length', 'env_from', 'env_to'], rename=True):
+	
+	# Creation of the list to store the results
+	r = []
+	
+	# Loop to process each hit
+	for th in output:
+            target_name = th.query.name.decode() if th.query.name else None
+            found = False
+            for x in th:
+                for y in x.domains:
+                    r.append({
+                        # pyhmmer.plan7.Domain attributes
+                        "hit":                   y.hit,
+                        "bias":                  y.bias,
+                        "c_evalue":              y.c_evalue,
+                        "correction":            y.correction,
+                        "env_from":              y.env_from,
+                        "env_to":                y.env_to,
+                        "env_score":             y.envelope_score,
+                        "i_evalue":              y.i_evalue,
+                        "pvalue":                y.pvalue,
+                        "score":                 y.score,
+
+                        # pyhmmer.plan7.Alignment attributes
+                        "aln_domain":            y.alignment.domain,
+                        "aln_hmm_accession":     y.alignment.hmm_accession.decode(),
+                        "aln_hmm_from":          y.alignment.hmm_from,
+                        "aln_hmm_name":          y.alignment.hmm_name.decode(),
+                        "aln_hmm_sequence":      y.alignment.hmm_sequence,
+                        "aln_hmm_to":            y.alignment.hmm_to,
+                        "aln_hmm_length":        y.alignment.hmm_length,
+                        "aln_identity_sequence": y.alignment.identity_sequence,
+                        "aln_target_from":       y.alignment.target_from,
+                        "aln_target_name":       y.alignment.target_name.decode(),
+                        "aln_target_sequence":   y.alignment.target_sequence,
+                        "aln_target_to":         y.alignment.target_to,
+                        'aln_target_length':     y.alignment.target_length
+                        })
+
+            if not found:
+            	r.append({"hit":None, 
+                    		"bias":None,
+                    		"c_evalue":None,
+                    		"correction":None,
+                    		"env_from":None,
+                    		"env_to":None,
+                    		"env_score":None,
+                    		"i_evalue":None,
+                    		"pvalue":None,
+                    		"score":None,
+                    		"aln_domain":None,
+                    		"aln_hmm_accession":None,
+                    		"aln_hmm_from":None,
+                    		"aln_hmm_name":None,
+                    		"aln_hmm_sequence":None,
+                    		"aln_hmm_to":None,
+                    		"aln_hmm_length":None,
+                    		"aln_identity_sequence":None,
+                    		"aln_target_from":None,
+                    		"aln_target_name":target_name,
+                    		"aln_target_sequence":None,
+                    		"aln_target_to":None,
+                    		"aln_target_length":None})
+                    		
+	df = pd.DataFrame(r)
+
+	if df.empty:
+		print("No results found in HMMER output.")
+		return pd.DataFrame(columns=columns)
+
+	if columns:
+		df = df[columns]
+
+	if rename:
+		df.rename({'aln_target_name': 'sequence', 'aln_hmm_name': 'model', 'i_evalue': 'evalue', 'env_from': 'estart', 'env_to': 'eend'}, axis=1, inplace=True)
+        
+	return df
 
 def hmmscan(sequences, file=None, models_file=['/databases/pfam/Pfam-A.hmm'], cpus=0, columns=['aln_target_name', 'aln_hmm_name','i_evalue','c_evalue','score','env_score','aln_target_from','aln_target_to', 'aln_target_length', 'aln_hmm_length', 'env_from', 'env_to', 'source'], rename=True):
     
@@ -353,84 +432,12 @@ def hmmscan(sequences, file=None, models_file=['/databases/pfam/Pfam-A.hmm'], cp
         
         #Hmmscan run and file processment
         h = list(ph.hmmer.hmmscan(seqs, hmms, cpus=cpus, callback=callback))
-        r = []
-        for th in h:
-            target_name = th.query.name.decode() if th.query.name else None
-            found = False
-            for x in th:
-                for y in x.domains:
-                    r.append({
-                        # pyhmmer.plan7.Domain attributes
-                        "hit":                   y.hit,
-                        "bias":                  y.bias,
-                        "c_evalue":              y.c_evalue,
-                        "correction":            y.correction,
-                        "env_from":              y.env_from,
-                        "env_to":                y.env_to,
-                        "env_score":             y.envelope_score,
-                        "i_evalue":              y.i_evalue,
-                        "pvalue":                y.pvalue,
-                        "score":                 y.score,
-
-                        # pyhmmer.plan7.Alignment attributes
-                        "aln_domain":            y.alignment.domain,
-                        "aln_hmm_accession":     y.alignment.hmm_accession.decode(),
-                        "aln_hmm_from":          y.alignment.hmm_from,
-                        "aln_hmm_name":          y.alignment.hmm_name.decode(),
-                        "aln_hmm_sequence":      y.alignment.hmm_sequence,
-                        "aln_hmm_to":            y.alignment.hmm_to,
-                        "aln_hmm_length":        y.alignment.hmm_length,
-                        "aln_identity_sequence": y.alignment.identity_sequence,
-                        "aln_target_from":       y.alignment.target_from,
-                        "aln_target_name":       y.alignment.target_name.decode(),
-                        "aln_target_sequence":   y.alignment.target_sequence,
-                        "aln_target_to":         y.alignment.target_to,
-                        'aln_target_length':     y.alignment.target_length
-                        })
-                        
-            if not found:
-        	    r.append({
-		        "hit":None,
-		        "bias":None,
-		        "c_evalue":None,
-		        "correction":None,
-		        "env_from":None,
-		        "env_to":None,
-		        "env_score":None,
-		        "i_evalue":None,
-		        "pvalue":None,
-		        "score":None,
-		        "aln_domain":None,
-		        "aln_hmm_accession":None,
-		        "aln_hmm_from":None,
-		        "aln_hmm_name":None,
-		        "aln_hmm_sequence":None,
-		        "aln_hmm_to":None,
-		        "aln_hmm_length":None,
-		        "aln_identity_sequence":None,
-		        "aln_target_from":None,
-		        "aln_target_name":target_name,
-		        "aln_target_sequence":None,
-		        "aln_target_to":None,
-		        'aln_target_length':None})
-		     
-        
-        df = pd.DataFrame(r)
-        df['source'] = model
+        df = hmmer_output_parser(h, columns=columns, rename=rename)
+        df['source'] = model 
         results.append(df)
         
-        if df.empty:
-            print("No results found in HMMER output.")
-            return pd.DataFrame(columns=columns)
-    
     df = pd.concat(results)
     
-    if columns:
-        df = df[columns]
-        
-    if rename:
-        df.rename({'aln_target_name': 'sequence', 'aln_hmm_name': 'model', 'i_evalue': 'evalue', 'env_from': 'estart', 'env_to': 'eend'}, axis=1, inplace=True)
-
     return df
 
 def add_arch_to_df(df, column='pid', cpus=0, file=None, evalue_filter=1e-3, score_filter=20, pfam_database_path='/databases/pfam/Pfam-A.hmm', inplace=False, run_hmmscan=True):
