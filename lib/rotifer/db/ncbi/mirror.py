@@ -160,7 +160,7 @@ class GenomeCursor(rotifer.db.methods.GenomeCursor, rotifer.db.parallel.SimplePa
                 ls = os.listdir(path)
             else:
                 raise FileNotFoundError(f'No directory {path} for {accession}')
-            ls = [ x for x in sorted(ls) if accession in x ]
+            ls = [ x for x in sorted(ls) if accession in x and os.path.isdir(os.path.join(path,x)) ]
             if len(ls):
                 ls = ls[-1] # Expected to be the latest version of the target genome
             else:

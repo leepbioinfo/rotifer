@@ -15,20 +15,53 @@ logger = rotifer.logging.getLogger(__name__)
 # Data
 _columns = ['nucleotide', 'start', 'end', 'strand', 'nlen', 'block_id', 'query', 'pid', 'type', 'plen', 'locus', 'seq_type', 'assembly', 'gene', 'origin', 'topology', 'product', 'taxid', 'organism', 'lineage', 'classification', 'feature_order', 'internal_id', 'is_fragment']
 
-def seqrecords_to_dataframe(seqrecs=None, exclude_type=[], autopid=False, assembly=None, codontable='Bacterial'):
+def _parse_assembly_from_dbxrefs(column, feature, seqrecord):
+    for x in seqrecord.dbxrefs:
+        if 'Assembly:' in x:
+            return x.split(':')[-1]
+    return np.NaN
+
+def _parse_annotations(column, feature, seqrecord):
+        if column in seqrecord.annotations:
+            return seqrecord.annotations[column]
+        return np.NaN
+
+def _parse_qualifiers(column, feature, seqrecord):
+    if column in feature.qualifiers:
+        if len(feature.qualifiers[column]) == 1:
+            return feature.qualifiers[column][0]
+        else:
+            return "\cA".join(feature.qualifiers[column][0])
+    return np.NaN
+
+def seqrecords_to_dataframe(seqrecs=None, exclude_type=[], autopid=False, assembly=None, codontable='Bacterial', parsers={}):
     '''
     Extract BioPython's SeqRecord features data to a Pandas dataframe
     Arguments:
       seqrecs      : rotifer.genome.io.parse generator, Bio.SeqIO generator
                      or (list of) Bio.SeqRecord object(s)
-      exclude_type : exclude features by type
-      autopid      : auto-generate missing PIDs from locus_tag
+      exclude_type : list of strings
+        Exclude features by type
+      autopid      : string
+        Auto-generate missing PIDs from locus_tag
 
           You can set autopid to:
           - 'auto', for transforming the locus_tag into unique PIDs, or
           - 'copy', copy the locus_tag if there is no alternative splicing
 
-      codontable   : Genetic code name for translating CDSs
+      codontable   : integer or string (see Bio.Seq)
+        Genetic code name for translating CDSs
+      parsers: dict of functions
+        Data extractor routines for non-standard columns.
+
+        This dictionary's keys will be used as column names.
+
+        The corresponding values should be function names or references
+        and should support three arguments:
+
+        1. the column name
+        2. the current feature being processed
+        3. the current sequence object
     '''
     import re
     import os
@@ -43,6 +76,7 @@ def seqrecords_to_dataframe(seqrecs=None, exclude_type=[], autopid=False, assemb
 
     # Process each seqrecord
     data = []
+    optionalFound = []
     for seqrecord in seqrecs:
         # Check input
         if not isinstance(seqrecord, Bio.SeqRecord.SeqRecord):
@@ -190,9 +224,14 @@ def seqrecords_to_dataframe(seqrecs=None, exclude_type=[], autopid=False, assemb
                 else:
                     location.append([start,end])
 
+            # Optional qualifiers
+            optionalDict = {}
+            for column in parsers.keys():
+                optionalDict[column] = parsers[column](column, ft, seqrecord)
+
             # Store each location
             for l in location:
-                data.append({
+                datum = {
                     'nucleotide': seqrecord.id,
                     'start': l[0],
                     'end': l[1],
@@ -216,7 +255,10 @@ def seqrecords_to_dataframe(seqrecs=None, exclude_type=[], autopid=False, assemb
                     'classification': taxonomy,
                     'feature_order':feature_order[feature_type],
                     'internal_id':internal_id,
-                    'is_fragment':0})
+                    'is_fragment':0
+                }
+                datum.update(optionalDict)
+                data.append(datum)
 
             # Increment feature counters
             feature_order[feature_type] += 1
@@ -230,5 +272,44 @@ def seqrecords_to_dataframe(seqrecs=None, exclude_type=[], autopid=False, assemb
         df = NeighborhoodDF(df, update_lineage='classification')
         return(df)
     else:
-        return(NeighborhoodDF(pd.DataFrame(columns=_columns)))
+        return(NeighborhoodDF(pd.DataFrame(columns = _columns + list(parsers.keys()))))
+
+def add_gembase_qualifiers(seqrecs, name, strain=0, inplace=True):
+    from copy import deepcopy
+    lastassembly = None
+    genome_order = -1
+    protein_order = 0
+    gembase_strain = strain - 1
+    gembase_contig = 0
+    for s in seqrecs:
+        assembly = [ x.replace("Assembly:","") for x in s.dbxrefs if "Assembly:" == x[0:9] ][0]
+        topology = _parse_annotations('topology', feature=None, seqrecord=s)
+        if assembly != lastassembly:
+            genome_order = -1
+            protein_order = 0
+            gembase_strain += 1
+            gembase_contig = 0
+            gembase_dict = {}
+            lastassembly = assembly
+
+        # Find first and last proteins to define borders
+        first_protein = [ x for x in range(0,len(s.features)) if s.features[x].type == "CDS" and ('pseudo' not in s.features[x].qualifiers) ]
+        if len(first_protein):
+            last_protein = first_protein[-1]
+            first_protein = first_protein[0]
+
+        # Loop over features
+        gembase_contig += 1
+        feature_order = -1
+        for f in s.features:
+            feature_order += 1
+            genome_order += 1
+            if (f.type == 'CDS') and ('pseudo' not in f.qualifiers):
+                protein_order += 1
+
+                # Set protein/CDS identifier
+                gembase_place = "i"
+                if (topology != "circular") and (feature_order == first_protein or feature_order == last_protein):
+                    gembase_place = "b"
+                f.qualifiers['gembase'] = f'{gembase_prefix}.{gembase_strain:05}.{gembase_contig:06}{gembase_place}_{protein_order:05}'
 

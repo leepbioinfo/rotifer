@@ -3,7 +3,9 @@ import sys
 import numpy as np
 import pandas as pd
 import pyhmmer as ph
+import rotifer
 import rotifer.devel.beta.sequence as rdbs
+from rotifer.devel.alpha import trsantos as rdat
 from rotifer.db import ncbi
 from rotifer.taxonomy import utils as rtu
 from rotifer.interval import utils as riu
@@ -11,6 +13,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import ete3
+from tqdm import tqdm
 
 def get_matrix(df, filter_list, rows, columns, n=10, filter_by='pid'):
         filtered_df = df[df[filter_by].isin(filter_list)]
@@ -101,28 +104,62 @@ def to_network(df, target=['pfam'], ftype=['CDS'], interaction=True, ignore = []
     w = w.agg(weight=('block_id', 'count'), blocks=('block_id', 'nunique')).reset_index()
     return w
 
-def compact_for_treeviewer(
-        ndf,
-        acc,
-        columns=['pid','assembly','nucleotide','block_id','organism','lineage','classification','pfam','aravind','compact','compacts'],
-        save=None,
-    ):
+def make_palette(categories):
+    """
+    Generate a color-blind safe palette dictionary 
+    for the given list of category names (max 10 entries).
+    """
+    safe_colors = [
+        "#E69F00", "#56B4E9", "#009E73", "#F0E442",
+        "#0072B2", "#D55E00", "#CC79A7", "#999999",
+        "#117733", "#882255"
+    ]
+
+    # Keep only as many as the safe palette allows
+    categories = categories[:len(safe_colors)]
+
+    palette = {cat: safe_colors[i] for i, cat in enumerate(categories)}
+
+    return palette
+
+def attribute_table(
+    ndf,
+    columns_list=['pid', 'pfam', 'compact_total', 'compact_same_strand', 'kingdom', 'phylum', 'class', 'classification'],
+    tax_parser= True,
+    color_by_tax='phylum',
+    number_of_taxa=5,
+    save=None):
+
     '''
-    Add a compact GeneNeighborhoodDF representation, select
-    and reorder columns to match those required by TreeViewer
-    and FigTree (leaf identifier as first column).
+    Make a attribute table using the Neighborhood dataframe with a architecure column, 
+    select and reorder columns to match those required by TreeViewer (leaf identifier 
+    as first column). Also permits automatic coloring by taxonomy.
     '''
+
     ndfc = ndf.compact()
     ndfcs = ndf.select_neighbors(strand = True).compact()
-    ndf_acc = ndf[ndf.pid.isin(acc)]
-    ndf_acc['compact'] = ndf_acc.block_id.map(ndfc['compact'].to_dict())
-    ndf_acc['compacts'] = ndf_acc.block_id.map(ndfcs['compact'].to_dict())
-    table = ndf_acc[columns].drop_duplicates(columns[0])
+    att = ndf[ndf.pid.isin(ndf.query('query == 1').pid)].drop_duplicates('pid')
+    att['compact_total'] = att.block_id.map(ndfc['compact'].to_dict())
+    att['compact_same_strand'] = att.block_id.map(ndfcs['compact'].to_dict())
+
+    if tax_parser:
+        tax = rdat.taxon_summary(att).set_index('taxid')
+        for col in tax.columns:
+            att[col] = att['taxid'].map(tax[col].to_dict())
+
+    if columns_list:
+        att = att[columns_list]
+
+    if color_by_tax:
+        palette = make_palette(att[color_by_tax].value_counts().head(number_of_taxa).index.tolist())
+        att['Color'] = att[color_by_tax].map(palette).fillna('#000000')
+
     if save:
-        table.to_csv(save, sep = '\t', index = False)
+        att.to_csv(save, sep = '\t', index = False)
         print(f'Table saved to {save}')
+
     else:
-        return table
+        return att
 
 def make_heatmap(
         ndf,
@@ -177,7 +214,94 @@ def make_heatmap(
     plt.savefig(f'{name}', bbox_inches='tight')
     plt.close(fig)
 
-def hmmscan(sequences, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm', cpus=0, columns=['aln_target_name', 'aln_hmm_name','i_evalue','c_evalue','score','env_score','aln_target_from','aln_target_to', 'aln_target_length', 'aln_hmm_length', 'env_from', 'env_to']):
+def digitalize_seqobj(seqobj, alignment=None, msa_name='alignment'):
+
+    """
+    Convert sequences from a sequence object into digital format for use with pyhmmer.
+
+    This function takes a sequence object (expected to have a `.df` attribute with
+    columns "id" and "sequence"), digitizes the sequences using a aminoacid alphabet,
+    and optionally returns a pyhmmer DigitalMSA object.
+
+    Args:
+        seqobj: Object
+        alignment: bool, optional (default: None)
+            If True, returns a DigitalMSA object containing all digitized sequences.
+            If False or None, returns a list of pyhmmer DigitalSequence objects.
+        msa_name: str, optional (default: 'alignment')
+            Name to assign to the DigitalMSA object if `alignment=True`.
+
+    Returns:
+        pyhmmer.easel.DigitalMSA or list
+            - If `alignment=True`: returns a `DigitalMSA` object containing all
+              digitized sequences, suitable for building an HMM.
+            - Otherwise: returns a list of `DigitalSequence` objects, one per sequence.
+
+    Example:
+        # Digitize sequences without creating a DigitalMSA
+        digital_seqs = digitalize_seqobj(seqobj)
+
+        # Create a DigitalMSA for HMM building
+        msa = digitalize_seqobj(seqobj, alignment=True, msa_name='my_alignment')
+    """
+
+    abc = ph.easel.Alphabet.amino()
+    digital_sequences = []
+    
+    for _, row in seqobj.df.iterrows():
+        name = str(row["id"]).encode()
+        seq = str(row["sequence"])
+        text_seq = ph.easel.TextSequence(name=name, sequence=seq)
+        digital_sequences.append(text_seq.digitize(abc))
+           
+    if alignment:
+        for dseq in digital_sequences:
+            msa = ph.easel.DigitalMSA(abc, sequences=digital_sequences, name = (msa_name.encode()))    
+        return msa
+    
+    else:
+        return digital_sequences
+        
+def make_hmm(seqobj, hmm_name='alignment', save='alignment.hmm'):
+      
+    '''
+    Build a Hidden Markov Model (HMM) from a sequence object using pyhmmer.
+    This function digitizes sequences from a aligned sequence object builds an 
+    HMM using pyhmmer's Plan7 Builder, and optionally saves the HMM to disk.
+
+    Args:
+        seqobj: Object
+        hmm_name: str, optional (default: 'alignment')
+            Name assigned to the MSA/HMM. Used internally in the digitalization step.
+        save: str or None, optional (default: 'alignment.hmm')
+            File path to save the resulting HMM. If None or False, the HMM is not saved.
+
+    Returns:
+        tuple of pyhmmer.plan7.HMM
+            The HMM object(s) generated from the MSA.
+
+    Example:
+        # Build and save an HMM from a sequence object
+        hmm = make_hmm(seqobj, hmm_name='my_model', save='my_model.hmm')
+
+        # Build an HMM without saving to disk
+        hmm = make_hmm(seqobj, save=None)
+    '''
+    
+    abc = ph.easel.Alphabet.amino()
+    msa = digitalize_seqobj(seqobj, alignment=True, msa_name=hmm_name)
+    builder = ph.plan7.Builder(abc)
+    background = ph.plan7.Background(abc)
+    hmm = builder.build_msa(msa, background)
+     
+    if save:
+        with open (save, 'wb') as x:
+            hmm[0].write(x)
+        print(f'HMM saved in {save}')
+        
+    return hmm
+
+def hmmscan(sequences, file=None, models_file=['/databases/pfam/Pfam-A.hmm'], cpus=0, columns=['aln_target_name', 'aln_hmm_name','i_evalue','c_evalue','score','env_score','aln_target_from','aln_target_to', 'aln_target_length', 'aln_hmm_length', 'env_from', 'env_to', 'source'], rename=True):
     
     '''
     Perform an hmmscan of protein sequences against a Pfam HMM database.
@@ -199,77 +323,141 @@ def hmmscan(sequences, file=None, pfam_database_path='/databases/pfam/Pfam-A.hmm
         Subset of result column names to include in the output DataFrame.
         Default columns include basic domain and alignment metrics.
     '''
-
+    #Progress bar callback
+    def callback(hmm, hits):
+        pbar.update(1)
+    
+    results = []
     #HMM load
-    with ph.plan7.HMMFile(pfam_database_path) as hmm_file:
-       if hmm_file.is_pressed:
-           hmms = list(hmm_file.optimized_profiles())
-       else:
-           hmms = list(hmm_file)
+    for model in models_file:
+        with ph.plan7.HMMFile(model) as hmm_file:
+           if hmm_file.is_pressed:
+               hmms = list(hmm_file.optimized_profiles())
+           else:
+               hmms = list(hmm_file)
+	    
+        #Sequences load
+        abc = ph.easel.Alphabet.amino()
+        if file:
+           seqs = ph.easel.SequenceFile(file, digital = True, alphabet=abc)
+        
+        else:
+           if type(sequences) == list:
+           		seqobj = rdbs.sequence(sequences)
+           		seqs = digitalize_seqobj(seqobj)
 
-    #with ph.plan7.HMMFile(pfam_database_path) as hmm_file:
-    #    hmms = list(hmm_file.optimized_profiles())
+           elif type(sequences) == rotifer.devel.beta.sequence.sequence:
+           		seqs = digitalize_seqobj(sequences)
+        
+        pbar = tqdm(total=len(seqs), desc='hmmscan')
+        
+        #Hmmscan run and file processment
+        h = list(ph.hmmer.hmmscan(seqs, hmms, cpus=cpus, callback=callback))
+        r = []
+        for th in h:
+            target_name = th.query.name.decode() if th.query.name else None
+            found = False
+            for x in th:
+                for y in x.domains:
+                    r.append({
+                        # pyhmmer.plan7.Domain attributes
+                        "hit":                   y.hit,
+                        "bias":                  y.bias,
+                        "c_evalue":              y.c_evalue,
+                        "correction":            y.correction,
+                        "env_from":              y.env_from,
+                        "env_to":                y.env_to,
+                        "env_score":             y.envelope_score,
+                        "i_evalue":              y.i_evalue,
+                        "pvalue":                y.pvalue,
+                        "score":                 y.score,
 
-    #Sequences load
-    abc = ph.easel.Alphabet.amino()
-    if file:
-        seqs = ph.easel.SequenceFile(file, digital = True, alphabet=abc)
-    else:
-        if type(sequences) == list:
-            sequences = rdbs.sequence(sequences)
-        sequences.to_file('sequences.fasta')
-        seqs = ph.easel.SequenceFile('sequences.fasta', digital=True, alphabet=abc)
-        os.remove('sequences.fasta')
-
-    #Hmmscan run and file processment
-    h = list(ph.hmmer.hmmscan(seqs, hmms, cpus=cpus))
-    r = []
-    for th in h:
-        for x in th:
-            for y in x.domains:
-                r.append({
-                    # pyhmmer.plan7.Domain attributes
-                    "hit":                   y.hit,
-                    "bias":                  y.bias,
-                    "c_evalue":              y.c_evalue,
-                    "correction":            y.correction,
-                    "env_from":              y.env_from,
-                    "env_to":                y.env_to,
-                    "env_score":             y.envelope_score,
-                    "i_evalue":              y.i_evalue,
-                    "pvalue":                y.pvalue,
-                    "score":                 y.score,
-
-                    # pyhmmer.plan7.Alignment attributes
-                    "aln_domain":            y.alignment.domain,
-                    "aln_hmm_accession":     y.alignment.hmm_accession.decode(),
-                    "aln_hmm_from":          y.alignment.hmm_from,
-                    "aln_hmm_name":          y.alignment.hmm_name.decode(),
-                    "aln_hmm_sequence":      y.alignment.hmm_sequence,
-                    "aln_hmm_to":            y.alignment.hmm_to,
-                    "aln_hmm_length":        y.alignment.hmm_length,
-                    "aln_identity_sequence": y.alignment.identity_sequence,
-                    "aln_target_from":       y.alignment.target_from,
-                    "aln_target_name":       y.alignment.target_name.decode(),
-                    "aln_target_sequence":   y.alignment.target_sequence,
-                    "aln_target_to":         y.alignment.target_to,
-                    'aln_target_length':     y.alignment.target_length
-                    })
-    df = pd.DataFrame(r)
-
+                        # pyhmmer.plan7.Alignment attributes
+                        "aln_domain":            y.alignment.domain,
+                        "aln_hmm_accession":     y.alignment.hmm_accession.decode(),
+                        "aln_hmm_from":          y.alignment.hmm_from,
+                        "aln_hmm_name":          y.alignment.hmm_name.decode(),
+                        "aln_hmm_sequence":      y.alignment.hmm_sequence,
+                        "aln_hmm_to":            y.alignment.hmm_to,
+                        "aln_hmm_length":        y.alignment.hmm_length,
+                        "aln_identity_sequence": y.alignment.identity_sequence,
+                        "aln_target_from":       y.alignment.target_from,
+                        "aln_target_name":       y.alignment.target_name.decode(),
+                        "aln_target_sequence":   y.alignment.target_sequence,
+                        "aln_target_to":         y.alignment.target_to,
+                        'aln_target_length':     y.alignment.target_length
+                        })
+                        
+            if not found:
+        	    r.append({
+		        "hit":None,
+		        "bias":None,
+		        "c_evalue":None,
+		        "correction":None,
+		        "env_from":None,
+		        "env_to":None,
+		        "env_score":None,
+		        "i_evalue":None,
+		        "pvalue":None,
+		        "score":None,
+		        "aln_domain":None,
+		        "aln_hmm_accession":None,
+		        "aln_hmm_from":None,
+		        "aln_hmm_name":None,
+		        "aln_hmm_sequence":None,
+		        "aln_hmm_to":None,
+		        "aln_hmm_length":None,
+		        "aln_identity_sequence":None,
+		        "aln_target_from":None,
+		        "aln_target_name":target_name,
+		        "aln_target_sequence":None,
+		        "aln_target_to":None,
+		        'aln_target_length':None})
+		     
+        
+        df = pd.DataFrame(r)
+        df['source'] = model
+        results.append(df)
+        
+        if df.empty:
+            print("No results found in HMMER output.")
+            return pd.DataFrame(columns=columns)
+    
+    df = pd.concat(results)
+    
     if columns:
         df = df[columns]
+        
+    if rename:
+        df.rename({'aln_target_name': 'sequence', 'aln_hmm_name': 'model', 'i_evalue': 'evalue', 'env_from': 'estart', 'env_to': 'eend'}, axis=1, inplace=True)
 
     return df
 
-def add_arch_to_df(df, column='pid', cpus=0, pfam_database_path='/databases/pfam/Pfam-A.hmm'):
+def add_arch_to_df(df, column='pid', cpus=0, file=None, evalue_filter=1e-3, score_filter=20, pfam_database_path='/databases/pfam/Pfam-A.hmm', inplace=False, run_hmmscan=True):
+  
     '''
     Add a column pfam with the domain architecture for the input accessions.
     '''
-    h = hmmscan(df[column].dropna().tolist(), cpus=cpus, pfam_database_path=pfam_database_path)
+    
+    if inplace == False:
+    	df = df.copy()
+    
+    if run_hmmscan:
+        h = hmmscan(df[column].dropna().tolist(), cpus=cpus, file=file, pfam_database_path=pfam_database_path)
+
+    else:
+        h = df
+    
     h.rename({'aln_target_name':'sequence','aln_hmm_name':'model','i_evalue':'evalue','env_from':'estart', 'env_to':'eend'}, axis=1, inplace=True)
-    arch = riu.filter_nonoverlapping_regions(h, **riu.config['hmmer']).groupby('sequence').agg(pfam = ('model',lambda x: '+'.join(x.astype(str)))).reset_index()
+    h = h[h.evalue <= evalue_filter]
+    h = h[h.score >= score_filter]
+    h = riu.filter_nonoverlapping_regions(h, **riu.config['hmmer'])
+    h = h.loc[h.groupby(['sequence','model']).score.idxmax()].reindex(h.index).dropna()
+    arch = h.groupby('sequence').agg(pfam = ('model',lambda x: '+'.join(x.astype(str)))).reset_index()
     arch.rename({'sequence':column}, axis = 1, inplace = True)
     arch = arch.set_index(column).pfam.to_dict()
     df['pfam'] = df[column].map(arch)
     return df
+      
+    
+  

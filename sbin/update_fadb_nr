@@ -64,10 +64,9 @@ fi
 mkdir $new
 cd $new
 
-# Download and unpack
-#aria2c -s 8 ftp://ftp.ncbi.nlm.nih.gov/blast/db/FASTA/nr.gz
-#gunzip nr.gz
+# Main block
 {
+	# Download and unpack
 	echo "Downloading latest NR and taxonomy files to $new"
 	mmseqs databases NR nrDB tmp
 	mmseqs convert2fasta nrDB nr

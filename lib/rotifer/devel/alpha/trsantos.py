@@ -1,3 +1,253 @@
+import numpy as np
+import pandas as pd
+from collections import Counter
+from rotifer.db import ncbi
+from rotifer.db.ncbi import entrez
+from rotifer.devel.alpha import epsoares as rdae
+from rotifer.devel.beta import sequence as rdbs
+from rotifer.interval import utils as riu
+ic = ncbi.IPGCursor()
+gnc = ncbi.GeneNeighborhoodCursor()
+tc = ncbi.TaxonomyCursor()
+import os
+os.environ["MKL_THREADING_LAYER"] = "GNU"
+import subprocess
+import time
+import psutil
+import tempfile
+import pathlib
+import traceback
+from glob import glob
+from typing import Optional, Union, List, Dict
+from io import StringIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+from Bio.Align import MultipleSeqAlignment
+from Bio.Phylo.TreeConstruction import DistanceCalculator, DistanceTreeConstructor
+from Bio import Phylo
+
+# --- GPU support via pynvml ---
+try:
+    import pynvml
+    pynvml.nvmlInit()
+    gpu_available = True
+except Exception:
+    gpu_available = False
+
+def get_gpu_stats():
+    """
+    Collect current GPU utilization and memory usage for all available GPUs.
+
+    Returns
+    -------
+    list[dict]
+        A list of dictionaries, one per GPU, each containing:
+        - "gpu_id" (int): The GPU index.
+        - "gpu_util" (float): Current GPU utilization percentage.
+        - "gpu_mem" (float): GPU memory usage in megabytes (MB).
+
+    Notes
+    -----
+    - If `pynvml` is not available or fails to initialize, returns an empty list.
+    - This function assumes NVIDIA GPUs accessible via NVML.
+    """
+    stats = []
+    if not gpu_available:
+        return stats
+    device_count = pynvml.nvmlDeviceGetCount()
+    for i in range(device_count):
+        handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+        util = pynvml.nvmlDeviceGetUtilizationRates(handle)
+        mem = pynvml.nvmlDeviceGetMemoryInfo(handle)   # ✅ fixed
+        stats.append({
+            "gpu_id": i,
+            "gpu_util": util.gpu,            # percent
+            "gpu_mem": mem.used / (1024**2)  # MB
+        })
+    return stats
+
+
+def profile_command(command, poll_interval=0.1, output_file=None, shell=False):
+    """
+    Run an external command while profiling its CPU, memory, and (if available) GPU usage.
+
+    Parameters
+    ----------
+    command : list[str] | str
+        The command to execute, either as a list of arguments (recommended) or as a shell string.
+    poll_interval : float, optional
+        Time interval (in seconds) between sampling events. Default is 0.1 seconds.
+    output_file : str | None, optional
+        File path to write command stdout/stderr. If None, a temporary log file is created.
+    shell : bool, optional
+        Whether to execute the command through the shell. Default is False.
+
+    Returns
+    -------
+    dict
+        A dictionary summarizing the execution and profiling results:
+        - "runtime_sec" (float): Total runtime of the command in seconds.
+        - "avg_cpu_percent" (float | None): Average CPU utilization percentage across all processes.
+        - "peak_mem_mb" (float | None): Peak memory usage in megabytes.
+        - "avg_gpu_util_percent" (float | None): Average GPU utilization percentage (if available).
+        - "peak_gpu_mem_mb" (float | None): Peak GPU memory usage in megabytes (if available).
+        - "return_code" (int | None): Process return code.
+        - "error" (str | None): Error message if profiling failed.
+        - "traceback" (str | None): Full traceback if an error occurred.
+        - "output_file" (str): Path to the log file with stdout/stderr output.
+
+    Notes
+    -----
+    - Uses `psutil` for CPU and memory sampling, and `pynvml` for GPU statistics.
+    - Captures resource usage across all child processes spawned by the command.
+    - The function blocks until the process finishes.
+    
+    Example
+    ------
+all_stats = []
+for pdb_file in sorted(glob("WeakConsensus/*.pdb")):
+    pdb_stem = pathlib.Path(pdb_file).stem
+    out_path = f"eguchicnn_weakconsensus_output/{pdb_stem}.txt"
+    log_out = f"eguchicnn_weakconsensus_logs/{pdb_stem}.log"
+    pathlib.Path("eguchicnn_weakconsensus_output").mkdir(exist_ok=True)
+    pathlib.Path("eguchicnn_weakconsensus_logs").mkdir(exist_ok=True)
+
+    result = profile_command(
+        [
+            "python", "../../data/software/EguchiCNN/eguchicnn_wrapper.py",
+            "-i", str(pdb_file),
+            "-o", out_path
+        ],
+        poll_interval=0.05,
+        output_file=log_out,
+        shell=False
+    )
+
+    result.update({
+        "pdb": pdb_stem,
+        "eguchicnn_out": out_path,
+        "log_out": log_out
+    })
+    all_stats.append(result)
+    """
+    # ensure we always have a file to write stdout/stderr to
+    temp_file = None
+    if output_file is None:
+        tf = tempfile.NamedTemporaryFile(prefix="profile_cmd_", suffix=".log", delete=False)
+        output_file = tf.name
+        tf.close()
+        temp_file = output_file
+
+    start_time = time.time()
+
+    try:
+        f = open(output_file, "w")
+    except Exception as e:
+        return {
+            "runtime_sec": None,
+            "avg_cpu_percent": None,
+            "peak_mem_mb": None,
+            "avg_gpu_util_percent": None,
+            "peak_gpu_mem_mb": None,
+            "return_code": None,
+            "error": f"Could not open output file {output_file}: {e}",
+            "traceback": traceback.format_exc(),
+            "output_file": output_file
+        }
+
+    try:
+        process = subprocess.Popen(command, stdout=f, stderr=f, shell=shell)
+    except Exception as e:
+        f.close()
+        return {
+            "runtime_sec": None,
+            "avg_cpu_percent": None,
+            "peak_mem_mb": None,
+            "avg_gpu_util_percent": None,
+            "peak_gpu_mem_mb": None,
+            "return_code": None,
+            "error": f"Popen failed: {e}",
+            "traceback": traceback.format_exc(),
+            "output_file": output_file
+        }
+
+    # attach psutil for CPU/mem tracking
+    try:
+        p = psutil.Process(process.pid)
+        # prime cpu_percent so that the first nonzero measurement works
+        p.cpu_percent(interval=None)
+    except Exception:
+        p = None
+
+    cpu_samples, mem_samples = [], []
+    gpu_samples, gpu_mem_samples = [], []
+
+    try:
+        while True:
+            if process.poll() is not None:
+                break
+
+            try:
+                if p is not None:
+                    procs = [p] + p.children(recursive=True)
+                    total_cpu = sum(proc.cpu_percent(interval=None) for proc in procs if proc.is_running())
+                    total_mem = sum(proc.memory_info().rss for proc in procs if proc.is_running())
+                else:
+                    total_cpu, total_mem = None, None
+
+                if total_cpu is not None:
+                    cpu_samples.append(total_cpu)
+                if total_mem is not None:
+                    mem_samples.append(total_mem / (1024**2))  # MB
+
+                if gpu_available:
+                    gstats = get_gpu_stats()
+                    if gstats:
+                        avg_gpu = np.mean([g["gpu_util"] for g in gstats])
+                        sum_gmem = np.sum([g["gpu_mem"] for g in gstats])
+                        gpu_samples.append(avg_gpu)
+                        gpu_mem_samples.append(sum_gmem)
+
+            except psutil.NoSuchProcess:
+                break
+
+            time.sleep(poll_interval)
+
+        return_code = process.wait()
+
+    except Exception as e:
+        try:
+            process.kill()
+        except Exception:
+            pass
+        return_code = getattr(process, "returncode", None)
+        f.close()
+        return {
+            "runtime_sec": time.time() - start_time,
+            "avg_cpu_percent": (np.nanmean(cpu_samples) if cpu_samples else None),
+            "peak_mem_mb": (np.nanmax(mem_samples) if mem_samples else None),
+            "avg_gpu_util_percent": (np.nanmean(gpu_samples) if gpu_samples else None),
+            "peak_gpu_mem_mb": (np.nanmax(gpu_mem_samples) if gpu_mem_samples else None),
+            "return_code": return_code,
+            "error": f"Sampling failed: {e}",
+            "traceback": traceback.format_exc(),
+            "output_file": output_file
+        }
+
+    f.close()
+
+    return {
+        "runtime_sec": time.time() - start_time,
+        "avg_cpu_percent": (np.nanmean(cpu_samples) if cpu_samples else None),
+        "peak_mem_mb": (np.nanmax(mem_samples) if mem_samples else None),
+        "avg_gpu_util_percent": (np.nanmean(gpu_samples) if gpu_samples else None),
+        "peak_gpu_mem_mb": (np.nanmax(gpu_mem_samples) if gpu_mem_samples else None),
+        "return_code": return_code,
+        "error": None,
+        "traceback": None,
+        "output_file": output_file
+    }
+
 def taxon_summary(
     df,
     rank=['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species'],
@@ -20,8 +270,8 @@ def taxon_summary(
         ['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species'].
         
     update : bool, optional
-        If True, updates the local NCBI taxonomy database via ETE3 before fetching lineages.
-        This is recommended the first time you run the function or if your taxonomy data may be outdated.
+	If True, updates the local NCBI taxonomy database via ETE3 before fetching lineages.
+	This is recommended the first time you run the function or if your taxonomy data may be outdated.
 
     new_ndf : bool, optional
         If True, returns the original DataFrame with taxonomic columns (from 'rank') merged in.
@@ -41,9 +291,6 @@ def taxon_summary(
         - 'tax_assembly_count': Number of unique assemblies mapped to each taxon
         - 'tax_assembly_pct': Percentage of assemblies mapped to each taxon
     """
-    import pandas as pd
-    from rotifer.db import ncbi
-    from rotifer.db.ncbi import entrez 
     
     tc = ncbi.TaxonomyCursor() 
     
@@ -116,11 +363,6 @@ def shannon(self, ignore_gaps=True):
         A pandas Series with entropy values indexed by column number.
     """
 
-    from collections import Counter
-    import numpy as np
-    import pandas as pd
-
-
     # Make sure we only work with sequences
     sequences = self.df[self.df['type'] == 'sequence']['sequence'].tolist()
 
@@ -145,3 +387,351 @@ def shannon(self, ignore_gaps=True):
         entropy_values.append(entropy)
 
     return pd.Series(entropy_values, name='shannon_entropy')
+
+def flag_best_id(group):
+    """
+    Flag one "best" id per group.
+
+    Priority: pick a random row with id_type 'RefSeq', else 'EMBL-CDS'.
+    Returns the same group DataFrame with a new integer 'flag' column (0/1).
+    Example:
+        radsamorg = radsamorg.groupby('qid', group_keys=False).apply(flag_best_id)
+    """
+    n = len(group)
+    flags = np.zeros(n, dtype=int)
+
+    id_types = group['id_type'].to_numpy()
+    for t in ("RefSeq", "EMBL-CDS"):
+        pos = np.flatnonzero(id_types == t)   # positions within the group (0..n-1)
+        if pos.size:
+            choice = np.random.choice(pos)
+            flags[choice] = 1
+            break
+
+    group = group.copy()     # avoid SettingWithCopyWarning
+    group['flag'] = flags
+    return group
+
+def create_attable(ids, update=False, ndf=None, ipg=None):
+    """
+    Create an enriched sequence object with attribute table, neighborhoods, and Pfam architecture.
+
+    This function initializes a sequence object, fetches genome neighborhoods, IPG information,
+    and taxonomy, and compiles them into a unified attribute table (.df). Neighborhoods are
+    mapped only for query proteins, and Pfam domains are integrated from HMM scans.
+
+    Parameters
+    ----------
+    ids : list
+        Accession IDs to build the attribute table from.
+    update : bool, optional
+        If True, updates the ETE3 taxonomy database before fetching.
+    ndf : pd.DataFrame, optional
+        Precomputed genome neighborhood DataFrame. If given, skips fetching.
+    ipg : pd.DataFrame, optional
+        Precomputed IPG information. If given, skips fetching.
+
+    Returns
+    -------
+    a : rotifer.devel.beta.sequence
+        Sequence object with:
+        - a.df : main attribute table with assembly, taxonomy ranks, neighborhood info, and Pfam architecture
+        - a.ndf : genome neighborhood DataFrame
+        - a.ipg : IPG information
+        - a.tax : taxonomy table (pivoted)
+        - a.hsdf : Pfam HMM scan results
+    """
+
+    # Step 1: Initialize sequence object
+    print("Step 1: Initializing sequence object...")
+    a = rdbs.sequence(ids)
+    print("Step 1 done.")
+
+    # Step 2: Fetch IPG info if not provided
+    if ipg is None:
+        print("Step 2: Fetching IPG info...")
+        a.ipg = ic.fetchall(ids)
+        print("Step 2 done.")
+    else:
+        a.ipg = ipg
+        print("Step 2 skipped (using provided IPG).")
+
+    # Step 3: Fetch genome neighborhood if not provided
+    if ndf is None:
+        print("Step 3: Fetching genome neighborhood...")
+        a.ndf = rdae.add_arch_to_df(gnc.fetchall(ids, ipgs=a.ipg))
+        print("Step 3 done.")
+    else:
+        a.ndf = ndf
+        print("Step 3 skipped (using provided NDF).")
+
+    # Step 4: Fetch taxonomy info
+    print("Step 4: Fetching taxonomy info...")
+    if update:
+        print("Updating ETE3 taxonomy database...")
+        tc.cursors['ete3'].update_database()
+    unique_taxids = a.ndf['taxid'].drop_duplicates()
+    tax = tc.fetchall(unique_taxids)
+    print("Step 4 done.")
+
+    # Step 5: Expand lineages
+    print("Step 5: Expanding lineages...")
+    lineage_dict = tc.cursors['ete3'].ete3.get_lineage_translator(unique_taxids.tolist())
+    lineage_series = pd.Series(lineage_dict).explode()
+    z = lineage_series.reset_index().rename(columns={'index': 'taxid', 0: 'lineage'})
+    rank_dict = tc.cursors['ete3'].ete3.get_rank(z['lineage'].tolist())
+    taxon_dict = tc.cursors['ete3'].ete3.get_taxid_translator(z['lineage'].tolist())
+    z['rank'] = z['lineage'].map(rank_dict)
+    z['taxon'] = z['lineage'].map(taxon_dict)
+    print("Step 5 done.")
+
+    # Step 6: Pivot taxonomy table
+    print("Step 6: Pivoting taxonomy table...")
+    ranks = ['domain', 'kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
+    taxon_df = (
+        z[z['rank'].isin(ranks)]
+        .pivot(index='taxid', columns='rank', values='taxon')
+        .reset_index()
+    )
+    print("Step 6 done.")
+
+    # Step 7: Merge taxonomy to main df
+    print("Step 7: Mapping taxonomy and assembly to .df...")
+    tmp_tax = a.ndf[['pid', 'taxid', 'assembly']].drop_duplicates()
+    tmp_tax = tmp_tax.merge(taxon_df, on='taxid', how='left')
+    a.df = a.df.merge(tmp_tax, left_on='id', right_on='pid', how='left', suffixes=('', '_y'))
+    a.df.drop(columns=['pid'], inplace=True, errors='ignore')
+    a.tax = taxon_df
+    print("Step 7 done.")
+
+    # Step 8: Map neighborhoods only for query proteins
+    print("Step 8: Mapping neighborhood and ss_neighborhood...")
+    cndf = a.ndf.compact().reset_index()          # default compact
+    cndf_ss = a.ndf.compact(strand=True).reset_index()  # strand-specific
+
+    # Map block_id to .df only for query proteins
+    a.df['block_id'] = a.df.id.map(dict(zip(a.ndf[a.ndf['query'] == 1].pid, a.ndf[a.ndf['query'] == 1].block_id)))
+
+    a.df['neighborhood'] = a.df.block_id.map(dict(zip(cndf.block_id, cndf.compact)))
+    a.df['ss_neighborhood'] = a.df.block_id.map(dict(zip(cndf_ss.block_id, cndf_ss.compact)))
+
+    # Step 9: Fill missing values
+    a.df.fillna('Missing', inplace=True)
+    a.tax.fillna('Missing', inplace=True)
+
+    print("Step 8-9 done. Attribute table ready.")
+
+    # Step 10: Pfam integration
+    hsdf = rdae.hmmscan(a.df.id.to_list())
+    a.hsdf = hsdf
+    hsdff = riu.filter_nonoverlapping_regions(hsdf, **riu.config['hmmer'])
+    idx = hsdf.groupby('sequence')['evalue'].idxmin()
+    best_hits = hsdf.loc[idx, ['sequence', 'model']].set_index('sequence')['model']
+    a.df['arch'] = a.df['id'].map(best_hits).fillna('Missing')
+
+    print("Step 10 done. Pfam column added.")
+
+    return a
+
+class PhyloBuilder:
+    """
+    Build and hold a simple phylogeny (NJ or UPGMA) from a rotifer.sequence object
+    (or from a Biopython MultipleSeqAlignment / list of SeqRecords).
+
+    Key features:
+    - Automatically builds the tree when an aligned rdbs.sequence is provided.
+    - If a rdbs.sequence is not aligned, it will call `.align()` (non-inplace) to align.
+    - Stores the alignment (msa), distance matrix (Bio object and pd.DataFrame),
+      the tree (Bio.Phylo tree), and metadata.
+    - Visualization via Bio.Phylo.draw and export to Newick.
+
+    Parameters
+    ----------
+    seqs : optional
+        A rotifer.devel.beta.sequence object (preferred), or a Bio.Align.MultipleSeqAlignment,
+        or a list of Bio.SeqRecord, or a list/Series of sequence strings (ids must be provided).
+    method : int, optional
+        1 => UPGMA, 2 => Neighbor-Joining (default 2).
+    matrix : str, optional
+        Substitution matrix name accepted by Bio.Phylo.TreeConstruction.DistanceCalculator.
+        Default 'blosum62'.
+    metadata : dict, optional
+        Arbitrary metadata to store with the object.
+    build_on_init : bool, optional
+        If True and seqs is provided, automatically run build() on init (default True).
+    """
+    def __init__(
+        self,
+        seqs: Optional[Union['rdbs.sequence', MultipleSeqAlignment, List[SeqRecord], List[str]]] = None,
+        method: int = 2,
+        matrix: str = 'blosum62',
+        metadata: Optional[Dict] = None,
+        build_on_init: bool = True,
+    ):
+        self.seqs_input = seqs
+        self.method = int(method)
+        self.matrix = matrix
+        self.metadata = dict(metadata) if metadata is not None else {}
+        self.msa: Optional[MultipleSeqAlignment] = None
+        self.distance_matrix = None  # Bio DistanceMatrix object
+        self.dm_df: Optional[pd.DataFrame] = None
+        self.tree = None  # Bio.Phylo tree
+        # If user passed a rotifer sequence object (rdbs.sequence), keep reference
+        self._rseq = None
+
+        if seqs is not None and build_on_init:
+            self.build()
+
+    def _to_msa_from_rdbs(self, rseq) -> MultipleSeqAlignment:
+        """
+        Convert a rotifer.sequence object to a Biopython MultipleSeqAlignment.
+        If the rseq is not aligned, call its .align() (non-inplace) to obtain an aligned object.
+        """
+        # Prefer using rseq.align() if sequences are not same length (i.e. not aligned)
+        seq_df = rseq.df.query('type == "sequence"').copy()
+        # check if aligned
+        if seq_df.sequence.str.len().nunique() != 1:
+            # call align non-inplace to avoid mutating input object
+            try:
+                aligned = rseq.align(inplace=False)
+            except Exception as e:
+                raise RuntimeError(f"Failed to align sequence object automatically: {e}")
+            seq_df = aligned.df.query('type == "sequence"').copy()
+            rseq = aligned
+
+        # Build SeqRecords
+        seq_records = []
+        for _, row in seq_df.iterrows():
+            seq_records.append(SeqRecord(Seq(row['sequence']), id=str(row['id']), description=''))
+
+        msa = MultipleSeqAlignment(seq_records)
+        self._rseq = rseq  # store reference to possibly aligned sequence object
+        return msa
+
+    def _to_msa_from_generic(self, seqs) -> MultipleSeqAlignment:
+        """
+        Convert a generic input to MultipleSeqAlignment:
+        - If already MultipleSeqAlignment: return as is
+        - If list of SeqRecord: wrap
+        - If list/Series of strings: require that it's paired with a list of ids (not handled here)
+        """
+        if isinstance(seqs, MultipleSeqAlignment):
+            return seqs
+        # list of SeqRecord
+        if isinstance(seqs, list) and all(isinstance(x, SeqRecord) for x in seqs):
+            return MultipleSeqAlignment(seqs)
+        # list/Series of strings -> require ids embedded? try to use indices as ids
+        if isinstance(seqs, (list, pd.Series)) and all(isinstance(x, str) for x in seqs):
+            seq_records = [SeqRecord(Seq(s), id=f"seq{i}") for i, s in enumerate(seqs)]
+            return MultipleSeqAlignment(seq_records)
+
+        raise TypeError("Unsupported seqs type for conversion to MultipleSeqAlignment.")
+
+    def build(self, overwrite: bool = True):
+        """
+        Build the distance matrix and tree from the provided sequences.
+
+        overwrite: if False, will not rebuild if a tree already exists.
+        """
+        if (self.tree is not None) and (not overwrite):
+            return
+
+        # Prepare MSA
+        seqs = self.seqs_input
+        if seqs is None:
+            raise ValueError("No sequences provided to build the phylogeny.")
+
+        if hasattr(seqs, '__class__') and seqs.__class__.__name__ == 'sequence':
+            # assume rotifer.devel.beta.sequence class instance
+            msa = self._to_msa_from_rdbs(seqs)
+        else:
+            msa = self._to_msa_from_generic(seqs)
+
+        self.msa = msa
+
+        # Calculate distances
+        try:
+            calculator = DistanceCalculator(self.matrix)
+        except Exception as e:
+            raise ValueError(f"DistanceCalculator could not be initialized with model '{self.matrix}': {e}")
+
+        # get_distance expects a MultipleSeqAlignment
+        dm = calculator.get_distance(msa)
+        self.distance_matrix = dm
+
+        # keep a pandas copy for convenience
+        names = dm.names
+        mat = dm.matrix
+        # dm.matrix is a lower-triangular list of lists (Bio's DistanceMatrix), convert to full DataFrame
+        df = pd.DataFrame(0.0, index=names, columns=names, dtype=float)
+        for i, n in enumerate(names):
+            row = mat[i]
+            # row length equals i+1
+            for j, val in enumerate(row):
+                df.iat[i, j] = val
+                df.iat[j, i] = val
+        self.dm_df = df
+
+        # Build tree
+        constructor = DistanceTreeConstructor()
+        if self.method == 1:
+            self.tree = constructor.upgma(dm)
+        else:
+            self.tree = constructor.nj(dm)
+
+        # store some metadata
+        self.metadata.setdefault('method', 'upgma' if self.method == 1 else 'nj')
+        self.metadata.setdefault('matrix', self.matrix)
+        self.metadata.setdefault('nseq', len(self.msa))
+        return self
+
+    def draw(self, show: bool = True, **phylo_draw_kwargs):
+        """
+        Draw the current tree using Bio.Phylo.draw.
+        Returns the matplotlib Axes if available.
+        """
+        if self.tree is None:
+            raise RuntimeError("No tree built yet. Call build() first.")
+        ax = Phylo.draw(self.tree, **phylo_draw_kwargs)
+        if show:
+            try:
+                import matplotlib.pyplot as plt
+                plt.show()
+            except Exception:
+                pass
+        return ax
+
+    def to_newick(self) -> str:
+        """Return tree as Newick string (or empty string if no tree)."""
+        if self.tree is None:
+            raise RuntimeError("No tree built yet. Call build() first.")
+        buf = StringIO()
+        Phylo.write(self.tree, buf, "newick")
+        return buf.getvalue().strip()
+
+    def export(self, path: str, fmt: str = "newick"):
+        """
+        Export tree to file in a supported format (newick, nexus, phyloxml, etc.).
+        """
+        if self.tree is None:
+            raise RuntimeError("No tree built yet. Call build() first.")
+        Phylo.write(self.tree, path, fmt)
+
+    def get_distance_dataframe(self) -> pd.DataFrame:
+        """
+        Return the distance matrix as a pandas DataFrame.
+        """
+        if self.dm_df is None:
+            raise RuntimeError("Distance matrix not available; call build() first.")
+        return self.dm_df.copy()
+
+    def attach_metadata(self, d: Dict):
+        """Merge provided metadata dict into builder metadata."""
+        if not isinstance(d, dict):
+            raise TypeError("metadata must be a dict")
+        self.metadata.update(d)
+
+    def __repr__(self):
+        info = f"<PhyloBuilder nseq={len(self.msa) if self.msa is not None else 0} method={'UPGMA' if self.method==1 else 'NJ'} matrix={self.matrix}>"
+        return info
+
