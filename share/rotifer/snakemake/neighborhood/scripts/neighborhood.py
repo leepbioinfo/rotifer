@@ -15,5 +15,15 @@ neighborhood_df = gnc.fetchall(pid,ipgs=ipg.query('superkingdom !="Eukaryota"'))
 euk = ipg.query('superkingdom=="Eukaryota"').rename({'position':'block_id', 'stop':'end', 'description':'product'}, axis=1).eval('query =1').eval('type ="CDS"')
 euk = euk.reindex(columns=neighborhood_df.columns)
 neighborhood_df = pd.concat([neighborhood_df, euk], ignore_index=True)
-neighborhood_df = gf.single_tax2ndf(neighborhood_df)
+try:
+    neighborhood_df = gf.single_tax2ndf(neighborhood_df)
+except ValueError:
+    print(' Putative missing taxID, updating ETE3 taxonomoy database')
+    from ete3 import NCBITaxa
+    ncbi = NCBITaxa()
+    ncbi.update_taxonomy_database()
+    print('ETE3 taxonomy database updated')
+    try:
+        neighborhood_df = gf.single_tax2ndf(neighborhood_df)
+
 neighborhood_df.to_pickle(output_file)

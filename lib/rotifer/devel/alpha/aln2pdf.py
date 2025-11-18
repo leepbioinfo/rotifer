@@ -26,6 +26,12 @@ def draw_arrow_from_to(
     - Allows stroke (outline) control and default pastel orange fill
     """
     total_length = x_end - x_start
+    print (total_length)
+    if total_length < 50:
+        arrow_proportion = 0.5 - (0.4 / (50 - 10)) * (total_length - 10)
+    else:
+        arrow_proportion = 0.1
+
     arrow_size = total_length * arrow_proportion
     shaft_end_x = x_end - arrow_size
     shaft_half = shaft_height / 2
@@ -83,12 +89,14 @@ def draw_cylinder_from_to(
 
     # Draw main body
     c.roundRect(x_start, y_bottom, width, height, radius=r, fill=1, stroke=stroke_flag)
+    c.setFillColor('#d48c82')
 
     # Rear cap (right)
     c.ellipse(x_end - r * 2, y_bottom, x_end, y_bottom + height, fill=1, stroke=stroke_flag)
 
     # Front cap (left)
-    c.ellipse(x_start, y_bottom, x_start + r * 2, y_bottom + height, fill=1, stroke=stroke_flag)
+    
+    #c.ellipse(x_start, y_bottom, x_start + r * 2, y_bottom + height, fill=1, stroke=stroke_flag)
 
     # Optional label
     if label:
@@ -104,7 +112,7 @@ def add_SS_diagrams(pdf_in, pdf_out):
         words = page.extract_words()
         l =[]
         for x in words:
-            if x['text'] =='FINAL':
+            if x['text'] =='SS':
                 for y in words:
                     if y['top'] == x['top']:
                         if y['text'] != x['text']:
@@ -119,7 +127,7 @@ def add_SS_diagrams(pdf_in, pdf_out):
     for x in l:
         # Draw centered arrow
         if x['text'].startswith('E'):
-            draw_arrow_from_to(c, x_start=x['x0'], x_end=x['x1'], y=height - x['top'],arrow_proportion=0.10, shaft_height=2, arrow_width=6, edge_width=0.1)
+            draw_arrow_from_to(c, x_start=x['x0'], x_end=x['x1'], y=height - x['top'],arrow_proportion=0.10, shaft_height=2, arrow_width=4, edge_width=0.1)
         else:
         # Draw two cylinders (helices) beside the arrow
             draw_cylinder_from_to(c,x_start= x['x0'], x_end=x['x1'],y=height - x['top'], height=4, color=lightblue, edge_width=0.1)
@@ -185,7 +193,7 @@ def veremos(in_aln_r,
         'selector': 'th:not(.index_name)',
         'props': f'''font-size: {font_size}px;
         text-align: left;
-        font-family:Courier;
+        font-family:"Courier New";
         color:black;'''
     }
     slices = chunks(aln_r.columns, aln_length)
@@ -212,7 +220,7 @@ def veremos(in_aln_r,
         if sys.version_info.minor > 8:
             df_style = sliced.loc[:,x].style.set_properties(**{
                 'font-size': f'{font_size}px',
-                'font-family':'Courier',
+                'font-family':"'DejaVu Sans Mono', monospace",
                 "text-align": "center"}
             ).apply(html_highlight_aln, axis=0, subset=slice_sequences).hide(axis='columns').apply(
                 html_highlight_consensus, subset=slice_consensus
@@ -225,7 +233,7 @@ def veremos(in_aln_r,
         else:
             df_style = sliced.loc[:,x].style.set_properties(**{
                 'font-size': f'{font_size}px',
-                'font-family':'Courier',
+                'font-family':"'DejaVu Sans Mono', monospace",
                 "text-align": "center"}
             ).apply(html_highlight_aln, axis=0, subset=slice_sequences).hide_columns().apply(
                 html_highlight_consensus, subset=slice_consensus
@@ -349,6 +357,7 @@ def html_highlight_aln(s):
     from rotifer.core.functions import loadConfig
     from rotifer.core  import config as CoreConfig
     import numpy as np
+    import pandas as pd 
     cd = loadConfig(
             ':colors.html_aa_colors',
             system_path=CoreConfig['baseDataDirectory'])
@@ -360,11 +369,12 @@ def html_highlight_aln(s):
         'color:"";background-color:""',
         np.where(
             s == s.iloc[-1],
-            f'color:{d["fcolor"]};background-color:{d["color"]}',
-            np.where(
-                s.isin(d['residues']),
-                f'color:{d["fcolor"]};background-color:{d["color"]}',
-                f'color:black;background-color:')))
+            f'color:{d["fcolor"]};background-color:{d["color"]};font-weight: bold;text-align: center',
+            np.where(pd.to_numeric(s, errors="coerce").notna(),
+                     'color:green;background-color:',np.where(
+                        s.isin(d['residues']),
+                            f'color:{d["fcolor"]};background-color:{d["color"]};font-weight: bold;text-align: center',
+                            f'color:#74718c;background-color:;font-weight: bold;text-align: center'))))
 
 def html_highlight_consensus(s):
     from rotifer.core.functions import loadConfig
@@ -383,12 +393,12 @@ def html_highlight_consensus(s):
     """
     return np.where(
         s.isin(cd["ALL"]["residues"]),
-        f'color:{d["fcolor"]};background-color:{d["color"]}',
-        f'color:{d["fcolor"]};background-color:{d["color"]}',
+        f'color:{d["fcolor"]};background-color:{d["color"]};font-weight: bold;text-align: center',
+        f'color:{d["fcolor"]};background-color:{d["color"]};font-weight: bold;text-align: center',
         )
 def html_white_text(s):
     import pandas as pd
-    return pd.Series(["color: white"] * len(s), index=s.index)
+    return pd.Series(["color: white; font-family: Courier New"] * len(s), index=s.index)
 
 def clean_and_rename_columns(df):
     import pandas as pd
@@ -409,6 +419,7 @@ def add_SS_diagrams_pages(pdf_in, pdf_out):
             system_path=CoreConfig['baseDataDirectory'])
     from rotifer.devel.alpha.aln2pdf import draw_cylinder_from_to, draw_arrow_from_to
     from io import BytesIO
+    reader = PdfReader(pdf_in) # added later on
     output = PdfWriter()
     with pdfplumber.open(pdf_in) as pdf:
         for i,page in enumerate(pdf.pages):
@@ -417,7 +428,7 @@ def add_SS_diagrams_pages(pdf_in, pdf_out):
             words = page.extract_words()
             l =[]
             for x in words:
-                if x['text'] =='FINAL':
+                if x['text'].startswith('Secondary'):
                     for y in words:
                         if y['top'] == x['top']:
                             if y['text'] != x['text']:
@@ -434,8 +445,8 @@ def add_SS_diagrams_pages(pdf_in, pdf_out):
                                        x_end=x['x1'],
                                        y=height - x['top'],
                                        arrow_proportion=0.10,
-                                       shaft_height=2,
-                                       arrow_width=6,
+                                       shaft_height=4,
+                                       arrow_width=8,
                                        edge_width=0.1,
                                        color=color_dict['strand']['color'],
                                        edge_color=color_dict['strand']['line'])
@@ -454,7 +465,8 @@ def add_SS_diagrams_pages(pdf_in, pdf_out):
 
             # === STEP 3: Merge overlay into original PDF ===
             overlay_pdf = PdfReader(packet)
-            original_page = PdfReader(pdf_in).pages[i]
+            #original_page = PdfReader(pdf_in).pages[i] Trying to fix issues 
+            original_page = reader.pages[i]
             original_page.merge_page(overlay_pdf.pages[0])
             output.add_page(original_page)
 

@@ -1,31 +1,31 @@
 a:
   group: aromatic
-  color: "#2C68F3"
-  fcolor: "black"
+  color: "#feda9f"
+  fcolor: "#232237"
   residues: ['F', 'Y', 'W', 'H']
 
 l:
   group: alifatic
-  color: "#2CF3EA"
-  fcolor: "black"
+  color: "#fdf9ce"
+  fcolor: "#671819"
   residues: ['I', 'V', 'L']
 
 h:
   group: hydrophobic
-  color: "#F3E42C"
-  fcolor: "black"
+  color: "#feeca4"
+  fcolor: "#671a0d"
   residues: ['I', 'V', 'L', 'A', 'C', 'F', 'M', 'W', 'Y']
 
 "+":
   group: positive
-  color: "#2C68F3"
-  fcolor: "black"
+  color: "#2e358f"
+  fcolor: "white"
   residues: ['H', 'R', 'K']  
 
 "-":
   group: negative
-  color: "#F50EF1"
-  fcolor: "black"
+  color: "#ed087d"
+  fcolor: "white"
   residues: ['D' ,'E']
 
 c:
@@ -36,14 +36,14 @@ c:
 
 p:
   group: polar
-  color: "#0EF5A1"
-  fcolor: "black"
+  color: "#c8a0c8"
+  fcolor: "#4b4c54"
   residues: ['H', 'K', 'R', 'D', 'E', 'p', 'Q', 'N', 'S', 'T', 'C']
 
 o:
   group: alcohol
-  color: "#AE5BF8"
-  fcolor: "black"
+  color: "#9db4de"
+  fcolor: "#4c4d4e"
   residues: ['S', 'T']
 
 u:
@@ -54,14 +54,14 @@ u:
 
 s:
   group: small
-  color: "#DA1477"
-  fcolor: "black"
+  color: "#92c5bb"
+  fcolor: "#4b4c54"
   residues: ['G', 'A', 'S', 'V', 'T', 'D', 'N', 'P', 'C']
 
 b:
   group: big
-  color: "#A28694"
-  fcolor: "black"
+  color: "#d2d3d4"
+  fcolor: "#4f4c69"
   residues: ['K', 'F', 'I', 'L', 'M', 'Q', 'R', 'W', 'Y', 'E']
 
 ALL:
@@ -72,121 +72,121 @@ ALL:
 
 G:
   group: all_aa
-  color: "black"
+  color: "#58595a"
   fcolor: "white"
   residues: ['G']
 
 A:
   group: all_aa
-  color: "black"
+  color: "#58595a"
   fcolor: "white"
   residues: ['A']
 
 V:
   group: all_aa
-  color: "black"
+  color: "#58595a"
   fcolor: "white"
   residues: ['V']
 
 I:
   group: all_aa
-  color: "black"
+  color: "#58595a"
   fcolor: "white"
   residues: ['I']
 
 L:
   group: all_aa
-  color: "black"
+  color: "#58595a"
   fcolor: "white"
   residues: ['L']
 
 M:
   group: all_aa
-  color: "black"
+  color: "#58595a"
   fcolor: "white"
   residues: ['M']
 
 F:
   group: all_aa
-  color: "black"
+  color: "#58595a"
   fcolor: "white"
   residues: ['F']
 
 Y:
   group: all_aa
-  color: "black"
+  color: "#58595a"
   fcolor: "white"
   residues: ['Y']
 
 W:
   group: all_aa
-  color: "black"
+  color: "#661b0d"
   fcolor: "white"
   residues: ['W']
 
 H:
   group: all_aa
-  color: "black"
+  color: "#661b0d"
   fcolor: "white"
   residues: ['H']
 
 C:
   group: all_aa
-  color: "black"
+  color: "#58595a"
   fcolor: "white"
   residues: ['C']
 
 P:
   group: all_aa
-  color: "black"
+  color: "#58595a"
   fcolor: "white"
   residues: ['P']
 
 K:
   group: all_aa
-  color: "black"
+  color: "#661b0d"
   fcolor: "white"
   residues: ['K']
 
 R:
   group: all_aa
-  color: "black"
+  color: "#661b0d"
   fcolor: "white"
   residues: ['R']
 
 D:
   group: all_aa
-  color: "black"
+  color: "#661b0d"
   fcolor: "white"
   residues: ['D']
 
 E:
   group: all_aa
-  color: "black"
+  color: "#661b0d"
   fcolor: "white"
   residues: ['E']
 
 Q:
   group: all_aa
-  color: "black"
+  color: "#58595a"
   fcolor: "white"
   residues: ['Q']
 
 N:
   group: all_aa
-  color: "black"
+  color: "#58595a"
   fcolor: "white"
   residues: ['N']
 
 S:
   group: all_aa
-  color: "black"
+  color: "#661b0d"
   fcolor: "white"
   residues: ['S']
 
 T:
   group: all_aa
-  color: "black"
+  color: "58595a"
   fcolor: "white"
   residues: ['T']
 

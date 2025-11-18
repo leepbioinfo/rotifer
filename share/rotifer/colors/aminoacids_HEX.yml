@@ -20,7 +20,7 @@ R: "#AE1902"
 # NEgative
 E: "#AE23AF"
 D: "#AE23AF"
--: "#AE23AF"
+-: "white"
 
 # Polar
 N: "#00AF1E"
