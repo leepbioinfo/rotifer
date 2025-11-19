@@ -406,6 +406,9 @@ def hmmscan(sequences, file=None, models_path=['/databases/pfam/Pfam-A.hmm'], cp
     def callback(hmm, hits):
         pbar.update(1)
     
+    if isinstance(models_path, str):
+        models_path = list(models_path)
+
     results = []
     #HMM load
     for model in models_path:
@@ -440,7 +443,7 @@ def hmmscan(sequences, file=None, models_path=['/databases/pfam/Pfam-A.hmm'], cp
     
     return df
 
-def add_arch_to_df(df, column='pid', cpus=0, file=None, evalue_filter=1e-3, score_filter=20, models_path='/databases/pfam/Pfam-A.hmm', inplace=False, run_hmmscan=True):
+def add_arch_to_df(df, column='pid', cpus=0, file=None, evalue_filter=1e-3, score_filter=20, models_path=['/databases/pfam/Pfam-A.hmm'], inplace=False, run_hmmscan=True):
   
     '''
     Add a column pfam with the domain architecture for the input accessions.
