@@ -469,5 +469,13 @@ def add_arch_to_df(df, column='pid', cpus=0, file=None, evalue_filter=1e-3, scor
     df['pfam'] = df[column].map(arch)
     return df
       
+def hmmsearch(model, query_db, cpus=0, columns=['aln_target_name', 'aln_hmm_name','i_evalue','c_evalue','score','env_score','aln_target_from','aln_target_to', 'aln_target_length', 'aln_hmm_length', 'env_from', 'env_to'], rename=True):
+
+    hmm = ph.plan7.HMMPressedFile(model).read()
+    db = ph.easel.SequenceFile(query_db, digital=True, alphabet=ph.easel.Alphabet.amino())
+    out = list(ph.hmmer.hmmsearch(hmm, db, cpus=cpus))
+    df = hmmer_output_parser(out, columns=columns, rename=rename)
+
+    return df
     
-  
+
