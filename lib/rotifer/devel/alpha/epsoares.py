@@ -380,7 +380,7 @@ def hmmer_output_parser(output, columns=['aln_target_name', 'aln_hmm_name','i_ev
         
 	return df
 
-def hmmscan(sequences, file=None, models_file=['/databases/pfam/Pfam-A.hmm'], cpus=0, columns=['aln_target_name', 'aln_hmm_name','i_evalue','c_evalue','score','env_score','aln_target_from','aln_target_to', 'aln_target_length', 'aln_hmm_length', 'env_from', 'env_to', 'source'], rename=True):
+def hmmscan(sequences, file=None, models_file=['/databases/pfam/Pfam-A.hmm'], cpus=0, columns=['aln_target_name', 'aln_hmm_name','i_evalue','c_evalue','score','env_score','aln_target_from','aln_target_to', 'aln_target_length', 'aln_hmm_length', 'env_from', 'env_to'], rename=True):
     
     '''
     Perform an hmmscan of protein sequences against a Pfam HMM database.
