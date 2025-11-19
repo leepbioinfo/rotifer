@@ -380,7 +380,7 @@ def hmmer_output_parser(output, columns=['aln_target_name', 'aln_hmm_name','i_ev
         
 	return df
 
-def hmmscan(sequences, file=None, models_file=['/databases/pfam/Pfam-A.hmm'], cpus=0, columns=['aln_target_name', 'aln_hmm_name','i_evalue','c_evalue','score','env_score','aln_target_from','aln_target_to', 'aln_target_length', 'aln_hmm_length', 'env_from', 'env_to'], rename=True):
+def hmmscan(sequences, file=None, models_path=['/databases/pfam/Pfam-A.hmm'], cpus=0, columns=['aln_target_name', 'aln_hmm_name','i_evalue','c_evalue','score','env_score','aln_target_from','aln_target_to', 'aln_target_length', 'aln_hmm_length', 'env_from', 'env_to'], rename=True):
     
     '''
     Perform an hmmscan of protein sequences against a Pfam HMM database.
@@ -408,7 +408,7 @@ def hmmscan(sequences, file=None, models_file=['/databases/pfam/Pfam-A.hmm'], cp
     
     results = []
     #HMM load
-    for model in models_file:
+    for model in models_path:
         with ph.plan7.HMMFile(model) as hmm_file:
            if hmm_file.is_pressed:
                hmms = list(hmm_file.optimized_profiles())
@@ -440,7 +440,7 @@ def hmmscan(sequences, file=None, models_file=['/databases/pfam/Pfam-A.hmm'], cp
     
     return df
 
-def add_arch_to_df(df, column='pid', cpus=0, file=None, evalue_filter=1e-3, score_filter=20, pfam_database_path='/databases/pfam/Pfam-A.hmm', inplace=False, run_hmmscan=True):
+def add_arch_to_df(df, column='pid', cpus=0, file=None, evalue_filter=1e-3, score_filter=20, models_path='/databases/pfam/Pfam-A.hmm', inplace=False, run_hmmscan=True):
   
     '''
     Add a column pfam with the domain architecture for the input accessions.
@@ -450,7 +450,7 @@ def add_arch_to_df(df, column='pid', cpus=0, file=None, evalue_filter=1e-3, scor
     	df = df.copy()
     
     if run_hmmscan:
-        h = hmmscan(df[column].dropna().tolist(), cpus=cpus, file=file, pfam_database_path=pfam_database_path)
+        h = hmmscan(df[column].dropna().tolist(), cpus=cpus, file=file, models_path=models_path)
 
     else:
         h = df
