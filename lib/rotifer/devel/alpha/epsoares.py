@@ -407,7 +407,7 @@ def hmmscan(sequences, file=None, models_path=['/databases/pfam/Pfam-A.hmm'], cp
         pbar.update(1)
     
     if isinstance(models_path, str):
-        models_path = list(models_path)
+        models_path = [models_path]
 
     results = []
     #HMM load
