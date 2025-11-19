@@ -1,7 +1,7 @@
 strand:
-  line: "#000000"
-  color: "#FFCC99"
+  line: "#046eb7"
+  color: "#046eb7"
 
 helix:
-  line: "#000000"
-  color: "#ADD8E6"
+  line: "#ae3136"
+  color: "#ae3136"

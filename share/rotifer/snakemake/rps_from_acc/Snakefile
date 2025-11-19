@@ -121,8 +121,8 @@ rule phobius:
 		 cat {input.fasta} \
     	| sed -E '/^>/ {{ s/^>([^[:space:]]+).*/>\\1/; b }}; s/[^ACDEFGHIKLMNPQRSTVWYBXZ]/X/g' \
     	| phobius \
-    	| phobius2table -e 0.01 > {output.txt}.tmp
-		test -s {output}.tmp
+    	| phobius2table -e 0.01 > {output.txt}.tmp || true
+		test -e {output}.tmp
 		mv {output.txt}.tmp {output.txt}
 		"""
 

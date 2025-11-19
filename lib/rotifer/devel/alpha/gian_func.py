@@ -681,8 +681,8 @@ def psiblast(acc,
         db = f'{os.environ["FADB"]}/nr/latest/nr.50.mmseqs.fa'
     elif db.startswith('nr'):
         db = f'{os.environ["FADB"]}/nr/{db}.mmseqs.fa'
-    elif db.startswith('all'):
-        db = f'{os.environ["FADB"]}/allfa/{db}.mmseqs.fa'
+    elif db == 'all.fa' :
+        db = f'{os.environ["FADB"]}/all.fa'
     elif db == "prok" :
         db = f'{os.environ["FADB"]}/prok.fa '
     elif db == "euk":
@@ -865,7 +865,7 @@ def alnxaln(seqobj, clustercol = 'c50i0', minseq=10):
 
 
 
-def split_by_model(seqobj, model):
+def split_by_model(seqobj, model, evalue=1e-6):
     '''
     Using a hmm model to split your sequence object to match only the model region.
     If more than one match in one protein, it will split the match in two sequence.
@@ -894,7 +894,7 @@ def split_by_model(seqobj, model):
                   shell=True).communicate()
             model = f'{tmpdirname}/model.hmm'
 
-        Popen(f'hmmsearch {model} {tmpdirname}/seqfile > {tmpdirname}/hhsearch_r',
+        Popen(f'hmmsearch -E {evalue} {model} {tmpdirname}/seqfile > {tmpdirname}/hhsearch_r',
               stdout=PIPE,
               shell=True).communicate()
         Popen(f'{hmmer2table_from_rotifer} {tmpdirname}/hhsearch_r |domain2architecture |architecture2table > {tmpdirname}/hhsearch_table',
@@ -920,11 +920,14 @@ def remove_redundancy(seqobj, identity =80, coverage = 70):
     s = s.filter(keep=s.df[f'c{coverage}i{identity}'].drop_duplicates().to_list())
     return(s)
 
-def add_cordinates_to_aln(seqobj):
+def add_cordinates_to_aln(seqobj, full_length_seqobj=False):
     from rotifer.devel.beta.sequence import sequence as sequence
     c = seqobj.copy()
-    cx = sequence(c.df.id.tolist())
-    cx. df = cx.df.rename({'sequence':'full_sequence', 'length':'full_length'}, axis=1)
+    if full_length_seqobj:
+        cx = full_length_seqobj.copy()
+    else:    
+        cx = sequence(c.df.id.tolist())
+    cx.df = cx.df.rename({'sequence':'full_sequence', 'length':'full_length'}, axis=1)
     c.df = c.df.merge(cx.df[['id','full_sequence','full_length']], how='left')
     c.df['start'] = c.df.apply(lambda x : 0 + x.full_sequence.find(x.sequence.replace('-','')), axis=1)
     c.df['end'] = c.df.start + c.df['length']
@@ -947,18 +950,28 @@ def trim_unk_neigh(df, ann='profiledb'):
 
     return int_df
 
-def extend_aln(seqobj, n_terminal=50, c_terminal=50):
+def extend_aln(seqobj, n_terminal=50, c_terminal=50, full_length_seqobj=False):
     from rotifer.devel.beta import sequence as rdbs
     from rotifer.devel.alpha import gian_func as rdagf
     import numpy as np
     """
     Extend the N and/or C termianl parts of a given sequence alignment
     """
-    tm = rdagf.add_cordinates_to_aln(seqobj)
-    tm2 = rdbs.sequence(seqobj.df.id.tolist())
+    tm = rdagf.add_cordinates_to_aln(seqobj, full_length_seqobj=full_length_seqobj)
+    if full_length_seqobj:
+        tm2 = full_length_seqobj.copy()
+    else:    
+        tm2 = rdbs.sequence(seqobj.df.id.tolist())
     tm2.df = tm2.df.merge(tm.df[['id', 'full_length', 'start', 'end', 'C_term']], how='left')
     tm2.df.end = np.where(tm2.df.end + c_terminal <= tm2.df.full_length, tm2.df.end + c_terminal, tm2.df.full_length)
     tm2.df.start = np.where(tm2.df.start - n_terminal > 0, tm2.df.start - n_terminal, 1)
+    if tm2.df['end'].isna().any():
+        te = ', '.join(tm2.df.query("end.isna()").id.tolist())
+        print(f'some pid is missing the coordinates  {te}')
+        tm2.df = tm2.df.query('~end.isna()')
+        tm2.df.start = tm2.df.start.astype(int)
+        tm2.df.end = tm2.df.end.astype(int)
+        tm2.df = tm2.df.drop_duplicates('id')
     tm2.df.sequence = tm2.df.apply(lambda x : x.sequence[x.start: x.end], axis=1)
     return tm2.align()
 
@@ -1346,8 +1359,12 @@ def domtable(dom_table, seqobj=False):
 def draw_architecture(input_file,
                       file, id_list=True,
                       size_median=True,
+                      not_spaces=False,
                       domain_rename=True,
-                      db=['allprofiles', 'pwld_new_pfam']):
+                      db=['allprofiles', 'pwld_new_pfam'],
+                      color_dict=None,
+                      shape_dict = None,
+                      round_dict = None):
 
     import pygraphviz as pgv
     from pygraphviz.agraph import re
@@ -1482,9 +1499,15 @@ def draw_architecture(input_file,
     oo.colors = oo.colors.fillna("#808080")
     oo.shapes = oo.shapes.fillna("ellipse")
     oo.rounded = oo.rounded.fillna("filled")
-    sd = oo[['index', 'shapes']].set_index('index').shapes.to_dict()
-    cd = oo[['index', 'colors']].set_index('index').colors.to_dict()
-    rd = oo[['index', 'rounded']].set_index('index').rounded.to_dict()
+    sd = oo[['domain', 'shapes']].set_index('domain').shapes.to_dict()
+    if shape_dict:
+        sd = {**sd, **shape_dict}
+    cd = oo[['domain', 'colors']].set_index('domain').colors.to_dict()
+    if color_dict:
+        cd = {**cd, **color_dict}
+    rd = oo[['domain', 'rounded']].set_index('domain').rounded.to_dict()
+    if round_dict:
+        rd = {**rd, **round_dict}
 
     ######################################
     #Setting font size based on the shapes
@@ -1498,7 +1521,8 @@ def draw_architecture(input_file,
 
     draw_scale=True
     scale_size = 100 * (aa_scale*scale_figure)
-
+    if not_spaces:
+        d = d.query('domain !="unk"')
     gb = d.groupby('pid_order')
     li =[]
     A = pgv.AGraph()
@@ -1567,6 +1591,7 @@ def draw_architecture(input_file,
                            fontsize=fsd[z['domain']],
                            height='domain_height',
                            penwidth=0,
+                           imagescale="true",
                            fontname='Arial')
                 l.append(z['index'])
             else:
@@ -2402,7 +2427,7 @@ def operon_fig2(df,
                            f'<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="0" CELLSPACING="0">'
                            f'<TR><TD HEIGHT="4"></TD></TR>'
                            f'<TR><TD HEIGHT="4"></TD></TR>'
-                          #f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial" POINT-SIZE="{fontsize}">{block_id_df.query_pid.unique()[0]}</FONT></TD></TR>'
+                          f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial" POINT-SIZE="{fontsize}">{block_id_df.query_pid.unique()[0]}</FONT></TD></TR>'
                           f'<TR><TD ALIGN="LEFT"><FONT FACE="Consolas" POINT-SIZE="{fontsize}">{block_id_df.block_id.unique()[0]:<{max_width}}</FONT></TD></TR>'
                           f'<TR><TD ALIGN="LEFT"><FONT FACE="Consolas italic" POINT-SIZE="{fontsize}">{block_id_df.organism.unique()[0]:<{max_width}}</FONT></TD></TR>'
                            '</TABLE>>'),
@@ -4344,7 +4369,7 @@ def veremos(aln_r,
 
 def add_afdb2seqobj(seqobj, afid, model_sequence):
     from rotifer.devel.alpha.gian_func import get_alphafold_dssp
-    seq_obj_copy = seqobj.copy()
+    seq_obj_copy = seqobj.sort(by=['list'], id_list = [model_sequence]).copy()
     afseq, afdssp = get_alphafold_dssp(afid)
     model_sequence_aa = seqobj.filter(keep=[model_sequence]).df.sequence[0]
     model_sequence_Series = pd.Series(list(model_sequence_aa))
@@ -4554,5 +4579,25 @@ def taxids_to_rank_dataframe(
         rows.append(row)
 
     return pd.DataFrame(rows).set_index("taxid")
+
+
+def dict_to_yaml(data: dict, filename: str):
+    import yaml
+    
+    """
+    Save a Python dictionary to a YAML file.
+
+    Args:
+        data (dict): The dictionary to be saved.
+        filename (str): Path to the output YAML file.
+    """
+    with open(filename, "w", encoding="utf-8") as f:
+        yaml.dump(
+            data,
+            f,
+            default_flow_style=False,
+            sort_keys=False,
+            allow_unicode=True
+        )
 
 

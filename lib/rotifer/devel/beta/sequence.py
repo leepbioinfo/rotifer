@@ -1,3 +1,4 @@
+from gc import enable
 import rotifer
 import rotifer.pipeline
 import rotifer.db.ncbi as ncbi
@@ -1678,7 +1679,7 @@ class sequence(rotifer.pipeline.Annotatable):
 
         aln = self.copy()
         if remove_gaps:
-            gaps,gdf, spos,epos = aln.gaps_to_numbers(remove_gaps, adjust_coordinates=adjust_coordinates)
+            gaps,gdf, spos,epos = aln.filter('type =="sequence"').gaps_to_numbers(remove_gaps, adjust_coordinates=adjust_coordinates)
             gdf.index = aln.df.query('type == "sequence"').id
 
         aln_r = aln.residues
@@ -1699,8 +1700,15 @@ class sequence(rotifer.pipeline.Annotatable):
 
         if remove_gaps:
             if adjust_coordinates:
-                aln_r.insert(0,spos, ['-'] * len(aln_r))
-                aln_r[epos] = ['-'] * len(aln_r)
+                if spos not in aln_r.columns:
+                    aln_r.insert(0,spos, ['-'] * len(aln_r))
+                    aln_r.columns = [x +1 for x in aln_r.columns] # Checar isso!!!!!
+                    gaps = [x +1 for x in gaps ]
+                    epos = epos + 1
+                    gdf.columns = [x if x == 1 else x + 1 for x in gdf.columns]
+                if epos not in aln_r.columns:
+                    aln_r[epos] = ['-'] * len(aln_r)
+            #return aln_r, gdf, gaps       
             aln_r =  aln_r.drop(gaps,axis=1).join(gdf).sort_index(axis=1).fillna(0).astype(int, errors='ignore').astype(str).replace('0','  ')
         return aln_r
 
@@ -2017,10 +2025,19 @@ class sequence(rotifer.pipeline.Annotatable):
                 c.df['end'] = c.df.start + c.df['length']
                 c.df['C_term'] = c.df['full_length'] - c.df['end']
                 c.df =  c.df.drop(['full_sequence'], axis=1)
+                #c.df = c.df.fillna(0)
+                c.df = c.df.query('type =="sequence"')
                 return c
             cord = add_cordinates_to_aln(self).df[['start', 'end', 'C_term']]
-            num_gaps[nongaps[-1] + 1] = cord.C_term.mask(cord.C_term < 0,0 )
-            num_gaps.insert(0,nongaps[0] -1 , cord.start)
+            #num_gaps[nongaps[-1] + 1] = cord.C_term.mask(cord.C_term < 0,0 )
+            if end_position not in num_gaps.columns:  # Adding column to have the trailling number with the amminoacids counts.
+                num_gaps[end_position +1] = 0 
+            if 1 not in num_gaps.columns:
+                num_gaps.insert(0,1,0) # Adding a column to be used to add the header number of sequences (if gappy there, the other function would already add it)
+            
+            num_gaps.iloc[:,-1] = cord.end - num_gaps.iloc[:,-1]  ## Checking if fix
+            num_gaps.iloc[:,0] = num_gaps.iloc[:,0] +  cord.start ## Checking if fix
+            #num_gaps.insert(0,nongaps[0] -1 , cord.start) removed to fix issues
             start_position -= 1
             end_position += 1
             gaps.insert(0, start_position)
