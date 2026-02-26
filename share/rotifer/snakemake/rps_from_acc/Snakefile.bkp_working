@@ -2,8 +2,7 @@ import os
 from Bio import SeqIO
 
 configfile: "config.yaml"
-localrules:  combine_final, combine_arch #, combine_archs
-
+localrules: combine_results, combine_results_pfam, combine_final, combine_arch
 
 input_file = config["input_fasta"]
 input_fasta = config["input_fasta"]
@@ -89,10 +88,12 @@ rule rpsblast_ profiledb:
         threads=2
     shell:
         """
-		rpsblast -query {input.fasta} -db {hmmdb_profiledb} > {output.txt}
+		rpsblast -query {input.fasta} -db {hmmdb_profiledb} |blast2table -c profiledb -s > {output.txt}.tmp
+		test -s {output}.tmp
+		mv {output.txt}.tmp {output.txt}
 		"""
 
-rule rpsblast_pfam:    
+rule rpsblast_pfam:   
     input:
         fasta="split/batch_{batch_num}.faa"
     output:
@@ -102,7 +103,9 @@ rule rpsblast_pfam:
         threads=2
     shell:
         """
-		rpsblast -query {input.fasta} -db {hmmdb_pfam}  > {output.txt}
+		rpsblast -query {input.fasta} -db {hmmdb_pfam}|blast2table -c cdd  -s   > {output.txt}.tmp
+		test -s {output}.tmp
+		mv {output.txt}.tmp {output.txt}
 		"""
 
 rule phobius:  
@@ -115,26 +118,29 @@ rule phobius:
         threads=8
     shell:
         """
-		 cat {input.fasta} |phobius  > {output.txt}
+		 cat {input.fasta} \
+    	| sed -E '/^>/ {{ s/^>([^[:space:]]+).*/>\\1/; b }}; s/[^ACDEFGHIKLMNPQRSTVWYBXZ]/X/g' \
+    	| phobius \
+    	| phobius2table -e 0.01 > {output.txt}.tmp 2>> error|| true
+		test -e {output}.tmp
+		mv {output.txt}.tmp {output.txt}
 		"""
-
 
 rule combine_archs: 
     input:
         pfam="results_pfam/temp_batch_{batch_num}.txt",
         profiledb="results_profiledb/temp_batch_{batch_num}.txt",
-        phobius="results_phobius/temp_batch_{batch_num}.txt",
-        fasta="split/batch_{batch_num}.faa"
+        phobius="results_phobius/temp_batch_{batch_num}.txt"
     output:
         profiledb="arch_profiledb/{batch_num}.arch",  # Final combined output
         pfam="arch_pfam/{batch_num}.arch",  # Final combined output
         combined="arch_combined/{batch_num}.arch"  # Final combined output
     shell:
         """
-		cat {input.profiledb} |rps2arch -pho {input.phobius} -fasta {input.fasta}  > {output.profiledb}
-		cat {input.pfam} |rps2arch -pho {input.phobius} -fasta {input.fasta}  > {output.pfam}
-        cat {input.pfam} {input.profiledb} | rps2arch -pho {input.phobius} -fasta {input.fasta} > {output.combined}
- 		"""
+		cat {input.profiledb} {input.phobius} |domain2architecture  > {output.profiledb}
+        cat {input.pfam} {input.phobius} |domain2architecture > {output.pfam}
+        cat {input.pfam} {input.profiledb} {input.phobius}|domain2architecture > {output.combined}
+		"""
 
 
 rule combine_arch:

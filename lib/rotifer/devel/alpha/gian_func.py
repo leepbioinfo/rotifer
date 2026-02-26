@@ -1,3 +1,6 @@
+from networkx.generators import small
+
+
 def load_seq_scan(name, folder, haldane=False):
     '''
     load a seqscan result into a dataframe
@@ -950,21 +953,36 @@ def trim_unk_neigh(df, ann='profiledb'):
 
     return int_df
 
-def extend_aln(seqobj, n_terminal=50, c_terminal=50, full_length_seqobj=False):
+def extend_aln(seqobj, n_terminal=50, c_terminal=50,c_term_list=[],n_term_list=[], full_length_seqobj=False):
     from rotifer.devel.beta import sequence as rdbs
     from rotifer.devel.alpha import gian_func as rdagf
     import numpy as np
     """
     Extend the N and/or C termianl parts of a given sequence alignment
     """
+    if len(c_term_list) == 0:
+        c_term_list = seqobj.df.id.tolist()
+    if len(n_term_list) == 0:
+        n_term_list = seqobj.df.id.tolist()
     tm = rdagf.add_cordinates_to_aln(seqobj, full_length_seqobj=full_length_seqobj)
+    tm.df['previous_length'] = tm.df['length']
     if full_length_seqobj:
         tm2 = full_length_seqobj.copy()
     else:    
         tm2 = rdbs.sequence(seqobj.df.id.tolist())
-    tm2.df = tm2.df.merge(tm.df[['id', 'full_length', 'start', 'end', 'C_term']], how='left')
-    tm2.df.end = np.where(tm2.df.end + c_terminal <= tm2.df.full_length, tm2.df.end + c_terminal, tm2.df.full_length)
-    tm2.df.start = np.where(tm2.df.start - n_terminal > 0, tm2.df.start - n_terminal, 1)
+    tm2.df = tm2.df.merge(tm.df[['id', 'full_length', 'start', 'end', 'C_term', 'previous_length']], how='left')
+    tm2.df.end = np.where(tm2.df.id.isin(c_term_list),
+                          np.where(
+                              tm2.df.end + c_terminal <= tm2.df.full_length,
+                              tm2.df.end + c_terminal,
+                              tm2.df.full_length),
+                          tm2.df.end)
+    tm2.df.start = np.where(tm2.df.id.isin(n_term_list),
+                           np.where(
+                                tm2.df.start - n_terminal > 0,
+                                tm2.df.start - n_terminal,
+                                1),
+                            tm2.df.start)
     if tm2.df['end'].isna().any():
         te = ', '.join(tm2.df.query("end.isna()").id.tolist())
         print(f'some pid is missing the coordinates  {te}')
@@ -972,7 +990,7 @@ def extend_aln(seqobj, n_terminal=50, c_terminal=50, full_length_seqobj=False):
         tm2.df.start = tm2.df.start.astype(int)
         tm2.df.end = tm2.df.end.astype(int)
         tm2.df = tm2.df.drop_duplicates('id')
-    tm2.df.sequence = tm2.df.apply(lambda x : x.sequence[x.start: x.end], axis=1)
+    tm2.df.sequence = tm2.df.apply(lambda x : x.sequence[x.start -1: x.end], axis=1)
     return tm2.align()
 
 def get_correspondent_position(seqobj_source,seqobj_target, pid, position):
@@ -1362,6 +1380,7 @@ def draw_architecture(input_file,
                       not_spaces=False,
                       domain_rename=True,
                       db=['allprofiles', 'pwld_new_pfam'],
+                      evalue=1e-3,
                       color_dict=None,
                       shape_dict = None,
                       round_dict = None):
@@ -1419,7 +1438,7 @@ def draw_architecture(input_file,
         tt = pd.concat([tsv,pt])
         tt.start = tt.start.astype(int)
         tt.end = tt.end.astype(int)
-        no = riu.filter_nonoverlapping_regions(tt.query('domain not in ["IN", "OUT"]') ,**{**riu.config['archtsv'], 'maximum_overlap':0.4})
+        no = riu.filter_nonoverlapping_regions(tt.query('domain not in ["IN", "OUT"]').query(f'domain == "TM" or evalue <={evalue}')  ,**{**riu.config['archtsv'], 'maximum_overlap':0.4})
     else:
         if isinstance(input_file,pd.DataFrame):
             dt = input_file
@@ -1568,7 +1587,8 @@ def draw_architecture(input_file,
                                '</TABLE>>'),
                            shape='none',
                            fontsize=font_size +1,
-                           fontname='Arial')
+                           fontname='Arial',
+                           labelloc="t")
 
             if z.domain =='unk':
                 A.add_node(z['index'],
@@ -1617,6 +1637,7 @@ def draw_architecture(input_file,
     [A.add_edge(v.pop(0), v[0], penwidth = 0) for x in range(len(v)-1)]
     A.graph_attr.update(nodesep= 0.02)
     A.graph_attr.update(ranksep= 0.02)
+    A.graph_attr["fontnames"] = "svg"
     A.draw(file, prog="dot")
 
 
@@ -1817,14 +1838,14 @@ def split_domain(df,
         mask = domdf['block_id'].isin(bi)
         domdf.loc[mask, 'strand']  = domdf.loc[mask, 'strand'] * -1
         domdf.loc[mask, 'blockp'] = domdf.loc[mask].groupby('block_id')['blockp'].transform(lambda x: x[::-1].values)
-        domdf = domdf.sort_values(['block_id','blockp'])
+        domdf = domdf.sort_values(['block_id','blockp']).reset_index(drop=True)
 
     domdf['dom'] = domdf[column].str.split('+')
     if reverse_annotaion:
         pass
     else:
         domdf.loc[domdf.strand  == -1, 'dom'] = domdf.loc[(domdf.strand  == -1)].dom.apply(lambda x: x[::-1])
-    domdf = domdf.explode('dom')
+    domdf = domdf.explode('dom').reset_index(drop=True)
     domdf['domp'] = pd.Series(np.where(domdf.pid == domdf.pid.shift(1), 1,0))
     domdf.domp = domdf.groupby(['pid','block_id'])['domp'].cumsum()
     domdf['blockp'] = pd.Series(np.where(domdf.block_id == domdf.block_id.shift(1), 1,0))
@@ -1850,7 +1871,7 @@ def split_domain(df,
         domdf = domdf.query('dom no in ["TM", "SIG"]')
      
     #reorder to keep the same input order:
-    domdf = domdf.sort_values(['pid','blockp','domp'])
+    domdf = domdf.sort_values(['block_id','blockp','domp']) # Remove pid fomr the oder
 
 
     return domdf
@@ -2471,7 +2492,7 @@ def operon_fig2(df,
             A.add_node(group,
                        label=(
                            f'<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="0" CELLSPACING="0">'
-                           f'<TR><TD ALIGN="LEFT"><FONT FACE="Consolas" POINT-SIZE="{fontsize}">{block_id_df.to_bellow.unique()[0]:<{bellow_max}}</FONT></TD></TR>'
+                           f'<TR><TD ALIGN="LEFT"><FONT FACE="Consolas" POINT-SIZE="{fontsize}">{block_id_df.query_pid.unique()[0]}/{block_id_df.to_bellow.unique()[0]:<{bellow_max}}</FONT></TD></TR>'
                            '</TABLE>>'),
                        shape='none',
                        fontsize=fontsize,
@@ -3707,10 +3728,18 @@ def hmm_models_vs_sequence_db(models_dic_db, seqdb):
     return [output, tbl_o]            
 
 
-def pid_ncbi_to_uniprotkb(ncbi_ids, max_retries=3, delay=5):
+def pid_ncbi_to_uniprotkb(ncbi_ids, max_retries=3, delay=20):
     from unipressed import IdMappingClient
     import pandas as pd
     import time
+    from rotifer.devel.beta.sequence import sequence
+    if isinstance(ncbi_ids, list):
+        checker = 'list'
+        pass
+    elif isinstance(ncbi_ids,sequence):
+        seqobj = ncbi_ids.copy()
+        checker = 'sequenceobj'
+        ncbi_ids = ncbi_ids.df.id.dropna().unique().tolist()
     # Create an ID mapping client
     request = IdMappingClient.submit(
         source="RefSeq_Protein",
@@ -3721,7 +3750,13 @@ def pid_ncbi_to_uniprotkb(ncbi_ids, max_retries=3, delay=5):
     for attempt in range(1, max_retries + 1):
         try:
             results = list(request.each_result())  # Attempt fetching results
-            return pd.DataFrame(results)  # Convert to DataFrame if successful
+            results =  pd.DataFrame(results).rename({"from":"id", "to": "AFDB_id"}, axis=1)
+            if checker == "sequenceobj":
+                seqobj.df = seqobj.df.merge(results, how='left')
+                return seqobj
+            else:
+                return results
+  # Convert to DataFrame if successful
         except Exception  as e:
             if attempt < max_retries:
                 print(f"Attempt {attempt} failed: {e}. Retrying in {delay} seconds...")
@@ -3863,7 +3898,7 @@ def colors_for_html_function(foreground):
     return (first_dict, second_dict)
 def single_tax2ndf(ndf):
     r = ndf.copy()
-    from ete3 import NCBITaxa
+    from ete4 import NCBITaxa
     import rotifer
     ncbi = NCBITaxa()
     tax = r.taxid.unique().tolist()
@@ -4600,4 +4635,32 @@ def dict_to_yaml(data: dict, filename: str):
             allow_unicode=True
         )
 
+
+
+from typing import Any, Union
+import yaml
+from pathlib import Path
+def yaml2dict(path: Union[str, Path]) -> Any:
+    """
+    Lê um arquivo YAML e retorna seu conteúdo como dict (ou list).
+
+    Parameters
+    ----------
+    path : str | Path
+        Caminho para o arquivo YAML.
+
+    Returns
+    -------
+    dict | list
+        Conteúdo do YAML carregado.
+    """
+    path = Path(path)
+
+    if not path.exists():
+        raise FileNotFoundError(f"Arquivo não encontrado: {path}")
+
+    with path.open("r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+
+    return data
 

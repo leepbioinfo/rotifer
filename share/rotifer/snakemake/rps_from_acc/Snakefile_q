@@ -2,8 +2,7 @@ import os
 from Bio import SeqIO
 
 configfile: "config.yaml"
-localrules:  combine_final, combine_arch #, combine_archs
-
+localrules:  combine_final, combine_arch
 
 input_file = config["input_fasta"]
 input_fasta = config["input_fasta"]
@@ -105,36 +104,48 @@ rule rpsblast_pfam:
 		rpsblast -query {input.fasta} -db {hmmdb_pfam}  > {output.txt}
 		"""
 
-rule phobius:  
+rule signalpw:  
     input:
         fasta="split/batch_{batch_num}.faa"
     output:
-        txt="results_phobius/temp_batch_{batch_num}.txt"  # Temporary output for each batch
+        txt="results_signalpw/temp_batch_{batch_num}.txt"  # Temporary output for each batch
     resources:
         mem_mb=8000,
         threads=8
     shell:
         """
-		 cat {input.fasta} |phobius  > {output.txt}
+		 cat {input.fasta} |signalpw  > {output.txt}
 		"""
 
+rule tmhmm:  
+    input:
+        fasta="split/batch_{batch_num}.faa"
+    output:
+        txt="results_tmhmm/temp_batch_{batch_num}.txt"  # Temporary output for each batch
+    resources:
+        mem_mb=8000,
+        threads=8
+    shell:
+        """
+		 cat {input.fasta} | tmhmm -short | sigtm_parse  > {output.txt}
+		"""
 
 rule combine_archs: 
     input:
         pfam="results_pfam/temp_batch_{batch_num}.txt",
         profiledb="results_profiledb/temp_batch_{batch_num}.txt",
-        phobius="results_phobius/temp_batch_{batch_num}.txt",
-        fasta="split/batch_{batch_num}.faa"
+        tmhmm="results_tmhmm/temp_batch_{batch_num}.txt",
+        signalpw="results_signalpw/temp_batch_{batch_num}.txt"
     output:
         profiledb="arch_profiledb/{batch_num}.arch",  # Final combined output
         pfam="arch_pfam/{batch_num}.arch",  # Final combined output
         combined="arch_combined/{batch_num}.arch"  # Final combined output
     shell:
         """
-		cat {input.profiledb} |rps2arch -pho {input.phobius} -fasta {input.fasta}  > {output.profiledb}
-		cat {input.pfam} |rps2arch -pho {input.phobius} -fasta {input.fasta}  > {output.pfam}
-        cat {input.pfam} {input.profiledb} | rps2arch -pho {input.phobius} -fasta {input.fasta} > {output.combined}
- 		"""
+		cat {input.profiledb} |rps2arch -sig {input.signalpw} -tm {input.tmhmm}  > {output.profiledb}
+        cat {input.pfam} | rps2arch -sig {input.signalpw} -tm {input.tmhmm} > {output.pfam}
+        cat {input.pfam} {input.profiledb} | rps2arch -sig {input.signalpw} -tm {input.tmhmm} > {output.combined}
+		"""
 
 
 rule combine_arch:
