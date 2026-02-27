@@ -52,7 +52,7 @@ rule gi2fasta:
         threads=8
     shell:
         """
-		gi2fasta -t 4 {input.fasta}  > {output.txt}.tmp || true
+		gi2fasta -t {threads} {input.fasta}  > {output.txt}.tmp || true
 		test -s {output}.tmp
 		mv {output.txt}.tmp {output.txt}
 		"""
@@ -105,19 +105,19 @@ rule rpsblast_pfam:
 		rpsblast -query {input.fasta} -db {hmmdb_pfam}  > {output.txt}
 		"""
 
-rule phobius:  
+rule phobius:
     input:
         fasta="split/batch_{batch_num}.faa"
     output:
-        txt="results_phobius/temp_batch_{batch_num}.txt"  # Temporary output for each batch
+        txt="results_phobius/temp_batch_{batch_num}.txt"
     resources:
         mem_mb=8000,
         threads=8
     shell:
+        r"""
+        awk '/^>/ {{print; next}} {{gsub(/[^ACDEFGHIKLMNPQRSTVWYacdefghiklmnpqrstvwy]/,"A"); print}}' {input.fasta} \
+          | phobius > {output.txt}
         """
-		 cat {input.fasta} |phobius  > {output.txt}
-		"""
-
 
 rule combine_archs: 
     input:
