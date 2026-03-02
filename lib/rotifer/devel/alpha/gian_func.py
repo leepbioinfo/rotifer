@@ -1,3 +1,4 @@
+from networkx.algorithms.bipartite.basic import color
 from networkx.generators import small
 
 
@@ -2251,8 +2252,11 @@ def operon_fig2(df,
     te = gf.insert_na_rows_at_indexes(te, add_rows, fill_rules={'pid':'forward','block_id':'forward'})
     te.loc[te.nucleotide.isna(),['dom','domp','shape','style', 'height', 'width']] = ['white_space', 0, 'rectangle','', height/1.4, 2] 
     te = te.reset_index(drop=True).reset_index()
+    color_dict2 = gf.pick_colors(te, column = 'dom', top_domains=top_domains)
     if color_dict == None:
-        color_dict = gf.pick_colors(te, column = 'dom', top_domains=top_domains)
+        color_dict = color_dict2
+    else:    
+        color_dict = {**color_dict2, **color_dict}
 
 
 
