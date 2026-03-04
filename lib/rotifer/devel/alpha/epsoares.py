@@ -469,14 +469,18 @@ def add_arch_to_df(df, column='pid', cpus=0, file=None, evalue_filter=1e-3, scor
     df['pfam'] = df[column].map(arch)
     return df
       
-def hmmsearch(models, query_db, cpus=0, columns=['aln_target_name', 'aln_hmm_name','i_evalue','c_evalue','score','env_score','aln_target_from','aln_target_to', 'aln_target_length', 'aln_hmm_length', 'env_from', 'env_to'], rename=True):
+def hmmsearch(models_path, query_db, cpus=0, columns=['aln_target_name', 'aln_hmm_name','i_evalue','c_evalue','score','env_score','aln_target_from','aln_target_to', 'aln_target_length', 'aln_hmm_length', 'env_from', 'env_to'], rename=True):
+    
+    #Progress bar callback
+    def callback(hmm, hits):
+        pbar.update(1)
     
     if isinstance(models_path, str):
         models_path = [models_path]
 
     results = []
     
-    for model in models:
+    for model in models_path:
         with ph.plan7.HMMFile(model) as hmm_file:
            if hmm_file.is_pressed:
                hmms = list(hmm_file.optimized_profiles())
