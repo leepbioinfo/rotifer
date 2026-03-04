@@ -471,10 +471,6 @@ def add_arch_to_df(df, column='pid', cpus=0, file=None, evalue_filter=1e-3, scor
       
 def hmmsearch(models_path, query_db, cpus=0, columns=['aln_target_name', 'aln_hmm_name','i_evalue','c_evalue','score','env_score','aln_target_from','aln_target_to', 'aln_target_length', 'aln_hmm_length', 'env_from', 'env_to'], rename=True):
     
-    #Progress bar callback
-    def callback(hmm, hits):
-        pbar.update(1)
-    
     if isinstance(models_path, str):
         models_path = [models_path]
 
@@ -488,7 +484,6 @@ def hmmsearch(models_path, query_db, cpus=0, columns=['aln_target_name', 'aln_hm
                hmms = list(hmm_file)
 
         db = ph.easel.SequenceFile(query_db, digital=True, alphabet=ph.easel.Alphabet.amino())
-        pbar = tqdm(total=len(db), desc='hmmsearch')
         out = list(ph.hmmer.hmmsearch(hmms, db, cpus=cpus))
         df = hmmer_output_parser(out, columns=columns, rename=rename)
         df['source'] = model 
