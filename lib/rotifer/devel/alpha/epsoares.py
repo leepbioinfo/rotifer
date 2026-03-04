@@ -482,8 +482,8 @@ def hmmsearch(models, query_db, cpus=0, columns=['aln_target_name', 'aln_hmm_nam
            else:
                hmms = list(hmm_file)
 
-    db = ph.easel.SequenceFile(query_db, digital=True, alphabet=ph.easel.Alphabet.amino(), callback=callback)
-    out = list(ph.hmmer.hmmsearch(hmms, db, cpus=cpus))
+    db = ph.easel.SequenceFile(query_db, digital=True, alphabet=ph.easel.Alphabet.amino())
+    out = list(ph.hmmer.hmmsearch(hmms, db, cpus=cpus, callback=callback))
     df = hmmer_output_parser(out, columns=columns, rename=rename)
 
     return df
