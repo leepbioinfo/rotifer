@@ -425,12 +425,12 @@ def hmmscan(sequences, file=None, models_path=['/databases/pfam/Pfam-A.hmm'], cp
         
         else:
            if type(sequences) == list:
-           		seqobj = rdbs.sequence(sequences)
-           		seqs = digitalize_seqobj(seqobj)
+               seqobj = rdbs.sequence(sequences)
+               seqs = digitalize_seqobj(seqobj)
 
            elif type(sequences) == rotifer.devel.beta.sequence.sequence:
-           		seqs = digitalize_seqobj(sequences)
-        
+               seqs = digitalize_seqobj(sequences)
+           
         pbar = tqdm(total=len(seqs), desc='hmmscan')
         
         #Hmmscan run and file processment
@@ -439,9 +439,9 @@ def hmmscan(sequences, file=None, models_path=['/databases/pfam/Pfam-A.hmm'], cp
         df['source'] = model 
         results.append(df)
         
-    df = pd.concat(results)
+    dfs = pd.concat(results)
     
-    return df
+    return dfs
 
 def add_arch_to_df(df, column='pid', cpus=0, file=None, evalue_filter=1e-3, score_filter=30, models_path=['/databases/pfam/Pfam-A.hmm'], inplace=False, run_hmmscan=True):
   
@@ -475,6 +475,11 @@ def hmmsearch(models, query_db, cpus=0, columns=['aln_target_name', 'aln_hmm_nam
     def callback(hmm, hits):
         pbar.update(1)
     
+    if isinstance(models_path, str):
+        models_path = [models_path]
+
+    results = []
+    
     for model in models:
         with ph.plan7.HMMFile(model) as hmm_file:
            if hmm_file.is_pressed:
@@ -482,10 +487,14 @@ def hmmsearch(models, query_db, cpus=0, columns=['aln_target_name', 'aln_hmm_nam
            else:
                hmms = list(hmm_file)
 
-    db = ph.easel.SequenceFile(query_db, digital=True, alphabet=ph.easel.Alphabet.amino())
-    out = list(ph.hmmer.hmmsearch(hmms, db, cpus=cpus, callback=callback))
-    df = hmmer_output_parser(out, columns=columns, rename=rename)
+        db = ph.easel.SequenceFile(query_db, digital=True, alphabet=ph.easel.Alphabet.amino())
+        pbar = tqdm(total=len(db), desc='hmmsearch')
+        out = list(ph.hmmer.hmmsearch(hmms, db, cpus=cpus, callback=callback))
+        df = hmmer_output_parser(out, columns=columns, rename=rename)
+        df['source'] = model 
+        results.append(df)
+        
+    dfs = pd.concat(results)
 
-    return df
-    
+    return dfs
 
