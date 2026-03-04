@@ -469,11 +469,21 @@ def add_arch_to_df(df, column='pid', cpus=0, file=None, evalue_filter=1e-3, scor
     df['pfam'] = df[column].map(arch)
     return df
       
-def hmmsearch(model, query_db, cpus=0, columns=['aln_target_name', 'aln_hmm_name','i_evalue','c_evalue','score','env_score','aln_target_from','aln_target_to', 'aln_target_length', 'aln_hmm_length', 'env_from', 'env_to'], rename=True):
+def hmmsearch(models, query_db, cpus=0, columns=['aln_target_name', 'aln_hmm_name','i_evalue','c_evalue','score','env_score','aln_target_from','aln_target_to', 'aln_target_length', 'aln_hmm_length', 'env_from', 'env_to'], rename=True):
+    
+    #Progress bar callback
+    def callback(hmm, hits):
+        pbar.update(1)
+    
+    for model in models:
+        with ph.plan7.HMMFile(model) as hmm_file:
+           if hmm_file.is_pressed:
+               hmms = list(hmm_file.optimized_profiles())
+           else:
+               hmms = list(hmm_file)
 
-    hmm = ph.plan7.HMMPressedFile(model).read()
-    db = ph.easel.SequenceFile(query_db, digital=True, alphabet=ph.easel.Alphabet.amino())
-    out = list(ph.hmmer.hmmsearch(hmm, db, cpus=cpus))
+    db = ph.easel.SequenceFile(query_db, digital=True, alphabet=ph.easel.Alphabet.amino(), callback=callback)
+    out = list(ph.hmmer.hmmsearch(hmms, db, cpus=cpus))
     df = hmmer_output_parser(out, columns=columns, rename=rename)
 
     return df
