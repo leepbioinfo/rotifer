@@ -2,44 +2,55 @@
 
 # Load environment
 #source /etc/profile
+module load davinci dalilite own rotifer
 
 # Directories
-basedir=${ROTIFER_DATA:-/databases}
+basedir=${ROTIFER_DATA:-${DATABASES:-/databases}}
 pdbdir=$basedir/pdb
 dalidb=$basedir/dalidb
-blastdb=$basedir/blast/dalidb
+datdir=$dalidb/pdb
+blastdb=$dalidb/dalidb
+log=$dalidb/$(basename $0).log
 pdburl=rsync.rcsb.org::ftp_data/structures/divided/pdb/
+export basedir pdbdir dalidb datdir blastdb log pdburl
+
+# Warning messages
+simplelog INFO "DaliLite data directory set to $dalidb" | tee $log
+simplelog INFO "Log messages file: $log" | tee -a $log
 
 # functions
-dalimport () 
-{ 
-    s=${2:-${pdbdir:-${basedir:-/databases}/pdb}};
-    t=${3:-${dalidb:-${basedir:-/databases}/dalidb}};
-    c=$(echo $1 | cut -c 2-3);
-    wd=/tmp/dalimport.$1.$(date +%s);
-    pd=$(pwd);
-    mkdir $wd;
-    cd $wd;
-    #gunzip -c $s/$c/pdb${1}.ent.gz > pdb${1}.ent;
-    import.pl --pdbfile $s/$c/pdb${1}.ent.gz --pdbid $1 --dat $t;
-    cd $pd;
+dalimport ()
+{
+    c=$(echo $1 | cut -c 2-3)
+    wd=/tmp/dalimport.$1.$(date +%s)
+    pd=$(pwd)
+    mkdir $wd
+    cd $wd
+    import.pl --pdbfile $pdbdir/$c/pdb${1}.ent.gz --pdbid $1 --dat $datdir >> $log 2>&1
+    cd $pd
     rm -fr $wd
 }
 export -f dalimport
 
 # Create mirror root
-if [ ! -d $pdbdir ]; then mkdir $pdbdir; fi
-if [ ! -d $dalidb ]; then mkdir $dalidb; fi
+if [ ! -d $pdbdir ]; then mkdir -p $pdbdir; fi
+if [ ! -d $dalidb ]; then mkdir -p $dalidb; fi
 
 # Run rsync
-/usr/bin/rsync -rlpt -v -z --port=33444 --delete --prune-empty-dirs --delete-excluded $pdburl $pdbdir
+echo /usr/bin/rsync -rlpt -v -z --port=33444 --delete --prune-empty-dirs --delete-excluded $pdburl $pdbdir/
+/usr/bin/rsync -rlpt -v -z --port=33444 --delete --prune-empty-dirs --delete-excluded $pdburl $pdbdir/ | tee -a $log
 
-# Update Dali database
-find $pdbdir -name 'pdb*.ent.gz' | sed -e 's|.*/||' | cut -c 4-7 > $dalidb/pdb.latest.txt
-\ls $dalidb/ | grep dat | cut -c 1-5 > $dalidb/pdb.list
-cut -c 1-4 $dalidb/pdb.list | sort -u | grep -vwFf - $dalidb/pdb.latest.txt | parallel -N1 -j36 dalimport
-\ls $dalidb/ | grep dat | cut -c 1-5 > $dalidb/pdb.list
-cat $dalidb/pdb.list | sed -e "s|^|$DATABASES/dalidb/DAT/|" -e "s|$|.dat|" | parallel -N100 -j36 dat2fa > $dalidb/pdb.fasta
+# Update Dali databases
+simplelog WARN "Uodating list of PDB files: $dalidb/pdb.lastest.txt" | tee -a $log
+find $pdbdir -name 'pdb*.ent.gz' | sed -e 's|.*/||' | cut -c 4-7 | sort -u > $dalidb/pdb.latest.txt
+simplelog WARN "Updating list of processed PDB files: $dalidb/pdbdat.list and $dalidb/pdb.list" | tee -a $log
+echo $datdir/*.dat | tr ' ' $'\n' > $dalidb/pdbdat.list
+sed 's|.*/||' $dalidb/pdbdat.list | cut -c 1-4 | sort -u > $dalidb/pdb.list
+simplelog WARN "Converting new PDB files to DAT format" | tee -a $log
+grep -vwFf $dalidb/pdb.list $dalidb/pdb.latest.txt | parallel --eta -N1 -j36 dalimport
+simplelog WARN "Extracting FASTA sequences from DAT files to $dalidb/pdb.fasta" | tee -a $log
+cat $dalidb/pdbdat.list | parallel --progress -N100 -j36 dat2fa > $dalidb/pdb.fasta
+simplelog WARN "Building BLAST database $blastdb" | tee -a $log
 makeblastdb -in $dalidb/pdb.fasta -out $blastdb -dbtype prot
 
 # Finish
