@@ -794,7 +794,7 @@ def hmmscan(
         results.append(df)
 
     # update by number of sequences processed in that task
-    pbar.update(processed)
+        pbar.update(processed)
     pbar.close()
     
     pool.close()
