@@ -1,3 +1,4 @@
+from asyncio import tasks
 import os
 import sys
 import numpy as np
@@ -14,6 +15,8 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import ete3
 from tqdm import tqdm
+import math
+from multiprocessing import Pool, pool
 
 def get_matrix(df, filter_list, rows, columns, n=10, filter_by='pid'):
         filtered_df = df[df[filter_by].isin(filter_list)]
@@ -302,85 +305,85 @@ def make_hmm(seqobj, hmm_name='alignment', save='alignment.hmm'):
     return hmm
     
 def hmmer_output_parser(output, columns=['aln_target_name', 'aln_hmm_name','i_evalue','c_evalue','score','env_score','aln_target_from','aln_target_to', 'aln_target_length', 'aln_hmm_length', 'env_from', 'env_to'], rename=True):
-	
-	# Creation of the list to store the results
-	r = []
-	
-	# Loop to process each hit
-	for th in output:
-            target_name = th.query.name.decode() if th.query.name else None
-            found = False
-            for x in th:
-                for y in x.domains:
-                    r.append({
-                        # pyhmmer.plan7.Domain attributes
-                        "hit":                   y.hit,
-                        "bias":                  y.bias,
-                        "c_evalue":              y.c_evalue,
-                        "correction":            y.correction,
-                        "env_from":              y.env_from,
-                        "env_to":                y.env_to,
-                        "env_score":             y.envelope_score,
-                        "i_evalue":              y.i_evalue,
-                        "pvalue":                y.pvalue,
-                        "score":                 y.score,
 
-                        # pyhmmer.plan7.Alignment attributes
-                        "aln_domain":            y.alignment.domain,
-                        "aln_hmm_accession":     y.alignment.hmm_accession.decode(),
-                        "aln_hmm_from":          y.alignment.hmm_from,
-                        "aln_hmm_name":          y.alignment.hmm_name.decode(),
-                        "aln_hmm_sequence":      y.alignment.hmm_sequence,
-                        "aln_hmm_to":            y.alignment.hmm_to,
-                        "aln_hmm_length":        y.alignment.hmm_length,
-                        "aln_identity_sequence": y.alignment.identity_sequence,
-                        "aln_target_from":       y.alignment.target_from,
-                        "aln_target_name":       y.alignment.target_name.decode(),
-                        "aln_target_sequence":   y.alignment.target_sequence,
-                        "aln_target_to":         y.alignment.target_to,
-                        'aln_target_length':     y.alignment.target_length
-                        })
+    # Creation of the list to store the results
+    r = []
 
-            if not found:
-            	r.append({"hit":None, 
-                    		"bias":None,
-                    		"c_evalue":None,
-                    		"correction":None,
-                    		"env_from":None,
-                    		"env_to":None,
-                    		"env_score":None,
-                    		"i_evalue":None,
-                    		"pvalue":None,
-                    		"score":None,
-                    		"aln_domain":None,
-                    		"aln_hmm_accession":None,
-                    		"aln_hmm_from":None,
-                    		"aln_hmm_name":None,
-                    		"aln_hmm_sequence":None,
-                    		"aln_hmm_to":None,
-                    		"aln_hmm_length":None,
-                    		"aln_identity_sequence":None,
-                    		"aln_target_from":None,
-                    		"aln_target_name":target_name,
-                    		"aln_target_sequence":None,
-                    		"aln_target_to":None,
-                    		"aln_target_length":None})
-                    		
-	df = pd.DataFrame(r)
+    # Loop to process each hit
+    for th in output:
+        target_name = th.query.name.decode() if th.query.name else None
+        found = False
+        for x in th:
+            for y in x.domains:
+                r.append({
+                    # pyhmmer.plan7.Domain attributes
+                    "hit":                   y.hit,
+                    "bias":                  y.bias,
+                    "c_evalue":              y.c_evalue,
+                    "correction":            y.correction,
+                    "env_from":              y.env_from,
+                    "env_to":                y.env_to,
+                    "env_score":             y.envelope_score,
+                    "i_evalue":              y.i_evalue,
+                    "pvalue":                y.pvalue,
+                    "score":                 y.score,
 
-	if df.empty:
-		print("No results found in HMMER output.")
-		return pd.DataFrame(columns=columns)
+                    # pyhmmer.plan7.Alignment attributes
+                    "aln_domain":            y.alignment.domain,
+                    "aln_hmm_accession":     y.alignment.hmm_accession.decode(),
+                    "aln_hmm_from":          y.alignment.hmm_from,
+                    "aln_hmm_name":          y.alignment.hmm_name.decode(),
+                    "aln_hmm_sequence":      y.alignment.hmm_sequence,
+                    "aln_hmm_to":            y.alignment.hmm_to,
+                    "aln_hmm_length":        y.alignment.hmm_length,
+                    "aln_identity_sequence": y.alignment.identity_sequence,
+                    "aln_target_from":       y.alignment.target_from,
+                    "aln_target_name":       y.alignment.target_name.decode(),
+                    "aln_target_sequence":   y.alignment.target_sequence,
+                    "aln_target_to":         y.alignment.target_to,
+                    'aln_target_length':     y.alignment.target_length
+                    })
 
-	if columns:
-		df = df[columns]
+        if not found:
+            r.append({"hit":None, 
+                        "bias":None,
+                        "c_evalue":None,
+                        "correction":None,
+                        "env_from":None,
+                        "env_to":None,
+                        "env_score":None,
+                        "i_evalue":None,
+                        "pvalue":None,
+                        "score":None,
+                        "aln_domain":None,
+                        "aln_hmm_accession":None,
+                        "aln_hmm_from":None,
+                        "aln_hmm_name":None,
+                        "aln_hmm_sequence":None,
+                        "aln_hmm_to":None,
+                        "aln_hmm_length":None,
+                        "aln_identity_sequence":None,
+                        "aln_target_from":None,
+                        "aln_target_name":target_name,
+                        "aln_target_sequence":None,
+                        "aln_target_to":None,
+                        "aln_target_length":None})
 
-	if rename:
-		df.rename({'aln_target_name': 'sequence', 'aln_hmm_name': 'model', 'i_evalue': 'evalue', 'env_from': 'estart', 'env_to': 'eend'}, axis=1, inplace=True)
-        
-	return df
+    df = pd.DataFrame(r)
 
-def hmmscan(sequences, file=None, models_path=['/databases/pfam/Pfam-A.hmm'], cpus=0, columns=['aln_target_name', 'aln_hmm_name','i_evalue','c_evalue','score','env_score','aln_target_from','aln_target_to', 'aln_target_length', 'aln_hmm_length', 'env_from', 'env_to'], rename=True):
+    if df.empty:
+        print("No results found in HMMER output.")
+        return pd.DataFrame(columns=columns)
+
+    if columns:
+        df = df[columns]
+
+    if rename:
+        df.rename({'aln_target_name': 'sequence', 'aln_hmm_name': 'model', 'i_evalue': 'evalue', 'env_from': 'estart', 'env_to': 'eend'}, axis=1, inplace=True)
+
+    return df
+
+def hmmscan_linear(sequences, file=None, models_path=['/databases/pfam/Pfam-A.hmm'], cpus=0, columns=['aln_target_name', 'aln_hmm_name','i_evalue','c_evalue','score','env_score','aln_target_from','aln_target_to', 'aln_target_length', 'aln_hmm_length', 'env_from', 'env_to'], rename=True):
     
     '''
     Perform an hmmscan of protein sequences against a Pfam HMM database.
@@ -443,21 +446,22 @@ def hmmscan(sequences, file=None, models_path=['/databases/pfam/Pfam-A.hmm'], cp
     
     return dfs
 
-def add_arch_to_df(df, column='pid', cpus=0, file=None, evalue_filter=1e-3, score_filter=30, models_path=['/databases/pfam/Pfam-A.hmm'], inplace=False, run_hmmscan=True):
-  
+
+def add_arch_to_df(df, column='pid', file=None, evalue_filter=1e-3, score_filter=30, models_path=['/databases/pfam/Pfam-A.hmm'], inplace=False, run_hmmscan=True, workers=4, job_cpus=8):
+
     '''
     Add a column pfam with the domain architecture for the input accessions.
     '''
-    
+
     if inplace == False:
-    	df = df.copy()
-    
+        df = df.copy()
+
     if run_hmmscan:
-        h = hmmscan(df[column].dropna().tolist(), cpus=cpus, file=file, models_path=models_path)
+        h = hmmscan(df[column].dropna().tolist(), workers=workers, job_cpus=job_cpus, file=file, models_path=models_path)
 
     else:
         h = df
-    
+
     h.rename({'aln_target_name':'sequence','aln_hmm_name':'model','i_evalue':'evalue','env_from':'estart', 'env_to':'eend'}, axis=1, inplace=True)
     h = h[h.evalue <= evalue_filter]
     h = h[h.score >= score_filter]
@@ -493,3 +497,313 @@ def hmmsearch(models_path, query_db, cpus=0, columns=['aln_target_name', 'aln_hm
 
     return dfs
 
+def _compute_chunk_size(total_sequences, workers, task_factor=4):
+    """
+    Compute an adaptive chunk size for balanced parallel workloads.
+
+    Parameters
+    ----------
+    total_sequences : int
+        Number of sequences to process.
+
+    workers : int
+        Number of parallel worker processes.
+
+    task_factor : int, optional
+        Multiplier controlling how many tasks are created per worker.
+        Higher values improve load balancing but increase scheduling overhead.
+
+    Returns
+    -------
+    int
+        Recommended chunk size.
+    """
+
+    total_tasks = workers * task_factor
+
+    chunk_size = math.ceil(total_sequences / total_tasks)
+
+    return max(chunk_size, 1)
+
+def _load_models(models_path):
+    """
+    Load HMM models from the provided database paths.
+
+    This function loads all HMM profiles once in the parent process.
+    Worker processes created afterward inherit these objects through
+    copy-on-write memory sharing.
+
+    Parameters
+    ----------
+    models_path : list[str]
+        Paths to HMM database files.
+
+    Returns
+    -------
+    None
+        Models are stored in the global variable `HMM_MODELS`.
+    """
+
+    global HMM_MODELS
+
+    HMM_MODELS = {}
+
+    for model in models_path:
+
+        with ph.plan7.HMMFile(model) as hmm_file:
+
+            if hmm_file.is_pressed:
+                hmms = list(hmm_file.optimized_profiles())
+            else:
+                hmms = list(hmm_file)
+
+        HMM_MODELS[model] = hmms
+
+def _load_sequences(sequences, file):
+    """
+    Load and digitalize protein sequences.
+
+    Parameters
+    ----------
+    sequences : sequence object or list
+        Sequence container used in the rotifer ecosystem.
+    file : str or None
+        Path to a FASTA file.
+
+    Returns
+    -------
+    list
+        List of digital pyhmmer sequences.
+    """
+
+    abc = ph.easel.Alphabet.amino()
+
+    if file:
+        seqs = list(
+            ph.easel.SequenceFile(
+                file,
+                digital=True,
+                alphabet=abc
+            )
+        )
+
+    else:
+
+        if type(sequences) == list:
+            seqobj = rdbs.sequence(sequences)
+            seqs = list(digitalize_seqobj(seqobj))
+
+        elif type(sequences) == rotifer.devel.beta.sequence.sequence:
+            seqs = list(digitalize_seqobj(sequences))
+
+        else:
+            raise ValueError("Unsupported sequence input type")
+
+    return seqs
+
+def _chunk_sequences(seqs, chunk_size):
+    """
+    Split sequence list into chunks.
+
+    Parameters
+    ----------
+    seqs : list
+        List of sequences.
+    chunk_size : int
+        Number of sequences per chunk.
+
+    Returns
+    -------
+    list
+        List of sequence chunks.
+    """
+
+    return [
+        seqs[i:i + chunk_size]
+        for i in range(0, len(seqs), chunk_size)
+    ]
+
+def _hmmscan_worker(args):
+    """
+    Worker process performing hmmscan on a chunk of sequences.
+
+    Parameters
+    ----------
+    args : tuple
+        (model_path, sequence_chunk, job_cpus, columns, rename)
+
+    Returns
+    -------
+    pandas.DataFrame
+        Parsed hmmscan output.
+    """
+
+    model, seq_chunk, job_cpus, columns, rename = args
+
+    hmms = HMM_MODELS[model]
+
+    hits = list(
+        ph.hmmer.hmmscan(
+            seq_chunk,
+            hmms,
+            cpus=job_cpus
+        )
+    )
+
+    df = hmmer_output_parser(
+        hits,
+        columns=columns,
+        rename=rename
+    )
+
+    df["source"] = model
+
+    return df
+
+def hmmscan(
+    sequences=None,
+    file=None,
+    models_path=['/databases/pfam/Pfam-A.hmm'],
+    workers=4,
+    job_cpus=8,
+    chunk_size=None,
+    columns=[
+        'aln_target_name',
+        'aln_hmm_name',
+        'i_evalue',
+        'c_evalue',
+        'score',
+        'env_score',
+        'aln_target_from',
+        'aln_target_to',
+        'aln_target_length',
+        'aln_hmm_length',
+        'env_from',
+        'env_to'
+    ],
+    rename=True
+):
+    """
+    Perform hmmscan searches against one or more HMM databases.
+
+    This implementation supports high-performance parallel execution
+    suitable for very large datasets (hundreds of thousands to millions
+    of sequences).
+
+    Key features
+    ------------
+    • Shared HMM memory across workers
+    • Parallel sequence chunk processing
+    • Configurable CPU usage per worker
+    • Compatible with both sequence objects and FASTA input
+    • Efficient scaling on multi-core systems
+
+    Parameters
+    ----------
+    sequences : sequence object or list, optional
+        Sequence container to scan. Ignored if `file` is provided.
+
+    file : str, optional
+        Path to FASTA file containing protein sequences.
+
+    models_path : str or list[str], optional
+        Path(s) to HMM database files.
+
+    workers : int, optional
+        Number of parallel worker processes.
+        Default: 4.
+
+    job_cpus : int, optional
+        Number of CPU threads used internally by hmmscan
+        within each worker process.
+        Default = 8
+        Total CPU usage ≈ workers × job_cpus
+
+    chunk_size : int, optional
+        Number of sequences processed per job.
+        Larger chunks:
+        • lower scheduling overhead
+        • higher memory usage
+
+    columns : list[str], optional
+        Columns retained from hmmer output.
+
+    rename : bool, optional
+        Whether to apply column renaming in the parser.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Combined hmmscan results for all sequences and models.
+    """
+
+    # --------------------------------------------------------------
+    # MODEL PATH NORMALIZATION
+    # --------------------------------------------------------------
+
+    if isinstance(models_path, str):
+        models_path = [models_path]
+
+    # --------------------------------------------------------------
+    # LOAD HMM DATABASES
+    # --------------------------------------------------------------
+
+    _load_models(models_path)
+
+    # --------------------------------------------------------------
+    # LOAD SEQUENCES
+    # --------------------------------------------------------------
+
+    seqs = _load_sequences(sequences, file)
+
+    # --------------------------------------------------------------
+    # CHUNK SEQUENCES
+    # --------------------------------------------------------------
+    if chunk_size is None:
+        chunk_size = _compute_chunk_size(
+            total_sequences=len(seqs),
+            workers=workers)
+
+    seq_chunks = _chunk_sequences(seqs, chunk_size)
+    # --------------------------------------------------------------
+    # BUILD TASK LIST
+    # --------------------------------------------------------------
+    tasks = []
+
+    for model in models_path:
+        for chunk in seq_chunks:
+            tasks.append(
+                (model, chunk, job_cpus, columns, rename)
+            )
+
+    # --------------------------------------------------------------
+    # PARALLEL EXECUTION
+    # --------------------------------------------------------------
+
+    pool = Pool(workers)
+
+    results = []
+    total_sequences = len(seqs) * len(models_path)
+
+    pbar = tqdm(
+        total=total_sequences,
+        desc="hmmscan",
+        unit="seq")
+
+    for df, processed in pool.imap_unordered(_hmmscan_worker, tasks):
+        results.append(df)
+
+    # update by number of sequences processed in that task
+    pbar.update(processed)
+    pbar.close()
+    
+    pool.close()
+    pool.join()
+
+    # --------------------------------------------------------------
+    # MERGE RESULTS
+    # --------------------------------------------------------------
+
+    dfs = pd.concat(results, ignore_index=True)
+
+    return dfs
