@@ -624,19 +624,6 @@ def _chunk_sequences(seqs, chunk_size):
     ]
 
 def _hmmscan_worker(args):
-    """
-    Worker process performing hmmscan on a chunk of sequences.
-
-    Parameters
-    ----------
-    args : tuple
-        (model_path, sequence_chunk, job_cpus, columns, rename)
-
-    Returns
-    -------
-    pandas.DataFrame
-        Parsed hmmscan output.
-    """
 
     model, seq_chunk, job_cpus, columns, rename = args
 
@@ -658,7 +645,8 @@ def _hmmscan_worker(args):
 
     df["source"] = model
 
-    return df
+    # return both dataframe and number of sequences processed
+    return df, len(seq_chunk)
 
 def hmmscan(
     sequences=None,
