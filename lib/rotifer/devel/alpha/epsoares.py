@@ -798,3 +798,143 @@ def hmmscan(
     dfs = pd.concat(results, ignore_index=True)
 
     return dfs
+
+# ---------------------------
+# FIMO execution
+# ---------------------------
+def run_fimo_single(meme_file, genome, out_dir=None, extra_args=None):
+    meme_file = Path(meme_file)
+    genome = Path(genome)
+
+    if out_dir is None:
+        out_dir = Path(tempfile.mkdtemp())
+    else:
+        out_dir = Path(out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+    cmd = ["fimo", "--oc", str(out_dir)]
+    if extra_args:
+        cmd.extend(extra_args)
+    cmd.extend([str(meme_file), str(genome)])
+
+    subprocess.run(cmd, check=True)
+
+    fimo_tsv = out_dir / "fimo.tsv"
+    df = pd.read_csv(fimo_tsv, sep="\t", comment="#")
+    df["genome"] = genome.name
+
+    return df
+
+
+def run_fimo_batch(meme_file, genomes, extra_args=None, n_jobs=1):
+    """
+    genomes: iterable of paths
+    n_jobs: simple parallelization
+    """
+    genomes = list(genomes)
+
+    if n_jobs == 1:
+        dfs = [run_fimo_single(meme_file, g, extra_args=extra_args) for g in genomes]
+    else:
+        from joblib import Parallel, delayed
+        dfs = Parallel(n_jobs=n_jobs)(
+            delayed(run_fimo_single)(meme_file, g, extra_args=extra_args)
+            for g in genomes
+        )
+
+    return pd.concat(dfs, ignore_index=True)
+
+
+# ---------------------------
+# GFF parsing (indexed)
+# ---------------------------
+def build_gff_index(gffs):
+    gff_dict = {}
+
+    for gff in gffs:
+        gffdf = pd.read_csv(
+            gff,
+            sep="\t",
+            comment="#",
+            header=None,
+            names=[
+                "seqid","source","type","start","end",
+                "score","strand","phase","attributes"
+            ],
+        )
+
+        cds = gffdf[gffdf["type"] == "CDS"].copy()
+
+        # sort once → enables fast slicing later
+        cds.sort_values(["seqid", "start", "end"], inplace=True)
+
+        for seq, sub in cds.groupby("seqid"):
+            gff_dict[seq] = sub.reset_index(drop=True)
+
+    return gff_dict
+
+
+# ---------------------------
+# Next protein (vectorized-ish)
+# ---------------------------
+def annotate_next_protein(df, gff_dict):
+    def _get(row):
+        seq = row["sequence_name"]
+        if seq not in gff_dict:
+            return None
+
+        cds = gff_dict[seq]
+
+        if row["strand"] == "+":
+            hits = cds[cds["start"].values > row["stop"]]
+            if hits.empty:
+                return None
+            return hits.iloc[0]["attributes"]
+
+        else:
+            hits = cds[cds["end"].values < row["start"]]
+            if hits.empty:
+                return None
+            return hits.iloc[-1]["attributes"]
+
+    df["next_protein"] = df.apply(_get, axis=1)
+    return df
+
+
+# ---------------------------
+# Cluster hits within 50 bp
+# ---------------------------
+def cluster_hits(df, window=50):
+    """
+    Groups nearby hits (<= window bp) per genome + sequence + strand.
+    Returns cluster_id + aggregated coordinates.
+    """
+
+    df = df.sort_values(
+        ["genome", "sequence_name", "strand", "start"]
+    ).copy()
+
+    group_cols = ["genome", "sequence_name", "strand"]
+
+    def _cluster(sub):
+        # distance to previous hit
+        dist = sub["start"].diff().fillna(window + 1)
+        cluster_id = (dist > window).cumsum()
+        sub["cluster_id"] = cluster_id.values
+        return sub
+
+    df = df.groupby(group_cols, group_keys=False).apply(_cluster)
+
+    # aggregate clusters
+    agg = (
+        df.groupby(group_cols + ["cluster_id"])
+        .agg(
+            start=("start", "min"),
+            end=("stop", "max"),
+            n_hits=("start", "size"),
+            motifs=("motif_id", lambda x: ",".join(x.astype(str).unique())),
+        )
+        .reset_index()
+    )
+
+    return df, agg
