@@ -799,10 +799,26 @@ def hmmscan(
 
     return dfs
 
-# ---------------------------
-# FIMO execution
-# ---------------------------
 def run_fimo_single(meme_file, genome, out_dir=None, extra_args=None):
+    """
+    Execute FIMO for a single genome.
+
+    Parameters
+    ----------
+    meme_file : str | Path
+        MEME motif file.
+    genome : str | Path
+        FASTA file.
+    out_dir : str | Path | None
+        Output directory. If None, uses a temporary directory.
+    extra_args : list[str] | None
+        Additional CLI arguments for FIMO.
+
+    Returns
+    -------
+    pd.DataFrame
+        Parsed FIMO output with an additional 'genome' column.
+    """
     meme_file = Path(meme_file)
     genome = Path(genome)
 
@@ -819,8 +835,7 @@ def run_fimo_single(meme_file, genome, out_dir=None, extra_args=None):
 
     subprocess.run(cmd, check=True)
 
-    fimo_tsv = out_dir / "fimo.tsv"
-    df = pd.read_csv(fimo_tsv, sep="\t", comment="#")
+    df = pd.read_csv(out_dir / "fimo.tsv", sep="\t", comment="#")
     df["genome"] = genome.name
 
     return df
@@ -828,8 +843,20 @@ def run_fimo_single(meme_file, genome, out_dir=None, extra_args=None):
 
 def run_fimo_batch(meme_file, genomes, extra_args=None, n_jobs=1):
     """
-    genomes: iterable of paths
-    n_jobs: simple parallelization
+    Execute FIMO across multiple genomes.
+
+    Parameters
+    ----------
+    meme_file : str | Path
+    genomes : iterable[str | Path]
+    extra_args : list[str] | None
+    n_jobs : int
+        Parallel jobs (uses joblib if >1)
+
+    Returns
+    -------
+    pd.DataFrame
+        Concatenated FIMO results.
     """
     genomes = list(genomes)
 
@@ -845,10 +872,23 @@ def run_fimo_batch(meme_file, genomes, extra_args=None, n_jobs=1):
     return pd.concat(dfs, ignore_index=True)
 
 
-# ---------------------------
-# GFF parsing (indexed)
-# ---------------------------
 def build_gff_index(gffs):
+    """
+    Build an index of CDS features from one or multiple GFF files.
+
+    Parameters
+    ----------
+    gffs : str | Path | iterable[str | Path]
+        Single GFF file or collection of GFF files.
+
+    Returns
+    -------
+    dict[str, pd.DataFrame]
+        Mapping: seqid -> CDS dataframe (sorted by coordinates).
+    """
+    if isinstance(gffs, (str, Path)):
+        gffs = [gffs]
+
     gff_dict = {}
 
     for gff in gffs:
@@ -864,8 +904,6 @@ def build_gff_index(gffs):
         )
 
         cds = gffdf[gffdf["type"] == "CDS"].copy()
-
-        # sort once → enables fast slicing later
         cds.sort_values(["seqid", "start", "end"], inplace=True)
 
         for seq, sub in cds.groupby("seqid"):
@@ -874,10 +912,28 @@ def build_gff_index(gffs):
     return gff_dict
 
 
-# ---------------------------
-# Next protein (vectorized-ish)
-# ---------------------------
 def annotate_next_protein(df, gff_dict):
+    """
+    Annotate each FIMO hit with the nearest downstream/upstream CDS.
+
+    Also extracts a normalized protein ID (pid) from GFF attributes.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        FIMO output. Must contain:
+        ['sequence_name', 'start', 'stop', 'strand']
+    gff_dict : dict[str, pd.DataFrame]
+        Output of build_gff_index().
+
+    Returns
+    -------
+    pd.DataFrame
+        Original dataframe with:
+        - next_protein : raw GFF attributes
+        - pid : extracted protein ID
+    """
+
     def _get(row):
         seq = row["sequence_name"]
         if seq not in gff_dict:
@@ -897,19 +953,35 @@ def annotate_next_protein(df, gff_dict):
                 return None
             return hits.iloc[-1]["attributes"]
 
+    df = df.copy()
     df["next_protein"] = df.apply(_get, axis=1)
+
+    # parse ID (vectorized)
+    df["pid"] = (
+        df["next_protein"]
+        .str.split(";", expand=True)[0]
+        .str.replace("ID=cds-", "", regex=False)
+    )
+
     return df
 
-
-# ---------------------------
-# Cluster hits within 50 bp
-# ---------------------------
 def cluster_hits(df, window=50):
     """
-    Groups nearby hits (<= window bp) per genome + sequence + strand.
-    Returns cluster_id + aggregated coordinates.
-    """
+    Assign cluster IDs to nearby hits (<= window bp).
 
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Must contain:
+        ['genome', 'sequence_name', 'strand', 'start']
+    window : int
+        Max distance between hits to belong to same cluster.
+
+    Returns
+    -------
+    pd.DataFrame
+        Original dataframe with an additional 'cluster_id'.
+    """
     df = df.sort_values(
         ["genome", "sequence_name", "strand", "start"]
     ).copy()
@@ -917,24 +989,24 @@ def cluster_hits(df, window=50):
     group_cols = ["genome", "sequence_name", "strand"]
 
     def _cluster(sub):
-        # distance to previous hit
         dist = sub["start"].diff().fillna(window + 1)
-        cluster_id = (dist > window).cumsum()
-        sub["cluster_id"] = cluster_id.values
+        sub["cluster_id"] = (dist > window).cumsum().values
         return sub
 
-    df = df.groupby(group_cols, group_keys=False).apply(_cluster)
+    return df.groupby(group_cols, group_keys=False).apply(_cluster)
 
-    # aggregate clusters
-    agg = (
-        df.groupby(group_cols + ["cluster_id"])
-        .agg(
-            start=("start", "min"),
-            end=("stop", "max"),
-            n_hits=("start", "size"),
-            motifs=("motif_id", lambda x: ",".join(x.astype(str).unique())),
-        )
-        .reset_index()
-    )
 
-    return df, agg
+def fimo_pipeline(meme_file, genomes, gffs, n_jobs=1, window=50):
+    """
+    End-to-end execution:
+    FIMO → annotate next protein → cluster hits.
+
+    Returns
+    -------
+    pd.DataFrame
+    """
+    df = run_fimo_batch(meme_file, genomes, n_jobs=n_jobs)
+    gff_dict = build_gff_index(gffs)
+    df = annotate_next_protein(df, gff_dict)
+    df = cluster_hits(df, window=window)
+    return df
