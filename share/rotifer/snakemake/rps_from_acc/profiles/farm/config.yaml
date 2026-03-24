@@ -3,7 +3,7 @@ jobs: 400
 use-conda: true
 keep-going: true
 rerun-incomplete: true
-latency-wait: 10
+latency-wait: 30
 restart-times: 5
 
 cluster: "qsub -V -v {cluster.facilities} -P {cluster.project} -l h_rt={cluster.runtime},h_vmem={cluster.h_vmem},mem_free={cluster.mem_free},ul1=3 -o {output[0]} -m n"

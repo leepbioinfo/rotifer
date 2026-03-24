@@ -19,11 +19,13 @@ try:
     neighborhood_df = gf.single_tax2ndf(neighborhood_df)
 except ValueError:
     print(' Putative missing taxID, updating ETE3 taxonomoy database')
-    from ete3 import NCBITaxa
+    from ete4 import NCBITaxa
     ncbi = NCBITaxa()
     ncbi.update_taxonomy_database()
     print('ETE3 taxonomy database updated')
-    try:
-        neighborhood_df = gf.single_tax2ndf(neighborhood_df)
+    #try: removed this try is breaking the code!
+    neighborhood_df = gf.single_tax2ndf(neighborhood_df)
+    
+
 
 neighborhood_df.to_pickle(output_file)

@@ -302,3 +302,12 @@ S-2TMBeta:
   - S_2TMBeta
 WG:
   - WG_beta_rep
+RCC1:
+  - RCC1_2
+DrrA:
+  - DrrA_P4M
+Leg-8TM:
+  - Leg-7TM
+HAD:
+  - HAD-eff2
+  - HAD-eff1
