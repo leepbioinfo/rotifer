@@ -858,8 +858,12 @@ def run_fimo_batch(meme_file, genomes, extra_args=None, n_jobs=1):
     pd.DataFrame
         Concatenated FIMO results.
     """
-    genomes = list(genomes)
-
+    if isinstance(genomes, (str, Path)):
+        genomes = [genomes]
+        genomes = list(genomes)
+    else:
+        genomes = list(genomes)
+        
     if n_jobs == 1:
         dfs = [run_fimo_single(meme_file, g, extra_args=extra_args) for g in genomes]
     else:
@@ -886,7 +890,7 @@ def build_gff_index(gffs):
     dict[str, pd.DataFrame]
         Mapping: seqid -> CDS dataframe (sorted by coordinates).
     """
-    if isinstance(gffs, str):
+    if isinstance(gffs, (str, Path)):
         gffs = [gffs]
 
     gff_dict = {}
