@@ -314,7 +314,7 @@ def hmmer_output_parser(output, columns=['aln_target_name', 'aln_hmm_name','i_ev
 
     # Loop to process each hit
     for th in output:
-        target_name = th.query.name.decode() if th.query.name else None
+        target_name = th.query.name if th.query.name else None
         found = False
         for x in th:
             for y in x.domains:
@@ -333,15 +333,15 @@ def hmmer_output_parser(output, columns=['aln_target_name', 'aln_hmm_name','i_ev
 
                     # pyhmmer.plan7.Alignment attributes
                     "aln_domain":            y.alignment.domain,
-                    "aln_hmm_accession":     y.alignment.hmm_accession.decode(),
+                    "aln_hmm_accession":     y.alignment.hmm_accession,
                     "aln_hmm_from":          y.alignment.hmm_from,
-                    "aln_hmm_name":          y.alignment.hmm_name.decode(),
+                    "aln_hmm_name":          y.alignment.hmm_name,
                     "aln_hmm_sequence":      y.alignment.hmm_sequence,
                     "aln_hmm_to":            y.alignment.hmm_to,
                     "aln_hmm_length":        y.alignment.hmm_length,
                     "aln_identity_sequence": y.alignment.identity_sequence,
                     "aln_target_from":       y.alignment.target_from,
-                    "aln_target_name":       y.alignment.target_name.decode(),
+                    "aln_target_name":       y.alignment.target_name(),
                     "aln_target_sequence":   y.alignment.target_sequence,
                     "aln_target_to":         y.alignment.target_to,
                     'aln_target_length':     y.alignment.target_length
