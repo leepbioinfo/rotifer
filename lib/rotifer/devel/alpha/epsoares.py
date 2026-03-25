@@ -450,7 +450,7 @@ def hmmscan_linear(sequences, file=None, models_path=['/databases/pfam/Pfam-A.hm
     return dfs
 
 
-def add_arch_to_df(df, column='pid', file=None, evalue_filter=1e-3, score_filter=30, models_path=['/databases/pfam/Pfam-A.hmm'], inplace=False, run_hmmscan=True, workers=4, job_cpus=8):
+def add_arch_to_df(df, column='pid', file=None, evalue_filter=1e-3, score_filter=30, models_path=['/databases/pfam/Pfam-A.hmm'], inplace=False, run_hmmscan=True, workers=4, cpus_per_worker=8):
 
     '''
     Add a column pfam with the domain architecture for the input accessions.
@@ -460,7 +460,7 @@ def add_arch_to_df(df, column='pid', file=None, evalue_filter=1e-3, score_filter
         df = df.copy()
 
     if run_hmmscan:
-        h = hmmscan(df[column].dropna().tolist(), workers=workers, job_cpus=job_cpus, file=file, models_path=models_path)
+        h = hmmscan(df[column].dropna().tolist(), workers=workers, cpus_per_worker=cpus_per_worker, file=file, models_path=models_path)
 
     else:
         h = df
@@ -628,7 +628,7 @@ def _chunk_sequences(seqs, chunk_size):
 
 def _hmmscan_worker(args):
 
-    model, seq_chunk, job_cpus, columns, rename = args
+    model, seq_chunk, cpus_per_worker, columns, rename = args
 
     hmms = HMM_MODELS[model]
 
@@ -636,7 +636,7 @@ def _hmmscan_worker(args):
         ph.hmmer.hmmscan(
             seq_chunk,
             hmms,
-            cpus=job_cpus
+            cpus=cpus_per_worker
         )
     )
 
@@ -656,7 +656,7 @@ def hmmscan(
     file=None,
     models_path=['/databases/pfam/Pfam-A.hmm'],
     workers=4,
-    job_cpus=8,
+    cpus_per_worker=8,
     chunk_size=None,
     columns=[
         'aln_target_name',
@@ -704,11 +704,11 @@ def hmmscan(
         Number of parallel worker processes.
         Default: 4.
 
-    job_cpus : int, optional
+    cpus_per_worker : int, optional
         Number of CPU threads used internally by hmmscan
         within each worker process.
         Default = 8
-        Total CPU usage ≈ workers × job_cpus
+        Total CPU usage ≈ workers × cpus_per_worker
 
     chunk_size : int, optional
         Number of sequences processed per job.
@@ -764,7 +764,7 @@ def hmmscan(
     for model in models_path:
         for chunk in seq_chunks:
             tasks.append(
-                (model, chunk, job_cpus, columns, rename)
+                (model, chunk, cpus_per_worker, columns, rename)
             )
 
     # --------------------------------------------------------------
@@ -912,7 +912,7 @@ def build_gff_index(gffs):
     return gff_dict
 
 
-def annotate_next_protein(df, gff_dict):
+def get_next_protein(df, gff_dict):
     """
     Annotate each FIMO hit with the nearest downstream/upstream CDS.
 
@@ -957,46 +957,28 @@ def annotate_next_protein(df, gff_dict):
     df["next_protein"] = df.apply(_get, axis=1)
 
     # parse ID (vectorized)
-    df["pid"] = (
-        df["next_protein"]
-        .str.split(";", expand=True)[0]
-        .str.replace("ID=cds-", "", regex=False)
-    )
+    df["pid"] = df["next_protein"].str.split(";", expand=True)[0].str.replace("ID=cds-", "", regex=False)
+    df.drop('next_protein', axis = 1, inplace = True)
 
     return df
 
-def cluster_hits(df, window=50):
-    """
-    Assign cluster IDs to nearby hits (<= window bp).
+def get_distances_repeats(df, inplace=True, filter=False, length=20)
+    '''
+    Get the distance from fimo hit for the next one, and can filter the occurrences
+    due a specific value. Default is 20. 
+    '''
+    if inplace == False:
+        df = df.copy()
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Must contain:
-        ['genome', 'sequence_name', 'strand', 'start']
-    window : int
-        Max distance between hits to belong to same cluster.
+    df.sort_values('sequence_name','strand', 'start', inplace=True)
+    df['distance'] = df['start'] - df.groupby(['sequence_name','start'])['stop'].shift(1)
 
-    Returns
-    -------
-    pd.DataFrame
-        Original dataframe with an additional 'cluster_id'.
-    """
-    df = df.sort_values(
-        ["genome", "sequence_name", "strand", "start"]
-    ).copy()
+    if filter == True:
+        df = df[df['distance'] <= length]
 
-    group_cols = ["genome", "sequence_name", "strand"]
+    return df
 
-    def _cluster(sub):
-        dist = sub["start"].diff().fillna(window + 1)
-        sub["cluster_id"] = (dist > window).cumsum().values
-        return sub
-
-    return df.groupby(group_cols, group_keys=False).apply(_cluster)
-
-
-def fimo_pipeline(meme_file, genomes, gffs, n_jobs=1, window=50):
+def fimo_pipeline(meme_file, genomes, gffs, n_jobs=1, filter=True, length=20):
     """
     End-to-end execution:
     FIMO → annotate next protein → cluster hits.
@@ -1007,6 +989,7 @@ def fimo_pipeline(meme_file, genomes, gffs, n_jobs=1, window=50):
     """
     df = run_fimo_batch(meme_file, genomes, n_jobs=n_jobs)
     gff_dict = build_gff_index(gffs)
-    df = annotate_next_protein(df, gff_dict)
-    df = cluster_hits(df, window=window)
+    df = get_next_protein(df, gff_dict)
+    df = get_distances_repeats(df, filter=filter, length=length)
+
     return df
