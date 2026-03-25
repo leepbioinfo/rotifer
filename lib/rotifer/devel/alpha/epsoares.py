@@ -341,7 +341,7 @@ def hmmer_output_parser(output, columns=['aln_target_name', 'aln_hmm_name','i_ev
                     "aln_hmm_length":        y.alignment.hmm_length,
                     "aln_identity_sequence": y.alignment.identity_sequence,
                     "aln_target_from":       y.alignment.target_from,
-                    "aln_target_name":       y.alignment.target_name(),
+                    "aln_target_name":       y.alignment.target_name,
                     "aln_target_sequence":   y.alignment.target_sequence,
                     "aln_target_to":         y.alignment.target_to,
                     'aln_target_length':     y.alignment.target_length
