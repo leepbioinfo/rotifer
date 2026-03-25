@@ -886,7 +886,7 @@ def build_gff_index(gffs):
     dict[str, pd.DataFrame]
         Mapping: seqid -> CDS dataframe (sorted by coordinates).
     """
-    if isinstance(gffs, (str, Path)):
+    if isinstance(gffs, str):
         gffs = [gffs]
 
     gff_dict = {}
