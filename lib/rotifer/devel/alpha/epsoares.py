@@ -962,7 +962,7 @@ def get_next_protein(df, gff_dict):
 
     return df
 
-def get_distances_repeats(df, inplace=True, filter=False, length=20)
+def get_distances_repeats(df, inplace=True, filter=False, length=20):
     '''
     Get the distance from fimo hit for the next one, and can filter the occurrences
     due a specific value. Default is 20. 
