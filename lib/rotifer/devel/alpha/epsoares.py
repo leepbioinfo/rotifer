@@ -974,8 +974,8 @@ def get_distances_repeats(df, inplace=True, filter=False, length=20):
     if inplace == False:
         df = df.copy()
 
-    df.sort_values('sequence_name','strand', 'start', inplace=True)
-    df['distance'] = df['start'] - df.groupby(['sequence_name','start'])['stop'].shift(1)
+    df.sort_values(['sequence_name','strand', 'start'], inplace=True)
+    df['distance'] = df['start'] - df.groupby(['sequence_name','strand'])['stop'].shift(1)
 
     if filter == True:
         df = df[df['distance'] <= length]
