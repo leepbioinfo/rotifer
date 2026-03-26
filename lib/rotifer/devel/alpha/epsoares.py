@@ -268,7 +268,7 @@ def digitalize_seqobj(seqobj, alignment=None, msa_name='alignment'):
     else:
         return digital_sequences
         
-def make_hmm(seqobj, hmm_name='alignment', save='alignment.hmm'):
+def hmmbuild(seqobj, hmm_name='alignment', save='alignment.hmm'):
       
     '''
     Build a Hidden Markov Model (HMM) from a sequence object using pyhmmer.
@@ -307,17 +307,16 @@ def make_hmm(seqobj, hmm_name='alignment', save='alignment.hmm'):
         
     return hmm
     
-def hmmer_output_parser(output, columns=['aln_target_name', 'aln_hmm_name','i_evalue','c_evalue','score','env_score','aln_target_from','aln_target_to', 'aln_target_length', 'aln_hmm_length', 'env_from', 'env_to'], rename=True):
+def pyhmmer_to_df(output, columns=['aln_target_name', 'aln_hmm_name','i_evalue','c_evalue','score','env_score','aln_target_from','aln_target_to', 'aln_target_length', 'aln_hmm_length', 'env_from', 'env_to'], rename=True):
 
     # Creation of the list to store the results
     r = []
 
     # Loop to process each hit
-    for th in output:
-        target_name = th.query.name if th.query.name else None
-        found = False
-        for x in th:
-            for y in x.domains:
+    for tophits in output:
+        target_name = tophits.query.name if tophits.query.name else None
+        for hits in tophits:
+            for domain in hits.domains:
                 r.append({
                     # pyhmmer.plan7.Domain attributes
                     "hit":                   y.hit,
@@ -346,31 +345,6 @@ def hmmer_output_parser(output, columns=['aln_target_name', 'aln_hmm_name','i_ev
                     "aln_target_to":         y.alignment.target_to,
                     'aln_target_length':     y.alignment.target_length
                     })
-
-        if not found:
-            r.append({"hit":None, 
-                        "bias":None,
-                        "c_evalue":None,
-                        "correction":None,
-                        "env_from":None,
-                        "env_to":None,
-                        "env_score":None,
-                        "i_evalue":None,
-                        "pvalue":None,
-                        "score":None,
-                        "aln_domain":None,
-                        "aln_hmm_accession":None,
-                        "aln_hmm_from":None,
-                        "aln_hmm_name":None,
-                        "aln_hmm_sequence":None,
-                        "aln_hmm_to":None,
-                        "aln_hmm_length":None,
-                        "aln_identity_sequence":None,
-                        "aln_target_from":None,
-                        "aln_target_name":target_name,
-                        "aln_target_sequence":None,
-                        "aln_target_to":None,
-                        "aln_target_length":None})
 
     df = pd.DataFrame(r)
 
@@ -441,7 +415,7 @@ def hmmscan_linear(sequences, file=None, models_path=['/databases/pfam/Pfam-A.hm
         
         #Hmmscan run and file processment
         h = list(ph.hmmer.hmmscan(seqs, hmms, cpus=cpus, callback=callback))
-        df = hmmer_output_parser(h, columns=columns, rename=rename)
+        df = pyhmmer_to_df(h, columns=columns, rename=rename)
         df['source'] = model 
         results.append(df)
         
@@ -492,7 +466,7 @@ def hmmsearch(models_path, query_db, cpus=0, columns=['aln_target_name', 'aln_hm
 
         db = ph.easel.SequenceFile(query_db, digital=True, alphabet=ph.easel.Alphabet.amino())
         out = list(ph.hmmer.hmmsearch(hmms, db, cpus=cpus))
-        df = hmmer_output_parser(out, columns=columns, rename=rename)
+        df = pyhmmer_to_df(out, columns=columns, rename=rename)
         df['source'] = model 
         results.append(df)
         
@@ -640,7 +614,7 @@ def _hmmscan_worker(args):
         )
     )
 
-    df = hmmer_output_parser(
+    df = pyhmmer_to_df(
         hits,
         columns=columns,
         rename=rename
