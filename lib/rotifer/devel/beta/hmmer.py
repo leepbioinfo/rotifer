@@ -116,33 +116,33 @@ def pyhmmer_to_df(output, columns=['aln_target_name', 'aln_hmm_name','i_evalue',
             for domain in hits.domains:
                 r.append({
                     # pyhmmer.plan7.Domain attributes
-                    "hit":                   y.hit,
-                    "bias":                  y.bias,
-                    "c_evalue":              y.c_evalue,
-                    "correction":            y.correction,
-                    "env_from":              y.env_from,
-                    "env_to":                y.env_to,
-                    "env_score":             y.envelope_score,
-                    "i_evalue":              y.i_evalue,
-                    "pvalue":                y.pvalue,
-                    "score":                 y.score,
+                    "hit":                   domain.hit,
+                    "bias":                  domain.bias,
+                    "c_evalue":              domain.c_evalue,
+                    "correction":            domain.correction,
+                    "env_from":              domain.env_from,
+                    "env_to":                domain.env_to,
+                    "env_score":             domain.envelope_score,
+                    "i_evalue":              domain.i_evalue,
+                    "pvalue":                domain.pvalue,
+                    "score":                 domain.score,
 
                     # pyhmmer.plan7.Alignment attributes
-                    "aln_domain":            y.alignment.domain,
-                    "aln_hmm_accession":     y.alignment.hmm_accession,
-                    "aln_hmm_from":          y.alignment.hmm_from,
-                    "aln_hmm_name":          y.alignment.hmm_name,
-                    "aln_hmm_sequence":      y.alignment.hmm_sequence,
-                    "aln_hmm_to":            y.alignment.hmm_to,
-                    "aln_hmm_length":        y.alignment.hmm_length,
-                    "aln_identity_sequence": y.alignment.identity_sequence,
-                    "aln_target_from":       y.alignment.target_from,
-                    "aln_target_name":       y.alignment.target_name,
-                    "aln_target_sequence":   y.alignment.target_sequence,
-                    "aln_target_to":         y.alignment.target_to,
-                    'aln_target_length':     y.alignment.target_length
+                    "aln_domain":            domain.alignment.domain,
+                    "aln_hmm_accession":     domain.alignment.hmm_accession,
+                    "aln_hmm_from":          domain.alignment.hmm_from,
+                    "aln_hmm_name":          domain.alignment.hmm_name,
+                    "aln_hmm_sequence":      domain.alignment.hmm_sequence,
+                    "aln_hmm_to":            domain.alignment.hmm_to,
+                    "aln_hmm_length":        domain.alignment.hmm_length,
+                    "aln_identity_sequence": domain.alignment.identity_sequence,
+                    "aln_target_from":       domain.alignment.target_from,
+                    "aln_target_name":       domain.alignment.target_name,
+                    "aln_target_sequence":   domain.alignment.target_sequence,
+                    "aln_target_to":         domain.alignment.target_to,
+                    'aln_target_length':     domain.alignment.target_length
                     })
-
+                    
     df = pd.DataFrame(r)
 
     if df.empty:
