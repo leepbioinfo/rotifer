@@ -936,7 +936,7 @@ def get_next_protein(df, gff_dict):
 
     # parse ID (vectorized)
     df["pid"] = df["next_protein"].str.split(";", expand=True)[0].str.replace("ID=cds-", "", regex=False)
-    df.drop('next_protein', axis = 1, inplace = True)
+    #df.drop('next_protein', axis = 1, inplace = True)
 
     return df
 
