@@ -182,6 +182,7 @@ def filter_nonoverlapping_regions(df,
         logger.info(f'Running next layer with {keep.notna().sum()} processed rows out of {len(clean)} rows')
         best = clean.loc[keep.isna()].drop_duplicates(reference)
         keep.loc[best.index] = True
+        best = clean.loc[keep == True]
         worst = clean.loc[keep.isna()].reset_index(drop=False).rename({'index':'_oid'}, axis=1)
         worst = best.merge(worst, on=reference, how='inner')
         overlap  = np.minimum(worst[f'{end}_x'],   worst[f'{end}_y'])
@@ -190,7 +191,9 @@ def filter_nonoverlapping_regions(df,
         maxoverlap = maximum_overlap
         if maxoverlap < 1:
             maxoverlap = np.floor(maxoverlap * np.minimum(worst.region_length_x, worst.region_length_y))
-        worst = worst[overlap > maxoverlap]._oid.unique().tolist()
+        overlap = (overlap > maxoverlap)
+        overlap = overlap | ((worst[f'{start}_x'] <= worst[f'{start}_y']) & (worst[f'{end}_x'] >= worst[f'{end}_y']))
+        worst = worst[overlap]._oid.unique().tolist()
         keep.loc[worst] = False
 
     # Remove region_length and return
