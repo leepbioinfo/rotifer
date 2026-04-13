@@ -1171,7 +1171,7 @@ class sequence(rotifer.pipeline.Annotatable):
         SeqIO.write(self.to_seqrecords(annotations=annotations, remove_gaps=remove_gaps), sio, output_format)
         return sio.getvalue()
 
-    def align(self, method='famsa', cpu=12, region=False, inplace=False):
+def align(self, method='famsa', cpu=12, region=False, inplace=False):
         """
         Rebuild the alignment using Mafft.
 
@@ -1184,6 +1184,8 @@ class sequence(rotifer.pipeline.Annotatable):
             kalign 
         cpu : integer, default is 12
             Number of threads to use, kalign do not have thread option
+        region: tuple of integers, default: False
+            Alignment columns to realign
         inplace: boolean, default False
             Align sequences inplace, i.e. don't create a new object
 
@@ -1192,11 +1194,19 @@ class sequence(rotifer.pipeline.Annotatable):
         A new MSA object.
         """
         from subprocess import Popen, PIPE, STDOUT
+
+        # Make sure the index is defined by this function
+        self.df.reset_index(drop=True) 
+
+        # Prepare temporary file
+        seq_string = self.copy()
+        seq_string.df = seq_string.df.reset_index().drop(['id'], axis=1).rename({'index':'id'}, axis=1)
         if region:
             seq_string = self.slice((region[0],region[1])).to_string(remove_gaps=True).encode()
         else:
             seq_string = self.to_string(remove_gaps=True).encode()
 
+        # Run alignment software and load output
         if method =='mafft':
             child = Popen(f'cat|mafft  --thread {cpu} -' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
         elif method == 'linsi':
@@ -1205,22 +1215,21 @@ class sequence(rotifer.pipeline.Annotatable):
             child = Popen(f'cat|famsa -t {cpu} -v STDIN STDOUT' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
         elif method =='kalign':
             child = Popen(f'cat|kalign' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
+        aligned = result.from_string(child[0].decode("utf-8"), input_format = 'fasta')
+        aligned.df.set_index('id', inplace=True) # Make sure aligned index matches the index from self
 
         if inplace:
             result = self
         else:
             result = self.copy()
 
-        aligned = result.from_string(child[0].decode("utf-8"), input_format = 'fasta') # chaged to fix issie with re aigment losing annotations
-        aligned2 = self.copy() # fixing issue of losing ann
-        aligned2.df.sequence = aligned.df.sequence # Add to fix the issue on the line above
-
+        # The following rows depende on the 
         if region:
             r1 = self.slice((1, region[0] - 1))
             r2 = self.slice((region[1] + 1, len(self.df.iloc[0,1])))
             result.df.sequence = r1.df.sequence + aligned.df.sequence + r2.df.sequence
         else:
-            result = aligned2 # 
+            result.df.sequence = aligned.df.sequence
 
         if not inplace:
             return result
