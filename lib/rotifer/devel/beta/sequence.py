@@ -1211,14 +1211,16 @@ class sequence(rotifer.pipeline.Annotatable):
         else:
             result = self.copy()
 
-        aligned = self.from_string(child[0].decode("utf-8"), input_format = 'fasta')
+        aligned = result.from_string(child[0].decode("utf-8"), input_format = 'fasta') # chaged to fix issie with re aigment losing annotations
+        aligned2 = self.copy() # fixing issue of losing ann
+        aligned2.df.sequence = aligned.df.sequence # Add to fix the issue on the line above
 
         if region:
             r1 = self.slice((1, region[0] - 1))
             r2 = self.slice((region[1] + 1, len(self.df.iloc[0,1])))
             result.df.sequence = r1.df.sequence + aligned.df.sequence + r2.df.sequence
         else:
-            result = aligned
+            result = aligned2 # 
 
         if not inplace:
             return result

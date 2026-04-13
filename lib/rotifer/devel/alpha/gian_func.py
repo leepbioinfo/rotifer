@@ -836,7 +836,8 @@ def padding_df(df, how='right'):
     return cdf
 
 
-def alnxaln(seqobj, clustercol = 'c50i0', minseq=10):
+def alnxaln(seqobj, clustercol = 'c50i0', minseq=10, aln_method='famsa'):
+    """ IF aln_method other than FAMS, mafft linsi will be used"""
     import os
     import tempfile
     import pandas as pd
@@ -856,7 +857,10 @@ def alnxaln(seqobj, clustercol = 'c50i0', minseq=10):
         alndict = dict()
         clist = list(seqobj.df[clustercol].value_counts().where(lambda x: x>= minseq).dropna().index)
         for x in clist:
-            alndict[x] = seqobj.filter(f'{clustercol} ==\"{x}\"').align(method='linsi')
+            if aln_method == 'famsa':
+                alndict[x] = seqobj.filter(f'{clustercol} ==\"{x}\"').align()
+            else:    
+                alndict[x] = seqobj.filter(f'{clustercol} ==\"{x}\"').align(method='linsi')
             alndict[x].to_file(f'{x}.aln') 
         for x in clist:
             os.system(f'for x in *.aln; do hhalign -i $x -t {x}.aln;done')
@@ -2168,6 +2172,7 @@ def operon_fig2(df,
                 domain_column='arch',
                 query_same_direction=True,
                 color_dict=None,
+                shape_dict=None,
                 top_domains=10,
                 sort_by='pid',
                 height=0.35,
@@ -2186,7 +2191,9 @@ def operon_fig2(df,
                 to_string=False,
                 reverse_annotaion=False,
                 lineage=False,
-                yaml_file=False
+                yaml_file=False,
+                architecture=False,
+                genome_coordinates=True
                 ):
     """
     Highlight domain should be dictnionary
@@ -2239,13 +2246,22 @@ def operon_fig2(df,
     # Removing duplicates sequencial domain in same protein
     #te = te.loc[~((te.pid.shift() == te.pid) & (te.dom.shift() == te.dom))].reset_index(drop=True)
     te = te.reset_index(drop=True)
+    if architecture:
+        te['block_id'] = te.apply(lambda x: x.block_id.split(":")[0]+":"+ str(x.start)+"-"+ str(x.end), axis=1)
+        te['query'] = 1
+        TM_width = TM_width *2.5
+        if shape_dict:
+            # Setting a default shape"
+            te['shape'] = "oval"
+            shape_dict = {**te.set_index('dom')['shape'].to_dict(), **shape_dict}
+            te['shape'] = te.dom.map(shape_dict)
+    else:    
+        l = te.drop_duplicates(['block_id','pid'], keep='first').query('strand ==-1').index
+        r = te.drop_duplicates(['block_id','pid'], keep='last').query('strand ==1').index
+        te.loc[r,'shape'] = 'rarrow'
+        te.loc[l,'shape'] = 'larrow'
+        te['height'] = np.where(te['shape'].isin(['larrow', 'rarrow']),  height, height/f)
 
-    l = te.drop_duplicates(['block_id','pid'], keep='first').query('strand ==-1').index
-    r = te.drop_duplicates(['block_id','pid'], keep='last').query('strand ==1').index
-    te.loc[r,'shape'] = 'rarrow'
-    te.loc[l,'shape'] = 'larrow'
-
-    te['height'] = np.where(te['shape'].isin(['larrow', 'rarrow']),  height, height/f)
     te['style'] = 'filled' 
     # insert an space between oposite strands.
     add_rows = te[(te.strand > te.strand.shift(1) )& (te.block_id == te.block_id.shift(1))].index.tolist()
@@ -2332,10 +2348,14 @@ def operon_fig2(df,
     te['penwidth'] = penwidth
     te['width'] = te.dom.str.len()/40
     te.loc[te.dom =="white_space", 'width'] = space_width
-    te.loc[te.dom.isin(["TM", "SIG", "SP","LIPO","LP"]), ['bcolor', 'width', 'penwidth']] =['black', TM_width, 0.5]
+    if architecture:
+        te.loc[te.dom.isin(["TM", "SIG", "SP","LIPO","LP"]), ['bcolor', 'width', 'penwidth', 'shape']] =['black', TM_width, 0.5, 'oval']
+    else:    
+        te.loc[te.dom.isin(["TM", "SIG", "SP","LIPO","LP"]), ['bcolor', 'width', 'penwidth']] =['black', TM_width, 0.5]
+
     te.loc[te.dom =="PSE", ['color', 'bcolor']] =['#D3D3D340', '#D3D3D3']
 
-    te.loc[(te.dom.isin(['TM','LP','LIPO','SIG','SP'])) & (te['shape'].isin(['larrow','rarrow'])), ['dom', 'color', 'bcolor']] = [' ', color_dict[" "], color_dict[" "]]
+    te.loc[(te.dom.isin(['TM','LP','LIPO','SIG','SP', " "])) & (te['shape'].isin(['larrow','rarrow'])), ['dom', 'color', 'bcolor']] = [' ', color_dict[" "], color_dict[" "]]
 
     if query_asterix:
         to_a = te.query('query ==1').query("dom not in ['TM','LP','LIPO','SIG','SP']").drop_duplicates(subset=['pid'], keep='last').index ###
@@ -2365,10 +2385,18 @@ def operon_fig2(df,
     max_width = max(w1, w2)
     if lineage:
         te['lineage'] = te.block_id.map(df[['block_id', 'lineage']].drop_duplicates('block_id').set_index('block_id').lineage.to_dict())
-        te['to_bellow'] = te.block_id.fillna('-') +'/' + te.organism.fillna('-') + ' (' + te.lineage.fillna('-') + ')'
+        if genome_coordinates:
+            te['to_bellow'] = te.block_id.fillna('-') +'/' + te.organism.fillna('-') + ' (' + te.lineage.fillna('-') + ')'
+        else:
+            te['to_bellow'] = te.organism.fillna('-') + ' (' + te.lineage.fillna('-') + ')'
+
         te['to_bellow'] = te.to_bellow.str.replace('>', '&#62;')
     else:    
-        te['to_bellow'] = te.block_id.fillna('-') +'/' + te.organism.fillna('-')
+        if genome_coordinates:
+            te['to_bellow'] = te.block_id.fillna('-') +'/' + te.organism.fillna('-')
+        else:
+            te['to_bellow'] = te.organism.fillna('-')
+
     ## Adjusting the height os arrows accourding to the string size
     te['dom_string_size'] = te.dom.str.len()
     te.loc[(te.dom_string_size ==1) & (te['shape'].isin(['rarrow', 'larrow'])), 'height'] = height * 0.80
@@ -2447,20 +2475,37 @@ def operon_fig2(df,
                        height=height)
             l.append(group)
             label_list.append(group)
-            A.add_node(group,
-                       label=(
-                           f'<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="0" CELLSPACING="0">'
-                           f'<TR><TD HEIGHT="4"></TD></TR>'
-                           f'<TR><TD HEIGHT="4"></TD></TR>'
-                          f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial" POINT-SIZE="{fontsize}">{block_id_df.query_pid.unique()[0]}</FONT></TD></TR>'
-                          f'<TR><TD ALIGN="LEFT"><FONT FACE="Consolas" POINT-SIZE="{fontsize}">{block_id_df.block_id.unique()[0]:<{max_width}}</FONT></TD></TR>'
-                          f'<TR><TD ALIGN="LEFT"><FONT FACE="Consolas italic" POINT-SIZE="{fontsize}">{block_id_df.organism.unique()[0]:<{max_width}}</FONT></TD></TR>'
-                           '</TABLE>>'),
-                       shape='none',
-                       fontsize=fontsize,
-                       fontname='Consolas',
-                       margin=margin,
-                       height=height)
+            if genome_coordinates:
+                print('oo')
+                A.add_node(group,
+                           label=(
+                               f'<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="0" CELLSPACING="0">'
+                               f'<TR><TD HEIGHT="4"></TD></TR>'
+                               f'<TR><TD HEIGHT="4"></TD></TR>'
+                              f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial" POINT-SIZE="{fontsize}">{block_id_df.query_pid.unique()[0]}</FONT></TD></TR>'
+                              f'<TR><TD ALIGN="LEFT"><FONT FACE="Consolas" POINT-SIZE="{fontsize}">{block_id_df.block_id.unique()[0]:<{max_width}}</FONT></TD></TR>'
+                              f'<TR><TD ALIGN="LEFT"><FONT FACE="Consolas italic" POINT-SIZE="{fontsize}">{block_id_df.organism.unique()[0]:<{max_width}}</FONT></TD></TR>'
+                               '</TABLE>>'),
+                           shape='none',
+                           fontsize=fontsize,
+                           fontname='Consolas',
+                           margin=margin,
+                           height=height)
+            else:
+                print('ooooi')
+                A.add_node(group,
+                           label=(
+                               f'<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="0" CELLSPACING="0">'
+                               f'<TR><TD HEIGHT="4"></TD></TR>'
+                               f'<TR><TD HEIGHT="4"></TD></TR>'
+                              f'<TR><TD ALIGN="LEFT"><FONT FACE="Arial" POINT-SIZE="{fontsize}">{block_id_df.query_pid.unique()[0]}</FONT></TD></TR>'
+                              f'<TR><TD ALIGN="LEFT"><FONT FACE="Consolas italic" POINT-SIZE="{fontsize}">{block_id_df.organism.unique()[0]:<{max_width}}</FONT></TD></TR>'
+                               '</TABLE>>'),
+                           shape='none',
+                           fontsize=fontsize,
+                           fontname='Consolas',
+                           margin=margin,
+                           height=height)
 
         for y,z in block_id_df.iterrows():
 
@@ -2493,16 +2538,28 @@ def operon_fig2(df,
                        height=height)
             l.append(group)
             label_list.append(group)
-            A.add_node(group,
-                       label=(
-                           f'<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="0" CELLSPACING="0">'
-                           f'<TR><TD ALIGN="LEFT"><FONT FACE="Consolas" POINT-SIZE="{fontsize}">{block_id_df.query_pid.unique()[0]}/{block_id_df.to_bellow.unique()[0]:<{bellow_max}}</FONT></TD></TR>'
-                           '</TABLE>>'),
-                       shape='none',
-                       fontsize=fontsize,
-                       fontname='Consolas',
-                       margin=margin,
-                       height=height)
+            if genome_coordinates:
+                A.add_node(group,
+                           label=(
+                               f'<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="0" CELLSPACING="0">'
+                               f'<TR><TD ALIGN="LEFT"><FONT FACE="Consolas" POINT-SIZE="{fontsize}">{block_id_df.query_pid.unique()[0]}/<I>{block_id_df.to_bellow.unique()[0]:<{bellow_max}}</I></FONT></TD></TR>'
+                               '</TABLE>>'),
+                           shape='none',
+                           fontsize=fontsize,
+                           fontname='Consolas',
+                           margin=margin,
+                           height=height)
+            else:
+                A.add_node(group,
+                           label=(
+                               f'<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="0" CELLSPACING="0">'
+                               f'<TR><TD ALIGN="LEFT"><FONT FACE="Consolas" POINT-SIZE="{fontsize}">{block_id_df.query_pid.unique()[0]}/<I>{block_id_df.to_bellow.unique()[0]:<{bellow_max}}</I></FONT></TD></TR>'
+                               '</TABLE>>'),
+                           shape='none',
+                           fontsize=fontsize,
+                           fontname='Consolas',
+                           margin=margin,
+                           height=height)
             li.append(l)
         else:
             li.append(l)

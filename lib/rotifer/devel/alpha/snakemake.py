@@ -233,8 +233,12 @@ def run_neighbor(input_file, cores=2):
 def run_neighbor_farm(input_file,
                       cores=48,
                       batch_size=100,
-                      jobs=100):
+                      jobs=100,
+                      after=5,
+                      before=5):
     batch_size = str(batch_size)
+    after = str(after)
+    before = str(before)
     jobs = str(jobs)
     # Automatically detect if the input is a list, pandas dataframe or string to run the functions
     temp_input_path = None
@@ -250,6 +254,8 @@ def run_neighbor_farm(input_file,
         "snakemake_args": ["--config", "input_file=data/input.txt",
                            f"batch_size={batch_size}",
                            f"jobs={jobs}",
+                           f"after={after}",
+                           f"before={before}",
                            "--profile","profiles/farm",
                            "--latency-wait", "20",
                            "--keep-going"],

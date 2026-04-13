@@ -115,7 +115,7 @@ rule phobius:
         threads=8
     shell:
         r"""
-        awk '/^>/ {{print; next}} {{gsub(/[^ACDEFGHIKLMNPQRSTVWYacdefghiklmnpqrstvwy]/,"A"); print}}' {input.fasta} \
+        awk '/^>/ {{sub(/^>/,"",$0); split($0,a,/[[:space:]]+/); print ">" a[1]; next}} {{gsub(/[^ACDEFGHIKLMNPQRSTVWYacdefghiklmnpqrstvwy]/,"A"); print}}' {input.fasta} \
           | phobius > {output.txt}
         """
 
