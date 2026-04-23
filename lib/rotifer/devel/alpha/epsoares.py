@@ -423,7 +423,7 @@ def hmmscan_linear(sequences, file=None, models_path=['/databases/pfam/Pfam-A.hm
     
     return dfs
 
-def filter_models_overlaps(df, overlap_threshold=0.1):
+def filter_models_overlaps(df, overlap_filter=0.1):
     """
     Resolve overlapping domains across models using a vectorized greedy approach.
 
@@ -469,7 +469,7 @@ def filter_models_overlaps(df, overlap_threshold=0.1):
         frac_overlap[valid] = overlap_len[valid] / min_len[valid]
 
         # Suppress overlapping domains BELOW in ranking
-        mask = (frac_overlap > overlap_threshold)
+        mask = (frac_overlap > overlap_filter)
 
         # Only remove those with lower priority (j > i)
         mask[:i+1] = False
@@ -478,7 +478,7 @@ def filter_models_overlaps(df, overlap_threshold=0.1):
 
     return df[keep]
 
-def add_arch_to_df(df, column='pid', file=None, evalue_filter=1e-3, score_filter=30, models_path=['/databases/pfam/Pfam-A.hmm'], inplace=False, run_hmmscan=True, workers=4, cpus_per_worker=8):
+def add_arch_to_df(df, column='pid', file=None, evalue_filter=1e-3, score_filter=30, overlap_filter = 0.1, models_path=['/databases/pfam/Pfam-A.hmm'], inplace=False, run_hmmscan=True, workers=4, cpus_per_worker=8):
 
     '''
     Add a column pfam with the domain architecture for the input accessions.
@@ -497,7 +497,7 @@ def add_arch_to_df(df, column='pid', file=None, evalue_filter=1e-3, score_filter
     h = h[h.evalue <= evalue_filter]
     h = h[h.score >= score_filter]
     h = riu.filter_nonoverlapping_regions(h, **riu.config['hmmer'])
-    h = h.groupby('sequence', group_keys=False).apply(filter_models_overlaps, overlap_threshold=0.1)
+    h = h.groupby('sequence', group_keys=False).apply(filter_models_overlaps, overlap_filter=overlap_filter)
     h = h.sort_values(['sequence', 'estart'])
     arch = h.groupby('sequence').agg(pfam = ('model',lambda x: '+'.join(x.astype(str)))).reset_index()
     arch.rename({'sequence':column}, axis = 1, inplace = True)
