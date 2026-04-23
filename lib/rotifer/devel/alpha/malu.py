@@ -277,3 +277,44 @@ def extract_by_table(seqobj, df, suffixes=('','_YyYyYy'),method=None, merge_dist
     nseqobj.df['length_slice'] = nseqobj.df.sequence.str.len()
     return nseqobj
 
+
+
+def make_hist(df, column, bins=10):
+      """
+      This method displays an histogram for a given int column
+
+      Parameters
+      ----------
+      column: string
+          the name of the column for which the histogram is desired
+      bins : int
+          Number of histogram bins to discretize the distribution
+
+      Returns
+      -------
+      None
+
+      Examples
+      --------
+      >>> make_hist(df,'column', 20)
+      """
+      from ascii_graph import Pyasciigraph
+      import collections
+      import pandas as pd
+      # Raise error if the column given is not numeric
+      if not pd.api.types.is_numeric_dtype(df[column]):
+          raise TypeError(f"Column '{column}' must be numeric.")
+
+      collections.Iterable = collections.abc.Iterable
+      print(f'Number of lines analyzed: {len(df[column])}')
+      a = df[column].value_counts().to_frame().reset_index()
+      a.columns = [column, 'count']
+      a = a.sort_values(column)
+      a['raw_bin'] = pd.cut(a[f'{column}'],bins,precision=0)
+      a['bin'] = a.raw_bin.apply(lambda x : '{} - {}'.format(int(x.left),int(x.right)))
+      test = a.groupby('bin').agg({'count':'sum'}).reset_index().apply(tuple, axis=1)
+      graph = Pyasciigraph()
+      for line in  graph.graph('count \t ' f'{column}', test):
+          print(line)
+
+
