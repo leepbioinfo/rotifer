@@ -32,7 +32,7 @@ def _parse_qualifiers(column, feature, seqrecord):
             return feature.qualifiers[column][0]
         else:
             return "\cA".join(feature.qualifiers[column][0])
-    return np.NaN
+    return np.nan
 
 def seqrecords_to_dataframe(seqrecs=None, exclude_type=[], autopid=False, assembly=None, codontable='Bacterial', parsers={}):
     '''
