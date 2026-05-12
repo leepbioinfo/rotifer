@@ -37,7 +37,7 @@
 - [ blast      , rsync  , rsync.ncbi.nlm.nih.gov , blast                                , unpack         , { rsync: [ -arHv, --delete, --delete-excluded, --prune-empty-dirs, -L, --safe-links ], callback: [ 'process_blast_dbs.sh' ] } ]
 # [ toxins     , rsync  , rsync.ncbi.nlm.nih.gov , pub/aravind/TOXIMM                   ,                ,                                                                                         ]
 - [ cdd        , rsync  , rsync.ncbi.nlm.nih.gov , pub/mmdb/cdd                         , none           ,                                                                                         ]
-- [ genomes    , rsync  , rsync.ncbi.nlm.nih.gov , genomes                              , none           , { rsync: [ -arHv, --delete, --prune-empty-dirs, -L, --safe-links ] }                    ]
+- [ genomes    , rsync  , ftp.ncbi.nlm.nih.gov , genomes                              , none           , { rsync: [ -arHv, --delete, --prune-empty-dirs, -L, --safe-links ] }                    ]
 - [ refseq     , rsync  , rsync.ncbi.nlm.nih.gov , refseq                               , none           ,                                                                                         ]
 - [ livelists  , rsync  , rsync.ncbi.nlm.nih.gov , genbank/livelists                    , none           ,                                                                                         ]
 - [ bioproject , rsync  , rsync.ncbi.nlm.nih.gov , bioproject                           , none           ,                                                                                         ]
