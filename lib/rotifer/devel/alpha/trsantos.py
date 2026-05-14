@@ -735,3 +735,38 @@ class PhyloBuilder:
         info = f"<PhyloBuilder nseq={len(self.msa) if self.msa is not None else 0} method={'UPGMA' if self.method==1 else 'NJ'} matrix={self.matrix}>"
         return info
 
+def evalue_hist(df, step=20):
+    """
+    Automatically creates logarithmic bins for E-values.
+    'step' defines how many orders of magnitude to group (e.g., 20 = 1e-80 to 1e-60).
+    """
+    # We find the min/max of non-zero values to define our scale
+    non_zero = df[df['evalue'] > 0]['evalue']
+    
+    if non_zero.empty:
+        # Fallback if all values are 0
+        return pd.DataFrame({'evalue range': ['0'], 'unique_proteins': [df['sequence'].nunique()]})
+
+    # 2. Find the powers of 10 for the scale
+    min_exp = int(np.floor(np.log10(non_zero.min())))
+    max_exp = int(np.ceil(np.log10(non_zero.max())))
+    
+    # 3. Create the bin edges (powers of 10)
+    # We create a range of exponents from min to max
+    bin_exps = np.arange(min_exp, max_exp + step, step)
+    bins = [0] + list(np.power(10.0, bin_exps.astype(float)))
+    
+    # 4. Generate the labels automatically
+    labels = [f"0 to 1e{bin_exps[0]}"]
+    for i in range(len(bin_exps) - 1):
+        labels.append(f"1e{bin_exps[i]} to 1e{bin_exps[i+1]}")
+    
+    # 5. Bin the data and count unique sequences
+    df_temp = df.copy()
+    df_temp['range'] = pd.cut(df_temp['evalue'], bins=bins, labels=labels, include_lowest=True)
+    
+    summary = df_temp.groupby('range')['sequence'].nunique().reset_index()
+    summary.columns = ['evalue range', 'unique_proteins']
+    
+    # Return only rows with data
+    return print(summary[summary['unique_proteins'] > 0])
