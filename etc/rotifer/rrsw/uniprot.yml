@@ -24,6 +24,7 @@ include:
  - knowledgebase/idmapping/idmapping.dat.gz$
  - relnotes.txt
  - uniref
+ - complete
 
 # Things I don't want
 exclude:
