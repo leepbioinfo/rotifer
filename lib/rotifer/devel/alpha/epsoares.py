@@ -494,9 +494,10 @@ def add_arch_to_df(df, column='pid', file=None, evalue_filter=1e-3, score_filter
         h = df
 
     h.rename({'aln_target_name':'sequence','aln_hmm_name':'model','i_evalue':'evalue','env_from':'estart', 'env_to':'eend'}, axis=1, inplace=True)
+    h = h.loc[:, ~h.columns.duplicated()]
     h = h.drop_duplicates().reset_index(drop=True)
-    h = h[h.evalue <= evalue_filter]
-    h = h[h.score >= score_filter]
+    h = h[h['evalue'] <= evalue_filter]    
+    h = h[h['score'] >= score_filter]
     h = riu.filter_nonoverlapping_regions(h, **riu.config['hmmer'])
     h = h.groupby('sequence', group_keys=False).apply(filter_models_overlaps, overlap_filter=overlap_filter)
     h = h.sort_values(['sequence', 'estart'])
