@@ -110,15 +110,16 @@ def parse(handle, informat, *args, assembly=GenbankAssemblyFromFilename, **kwarg
                 s.description = s.name + ", whole genome shotgun sequence"
 
             # Fix assembly
-            if not any([ "Assembly:" == x[0:9] for x in s.dbxrefs ]):
-                if assembly:
-                    if isinstance(assembly,types.FunctionType):
-                        assemblyStr = str(assembly(eachhandle,s))
-                    else:
-                        assemblyStr = assembly
+            if assembly:
+                assemblyStr = None
+                if isinstance(assembly,types.FunctionType):
+                    assemblyStr = str(assembly(eachhandle,s))
+                elif isinstance(assembly, str):
+                    assemblyStr = assembly
+                if assemblyStr:
                     s.dbxrefs.append(f'Assembly:{assemblyStr}')
-                else:
-                    s.dbxrefs.append(f'Assembly:{s.name}')
+            if not any([ "Assembly:" == x[0:9] for x in s.dbxrefs ]):
+                s.dbxrefs.append(f'Assembly:{s.name}')
 
             # Return and wait next call
             yield s
