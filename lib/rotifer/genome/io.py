@@ -130,7 +130,7 @@ def parse(handle, informat, *args, assembly=GenbankAssemblyFromFilename, **kwarg
             if isinstance(assemblyIndex, types.NoneType):
                 s.dbxrefs.append(assemblyStr)
             else:
-                s.dbxrefs[i] = assemblyStr
+                s.dbxrefs[assemblyIndex] = assemblyStr
 
             # Return and wait next call
             yield s
