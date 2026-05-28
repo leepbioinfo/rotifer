@@ -478,7 +478,7 @@ def filter_models_overlaps(df, overlap_filter=0.1):
 
     return df[keep]
 
-def add_arch_to_df(df, column='pid', file=None, evalue_filter=1e-3, score_filter=30, overlap_filter = 0.1, models_path=['/databases/pfam/Pfam-A.hmm'], inplace=False, run_hmmscan=True, workers=4, cpus_per_worker=8):
+def add_arch_to_df(df, column='pid', file=None, evalue_filter=0.1, score_filter=0, overlap_filter = 0.1, models_path=['/databases/pfam/Pfam-A.hmm'], inplace=False, run_hmmscan=True, workers=4, cpus_per_worker=8):
 
     '''
     Add a column pfam with the domain architecture for the input accessions.
