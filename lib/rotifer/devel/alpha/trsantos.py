@@ -25,6 +25,9 @@ from Bio.SeqRecord import SeqRecord
 from Bio.Align import MultipleSeqAlignment
 from Bio.Phylo.TreeConstruction import DistanceCalculator, DistanceTreeConstructor
 from Bio import Phylo
+import seaborn as sns
+import pygraphviz as pgv
+import html
 
 # --- GPU support via pynvml ---
 try:
@@ -770,3 +773,154 @@ def evalue_hist(df, step=20):
     
     # Return only rows with data
     return print(summary[summary['unique_proteins'] > 0])
+
+def operon_fig(df, group_col='block_id', label_col='pfam', org_col='organism',
+                       output_file='operon_fig_out.svg', max_colors=5, 
+                       highlight_query=True, query_same_direction=False, 
+                       font_size=10, ignore_domains=None):
+    
+    # Define generic/structural domains to ignore when coloring
+    if ignore_domains is None:
+        ignore_domains = ['TM', 'SP', 'LP', 'LIPO', 'SIG']
+
+    a = df.copy()
+    
+    # --- Safe Column Mapping ---
+    a['ID'] = a.get(group_col, 'Unknown_Block')
+    a['org_name'] = a.get(org_col, 'Unknown Organism')
+    
+    # Safely handle missing fallback columns to prevent .fillna(None) crashes
+    if label_col == 'pfam':
+        a['domain'] = a['pfam'] if 'pfam' in a.columns else pd.Series([np.nan]*len(a))
+        if 'aravind' in a.columns:
+            a['domain'] = a['domain'].fillna(a['aravind'])
+        if 'product' in a.columns:
+            a['domain'] = a['domain'].fillna(a['product'])
+        a['domain'] = a['domain'].fillna('unk')
+    else:
+        a['domain'] = a[label_col].fillna('unk') if label_col in a.columns else 'unk'
+
+    # Parse the binary query flag
+    if 'query' in a.columns:
+        a['is_query'] = (a['query'] == 1) | (a['query'] == '1') | (a['query'] == True)
+    else:
+        a['is_query'] = False
+
+    a['pid_order'] = pd.factorize(a['ID'])[0]
+    
+    # --- Filter by Query Direction (Optional) ---
+    if query_same_direction:
+        filtered_dfs = []
+        for pid, group in a.groupby('pid_order'):
+            query_rows = group[group['is_query']]
+            if not query_rows.empty:
+                # Get the strand of the query
+                q_strand = query_rows.iloc[0].get('strand')
+                if pd.notna(q_strand):
+                    # Keep only rows matching the query strand
+                    group = group[group['strand'] == q_strand]
+            filtered_dfs.append(group)
+        a = pd.concat(filtered_dfs)
+
+    a = a.reset_index(drop=True).reset_index()
+
+    # --- Priority Coloring Logic ---
+    ignore_lower = [x.lower() for x in ignore_domains] + ['unk', ' ', '-', '?']
+    
+    # Identify domains that should NOT get a color
+    is_ignorable = (
+        a['domain'].astype(str).str.lower().isin(ignore_lower) | 
+        a['domain'].astype(str).str.lower().str.contains('hypothetical', na=False)
+    )
+    
+    # 1. ALWAYS grab the unique query domains first
+    query_domains = a[a['is_query'] & ~is_ignorable]['domain'].unique().tolist()
+    
+    # 2. Grab the most frequent non-query domains
+    remaining_slots = max(0, max_colors - len(query_domains))
+    freq_domains = a[~a['domain'].isin(query_domains) & ~is_ignorable]['domain'].value_counts().head(remaining_slots).index.tolist()
+    
+    # Combine and map to a pastel palette
+    final_color_list = query_domains + freq_domains
+    palette = sns.color_palette("pastel", len(final_color_list)).as_hex()
+    color_map = {domain: color for domain, color in zip(final_color_list, palette)}
+
+    # --- Alignment Preparation ---
+    max_id_len = a['ID'].astype(str).str.len().max()
+    max_org_len = a['org_name'].astype(str).str.len().max()
+    query_pids = a[a['is_query']]['pid'].astype(str)
+    max_q_len = query_pids.str.len().max() if not query_pids.empty else 8
+    max_width = max(max_id_len, max_org_len, max_q_len)
+
+    def pad_and_escape(text):
+        padded_text = str(text).ljust(max_width)
+        return html.escape(padded_text).replace(" ", "&nbsp;")
+
+    # --- Graph Initialization ---
+    A = pgv.AGraph(directed=True)
+    A.graph_attr.update(nodesep=0.05, ranksep=0.15)
+    
+    first_nodes_per_row = []
+
+    for pid, group in a.groupby('pid_order'):
+        block_id_str = pad_and_escape(group['ID'].iloc[0])
+        org_str = pad_and_escape(group['org_name'].iloc[0])
+        
+        query_rows = group[group['is_query']]
+        query_pid_raw = query_rows['pid'].iloc[0] if not query_rows.empty else "No Query"
+        query_pid_str = pad_and_escape(query_pid_raw)
+
+        # --- Draw HTML Label Node ---
+        label_node_id = f"label_{pid}"
+        html_label = (
+            f'<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="0" CELLSPACING="0">'
+            f'<TR><TD ALIGN="LEFT"><FONT FACE="Consolas" POINT-SIZE="{font_size}"><B>{query_pid_str}</B></FONT></TD></TR>'
+            f'<TR><TD ALIGN="LEFT"><FONT FACE="Consolas" POINT-SIZE="{font_size}">{block_id_str}</FONT></TD></TR>'
+            f'<TR><TD ALIGN="LEFT"><FONT FACE="Consolas italic" POINT-SIZE="{font_size}">{org_str}</FONT></TD></TR>'
+            f'</TABLE>>'
+        )
+        
+        A.add_node(label_node_id, label=html_label, shape='none', margin=0.1)
+        node_indices = [label_node_id]
+        
+        # --- Draw Genes ---
+        for orig_idx, row in group.iterrows():
+            is_target = highlight_query and row['is_query']
+            border_color = 'red' if is_target else 'black'
+            border_width = '3' if is_target else '1'
+            
+            strand_val = row.get('strand', 1)
+            node_shape = 'rarrow' if strand_val == 1 else 'larrow' if strand_val == -1 else 'box'
+            
+            bg_color = color_map.get(row['domain'], '#ffffff')
+            node_id = f"node_{orig_idx}"
+                
+            A.add_node(
+                node_id, 
+                label=str(row['domain']), 
+                shape=node_shape,
+                style='filled', 
+                fixedsize='false', 
+                margin='0.1,0.05',  
+                height='0.4', 
+                color=border_color, 
+                penwidth=border_width,
+                fillcolor=bg_color,
+                fontsize=font_size,
+                fontname="Consolas" 
+            )
+            node_indices.append(node_id)
+            
+        A.add_subgraph(node_indices, rank="same")
+        
+        for i in range(len(node_indices) - 1):
+            A.add_edge(node_indices[i], node_indices[i+1], style='invis', penwidth=0)
+            
+        first_nodes_per_row.append(label_node_id)
+
+    # --- Enforce Strict Left Alignment ---
+    for i in range(len(first_nodes_per_row) - 1):
+        A.add_edge(first_nodes_per_row[i], first_nodes_per_row[i+1], style='invis', penwidth=0, weight=10000)
+
+    A.draw(output_file, prog="dot")
+    return a
