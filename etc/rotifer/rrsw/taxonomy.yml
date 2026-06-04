@@ -28,8 +28,8 @@
 
 # Things I don't want
 exclude:
- - *.Z
- - *.md5
- - *.zip
+ - .Z
+ - .md5
+ - .zip
  - /.tmp
  - /new_taxdump
