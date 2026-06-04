@@ -33,7 +33,7 @@
 # NCBI
 - [ NAME       , METHOD , SERVER        , PATH                                 , PROCESS        , OPTIONS                                                                                 ]
 - [ gene       , rsync  , rsync.ncbi.nlm.nih.gov , gene                                 , unpack         ,                                                                                         ]
-- [ taxonomy   , rsync  , rsync.ncbi.nlm.nih.gov , pub/taxonomy                         , unpack        ,                                                                                                                   ]
+- [ taxonomy   , ftp    , ftp.ncbi.nlm.nih.gov   , pub/taxonomy                         , unpack        ,                                                                                                                   ]
 - [ blast      , rsync  , rsync.ncbi.nlm.nih.gov , blast                                , unpack         , { rsync: [ -arHv, --delete, --delete-excluded, --prune-empty-dirs, -L, --safe-links ], callback: [ 'process_blast_dbs.sh' ] } ]
 # [ toxins     , rsync  , rsync.ncbi.nlm.nih.gov , pub/aravind/TOXIMM                   ,                ,                                                                                         ]
 - [ cdd        , rsync  , rsync.ncbi.nlm.nih.gov , pub/mmdb/cdd                         , none           ,                                                                                         ]
