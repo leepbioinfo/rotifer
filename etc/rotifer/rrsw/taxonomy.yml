@@ -15,16 +15,19 @@
 ---
 
 # What I want
-#include:
-# - README
-# - changes.html
-# - news.html
-# - knowledgebase$
-# - knowledgebase/idmapping$
-# - knowledgebase/idmapping/idmapping.dat.gz$
-# - relnotes.txt
-# - uniref
-# - complete
+include:
+ - accession2taxid
+ - biocollections
+ - Ccode_dump.txt
+ - coll_dump.txt
+ - Cowner_dump.txt
+ - Icode_dump.txt
+ - Major_taxonomic_updates_2023.txt
+ - ncbi_taxonomy_genussp.txt
+ - taxcat_readme.txt
+ - taxcat.tar.gz
+ - taxdump_readme.txt
+ - taxdump.tar.gz
 
 # Things I don't want
 exclude:
