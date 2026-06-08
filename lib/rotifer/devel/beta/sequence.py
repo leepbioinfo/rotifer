@@ -902,12 +902,11 @@ class sequence(rotifer.pipeline.Annotatable):
 
         return result
 
-    def add_seq(self, seq_to_add, cpu=12, fast=False, local_database_path=[os.path.join(rotifer.config['data'],'fadb','nr','nr')], entrez_database='protein'):
+    def add_seq(self, seq_to_add, cpu=12, fast=False, local_database_path=[os.path.join(rotifer.config['data'],'fadb','nr','nr')]):
         import tempfile
-        import subprocess
-        from rotifer.db import ncbi
         from Bio.SeqRecord import SeqRecord
         from subprocess import Popen, PIPE, STDOUT
+        from rotifer.devel.beta import sequence as rdbs
 
         # Make sure input is a list
         if not isinstance(seq_to_add,list):
@@ -924,8 +923,7 @@ class sequence(rotifer.pipeline.Annotatable):
             elif isinstance(seq_to_add[0],SeqRecord):
                 SeqIO.write(seq_to_add, f'{tmpdirname}/acc.fa', "fasta")
             else:
-                fc = ncbi.FastaCursor(local_database_path=local_database_path, entrez_database=entrez_database)
-                seqobj = fc.fetchall(seq_to_add)
+                seqobj = rdbs.sequence(seq_to_add, local_database_path=local_database_path)
                 seqobj.df = seqobj.df.drop_duplicates() # Avoid duplicates
                 seqobj.to_file(f'{tmpdirname}/acc.fa')
 
