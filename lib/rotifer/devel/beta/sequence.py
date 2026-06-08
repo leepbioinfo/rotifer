@@ -902,10 +902,11 @@ class sequence(rotifer.pipeline.Annotatable):
 
         return result
 
-    def add_seq(self, seq_to_add, cpu=12, fast=False, fetch=config["fetch"]):
+    def add_seq(self, seq_to_add, cpu=12, fast=False, local_database_path=[os.path.join(rotifer.config['data'],'fadb','nr','nr')], entrez_database='protein'):
         import tempfile
         import subprocess
-        from rotifer.db.ncbi import NcbiConfig
+        from rotifer.db import ncbi
+	from Bio.SeqRecord import SeqRecord
         from subprocess import Popen, PIPE, STDOUT
 
         # Make sure input is a list
@@ -918,12 +919,15 @@ class sequence(rotifer.pipeline.Annotatable):
             self.to_file(f'{tmpdirname}/seqaln') 
 
             # Save new sequences to temporary file
-            from Bio.SeqRecord import SeqRecord
-            if isinstance(seq_to_add[0],SeqRecord):
+            if isinstance(seq_to_add[0],type(self)):
+                seq_to_add.to_file(f'{tmpdirname}/acc.fa')
+            elif isinstance(seq_to_add[0],SeqRecord):
                 SeqIO.write(seq_to_add, f'{tmpdirname}/acc.fa', "fasta")
             else:
-                pd.Series(seq_to_add).to_csv(f'{tmpdirname}/acc', index=None, header=None)
-                Popen(f'{fetch} {tmpdirname}/acc > {tmpdirname}/acc.fa' , stdout=PIPE,shell=True).communicate()
+                fc = ncbi.FastaCursor(local_database_path=local_database_path, entrez_database=entrez_database)
+                seqobj = fc.fetchall(seq_to_add)
+                seqobj.df = seqobj.df.drop_duplicates() # Avoid duplicates
+                seqobj.to_file(f'{tmpdirname}/acc.fa')
 
             # Run MAFFT
             child = f'mafft --thread {cpu} --add {tmpdirname}/acc.fa'
@@ -1211,7 +1215,7 @@ class sequence(rotifer.pipeline.Annotatable):
         elif method == 'linsi':
             child = Popen(f'cat|mafft  --maxiterate 1000 --localpair --thread {cpu} -' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
         elif method =='famsa':
-            child = Popen(f'cat|famsa -t {cpu} -v STDIN STDOUT' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
+            child = Popen(f'cat|famsa -t {cpu} -v /dev/stdin STDOUT' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
         elif method =='kalign':
             child = Popen(f'cat|kalign' , stdin=PIPE, stdout=PIPE,shell=True).communicate(input=seq_string)
         aligned = self.from_string(child[0].decode("utf-8"), input_format = 'fasta')
