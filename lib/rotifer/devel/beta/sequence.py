@@ -906,7 +906,7 @@ class sequence(rotifer.pipeline.Annotatable):
         import tempfile
         import subprocess
         from rotifer.db import ncbi
-	from Bio.SeqRecord import SeqRecord
+        from Bio.SeqRecord import SeqRecord
         from subprocess import Popen, PIPE, STDOUT
 
         # Make sure input is a list
