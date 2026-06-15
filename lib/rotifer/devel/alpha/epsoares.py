@@ -932,6 +932,7 @@ def build_gff_index(gffs):
             sep="\t",
             comment="#",
             header=None,
+            low_memory=False,
             names=[
                 "seqid","source","type","start","end",
                 "score","strand","phase","attributes"
