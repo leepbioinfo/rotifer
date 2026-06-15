@@ -23,6 +23,8 @@ import tempfile
 import math
 from joblib import Parallel, delayed
 from multiprocessing import Pool, pool
+from rotifer.genome import utils as rgu
+from rotifer.genome import io as rgio
 
 def get_matrix(df, filter_list, rows, columns, n=10, filter_by='pid'):
         filtered_df = df[df[filter_by].isin(filter_list)]
