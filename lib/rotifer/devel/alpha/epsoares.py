@@ -1,5 +1,6 @@
 from asyncio import tasks
 import os
+from io import StringIO
 import sys
 import numpy as np
 import pandas as pd
@@ -17,8 +18,10 @@ import ete3
 from tqdm import tqdm
 import subprocess
 from pathlib import Path
+from collections.abc import Iterable
 import tempfile
 import math
+from joblib import Parallel, delayed
 from multiprocessing import Pool, pool
 
 def get_matrix(df, filter_list, rows, columns, n=10, filter_by='pid'):
@@ -898,7 +901,6 @@ def run_fimo_batch(meme_file, genomes, extra_args=None, n_jobs=1):
     if n_jobs == 1:
         dfs = [run_fimo_single(meme_file, g, extra_args=extra_args) for g in genomes]
     else:
-        from joblib import Parallel, delayed
         dfs = Parallel(n_jobs=n_jobs)(
             delayed(run_fimo_single)(meme_file, g, extra_args=extra_args)
             for g in genomes
@@ -909,7 +911,7 @@ def run_fimo_batch(meme_file, genomes, extra_args=None, n_jobs=1):
 
 def build_gff_index(gffs):
     """
-    Build an index of CDS features from one or multiple GFF files.
+    Build an index of CDS features from one or more GFF/GFF3 files.
 
     Parameters
     ----------
@@ -919,31 +921,111 @@ def build_gff_index(gffs):
     Returns
     -------
     dict[str, pd.DataFrame]
-        Mapping: seqid -> CDS dataframe (sorted by coordinates).
+        Mapping:
+            seqid -> dataframe containing CDS features sorted by coordinates.
     """
+
+    # Accept single file or iterable of files
     if isinstance(gffs, (str, Path)):
         gffs = [gffs]
+    elif not isinstance(gffs, Iterable):
+        raise TypeError(
+            "gffs must be a path or an iterable of paths"
+        )
 
     gff_dict = {}
 
-    for gff in gffs:
-        gffdf = pd.read_csv(
-            gff,
+    columns = [
+        "seqid",
+        "source",
+        "type",
+        "start",
+        "end",
+        "score",
+        "strand",
+        "phase",
+        "attributes",
+    ]
+
+    dtypes = {
+        "seqid": "string",
+        "source": "string",
+        "type": "string",
+        "score": "string",
+        "strand": "string",
+        "phase": "string",
+        "attributes": "string",
+    }
+
+    for gff in map(Path, gffs):
+
+        # Find FASTA section if present
+        fasta_line = None
+
+        with gff.open() as fh:
+            for i, line in enumerate(fh):
+                if line.startswith("##FASTA"):
+                    fasta_line = i
+                    break
+
+        read_kwargs = dict(
             sep="\t",
             comment="#",
             header=None,
+            names=columns,
+            dtype=dtypes,
             low_memory=False,
-            names=[
-                "seqid","source","type","start","end",
-                "score","strand","phase","attributes"
-            ],
         )
 
-        cds = gffdf[gffdf["type"] == "CDS"].copy()
-        cds.sort_values(["seqid", "start", "end"], inplace=True)
+        # Read only annotation section when FASTA exists
+        if fasta_line is not None:
+            read_kwargs["nrows"] = fasta_line
 
-        for seq, sub in cds.groupby("seqid"):
-            gff_dict[seq] = sub.reset_index(drop=True)
+        gffdf = pd.read_csv(gff, **read_kwargs)
+
+        # Keep only valid CDS rows
+        cds = gffdf.loc[gffdf["type"] == "CDS"].copy()
+
+        if cds.empty:
+            continue
+
+        cds["start"] = pd.to_numeric(cds["start"], errors="coerce")
+        cds["end"] = pd.to_numeric(cds["end"], errors="coerce")
+
+        cds = cds.dropna(subset=["start", "end"])
+
+        cds["start"] = cds["start"].astype("int64")
+        cds["end"] = cds["end"].astype("int64")
+
+        cds.sort_values(
+            ["seqid", "start", "end"],
+            inplace=True,
+            kind="mergesort",
+        )
+
+        for seqid, subdf in cds.groupby("seqid", sort=False):
+
+            subdf = subdf.reset_index(drop=True)
+
+            if seqid in gff_dict:
+                gff_dict[seqid] = pd.concat(
+                    [gff_dict[seqid], subdf],
+                    ignore_index=True,
+                )
+            else:
+                gff_dict[seqid] = subdf
+
+    # Final sort in case same seqid appeared in multiple files
+    for seqid in gff_dict:
+
+        gff_dict[seqid] = (
+            gff_dict[seqid]
+            .sort_values(
+                ["start", "end"],
+                kind="mergesort"
+            )
+            .reset_index(drop=True)
+        )
 
     return gff_dict
 
