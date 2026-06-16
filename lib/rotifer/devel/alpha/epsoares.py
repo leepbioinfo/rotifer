@@ -1113,3 +1113,25 @@ def fimo_pipeline(meme_file, genomes, gffs, n_jobs=1, filter=True, length=20):
     df = get_distances_repeats(df, filter=filter, length=length)
 
     return df
+
+def igem_pipeline(genome_annotation, genome_format, genome_protein_fasta, genome_nucleotide_fasta, models_path=['/databases/pfam/Pfam-A.hmm'], return_hmmscan=False,
+    after=10, before=10, run_fimo=True, meme_file='/home/leep/epsoares/projects/igem/2026/data/heptarepeats2.meme'):
+    ''' 
+    Doc
+    '''
+
+    fimo = fimo_pipeline(meme_file, genome_nucleotide_fasta, genome)
+    gen = rgu.seqrecords_to_dataframe(rgio.parse(genome, informat=genome_format), exclude_type=['source', 'gene', 'region'])
+    
+    if genome_format == 'gbff' or 'genbank':
+        gen['pid'] = gen.locus
+
+    hmmscan = hmmscan(file=genome_protein_fasta, models_path=models_path)
+    add_arch_to_df(hmmscan, run_hmmscan=False, inplace=True, column='sequence')
+    gen['pfam'] = gen.pid.map(hmmscan.set_index('sequence').pfam.to_dict())
+    ndf = gen.neighbors(gen.pid.isin(fimo.sequence_name), after=after, before=before)
+    
+    if return_hmmscan:
+        return ndf, hmmscan
+    
+    return ndf
