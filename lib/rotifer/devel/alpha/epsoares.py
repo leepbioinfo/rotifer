@@ -1120,7 +1120,7 @@ def igem_pipeline(genome_annotation, genome_format, genome_protein_fasta, genome
     Doc
     '''
 
-    fimo = fimo_pipeline(meme_file, genome_nucleotide_fasta, genome)
+    fimo = fimo_pipeline(meme_file, genome_nucleotide_fasta, genome_annotation)
     gen = rgu.seqrecords_to_dataframe(rgio.parse(genome, informat=genome_format), exclude_type=['source', 'gene', 'region'])
     
     if genome_format == 'gbff' or 'genbank':
