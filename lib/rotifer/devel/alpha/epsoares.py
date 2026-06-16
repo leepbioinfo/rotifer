@@ -1126,16 +1126,16 @@ def igem_pipeline(genome_annotation, genome_format, genome_protein_fasta, genome
     if genome_format == 'genbank':
         gen['pid'] = gen.locus
 
-    hmmscan = hmmscan(file=genome_protein_fasta, models_path=models_path)
-    add_arch_to_df(hmmscan, run_hmmscan=False, inplace=True, column='sequence')
-    gen['pfam'] = gen.pid.map(hmmscan.set_index('sequence').pfam.to_dict())
+    hscan = hmmscan(file=genome_protein_fasta, models_path=models_path)
+    add_arch_to_df(hscan, run_hmmscan=False, inplace=True, column='sequence')
+    gen['pfam'] = gen.pid.map(hscan.set_index('sequence').pfam.to_dict())
     ndf = gen.neighbors(gen.pid.isin(fimo.sequence_name), after=after, before=before)
     
     if return_fimo and return_hmmscan:
-        return ndf, fimo, hmmscan
+        return ndf, fimo, hscan
     elif return_fimo:
         return ndf, fimo
     elif return_hmmscan:
-        return ndf, hmmscan
+        return ndf, hscan
 
     return ndf
