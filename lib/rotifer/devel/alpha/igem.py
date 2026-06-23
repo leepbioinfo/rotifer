@@ -10,10 +10,18 @@ Each block is drawn as one row of the figure:
 
     [ text label ]  [gene] [gene] [QUERY] [gene] [gene] ...
 
-The text label is a 3-line box with the query protein id, the block id
-and the organism name. Genes are drawn as right-/left-pointing arrows
-depending on strand and colored by a domain/annotation label (Pfam,
+The text label is a 3-line box with the reference query protein id, the
+block id and the organism name. Every neighbor gene is drawn pointing
+right, regardless of its real strand, so a row never has arrows pointing
+in different directions; only the query gene's own arrow still reflects
+its real strand. Genes are colored by a domain/annotation label (Pfam,
 Aravind, or free-text product, depending on `label_col`).
+
+If a block contains more than one query gene, the one closest to the
+middle of the block (by gene order) is used as that block's "reference"
+query -- it is what orientation-normalization, query-centering and the
+row label are anchored to. Every actual query gene is still outlined in
+red; only the anchor choice is affected.
 
 Required input columns
 -----------------------
@@ -41,15 +49,16 @@ pipeline.
 
     resolve_domain_labels        fill the 'domain' column (labels/colors)
     flag_query_rows              add the boolean 'is_query' column
-    prepare_dataframe            run the two helpers above + housekeeping
+    rename_label_values          apply a user rename dict to the raw
+                                  label column before domain resolution
+    prepare_dataframe            run the helpers above + housekeeping
     compute_label_width          shared padding width for row labels
     pad_and_escape               pad + HTML-escape one label string
     build_row_label_html         the 3-line HTML label for one block
     build_color_map              domain -> fill color, incl. user overrides
+    select_reference_query_index which query anchors a multi-query block
     normalize_block_strand       optionally mirror a block to a common
                                   query orientation
-    collapsed_triangle_orientation  Graphviz 'orientation' degrees for a
-                                  collapsed opposite-strand gene
     gene_node_style               Graphviz node attributes for one gene
     add_block_to_graph            add one full row (label + genes) to the
                                   graph, with optional left/right padding
@@ -132,7 +141,61 @@ def flag_query_rows(df):
     return out
 
 
-def prepare_dataframe(df, group_col='block_id', org_col='organism', label_col='pfam'):
+def rename_label_values(df, label_col='pfam', rename_map=None):
+    """
+    Rename values in `label_col` through a user-supplied dictionary,
+    before domain resolution/coloring happen downstream.
+
+    `label_col` is "the architecture column" -- whatever column holds
+    each gene's domain/annotation label. It defaults to 'pfam', but can
+    be pointed at any column name (e.g. 'aravind' or 'product'); this
+    function always renames whichever column that is, never a column
+    hardcoded to literally be called 'pfam'.
+
+    Values in this column are often a multi-domain "architecture"
+    string with parts joined by '+' (e.g. 'HTH_1+LysR_substrate'), so
+    renaming is done piece-by-piece on each '+'-separated component, not
+    only on an exact whole-string match -- this lets a single dict entry
+    like `{'GntR': 'MyFavoriteRegulator'}` rename that domain everywhere
+    it shows up, whether alone or combined with other domains.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+    label_col : str
+    rename_map : dict[str, str] or None
+        {old_name: new_name}. Pieces not present in the dict are left
+        untouched. No-op if `rename_map` is empty/None or `label_col`
+        is not a column in `df`.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Copy of `df` with the renamed column (or `df` itself, unchanged,
+        if there was nothing to rename).
+
+    Notes
+    -----
+    Downstream color/label lookups (`custom_colors`, `ignore_domains`)
+    should reference the *renamed* values, since renaming happens before
+    those steps run.
+    """
+    if not rename_map or label_col not in df.columns:
+        return df
+
+    def _rename_one(value):
+        if pd.isna(value):
+            return value
+        parts = str(value).split('+')
+        return '+'.join(rename_map.get(part, part) for part in parts)
+
+    out = df.copy()
+    out[label_col] = out[label_col].apply(_rename_one)
+    return out
+
+
+def prepare_dataframe(df, group_col='block_id', org_col='organism', label_col='pfam',
+                       rename_map=None):
     """
     Normalize a raw input table into the columns the rest of this module
     relies on: 'ID' (block id), 'org_name', 'domain', 'is_query' and
@@ -148,6 +211,7 @@ def prepare_dataframe(df, group_col='block_id', org_col='organism', label_col='p
     out = df.copy()
     out['ID'] = out[group_col] if group_col in out.columns else 'Unknown_Block'
     out['org_name'] = out[org_col] if org_col in out.columns else 'Unknown Organism'
+    out = rename_label_values(out, label_col=label_col, rename_map=rename_map)
     out = resolve_domain_labels(out, label_col)
     out = flag_query_rows(out)
     out['pid_order'] = pd.factorize(out['ID'])[0]
@@ -286,21 +350,58 @@ def build_color_map(df, max_colors=5, ignore_domains=None, custom_colors=None):
 # Orientation
 # ---------------------------------------------------------------------------
 
+def select_reference_query_index(block_df):
+    """
+    Pick which query gene to use as a block's reference point for
+    orientation, centering and the row label, when the block contains
+    more than one.
+
+    The query closest to the middle of the block, by gene order, is
+    used -- it best represents "the middle of the region". Ties prefer
+    the more upstream (lower position) one.
+
+    Returns the row's label in `block_df.index` (not a bare position),
+    so the same gene can still be found correctly after `block_df` is
+    reversed (e.g. by `normalize_block_strand`) -- `.iloc[::-1]` keeps
+    each row's original index label attached to it even as the row
+    order changes.
+
+    Parameters
+    ----------
+    block_df : pandas.DataFrame
+        Rows for a single block; must have 'is_query'.
+
+    Returns
+    -------
+    Any or None
+        An index label from `block_df.index`, or None if the block has
+        no query gene at all.
+    """
+    query_index_labels = block_df.index[block_df['is_query']]
+    if len(query_index_labels) == 0:
+        return None
+    if len(query_index_labels) == 1:
+        return query_index_labels[0]
+
+    positions = np.flatnonzero(block_df['is_query'].to_numpy())
+    middle = (len(block_df) - 1) / 2
+    ranked = sorted(zip(positions, query_index_labels), key=lambda p: (abs(p[0] - middle), p[0]))
+    return ranked[0][1]
+
+
 def normalize_block_strand(block_df, normalize_orientation=True):
     """
-    Optionally mirror a block so its query gene always points the same
-    way (strand +1, drawn as a right-pointing arrow).
+    Optionally mirror a block so its reference query gene always points
+    the same way (strand +1, drawn as a right-pointing arrow).
 
     Neighborhoods are usually pulled out with no regard for which strand
     the query happens to land on, which makes "upstream"/"downstream"
     mean different things from row to row. When `normalize_orientation`
-    is True and this block's query is on the minus strand, the whole
+    is True and this block's reference query (see
+    `select_reference_query_index`) is on the minus strand, the whole
     block is reversed -- gene order *and* every strand sign flip -- which
     is equivalent to flipping the picture so it reads in the same
     direction as every other block.
-
-    If a block has more than one query row, the first one is used to
-    decide whether to flip.
 
     Parameters
     ----------
@@ -316,8 +417,8 @@ def normalize_block_strand(block_df, normalize_orientation=True):
     if not normalize_orientation:
         return block_df
 
-    query_rows = block_df[block_df['is_query']]
-    if query_rows.empty or query_rows['strand'].iloc[0] != -1:
+    ref_idx = select_reference_query_index(block_df)
+    if ref_idx is None or block_df.loc[ref_idx, 'strand'] != -1:
         return block_df
 
     flipped = block_df.iloc[::-1].copy()
@@ -325,19 +426,14 @@ def normalize_block_strand(block_df, normalize_orientation=True):
     return flipped
 
 
-def collapsed_triangle_orientation(query_canonical_strand):
-    """
-    Graphviz `orientation` (degrees) that makes a `shape=triangle` node
-    point in the direction *opposite* the query's canonical direction.
-
-    A plain triangle points up by default. Empirically (verified by
-    rendering test shapes with Graphviz 2.43): rotating it 90 degrees
-    points the apex left, and 270 (equivalently -90) points it right.
-    So if the query points right (strand +1, drawn as `rarrow`), an
-    opposite-strand gene collapses to a left-pointing triangle, and
-    vice versa.
-    """
-    return 90 if query_canonical_strand == 1 else 270
+# Graphviz 'orientation' (degrees) that makes a `shape=triangle` node
+# point left. Since every neighbor gene is now always drawn pointing
+# right (see `gene_node_style`), a collapsed opposite-strand neighbor's
+# triangle always points the other way -- left -- regardless of which
+# strand the query itself happens to be on. (Verified empirically by
+# rendering test shapes with Graphviz 2.43: a plain triangle points up
+# by default, and `orientation=90` rotates it to point left.)
+COLLAPSED_TRIANGLE_ORIENTATION = 90
 
 
 # ---------------------------------------------------------------------------
@@ -350,18 +446,23 @@ def gene_node_style(row, query_canonical_strand, color_map, highlight_query=True
     Decide the Graphviz node attributes (shape/color/label/size) for one
     gene.
 
-    By default every gene is drawn at full size: an arrow (right for
-    strand +1, left for strand -1, a plain box for anything else),
-    filled per `color_map` and labeled with its domain/annotation. The
-    query gene additionally gets a red, thicker outline when
-    `highlight_query` is True.
+    Neighbor genes (anything that is not the query) are always drawn as
+    a right-pointing arrow, regardless of their real strand -- this
+    keeps every row reading in one consistent direction instead of a mix
+    of arrows pointing every which way. The query gene is the one
+    exception: its shape still reflects its real strand (right for +1,
+    left for -1, a plain box for anything else), since the query's own
+    orientation is usually exactly the thing worth seeing at a glance.
+    Every gene is filled per `color_map` and labeled with its
+    domain/annotation; the query additionally gets a red, thicker
+    outline when `highlight_query` is True.
 
-    When `collapse_opposite_strand` is True, genes on the strand
+    When `collapse_opposite_strand` is True, neighbors on the strand
     *opposite* the query's (`query_canonical_strand`) are drawn instead
-    as small, unlabeled, grey triangles pointing away from the query's
-    direction -- a lightweight "something is here, transcribed the
-    other way" cue instead of giving them the same visual weight as
-    genes that share the query's reading direction. The query gene
+    as small, unlabeled, grey triangles pointing left (the opposite of
+    the direction every other neighbor points) -- a lightweight
+    "something is here, transcribed the other way" cue instead of giving
+    them the same visual weight as same-strand neighbors. The query gene
     itself is never collapsed.
 
     Parameters
@@ -369,7 +470,7 @@ def gene_node_style(row, query_canonical_strand, color_map, highlight_query=True
     row : pandas.Series
         One gene row; needs 'strand', 'domain' and 'is_query'.
     query_canonical_strand : int
-        The strand (1 or -1) this block's query is drawn with.
+        The strand (1 or -1) this block's reference query gene has.
     color_map : dict[str, str]
     highlight_query : bool
     collapse_opposite_strand : bool
@@ -393,7 +494,7 @@ def gene_node_style(row, query_canonical_strand, color_map, highlight_query=True
         return dict(
             label='',
             shape='triangle',
-            orientation=collapsed_triangle_orientation(query_canonical_strand),
+            orientation=COLLAPSED_TRIANGLE_ORIENTATION,
             style='filled',
             fixedsize='true',
             width='0.18',
@@ -403,7 +504,11 @@ def gene_node_style(row, query_canonical_strand, color_map, highlight_query=True
             penwidth='1',
         )
 
-    node_shape = 'rarrow' if strand_val == 1 else 'larrow' if strand_val == -1 else 'box'
+    if is_target:
+        node_shape = 'rarrow' if strand_val == 1 else 'larrow' if strand_val == -1 else 'box'
+    else:
+        node_shape = 'rarrow'  # neighbors always point right, regardless of real strand
+
     return dict(
         label=str(row['domain']),
         shape=node_shape,
@@ -463,12 +568,17 @@ def add_block_to_graph(graph, block_df, block_index, label_width, color_map,
     Returns
     -------
     dict
-        {'label_node': node id, 'query_node': node id or None,
-         'gene_nodes': [node ids, left-to-right]}
+        {'label_node': node id, 'query_node': node id of the reference
+         query (see `select_reference_query_index`), or None if this
+         block has no query gene, 'gene_nodes': [node ids, left-to-right]}
     """
-    query_rows = block_df[block_df['is_query']]
-    query_pid = query_rows['pid'].iloc[0] if not query_rows.empty else 'No Query'
-    query_canonical_strand = query_rows['strand'].iloc[0] if not query_rows.empty else 1
+    ref_idx = select_reference_query_index(block_df)
+    if ref_idx is not None:
+        query_pid = block_df.loc[ref_idx, 'pid']
+        query_canonical_strand = block_df.loc[ref_idx, 'strand']
+    else:
+        query_pid = 'No Query'
+        query_canonical_strand = 1
 
     label_node_id = f'label_{block_index}'
     label_html = build_row_label_html(
@@ -482,7 +592,7 @@ def add_block_to_graph(graph, block_df, block_index, label_width, color_map,
 
     gene_node_ids = []
     query_node_id = None
-    for row_position, (_, row) in enumerate(block_df.iterrows()):
+    for row_position, (row_idx, row) in enumerate(block_df.iterrows()):
         node_id = f'gene_{block_index}_{row_position}'
         style = gene_node_style(
             row,
@@ -494,7 +604,7 @@ def add_block_to_graph(graph, block_df, block_index, label_width, color_map,
         )
         graph.add_node(node_id, **style)
         gene_node_ids.append(node_id)
-        if row['is_query']:
+        if row_idx == ref_idx:
             query_node_id = node_id
 
     spacer_ids_left = [f'spacer_{block_index}_L{i}' for i in range(left_pad)]
@@ -544,7 +654,7 @@ def chain_align_nodes(graph, node_ids, weight=10000):
 def operon_fig_patched(df, group_col='block_id', label_col='pfam', org_col='organism',
                         output_file='operon_fig_out.svg', max_colors=5,
                         highlight_query=True, font_size=10, ignore_domains=None,
-                        custom_colors=None, normalize_orientation=True,
+                        custom_colors=None, rename_map=None, normalize_orientation=True,
                         align_query_center=True, collapse_opposite_strand=False,
                         spacer_width=0.6):
     """
@@ -559,9 +669,12 @@ def operon_fig_patched(df, group_col='block_id', label_col='pfam', org_col='orga
     group_col : str
         Column that identifies which block/row a gene belongs to.
     label_col : str
-        Column used for node labels/colors. 'pfam' (the default) uses
-        the pfam -> aravind -> product fallback chain; see
-        `resolve_domain_labels`.
+        The "architecture" column -- whatever column is used for node
+        labels/colors (and for `rename_map`, below). Defaults to
+        'pfam', but accepts any column name (e.g. 'aravind', 'product',
+        or a custom column of your own). 'pfam' (the default) uses the
+        pfam -> aravind -> product fallback chain; see
+        `resolve_domain_labels`. Any other value is used as-is.
     org_col : str
         Column with the organism name shown in the row label.
     output_file : str
@@ -570,35 +683,54 @@ def operon_fig_patched(df, group_col='block_id', label_col='pfam', org_col='orga
     max_colors : int
         Max number of *automatically* assigned colors; see `build_color_map`.
     highlight_query : bool
-        Outline the query gene in red.
+        Outline every query gene in red.
     font_size : int
     ignore_domains : list[str] or None
         Domain values to never auto-color (see `build_color_map`).
     custom_colors : dict[str, str] or None
         Explicit {domain_value: color} overrides -- keys should match
         values in the 'domain' column (typically raw pfam ids when
-        `label_col='pfam'`). See `build_color_map`.
+        `label_col='pfam'`, *after* `rename_map` has been applied). See
+        `build_color_map`.
+    rename_map : dict[str, str] or None
+        {old_name: new_name} overrides applied to the `label_col`
+        column before anything else happens, so renamed values are what
+        get shown, colored, and matched against `ignore_domains`/
+        `custom_colors` everywhere downstream. Matches are done
+        component-by-component on '+'-joined architecture strings (e.g.
+        'GntR+FCD'), not only on an exact whole-string match. See
+        `rename_label_values`.
     normalize_orientation : bool, default True
-        If True, blocks whose query is on the minus strand are mirrored
-        so every query is drawn pointing the same way (strand +1).
-        Set to False to draw every block in its original orientation
-        (the old, pre-this-change behavior).
+        If True, blocks whose reference query (see
+        `select_reference_query_index`) is on the minus strand are
+        mirrored so every reference query is drawn pointing the same
+        way (strand +1). Set to False to draw every block in its
+        original orientation.
     align_query_center : bool, default True
         If True, pad each row with invisible spacer nodes (and an extra
-        alignment edge) so the query gene falls in roughly the same
-        column on every row, instead of each row simply starting flush
-        left. See `add_block_to_graph` and `chain_align_nodes` for the
-        mechanics and its limits.
+        alignment edge) so the reference query gene falls in roughly
+        the same column on every row, instead of each row simply
+        starting flush left. See `add_block_to_graph` and
+        `chain_align_nodes` for the mechanics and its limits.
     collapse_opposite_strand : bool, default False
-        If True, genes on the opposite strand from the query are drawn
-        as small unlabeled grey triangles pointing away from the
-        query's direction, instead of full domain-labeled arrows. Useful
-        for decluttering when those genes are not of interest. The query
-        gene itself is never collapsed.
+        If True, neighbors on the strand opposite the reference query
+        are drawn as small unlabeled grey triangles pointing left,
+        instead of full domain-labeled arrows. Useful for decluttering
+        when those genes are not of interest. Query genes are never
+        collapsed.
     spacer_width : float, default 0.6
         Width (inches) of the invisible spacer nodes used for
         `align_query_center`. Tune this if real gene boxes in your
         figure are consistently much narrower/wider than this.
+
+    Notes
+    -----
+    Every neighbor gene (anything that is not a query) is always drawn
+    pointing right, regardless of its real strand -- see
+    `gene_node_style`. A block with more than one query gene uses the
+    one closest to the middle of the block as its reference for
+    orientation/centering/labeling, but every query gene is still
+    outlined in red -- see `select_reference_query_index`.
 
     Returns
     -------
@@ -607,7 +739,9 @@ def operon_fig_patched(df, group_col='block_id', label_col='pfam', org_col='orga
         (with 'ID', 'org_name', 'domain', 'is_query', 'pid_order' added),
         mainly useful for debugging.
     """
-    working = prepare_dataframe(df, group_col=group_col, org_col=org_col, label_col=label_col)
+    working = prepare_dataframe(
+        df, group_col=group_col, org_col=org_col, label_col=label_col, rename_map=rename_map
+    )
     label_width = compute_label_width(working)
     color_map = build_color_map(
         working, max_colors=max_colors, ignore_domains=ignore_domains, custom_colors=custom_colors
@@ -618,13 +752,13 @@ def operon_fig_patched(df, group_col='block_id', label_col='pfam', org_col='orga
         for _, block_df in working.groupby('pid_order', sort=True)
     ]
 
-    # First pass: how far left/right of the query does each block extend?
-    # Needed up front so every row can be padded to the same width before
-    # any nodes are added.
+    # First pass: how far left/right of the reference query does each
+    # block extend? Needed up front so every row can be padded to the
+    # same width before any nodes are added.
     left_counts, right_counts = [], []
     for block_df in blocks:
-        query_positions = np.flatnonzero(block_df['is_query'].to_numpy())
-        q_pos = query_positions[0] if len(query_positions) else 0
+        ref_idx = select_reference_query_index(block_df)
+        q_pos = block_df.index.get_loc(ref_idx) if ref_idx is not None else 0
         left_counts.append(q_pos)
         right_counts.append(len(block_df) - 1 - q_pos)
     max_left = max(left_counts) if (align_query_center and left_counts) else 0
@@ -650,7 +784,7 @@ def operon_fig_patched(df, group_col='block_id', label_col='pfam', org_col='orga
 
     # Align the label boxes into one column (original behavior)...
     chain_align_nodes(graph, [info['label_node'] for info in blocks_info])
-    # ...and, optionally, the query genes into their own column.
+    # ...and, optionally, the reference query genes into their own column.
     if align_query_center:
         chain_align_nodes(graph, [info['query_node'] for info in blocks_info])
 
@@ -659,10 +793,17 @@ def operon_fig_patched(df, group_col='block_id', label_col='pfam', org_col='orga
 
 
 if __name__ == '__main__':
-    # Small smoke test using a couple of synthetic blocks: one query on
-    # the plus strand, one on the minus strand (to exercise orientation
-    # normalization), each with a mix of same- and opposite-strand
-    # neighbors (to exercise collapsing).
+    # Small smoke test:
+    #  - block A: a single query, on the + strand.
+    #  - block B: a single query, on the - strand (exercises orientation
+    #    normalization -- it should end up flipped to match block A).
+    #  - block C: TWO query genes, to exercise reference-query selection
+    #    -- C_3 sits closer to the middle of the block than C_1, so it
+    #    should be the one used for the row label/orientation/centering,
+    #    even though both are still outlined in red.
+    # `rename_map` relabels the 'QueryDom' pfam value to 'FavoriteDom'
+    # everywhere it appears, including inside the combined 'QueryDom+X'
+    # architecture string in block C.
     demo = pd.DataFrame([
         # block A: query on + strand
         dict(block_id='blockA', organism='Org A', pid='A_1', strand=1, query=0, pfam='DomX'),
@@ -673,11 +814,18 @@ if __name__ == '__main__':
         dict(block_id='blockB', organism='Org B', pid='B_1', strand=-1, query=0, pfam='DomZ'),
         dict(block_id='blockB', organism='Org B', pid='B_2', strand=-1, query=1, pfam='QueryDom'),
         dict(block_id='blockB', organism='Org B', pid='B_3', strand=1, query=0, pfam='DomY'),
+        # block C: two queries -- C_3 is closer to the middle than C_1
+        dict(block_id='blockC', organism='Org C', pid='C_1', strand=1, query=1, pfam='QueryDom'),
+        dict(block_id='blockC', organism='Org C', pid='C_2', strand=1, query=0, pfam='DomX'),
+        dict(block_id='blockC', organism='Org C', pid='C_3', strand=1, query=1, pfam='QueryDom+X'),
+        dict(block_id='blockC', organism='Org C', pid='C_4', strand=1, query=0, pfam='DomZ'),
+        dict(block_id='blockC', organism='Org C', pid='C_5', strand=-1, query=0, pfam='DomY'),
     ])
     operon_fig_patched(
         demo,
         output_file='demo_operon_fig.svg',
-        custom_colors={'QueryDom': '#ff8800'},
+        custom_colors={'FavoriteDom': '#ff8800'},
+        rename_map={'QueryDom': 'FavoriteDom'},
         normalize_orientation=True,
         align_query_center=True,
         collapse_opposite_strand=True,
