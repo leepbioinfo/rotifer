@@ -1115,12 +1115,13 @@ def fimo_pipeline(meme_file, genomes, gffs, n_jobs=1, filter=True, length=20):
     return df
 
 def igem_pipeline(genome_annotation, genome_format, genome_protein_fasta, genome_nucleotide_fasta, models_path=['/databases/pfam/Pfam-A.hmm'], return_hmmscan=False,
-    after=10, before=10, run_fimo=True, meme_file='/home/leep/epsoares/projects/igem/2026/data/heptarepeats2.meme', return_fimo=False):
+    after=10, before=10, run_fimo=True, meme_file='/home/leep/epsoares/projects/igem/2026/data/heptarepeats2.meme', return_fimo=False, make_figure=True
+    output_figure='neighborhood.svg', color_dict=None, domain_dict=None):
     ''' 
     Doc
     '''
 
-    fimo = fimo_pipeline(meme_file, genome_nucleotide_fasta, genome_annotation)
+    fimo = fimo_pipeline(meme_file, genome_nucleotide_fasta, genome_annotation).query('2 <= distance <= 15')
     gen = rgu.seqrecords_to_dataframe(rgio.parse(genome_annotation, informat=genome_format), exclude_type=['source', 'gene', 'region'])
     
     if genome_format == 'genbank':
@@ -1130,6 +1131,9 @@ def igem_pipeline(genome_annotation, genome_format, genome_protein_fasta, genome
     add_arch_to_df(hscan, run_hmmscan=False, inplace=True, column='sequence')
     gen['pfam'] = gen.pid.map(hscan.set_index('sequence').pfam.to_dict())
     ndf = gen.neighbors(gen.pid.isin(fimo.sequence_name), after=after, before=before)
+    
+    if make_figure:
+        rdai.neighborhood_figure(ndf, output_file=output_figure, custom_colors=color_dict, rename_map=domain_dict)
     
     if return_fimo and return_hmmscan:
         return ndf, fimo, hscan

@@ -651,11 +651,11 @@ def chain_align_nodes(graph, node_ids, weight=10000):
 # Main entry point
 # ---------------------------------------------------------------------------
 
-def operon_fig_patched(df, group_col='block_id', label_col='pfam', org_col='organism',
+def neighborhood_figure(df, group_col='block_id', label_col='pfam', org_col='organism',
                         output_file='operon_fig_out.svg', max_colors=5,
                         highlight_query=True, font_size=10, ignore_domains=None,
                         custom_colors=None, rename_map=None, normalize_orientation=True,
-                        align_query_center=True, collapse_opposite_strand=False,
+                        align_query_center=False, collapse_opposite_strand=False,
                         spacer_width=0.6):
     """
     Draw a gene-neighborhood ("operon") figure, one row per block, and
@@ -790,43 +790,3 @@ def operon_fig_patched(df, group_col='block_id', label_col='pfam', org_col='orga
 
     graph.draw(output_file, prog='dot')
     return working
-
-
-if __name__ == '__main__':
-    # Small smoke test:
-    #  - block A: a single query, on the + strand.
-    #  - block B: a single query, on the - strand (exercises orientation
-    #    normalization -- it should end up flipped to match block A).
-    #  - block C: TWO query genes, to exercise reference-query selection
-    #    -- C_3 sits closer to the middle of the block than C_1, so it
-    #    should be the one used for the row label/orientation/centering,
-    #    even though both are still outlined in red.
-    # `rename_map` relabels the 'QueryDom' pfam value to 'FavoriteDom'
-    # everywhere it appears, including inside the combined 'QueryDom+X'
-    # architecture string in block C.
-    demo = pd.DataFrame([
-        # block A: query on + strand
-        dict(block_id='blockA', organism='Org A', pid='A_1', strand=1, query=0, pfam='DomX'),
-        dict(block_id='blockA', organism='Org A', pid='A_2', strand=-1, query=0, pfam='DomY'),
-        dict(block_id='blockA', organism='Org A', pid='A_3', strand=1, query=1, pfam='QueryDom'),
-        dict(block_id='blockA', organism='Org A', pid='A_4', strand=1, query=0, pfam='DomZ'),
-        # block B: query on - strand (should flip if normalize_orientation=True)
-        dict(block_id='blockB', organism='Org B', pid='B_1', strand=-1, query=0, pfam='DomZ'),
-        dict(block_id='blockB', organism='Org B', pid='B_2', strand=-1, query=1, pfam='QueryDom'),
-        dict(block_id='blockB', organism='Org B', pid='B_3', strand=1, query=0, pfam='DomY'),
-        # block C: two queries -- C_3 is closer to the middle than C_1
-        dict(block_id='blockC', organism='Org C', pid='C_1', strand=1, query=1, pfam='QueryDom'),
-        dict(block_id='blockC', organism='Org C', pid='C_2', strand=1, query=0, pfam='DomX'),
-        dict(block_id='blockC', organism='Org C', pid='C_3', strand=1, query=1, pfam='QueryDom+X'),
-        dict(block_id='blockC', organism='Org C', pid='C_4', strand=1, query=0, pfam='DomZ'),
-        dict(block_id='blockC', organism='Org C', pid='C_5', strand=-1, query=0, pfam='DomY'),
-    ])
-    operon_fig_patched(
-        demo,
-        output_file='demo_operon_fig.svg',
-        custom_colors={'FavoriteDom': '#ff8800'},
-        rename_map={'QueryDom': 'FavoriteDom'},
-        normalize_orientation=True,
-        align_query_center=True,
-        collapse_opposite_strand=True,
-    )
