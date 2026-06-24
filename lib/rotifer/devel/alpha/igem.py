@@ -80,13 +80,19 @@ pipeline.
     neighborhood_figure            main neighborhood-figure orchestrator
     compute_block_extents         one row per block: contig, span, ref query
     assign_label_lanes            stagger overlapping labels into lanes
-    build_genome_overview_svg     render the genome-wide SVG from extents
+    build_genome_overview_svg     static genome-wide SVG from extents
+    build_genome_overview_interactive_html  zoomable overview (used in report)
     genome_overview_fig           genome-wide-figure orchestrator
     render_dataframe_html         a dataframe as a plain <table>
+    render_neighborhood_svgs_by_block  one SVG per block (per-result views)
+    build_folder_and_panels_html  folder sidebar + per-block panels
     build_html_report             combine everything into one HTML page
 """
 
 import html
+import os
+import shutil
+import tempfile
 from string import Template
 
 import numpy as np
@@ -675,7 +681,7 @@ def neighborhood_figure(df, group_col='block_id', label_col='pfam', org_col='org
                         highlight_query=True, font_size=10, ignore_domains=None,
                         custom_colors=None, rename_map=None, normalize_orientation=True,
                         align_query_center=True, collapse_opposite_strand=False,
-                        spacer_width=0.6):
+                        spacer_width=0.6, color_map=None):
     """
     Draw a gene-neighborhood ("operon") figure, one row per block, and
     write it to `output_file`.
@@ -741,6 +747,14 @@ def neighborhood_figure(df, group_col='block_id', label_col='pfam', org_col='org
         Width (inches) of the invisible spacer nodes used for
         `align_query_center`. Tune this if real gene boxes in your
         figure are consistently much narrower/wider than this.
+    color_map : dict[str, str] or None
+        Precomputed domain -> color mapping. If given, it is used
+        verbatim and `build_color_map` is skipped (so `max_colors`,
+        `ignore_domains` and `custom_colors` are ignored). This lets a
+        caller fix one global color scheme and reuse it across several
+        figures -- e.g. `build_html_report` renders one figure per
+        block but wants the same domain to be the same color in every
+        one, and the same as in the genome overview.
 
     Notes
     -----
@@ -762,9 +776,10 @@ def neighborhood_figure(df, group_col='block_id', label_col='pfam', org_col='org
         df, group_col=group_col, org_col=org_col, label_col=label_col, rename_map=rename_map
     )
     label_width = compute_label_width(working)
-    color_map = build_color_map(
-        working, max_colors=max_colors, ignore_domains=ignore_domains, custom_colors=custom_colors
-    )
+    if color_map is None:
+        color_map = build_color_map(
+            working, max_colors=max_colors, ignore_domains=ignore_domains, custom_colors=custom_colors
+        )
 
     blocks = [
         normalize_block_strand(block_df, normalize_orientation=normalize_orientation)
@@ -847,8 +862,9 @@ def compute_block_extents(working, nucleotide_col='nucleotide', start_col='start
     -------
     pandas.DataFrame
         One row per block, columns: ID, nucleotide, block_start,
-        block_end, contig_length, query_pid, query_domain, org_name.
-        `query_pid`/`query_domain` are None for a block with no query.
+        block_end, contig_length, query_pid, query_domain, org_name,
+        n_genes. `query_pid`/`query_domain` are None for a block with
+        no query.
     """
     records = []
     for _, block_df in working.groupby('pid_order', sort=True):
@@ -874,6 +890,7 @@ def compute_block_extents(working, nucleotide_col='nucleotide', start_col='start
             query_pid=query_pid,
             query_domain=query_domain,
             org_name=block_df['org_name'].iloc[0],
+            n_genes=len(block_df),
         ))
 
     extents = pd.DataFrame.from_records(records)
@@ -929,10 +946,18 @@ def assign_label_lanes(x_positions, min_gap=280, n_lanes=3):
 def build_genome_overview_svg(extents, color_map=None, highlight_color='#c0392b',
                                marker_color='#2a6f77', track_width=760, left_margin=190,
                                top_margin=30, row_height=92, track_height=10,
-                               font_size=11, label_lanes=3, label_lane_gap=18):
+                               font_size=11, label_lanes=3, label_lane_gap=18,
+                               max_labels_per_track=25):
     """
-    Render an SVG showing where every block/neighborhood sits along its
-    nucleotide (contig), one horizontal track per distinct nucleotide.
+    Render a *static* SVG showing where every block/neighborhood sits
+    along its nucleotide (contig), one horizontal track per distinct
+    nucleotide.
+
+    This is the standalone/fallback renderer (what `genome_overview_fig`
+    writes to a file). For a crowded genome the interactive version in
+    `build_html_report` is far more usable -- this static one can only
+    fit so many text labels before they collide, which is exactly why
+    `max_labels_per_track` exists.
 
     Each track is scaled independently to its own `contig_length` -- a
     50 kb plasmid and a 9 Mb chromosome both draw at the same pixel
@@ -960,6 +985,11 @@ def build_genome_overview_svg(extents, color_map=None, highlight_color='#c0392b'
         Up to this many staggered rows are used above each track for
         block labels; see `assign_label_lanes`. Increase `row_height`
         if labels still collide with the row above.
+    max_labels_per_track : int
+        If a track has more than this many blocks, its text labels are
+        omitted entirely (markers are still drawn) -- a crowded track's
+        labels just turn into noise, as in a whole-chromosome view with
+        hundreds of hits. Set very high to always label.
 
     Returns
     -------
@@ -1003,6 +1033,7 @@ def build_genome_overview_svg(extents, color_map=None, highlight_color='#c0392b'
             f'fill="#e3e3e3" stroke="#999" stroke-width="0.5" rx="2"/>'
         )
 
+        show_labels = len(row_blocks) <= max_labels_per_track
         mid_x = [to_x((b['block_start'] + b['block_end']) / 2) for _, b in row_blocks.iterrows()]
         lanes = assign_label_lanes(mid_x, min_gap=label_lane_gap * 12, n_lanes=label_lanes)
 
@@ -1018,6 +1049,8 @@ def build_genome_overview_svg(extents, color_map=None, highlight_color='#c0392b'
                 f'stroke-width="1.2" rx="1.5"/>'
             )
 
+            if not show_labels:
+                continue
             label_y = track_y - 10 - lane * label_lane_gap
             parts.append(
                 f'<line x1="{x_mid:.1f}" y1="{label_y + 4:.1f}" x2="{x_mid:.1f}" y2="{track_y - 3:.1f}" '
@@ -1033,10 +1066,127 @@ def build_genome_overview_svg(extents, color_map=None, highlight_color='#c0392b'
     return '\n'.join(parts)
 
 
+def _slug(text):
+    """
+    Turn an arbitrary block id into a string safe to use as an HTML
+    `id`/`data-` value (letters, digits, dash, underscore only). Used
+    to link a genome-overview marker to its per-block panel in the
+    report. Not meant to be reversible -- just stable and collision-
+    resistant enough for the block ids seen here.
+    """
+    out = ''.join(c if (c.isalnum() or c in '-_') else '-' for c in str(text))
+    return out or 'block'
+
+
+def build_genome_overview_interactive_html(extents, color_map=None,
+                                            marker_color='#2a6f77',
+                                            highlight_color='#c0392b',
+                                            base_track_height=14):
+    """
+    Build the *interactive* genome overview used by `build_html_report`:
+    one horizontal track per nucleotide (contig), where each block is a
+    marker positioned at its genomic span, and where the surrounding
+    report provides zoom/pan and hover tooltips.
+
+    Unlike `build_genome_overview_svg`, this does NOT bake any text
+    labels into the figure -- that is exactly what turns a
+    whole-chromosome view with hundreds of hits into unreadable noise.
+    Instead every marker carries its info in a `data-tip` attribute that
+    the report's JavaScript shows on hover, and a `data-block` slug that
+    links it to that block's own panel in the neighborhoods section
+    (click a marker to jump to it).
+
+    Each marker stores its position as fractions of its contig length
+    (`data-fs`/`data-fe`), so the report's JS can re-place every marker
+    at any zoom level without this function knowing the final pixel
+    width.
+
+    Parameters
+    ----------
+    extents : pandas.DataFrame
+        Output of `compute_block_extents` (needs the `n_genes` column).
+    color_map : dict[str, str] or None
+        Domain -> color; a block whose reference-query domain is absent
+        falls back to `marker_color`.
+    marker_color, highlight_color : str
+        Fallback fill and the marker border color.
+    base_track_height : int
+        Marker/track height in pixels.
+
+    Returns
+    -------
+    str
+        An HTML fragment (a `<div class="go-wrap">...`). It depends on
+        the CSS/JS that `build_html_report` injects, so it is not
+        standalone on its own.
+    """
+    color_map = color_map or {}
+    nucleotides = list(dict.fromkeys(extents['nucleotide'])) if not extents.empty else []
+
+    rows = []
+    for nucleotide in nucleotides:
+        row_blocks = extents[extents['nucleotide'] == nucleotide]
+        contig_length = row_blocks['contig_length'].iloc[0]
+        if not contig_length or pd.isna(contig_length) or contig_length <= 0:
+            contig_length = max(row_blocks['block_end'].max(), 1)
+
+        markers = []
+        for _, block in row_blocks.iterrows():
+            fs = max(0.0, min(1.0, block['block_start'] / contig_length))
+            fe = max(0.0, min(1.0, block['block_end'] / contig_length))
+            if fe < fs:
+                fs, fe = fe, fs
+            fill = color_map.get(block['query_domain'], marker_color)
+
+            label = block['query_pid'] if block['query_pid'] is not None else block['ID']
+            domain = block['query_domain'] if block['query_domain'] is not None else '-'
+            tip_html = (
+                f"<b>{html.escape(str(label))}</b>"
+                f"<span class='t-row'>block&nbsp;&middot;&nbsp;{html.escape(str(block['ID']))}</span>"
+                f"<span class='t-row'>domain&nbsp;&middot;&nbsp;{html.escape(str(domain))}</span>"
+                f"<span class='t-row'>organism&nbsp;&middot;&nbsp;{html.escape(str(block['org_name']))}</span>"
+                f"<span class='t-row'>position&nbsp;&middot;&nbsp;{block['block_start']:,.0f}&ndash;{block['block_end']:,.0f} bp</span>"
+                f"<span class='t-row'>genes&nbsp;&middot;&nbsp;{int(block['n_genes'])}</span>"
+            )
+            tip_attr = html.escape(tip_html, quote=True)
+
+            markers.append(
+                f'<div class="go-marker" data-block="{_slug(block["ID"])}" '
+                f'data-fs="{fs:.6f}" data-fe="{fe:.6f}" data-tip="{tip_attr}" '
+                f'style="background:{fill};border-color:{highlight_color};"></div>'
+            )
+
+        rows.append(
+            '<div class="go-track" style="--track-h:%dpx;">'
+            '<div class="go-track-label"><div class="go-contig">%s</div>'
+            '<div class="go-len">%s bp</div></div>'
+            '<div class="go-viewport"><div class="go-inner"><div class="go-axis"></div>%s</div></div>'
+            '</div>' % (
+                base_track_height,
+                html.escape(str(nucleotide)),
+                f'{contig_length:,.0f}',
+                ''.join(markers),
+            )
+        )
+
+    controls = (
+        '<div class="go-controls">'
+        '<button type="button" id="go-zoom-out" title="Zoom out">&minus;</button>'
+        '<span id="go-zoom-val">1x</span>'
+        '<button type="button" id="go-zoom-in" title="Zoom in">+</button>'
+        '<button type="button" id="go-zoom-reset" title="Reset zoom and pan">reset</button>'
+        '<span class="go-hint">scroll to pan &middot; ctrl/&#8984;+scroll or buttons to zoom &middot; click a marker to open it</span>'
+        '</div>'
+    )
+
+    return f'<div class="go-wrap">{controls}{"".join(rows)}</div><div id="go-tooltip" class="go-tooltip"></div>'
+
+
 def genome_overview_fig(df, group_col='block_id', org_col='organism', label_col='pfam',
                          rename_map=None, nucleotide_col='nucleotide', start_col='start',
                          end_col='end', length_col='nlen', output_file='genome_overview.svg',
-                         custom_colors=None, max_colors=5, ignore_domains=None, **svg_kwargs):
+                         custom_colors=None, max_colors=5, ignore_domains=None,
+                         color_map=None, **svg_kwargs):
     """
     Draw a genome-wide overview: one horizontal track per nucleotide
     (contig), with every block/neighborhood marked at its position
@@ -1046,6 +1196,10 @@ def genome_overview_fig(df, group_col='block_id', org_col='organism', label_col=
     `custom_colors`, `max_colors` and `ignore_domains` mean exactly what
     they mean in `neighborhood_figure` -- pass the same values to both if
     you want the two figures to agree on domain colors/renamed names.
+
+    This writes the *static* SVG version (see `build_genome_overview_svg`).
+    The interactive, zoomable version with hover tooltips lives in
+    `build_html_report`.
 
     Parameters
     ----------
@@ -1057,9 +1211,13 @@ def genome_overview_fig(df, group_col='block_id', org_col='organism', label_col=
         missing.
     output_file : str
         Path to write the SVG to.
+    color_map : dict[str, str] or None
+        Precomputed domain -> color mapping; if given, `build_color_map`
+        is skipped. See the same parameter on `neighborhood_figure`.
     **svg_kwargs :
         Forwarded to `build_genome_overview_svg` (layout/color tuning,
-        e.g. `track_width`, `row_height`, `marker_color`).
+        e.g. `track_width`, `row_height`, `marker_color`,
+        `max_labels_per_track`).
 
     Returns
     -------
@@ -1069,9 +1227,10 @@ def genome_overview_fig(df, group_col='block_id', org_col='organism', label_col=
     working = prepare_dataframe(
         df, group_col=group_col, org_col=org_col, label_col=label_col, rename_map=rename_map
     )
-    color_map = build_color_map(
-        working, max_colors=max_colors, ignore_domains=ignore_domains, custom_colors=custom_colors
-    )
+    if color_map is None:
+        color_map = build_color_map(
+            working, max_colors=max_colors, ignore_domains=ignore_domains, custom_colors=custom_colors
+        )
     extents = compute_block_extents(
         working, nucleotide_col=nucleotide_col, start_col=start_col,
         end_col=end_col, length_col=length_col
@@ -1087,6 +1246,66 @@ def genome_overview_fig(df, group_col='block_id', org_col='organism', label_col=
 # ---------------------------------------------------------------------------
 # HTML report
 # ---------------------------------------------------------------------------
+
+def _strip_svg_prolog(svg):
+    """
+    Return `svg` starting at its first `<svg` tag, dropping any XML
+    declaration / DOCTYPE that precedes it.
+
+    Graphviz writes a full XML document (`<?xml ...?>` + `<!DOCTYPE ...>`
+    before `<svg>`); those are invalid inline in an HTML body and some
+    browsers render them as stray text, so they are stripped before an
+    SVG is embedded into the report.
+    """
+    idx = svg.find('<svg')
+    return svg[idx:] if idx != -1 else svg
+
+
+def render_neighborhood_svgs_by_block(df, group_col, color_map, operon_kwargs, tmp_dir):
+    """
+    Render one neighborhood figure per block and return their SVGs.
+
+    Each block is rendered on its own (the df filtered to just that
+    block), so it can be viewed independently in the report's
+    "folders"/sidebar navigation. A shared `color_map` is passed to
+    every render so the same domain is the same color in every block's
+    figure (and in the genome overview).
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The full raw input table.
+    group_col : str
+        Column whose distinct values define blocks.
+    color_map : dict[str, str]
+        Shared domain -> color mapping (see `build_color_map`).
+    operon_kwargs : dict
+        Extra keyword arguments for `neighborhood_figure`. `output_file`,
+        `color_map` and `group_col` are managed here and ignored if
+        present.
+    tmp_dir : str
+        Directory the intermediate SVGs are written to.
+
+    Returns
+    -------
+    dict[str, str]
+        Maps each block's slug (see `_slug`) to its SVG markup (XML
+        prolog stripped, ready to inline). Insertion order follows the
+        first appearance of each block in `df`.
+    """
+    kw = {k: v for k, v in (operon_kwargs or {}).items()
+          if k not in ('output_file', 'color_map', 'group_col')}
+
+    svgs = {}
+    for block_id, block_df in df.groupby(group_col, sort=False):
+        slug = _slug(block_id)
+        path = os.path.join(tmp_dir, f'nb_{slug}.svg')
+        neighborhood_figure(block_df, group_col=group_col, output_file=path,
+                             color_map=color_map, **kw)
+        with open(path) as f:
+            svgs[slug] = _strip_svg_prolog(f.read())
+    return svgs
+
 
 def render_dataframe_html(df, table_id='data-table', max_rows=None):
     """
@@ -1130,16 +1349,21 @@ def render_dataframe_html(df, table_id='data-table', max_rows=None):
     return table_html
 
 
+
 # Kept as a module-level constant (rather than building the string
 # inline inside `build_html_report`) so the template can be read,
 # tweaked, or unit-tested on its own. Uses `string.Template`'s
 # `$placeholder` syntax rather than `str.format`'s `{placeholder}`,
-# since the CSS below is full of literal `{`/`}` braces that would
-# otherwise have to be escaped throughout.
+# since the CSS/JS below are full of literal `{`/`}` braces that would
+# otherwise have to be escaped throughout. (Substituted values are
+# inserted verbatim and are NOT re-scanned for `$`, so embedded SVG or
+# table data containing `$` is safe -- only this literal template text
+# must avoid stray `$`.)
 HTML_REPORT_TEMPLATE = Template(r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>$title</title>
 <style>
   :root {
@@ -1150,6 +1374,8 @@ HTML_REPORT_TEMPLATE = Template(r"""<!DOCTYPE html>
     --line: #e4e1d8;
     --accent: #2a6f77;
     --accent-soft: #e4f0f1;
+    --selected: #fdecdc;
+    --selected-line: #e07b39;
   }
   * { box-sizing: border-box; }
   body {
@@ -1160,59 +1386,127 @@ HTML_REPORT_TEMPLATE = Template(r"""<!DOCTYPE html>
     line-height: 1.45;
   }
   header {
-    padding: 36px 48px 24px;
+    padding: 32px 40px 22px;
     border-bottom: 1px solid var(--line);
     background: var(--panel);
   }
-  header h1 { margin: 0 0 6px; font-size: 26px; letter-spacing: -0.01em; }
+  header h1 { margin: 0 0 6px; font-size: 25px; letter-spacing: -0.01em; }
   header .meta { color: var(--muted); font-size: 13px; font-family: Consolas, "SF Mono", Menlo, monospace; }
   header .meta b { color: var(--accent); }
-  main { max-width: 1180px; margin: 0 auto; padding: 32px 48px 80px; }
-  section { margin-bottom: 56px; }
+  main { max-width: 1280px; margin: 0 auto; padding: 30px 40px 80px; }
+  section { margin-bottom: 52px; }
   section .eyebrow {
     font-family: Consolas, "SF Mono", Menlo, monospace;
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    color: var(--accent);
-    margin: 0 0 4px;
+    font-size: 12px; letter-spacing: 0.08em; color: var(--accent); margin: 0 0 4px;
   }
   section h2 { margin: 0 0 4px; font-size: 19px; }
-  section p.desc { color: var(--muted); margin: 0 0 16px; font-size: 14px; max-width: 720px; }
+  section p.desc { color: var(--muted); margin: 0 0 16px; font-size: 14px; max-width: 760px; }
   .panel {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 20px;
-    overflow-x: auto;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 8px; padding: 18px;
   }
-  .panel svg { display: block; max-width: 100%; height: auto; }
+
+  /* ---- genome overview ---- */
+  .go-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .go-controls button {
+    border: 1px solid var(--line); background: #fff; color: var(--ink);
+    border-radius: 6px; padding: 4px 11px; font-size: 14px; cursor: pointer; line-height: 1;
+  }
+  .go-controls button:hover { background: var(--accent-soft); border-color: var(--accent); }
+  .go-controls button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  #go-zoom-val { font-family: Consolas, "SF Mono", Menlo, monospace; font-size: 13px; min-width: 38px; text-align: center; }
+  .go-hint { color: var(--muted); font-size: 12px; margin-left: 6px; }
+  .go-track { display: grid; grid-template-columns: 150px 1fr; align-items: center; margin: 16px 0; gap: 12px; }
+  .go-track-label { text-align: right; font-family: Consolas, "SF Mono", Menlo, monospace; overflow: hidden; }
+  .go-contig { font-size: 13px; color: #222; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .go-len { font-size: 11px; color: var(--muted); }
+  .go-viewport { overflow-x: auto; overflow-y: hidden; cursor: grab; padding: 18px 0; }
+  .go-viewport.grabbing { cursor: grabbing; }
+  .go-inner { position: relative; height: var(--track-h, 14px); }
+  .go-axis {
+    position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
+    height: 6px; background: #e3e3e3; border: 0.5px solid #bbb; border-radius: 3px;
+  }
+  .go-marker {
+    position: absolute; top: 0; height: 100%;
+    border: 1.2px solid; border-radius: 2px; cursor: pointer; box-sizing: border-box;
+    transition: transform 0.06s ease;
+  }
+  .go-marker:hover { transform: scaleY(1.45); z-index: 3; }
+  .go-marker.selected { box-shadow: 0 0 0 2px var(--selected-line); z-index: 2; }
+  .go-tooltip {
+    position: fixed; display: none; z-index: 1000; pointer-events: none;
+    background: #1f2430; color: #fff; border-radius: 7px; padding: 9px 11px;
+    font-size: 12px; max-width: 320px; box-shadow: 0 6px 22px rgba(0,0,0,0.25);
+    font-family: Consolas, "SF Mono", Menlo, monospace; line-height: 1.5;
+  }
+  .go-tooltip b { display: block; margin-bottom: 3px; font-size: 12.5px; }
+  .go-tooltip .t-row { display: block; color: #cdd3da; }
+
+  /* ---- neighborhoods: folders + content ---- */
+  .nb-layout { display: grid; grid-template-columns: 270px 1fr; gap: 18px; align-items: start; }
+  .nb-folders {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px; max-height: 620px; overflow-y: auto; position: sticky; top: 16px;
+  }
+  .folder-search { width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px;
+    font-size: 12.5px; font-family: Consolas, "SF Mono", Menlo, monospace; margin-bottom: 8px; }
+  .folder-search:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .folder-group-header {
+    display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;
+    padding: 7px 8px; font-family: Consolas, "SF Mono", Menlo, monospace; font-size: 12.5px;
+    color: #222; border-radius: 6px;
+  }
+  .folder-group-header:hover { background: var(--accent-soft); }
+  .folder-group-header .twist { transition: transform 0.15s ease; color: var(--accent); }
+  .folder-group.collapsed .twist { transform: rotate(-90deg); }
+  .folder-group.collapsed .folder-items { display: none; }
+  .folder-group-header .grp-count { color: var(--muted); margin-left: auto; font-size: 11px; }
+  .folder-items { padding: 2px 0 6px; }
+  .folder-item {
+    padding: 6px 10px 6px 26px; font-size: 12.5px; cursor: pointer; border-radius: 6px;
+    font-family: Consolas, "SF Mono", Menlo, monospace; color: #333;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .folder-item:hover { background: var(--accent-soft); }
+  .folder-item.selected { background: var(--selected); box-shadow: inset 2px 0 0 var(--selected-line); color: #7a3b12; }
+  .folder-item.hidden-row { display: none; }
+  .folder-item .fi-sub { color: var(--muted); font-size: 11px; margin-left: 6px; }
+
+  .nb-content { min-width: 0; }
+  .nb-panel { display: none; }
+  .nb-panel.active { display: block; }
+  .nb-panel-head { font-family: Consolas, "SF Mono", Menlo, monospace; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+  .nb-panel-head b { color: var(--ink); }
+  .nb-scroll { overflow-x: auto; }
+  .nb-panel svg { display: block; max-width: none; height: auto; }
+  .nb-empty { color: var(--muted); font-size: 13px; padding: 20px; }
+
+  /* ---- data table ---- */
   .search-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
   .search-row input {
-    flex: 0 1 320px;
-    padding: 8px 12px;
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    font-size: 13px;
-    font-family: Consolas, "SF Mono", Menlo, monospace;
+    flex: 0 1 320px; padding: 8px 12px; border: 1px solid var(--line);
+    border-radius: 6px; font-size: 13px; font-family: Consolas, "SF Mono", Menlo, monospace;
   }
   .search-row input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
   .search-row .count { color: var(--muted); font-size: 12px; }
+  .table-scroll { max-height: 560px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
   table { border-collapse: collapse; width: 100%; font-size: 12.5px; font-family: Consolas, "SF Mono", Menlo, monospace; }
   thead th {
-    position: sticky;
-    top: 0;
-    background: var(--accent-soft);
-    color: var(--ink);
-    text-align: left;
-    padding: 7px 10px;
-    border-bottom: 1px solid var(--line);
-    white-space: nowrap;
+    position: sticky; top: 0; background: var(--accent-soft); color: var(--ink);
+    text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap;
   }
   tbody td { padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
   tbody tr:nth-child(even) { background: #fbfbf9; }
   tbody tr.hidden-row { display: none; }
   .table-note { color: var(--muted); font-size: 12px; margin-top: 10px; }
   footer { text-align: center; color: var(--muted); font-size: 12px; padding: 24px 0 48px; }
+
+  @media (max-width: 820px) {
+    .nb-layout { grid-template-columns: 1fr; }
+    .nb-folders { position: static; max-height: 320px; }
+    .go-track { grid-template-columns: 110px 1fr; }
+  }
 </style>
 </head>
 <body>
@@ -1225,18 +1519,24 @@ HTML_REPORT_TEMPLATE = Template(r"""<!DOCTYPE html>
   <section>
     <p class="eyebrow">01 &middot; GENOME-WIDE VIEW</p>
     <h2>Where each neighborhood sits in the genome</h2>
-    <p class="desc">One track per contig, scaled to its own length. Each marker is one neighborhood, positioned at its genomic span.</p>
+    <p class="desc">One track per contig, scaled to its own length. Each marker is one neighborhood. Hover a marker for its details, zoom in to separate crowded hits, and click a marker to open that neighborhood below.</p>
     <div class="panel">
-$genome_svg
+$genome_overview
     </div>
   </section>
 
   <section>
     <p class="eyebrow">02 &middot; NEIGHBORHOODS</p>
     <h2>Gene neighborhood detail</h2>
-    <p class="desc">Every query gene is outlined in red. Neighbors always point right; neighbors on the opposite strand from the reference query collapse to small triangles.</p>
-    <div class="panel">
-$operon_svg
+    <p class="desc">Pick a result on the left to see it on its own. Every query gene is outlined in red; neighbors always point right, and opposite-strand neighbors collapse to small triangles.</p>
+    <div class="nb-layout">
+      <div class="nb-folders">
+        <input type="text" id="folder-search" class="folder-search" placeholder="Filter results...">
+$folders
+      </div>
+      <div class="nb-content">
+$panels
+      </div>
     </div>
   </section>
 
@@ -1248,7 +1548,7 @@ $operon_svg
       <input type="text" id="table-search" placeholder="Filter rows...">
       <span class="count" id="table-count"></span>
     </div>
-    <div class="panel">
+    <div class="table-scroll">
 $table_html
     </div>
   </section>
@@ -1257,27 +1557,160 @@ $table_html
 <footer>Generated by operon_fig.py</footer>
 <script>
 (function () {
-  var input = document.getElementById('table-search');
-  var table = document.getElementById('data-table');
-  if (!input || !table) return;
-  var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr'));
-  var countEl = document.getElementById('table-count');
+  // ---------- genome overview: zoom / pan / tooltip ----------
+  var zoom = 1;
+  var tracks = Array.prototype.slice.call(document.querySelectorAll('.go-track'));
+  var tip = document.getElementById('go-tooltip');
+  var zoomVal = document.getElementById('go-zoom-val');
 
-  function updateCount() {
-    var visible = rows.filter(function (r) { return !r.classList.contains('hidden-row'); }).length;
-    countEl.textContent = visible + ' of ' + rows.length + ' rows';
+  function layout() {
+    tracks.forEach(function (tr) {
+      var vp = tr.querySelector('.go-viewport');
+      var inner = tr.querySelector('.go-inner');
+      var base = tr._base || vp.clientWidth || 600;
+      var w = base * zoom;
+      inner.style.width = w + 'px';
+      var markers = inner.querySelectorAll('.go-marker');
+      for (var i = 0; i < markers.length; i++) {
+        var m = markers[i];
+        var fs = parseFloat(m.dataset.fs), fe = parseFloat(m.dataset.fe);
+        var left = fs * w;
+        var width = (fe - fs) * w;
+        if (width < 5) width = 5;
+        m.style.left = left + 'px';
+        m.style.width = width + 'px';
+      }
+    });
   }
 
-  input.addEventListener('input', function () {
-    var term = input.value.toLowerCase();
-    rows.forEach(function (row) {
-      var match = row.textContent.toLowerCase().indexOf(term) !== -1;
-      row.classList.toggle('hidden-row', !match);
+  function setZoom(z) {
+    zoom = Math.min(500, Math.max(1, z));
+    if (zoomVal) zoomVal.textContent = (zoom < 10 ? zoom.toFixed(1) : Math.round(zoom)) + 'x';
+    layout();
+  }
+
+  function initBases() {
+    tracks.forEach(function (tr) {
+      var vp = tr.querySelector('.go-viewport');
+      tr._base = vp.clientWidth || 600;
     });
-    updateCount();
+  }
+
+  var zin = document.getElementById('go-zoom-in');
+  var zout = document.getElementById('go-zoom-out');
+  var zreset = document.getElementById('go-zoom-reset');
+  if (zin) zin.addEventListener('click', function () { setZoom(zoom * 1.6); });
+  if (zout) zout.addEventListener('click', function () { setZoom(zoom / 1.6); });
+  if (zreset) zreset.addEventListener('click', function () {
+    setZoom(1);
+    tracks.forEach(function (tr) { tr.querySelector('.go-viewport').scrollLeft = 0; });
   });
 
-  updateCount();
+  tracks.forEach(function (tr) {
+    var vp = tr.querySelector('.go-viewport');
+
+    vp.addEventListener('wheel', function (e) {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        var rect = vp.getBoundingClientRect();
+        var base = tr._base || vp.clientWidth;
+        var frac = (vp.scrollLeft + (e.clientX - rect.left)) / (base * zoom);
+        setZoom(zoom * (e.deltaY < 0 ? 1.2 : 1 / 1.2));
+        vp.scrollLeft = frac * (base * zoom) - (e.clientX - rect.left);
+      } else {
+        e.preventDefault();
+        vp.scrollLeft += (e.deltaY + e.deltaX);
+      }
+    }, { passive: false });
+
+    var dragging = false, startX = 0, startScroll = 0;
+    vp.addEventListener('mousedown', function (e) {
+      if (e.target.classList.contains('go-marker')) return;
+      dragging = true; startX = e.clientX; startScroll = vp.scrollLeft;
+      vp.classList.add('grabbing');
+    });
+    window.addEventListener('mousemove', function (e) {
+      if (dragging) vp.scrollLeft = startScroll - (e.clientX - startX);
+    });
+    window.addEventListener('mouseup', function () {
+      dragging = false; vp.classList.remove('grabbing');
+    });
+  });
+
+  var markers = Array.prototype.slice.call(document.querySelectorAll('.go-marker'));
+  markers.forEach(function (m) {
+    m.addEventListener('mouseenter', function (e) {
+      tip.innerHTML = m.dataset.tip;
+      tip.style.display = 'block';
+      moveTip(e);
+    });
+    m.addEventListener('mousemove', moveTip);
+    m.addEventListener('mouseleave', function () { tip.style.display = 'none'; });
+    m.addEventListener('click', function () { selectBlock(m.dataset.block); });
+  });
+  function moveTip(e) {
+    var x = e.clientX + 14, y = e.clientY + 14;
+    var r = tip.getBoundingClientRect();
+    if (x + r.width > window.innerWidth) x = e.clientX - r.width - 14;
+    if (y + r.height > window.innerHeight) y = e.clientY - r.height - 14;
+    tip.style.left = x + 'px';
+    tip.style.top = y + 'px';
+  }
+
+  // ---------- neighborhoods: folder navigation ----------
+  var panels = Array.prototype.slice.call(document.querySelectorAll('.nb-panel'));
+  var items = Array.prototype.slice.call(document.querySelectorAll('.folder-item'));
+
+  function selectBlock(slug) {
+    panels.forEach(function (p) { p.classList.toggle('active', p.dataset.block === slug); });
+    items.forEach(function (it) { it.classList.toggle('selected', it.dataset.block === slug); });
+    markers.forEach(function (m) { m.classList.toggle('selected', m.dataset.block === slug); });
+    var active = document.querySelector('.nb-panel.active');
+    if (active && active.scrollIntoView) active.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  window._selectBlock = selectBlock;
+
+  items.forEach(function (it) {
+    it.addEventListener('click', function () { selectBlock(it.dataset.block); });
+  });
+  Array.prototype.slice.call(document.querySelectorAll('.folder-group-header')).forEach(function (h) {
+    h.addEventListener('click', function () { h.parentElement.classList.toggle('collapsed'); });
+  });
+
+  var folderSearch = document.getElementById('folder-search');
+  if (folderSearch) {
+    folderSearch.addEventListener('input', function () {
+      var term = folderSearch.value.toLowerCase();
+      items.forEach(function (it) {
+        it.classList.toggle('hidden-row', it.textContent.toLowerCase().indexOf(term) === -1);
+      });
+    });
+  }
+
+  // ---------- data table filter ----------
+  var input = document.getElementById('table-search');
+  var table = document.getElementById('data-table');
+  if (input && table) {
+    var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr'));
+    var countEl = document.getElementById('table-count');
+    var update = function () {
+      var visible = rows.filter(function (r) { return !r.classList.contains('hidden-row'); }).length;
+      if (countEl) countEl.textContent = visible + ' of ' + rows.length + ' rows';
+    };
+    input.addEventListener('input', function () {
+      var term = input.value.toLowerCase();
+      rows.forEach(function (r) {
+        r.classList.toggle('hidden-row', r.textContent.toLowerCase().indexOf(term) === -1);
+      });
+      update();
+    });
+    update();
+  }
+
+  // ---------- init ----------
+  initBases();
+  setZoom(1);
+  window.addEventListener('resize', function () { initBases(); layout(); });
 })();
 </script>
 </body>
@@ -1285,66 +1718,163 @@ $table_html
 """)
 
 
-def build_html_report(df, output_file='operon_report.html', title='Gene Neighborhood Report',
-                       operon_svg_file='operon_fig.svg', genome_svg_file='genome_overview.svg',
-                       operon_kwargs=None, genome_kwargs=None, max_table_rows=2000):
+def build_folder_and_panels_html(extents, block_svgs):
     """
-    Build one self-contained HTML page presenting everything this
-    module can produce for a single input table: the genome-wide
-    overview (`genome_overview_fig`), the per-block neighborhood figure
-    (`neighborhood_figure`), and the original data table with a filter
-    box.
+    Build the two coupled HTML fragments the neighborhoods section needs:
+    the left "folders" navigation (results grouped by contig, each item
+    a clickable block) and the right stack of per-block panels (one SVG
+    each, only the selected one shown).
 
-    This is a convenience wrapper -- it calls `neighborhood_figure` and
-    `genome_overview_fig` itself (writing their SVGs to
-    `operon_svg_file`/`genome_svg_file` as a side effect, in case you
-    also want them as standalone files), then inlines both SVGs plus
-    the table into one HTML document.
+    Parameters
+    ----------
+    extents : pandas.DataFrame
+        Output of `compute_block_extents`; drives order, grouping and
+        the per-item labels.
+    block_svgs : dict[str, str]
+        Slug -> SVG markup, from `render_neighborhood_svgs_by_block`.
+
+    Returns
+    -------
+    (str, str)
+        (folders_html, panels_html). The first block found becomes the
+        initially-selected one.
+    """
+    if extents.empty:
+        return '<div class="nb-empty">No blocks.</div>', '<div class="nb-empty">No blocks to show.</div>'
+
+    nucleotides = list(dict.fromkeys(extents['nucleotide']))
+    first_slug = _slug(extents.iloc[0]['ID'])
+
+    folder_groups = []
+    panels = []
+    for nucleotide in nucleotides:
+        rows = extents[extents['nucleotide'] == nucleotide]
+        items = []
+        for _, block in rows.iterrows():
+            slug = _slug(block['ID'])
+            label = block['query_pid'] if block['query_pid'] is not None else block['ID']
+            selected = ' selected' if slug == first_slug else ''
+            items.append(
+                f'<div class="folder-item{selected}" data-block="{slug}">'
+                f'{html.escape(str(label))}'
+                f'<span class="fi-sub">{int(block["n_genes"])} genes</span></div>'
+            )
+
+            domain = block['query_domain'] if block['query_domain'] is not None else '-'
+            active = ' active' if slug == first_slug else ''
+            head = (
+                f'<div class="nb-panel-head"><b>{html.escape(str(label))}</b> &middot; '
+                f'{html.escape(str(block["ID"]))} &middot; {html.escape(str(domain))} &middot; '
+                f'{html.escape(str(block["org_name"]))} &middot; '
+                f'{block["block_start"]:,.0f}&ndash;{block["block_end"]:,.0f} bp</div>'
+            )
+            panels.append(
+                f'<div class="nb-panel{active}" data-block="{slug}">{head}'
+                f'<div class="nb-scroll">{block_svgs.get(slug, "")}</div></div>'
+            )
+
+        folder_groups.append(
+            '<div class="folder-group">'
+            f'<div class="folder-group-header"><span class="twist">&#9662;</span>'
+            f'<span>{html.escape(str(nucleotide))}</span>'
+            f'<span class="grp-count">{len(rows)}</span></div>'
+            f'<div class="folder-items">{"".join(items)}</div></div>'
+        )
+
+    return ''.join(folder_groups), ''.join(panels)
+
+
+def build_html_report(df, output_file='operon_report.html', title='Gene Neighborhood Report',
+                       group_col='block_id', org_col='organism', label_col='pfam',
+                       rename_map=None, custom_colors=None, max_colors=5, ignore_domains=None,
+                       nucleotide_col='nucleotide', start_col='start', end_col='end',
+                       length_col='nlen', operon_kwargs=None, max_table_rows=2000,
+                       work_dir=None):
+    """
+    Build one self-contained, interactive HTML page for a single input
+    table: a zoomable genome-wide overview with hover tooltips, a
+    "folders" sidebar that opens each neighborhood on its own, and the
+    raw data table with a filter box.
+
+    A single shared domain -> color map is computed once (from the whole
+    table, honoring `rename_map`/`custom_colors`/`max_colors`/
+    `ignore_domains`) and reused for the genome overview and every
+    per-block figure, so a given domain is the same color everywhere.
 
     Parameters
     ----------
     df : pandas.DataFrame
-        The raw input table, shown as-is in the "Data" section.
+        Raw input table; shown as-is in the data section.
     output_file : str
         Path to write the HTML report to.
     title : str
-    operon_svg_file, genome_svg_file : str
-        Where the two intermediate SVGs are written.
-    operon_kwargs, genome_kwargs : dict or None
-        Extra keyword arguments forwarded to `neighborhood_figure` and
-        `genome_overview_fig` respectively (e.g. `custom_colors`,
-        `rename_map`, `collapse_opposite_strand`). Give both the same
-        `custom_colors`/`rename_map` if you want the two figures to
-        agree on domain colors/renamed names.
+    group_col, org_col, label_col : str
+        Block, organism and architecture columns (as elsewhere).
+    rename_map, custom_colors, max_colors, ignore_domains :
+        Color/label controls, identical in meaning to
+        `neighborhood_figure`; applied once, globally.
+    nucleotide_col, start_col, end_col, length_col : str
+        Genomic-coordinate columns for the overview (see
+        `compute_block_extents`).
+    operon_kwargs : dict or None
+        Extra per-figure options forwarded to `neighborhood_figure` for
+        each block (e.g. `collapse_opposite_strand=True`, `font_size`).
+        Color/label and `group_col`/`org_col`/`label_col` are handled
+        centrally here, so don't pass those inside `operon_kwargs`.
     max_table_rows : int or None
-        Forwarded to `render_dataframe_html`; caps how many data rows
-        get embedded in the page. `None` embeds every row.
+        Row cap for the embedded table; `None` embeds every row.
+    work_dir : str or None
+        Where intermediate SVGs are written. If None, a temporary
+        directory is used and cleaned up afterwards.
 
     Returns
     -------
     str
-        `output_file` (the path that was written).
+        `output_file` (the path written).
     """
     operon_kwargs = dict(operon_kwargs) if operon_kwargs else {}
-    genome_kwargs = dict(genome_kwargs) if genome_kwargs else {}
+    color_label_kwargs = dict(
+        group_col=group_col, org_col=org_col, label_col=label_col, rename_map=rename_map,
+        custom_colors=custom_colors, max_colors=max_colors, ignore_domains=ignore_domains,
+    )
 
-    neighborhood_figure(df, output_file=operon_svg_file, **operon_kwargs)
-    genome_overview_fig(df, output_file=genome_svg_file, **genome_kwargs)
+    # One global color map, shared by every figure for consistency.
+    working = prepare_dataframe(df, group_col=group_col, org_col=org_col,
+                                label_col=label_col, rename_map=rename_map)
+    color_map = build_color_map(working, max_colors=max_colors,
+                                ignore_domains=ignore_domains, custom_colors=custom_colors)
+    extents = compute_block_extents(
+        working, nucleotide_col=nucleotide_col, start_col=start_col,
+        end_col=end_col, length_col=length_col,
+    )
 
-    with open(operon_svg_file) as f:
-        operon_svg = f.read()
-    with open(genome_svg_file) as f:
-        genome_svg = f.read()
+    genome_overview = build_genome_overview_interactive_html(extents, color_map=color_map)
 
-    group_col = operon_kwargs.get('group_col', 'block_id')
+    own_tmp = work_dir is None
+    tmp_dir = work_dir or tempfile.mkdtemp(prefix='operon_report_')
+    try:
+        per_block_operon_kwargs = dict(operon_kwargs)
+        per_block_operon_kwargs.update(
+            org_col=org_col, label_col=label_col, rename_map=rename_map,
+        )
+        block_svgs = render_neighborhood_svgs_by_block(
+            df, group_col=group_col, color_map=color_map,
+            operon_kwargs=per_block_operon_kwargs, tmp_dir=tmp_dir,
+        )
+    finally:
+        if own_tmp:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    folders_html, panels_html = build_folder_and_panels_html(extents, block_svgs)
+
     n_blocks = df[group_col].nunique() if group_col in df.columns else 'NA'
-
     html_doc = HTML_REPORT_TEMPLATE.substitute(
         title=html.escape(title),
         n_genes=f'{len(df):,}',
         n_blocks=n_blocks,
-        genome_svg=genome_svg,
-        operon_svg=operon_svg,
+        genome_overview=genome_overview,
+        folders=folders_html,
+        panels=panels_html,
         table_html=render_dataframe_html(df, max_rows=max_table_rows),
     )
 
