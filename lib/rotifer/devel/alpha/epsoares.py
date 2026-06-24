@@ -1135,7 +1135,8 @@ def igem_pipeline(genome_annotation, genome_format, genome_protein_fasta, genome
     
     if make_figure:
         rdai.neighborhood_figure(ndf, output_file=output_figure, custom_colors=color_dict, rename_map=domain_dict)
-    
+        print(f'figure saved in {output_figure}')
+
     if return_fimo and return_hmmscan:
         return ndf, fimo, hscan
     elif return_fimo:

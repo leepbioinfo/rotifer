@@ -32,13 +32,25 @@ query   : 1/'1'/True marks the query gene of a block; everything else is
           treated as a query.
 ... plus whatever `group_col`, `org_col` and `label_col` point at.
 
-Public entry point
--------------------
-operon_fig_patched(df, ...) -> pandas.DataFrame
-    Builds the figure, writes it to `output_file`, and returns the
-    working copy of `df` that was used to build it (useful for
-    debugging/inspection). Kept under its original name so existing
-    calling code does not need to change.
+`genome_overview_fig` additionally uses `nucleotide`, `start`, `end`
+(per-gene genomic coordinates) and, optionally, `nlen` (total contig
+length, for scaling); see its docstring.
+
+Public entry points
+--------------------
+neighborhood_figure(df, ...) -> pandas.DataFrame
+    Builds the per-block neighborhood figure (one row per block, gene
+    detail) and writes it to `output_file`.
+genome_overview_fig(df, ...) -> pandas.DataFrame
+    Builds a genome-wide companion figure: one horizontal track per
+    contig, with every block marked at its actual genomic position --
+    "where are these neighborhoods", as opposed to neighborhood_figure's
+    "what's in each neighborhood".
+build_html_report(df, ...) -> str
+    Runs both of the above and assembles a single, self-contained HTML
+    page with the genome overview, the neighborhood figure, and the
+    original input table (search box included), for sharing/viewing
+    everything at once.
 
 Everything else below is a small, independently testable helper
 function. None of them are defined *inside* another function (the
@@ -65,10 +77,17 @@ pipeline.
     chain_align_nodes             pull one node per row into the same
                                   visual column via high-weight invisible
                                   edges
-    operon_fig_patched            main orchestrator (see above)
+    neighborhood_figure            main neighborhood-figure orchestrator
+    compute_block_extents         one row per block: contig, span, ref query
+    assign_label_lanes            stagger overlapping labels into lanes
+    build_genome_overview_svg     render the genome-wide SVG from extents
+    genome_overview_fig           genome-wide-figure orchestrator
+    render_dataframe_html         a dataframe as a plain <table>
+    build_html_report             combine everything into one HTML page
 """
 
 import html
+from string import Template
 
 import numpy as np
 import pandas as pd
@@ -202,7 +221,7 @@ def prepare_dataframe(df, group_col='block_id', org_col='organism', label_col='p
     'pid_order' (an integer 0..n_blocks-1, in first-seen order, used to
     group rows into figure rows).
 
-    Parameters mirror `operon_fig_patched`.
+    Parameters mirror `neighborhood_figure`.
 
     Returns
     -------
@@ -540,7 +559,7 @@ def add_block_to_graph(graph, block_df, block_index, label_width, color_map,
     first gene / after the last gene respectively, so that rows with
     fewer genes than the widest row still take up the same amount of
     horizontal space on each side of the query. This is what lets
-    `operon_fig_patched(..., align_query_center=True)` line the query
+    `neighborhood_figure(..., align_query_center=True)` line the query
     gene up in (approximately) the same column on every row -- "approximately"
     because real gene boxes have label-dependent widths, so this is a
     layout heuristic, not a pixel-exact guarantee. See `chain_align_nodes`
@@ -655,7 +674,7 @@ def neighborhood_figure(df, group_col='block_id', label_col='pfam', org_col='org
                         output_file='operon_fig_out.svg', max_colors=5,
                         highlight_query=True, font_size=10, ignore_domains=None,
                         custom_colors=None, rename_map=None, normalize_orientation=True,
-                        align_query_center=False, collapse_opposite_strand=False,
+                        align_query_center=True, collapse_opposite_strand=False,
                         spacer_width=0.6):
     """
     Draw a gene-neighborhood ("operon") figure, one row per block, and
@@ -790,3 +809,546 @@ def neighborhood_figure(df, group_col='block_id', label_col='pfam', org_col='org
 
     graph.draw(output_file, prog='dot')
     return working
+
+
+# ---------------------------------------------------------------------------
+# Genome-wide overview
+# ---------------------------------------------------------------------------
+#
+# neighborhood_figure answers "what's in each neighborhood"; the
+# functions below answer the complementary question, "where are these
+# neighborhoods in the genome" -- one horizontal track per contig, with
+# every block marked at its real genomic position.
+
+def compute_block_extents(working, nucleotide_col='nucleotide', start_col='start',
+                           end_col='end', length_col='nlen'):
+    """
+    Collapse a prepared gene table (see `prepare_dataframe`) down to one
+    row per block: its nucleotide/contig, genomic span, contig length,
+    and reference query (see `select_reference_query_index`).
+
+    A block is assumed to sit on a single contig; its span is the
+    min(start)/max(end) across all of its genes.
+
+    Parameters
+    ----------
+    working : pandas.DataFrame
+        Output of `prepare_dataframe` (needs 'ID', 'pid_order',
+        'is_query', 'domain', 'org_name', plus `nucleotide_col`,
+        `start_col`, `end_col`, and ideally `length_col`).
+    nucleotide_col, start_col, end_col : str
+        Per-gene columns giving its contig and genomic span.
+    length_col : str
+        Column with the contig's total length. If missing, or blank
+        for some contig, that contig's length is approximated as the
+        furthest gene/block end seen on it.
+
+    Returns
+    -------
+    pandas.DataFrame
+        One row per block, columns: ID, nucleotide, block_start,
+        block_end, contig_length, query_pid, query_domain, org_name.
+        `query_pid`/`query_domain` are None for a block with no query.
+    """
+    records = []
+    for _, block_df in working.groupby('pid_order', sort=True):
+        nucleotide = block_df[nucleotide_col].iloc[0] if nucleotide_col in block_df.columns else 'Unknown'
+        block_start = block_df[start_col].min() if start_col in block_df.columns else np.nan
+        block_end = block_df[end_col].max() if end_col in block_df.columns else np.nan
+        contig_length = block_df[length_col].iloc[0] if length_col in block_df.columns else np.nan
+
+        ref_idx = select_reference_query_index(block_df)
+        if ref_idx is not None:
+            query_pid = block_df.loc[ref_idx, 'pid']
+            query_domain = block_df.loc[ref_idx, 'domain']
+        else:
+            query_pid = None
+            query_domain = None
+
+        records.append(dict(
+            ID=block_df['ID'].iloc[0],
+            nucleotide=nucleotide,
+            block_start=block_start,
+            block_end=block_end,
+            contig_length=contig_length,
+            query_pid=query_pid,
+            query_domain=query_domain,
+            org_name=block_df['org_name'].iloc[0],
+        ))
+
+    extents = pd.DataFrame.from_records(records)
+    if not extents.empty:
+        # Fall back to "furthest block end seen on this contig" for any
+        # contig whose real length wasn't supplied.
+        fallback_length = extents.groupby('nucleotide')['block_end'].transform('max')
+        extents['contig_length'] = extents['contig_length'].fillna(fallback_length)
+    return extents
+
+
+def assign_label_lanes(x_positions, min_gap=280, n_lanes=3):
+    """
+    Stagger a set of x positions into `n_lanes` rows so that labels
+    placed near each other don't overlap.
+
+    Positions are processed left to right; each one goes into the
+    first lane whose most-recently-placed position is at least
+    `min_gap` away, or -- if every lane is still "busy" -- the lane
+    whose last position is furthest behind (least likely to still be in
+    the way). This is a simple greedy heuristic, not an optimal packing,
+    but is more than enough to keep a typical handful of neighboring
+    blocks legible.
+
+    Parameters
+    ----------
+    x_positions : sequence of float
+    min_gap : float
+        Minimum spacing (in the same units as `x_positions`) before two
+        labels in the same lane are considered to be clear of each other.
+    n_lanes : int
+
+    Returns
+    -------
+    list[int]
+        Lane index (0 .. n_lanes-1) for each input position, in the
+        same order as `x_positions`.
+    """
+    lane_last_x = [-float('inf')] * n_lanes
+    lane_of = [0] * len(x_positions)
+    order = sorted(range(len(x_positions)), key=lambda i: x_positions[i])
+
+    for i in order:
+        x = x_positions[i]
+        free_lane = next((lane for lane in range(n_lanes) if x - lane_last_x[lane] >= min_gap), None)
+        chosen = free_lane if free_lane is not None else min(range(n_lanes), key=lambda l: lane_last_x[l])
+        lane_last_x[chosen] = x
+        lane_of[i] = chosen
+
+    return lane_of
+
+
+def build_genome_overview_svg(extents, color_map=None, highlight_color='#c0392b',
+                               marker_color='#2a6f77', track_width=760, left_margin=190,
+                               top_margin=30, row_height=92, track_height=10,
+                               font_size=11, label_lanes=3, label_lane_gap=18):
+    """
+    Render an SVG showing where every block/neighborhood sits along its
+    nucleotide (contig), one horizontal track per distinct nucleotide.
+
+    Each track is scaled independently to its own `contig_length` -- a
+    50 kb plasmid and a 9 Mb chromosome both draw at the same pixel
+    width -- since the point of this figure is "where is this block
+    relative to its own contig", not a comparison of absolute distance
+    across contigs of very different sizes.
+
+    Parameters
+    ----------
+    extents : pandas.DataFrame
+        Output of `compute_block_extents`.
+    color_map : dict[str, str] or None
+        Domain -> color (e.g. from `build_color_map`), used to color
+        each marker by its reference query's domain, for visual
+        consistency with `neighborhood_figure`. A block whose domain
+        has no entry (or no `color_map` given) uses `marker_color`.
+    highlight_color : str
+        Border color for every block marker.
+    marker_color : str
+        Fallback marker fill.
+    track_width, left_margin, top_margin, row_height, track_height : float
+        Layout, in SVG user units (effectively pixels).
+    font_size : int
+    label_lanes, label_lane_gap : int, float
+        Up to this many staggered rows are used above each track for
+        block labels; see `assign_label_lanes`. Increase `row_height`
+        if labels still collide with the row above.
+
+    Returns
+    -------
+    str
+        A full, self-contained `<svg>...</svg>` document.
+    """
+    color_map = color_map or {}
+    nucleotides = list(dict.fromkeys(extents['nucleotide'])) if not extents.empty else []
+
+    fig_width = left_margin + track_width + 40
+    fig_height = top_margin + len(nucleotides) * row_height + 20
+
+    parts = [
+        f'<svg viewBox="0 0 {fig_width:.0f} {fig_height:.0f}" xmlns="http://www.w3.org/2000/svg" '
+        f'font-family="Consolas, \'SF Mono\', Menlo, monospace" font-size="{font_size}">',
+        f'<rect x="0" y="0" width="{fig_width:.0f}" height="{fig_height:.0f}" fill="white"/>',
+    ]
+
+    for row_i, nucleotide in enumerate(nucleotides):
+        row_blocks = extents[extents['nucleotide'] == nucleotide]
+        contig_length = row_blocks['contig_length'].iloc[0]
+        if not contig_length or pd.isna(contig_length) or contig_length <= 0:
+            contig_length = max(row_blocks['block_end'].max(), 1)
+
+        track_y = top_margin + row_i * row_height + label_lanes * label_lane_gap
+        track_x0 = left_margin
+
+        def to_x(pos, _x0=track_x0, _len=contig_length):
+            return _x0 + (pos / _len) * track_width
+
+        parts.append(
+            f'<text x="{track_x0 - 10:.0f}" y="{track_y + track_height / 2 + 4:.0f}" '
+            f'text-anchor="end" fill="#222">{html.escape(str(nucleotide))}</text>'
+        )
+        parts.append(
+            f'<text x="{track_x0 - 10:.0f}" y="{track_y + track_height / 2 + 4 + font_size + 2:.0f}" '
+            f'text-anchor="end" fill="#888" font-size="{font_size - 2}">{contig_length:,.0f} bp</text>'
+        )
+        parts.append(
+            f'<rect x="{track_x0:.1f}" y="{track_y:.1f}" width="{track_width:.1f}" height="{track_height:.1f}" '
+            f'fill="#e3e3e3" stroke="#999" stroke-width="0.5" rx="2"/>'
+        )
+
+        mid_x = [to_x((b['block_start'] + b['block_end']) / 2) for _, b in row_blocks.iterrows()]
+        lanes = assign_label_lanes(mid_x, min_gap=label_lane_gap * 12, n_lanes=label_lanes)
+
+        for (_, block), x_mid, lane in zip(row_blocks.iterrows(), mid_x, lanes):
+            x0 = to_x(block['block_start'])
+            x1 = to_x(block['block_end'])
+            marker_w = max(4.0, x1 - x0)
+            fill = color_map.get(block['query_domain'], marker_color)
+
+            parts.append(
+                f'<rect x="{x0:.1f}" y="{track_y - 3:.1f}" width="{marker_w:.1f}" '
+                f'height="{track_height + 6:.1f}" fill="{fill}" stroke="{highlight_color}" '
+                f'stroke-width="1.2" rx="1.5"/>'
+            )
+
+            label_y = track_y - 10 - lane * label_lane_gap
+            parts.append(
+                f'<line x1="{x_mid:.1f}" y1="{label_y + 4:.1f}" x2="{x_mid:.1f}" y2="{track_y - 3:.1f}" '
+                f'stroke="#bbb" stroke-width="1"/>'
+            )
+            label_text = block['query_pid'] if block['query_pid'] is not None else block['ID']
+            parts.append(
+                f'<text x="{x_mid:.1f}" y="{label_y:.1f}" text-anchor="middle" fill="#222">'
+                f'{html.escape(str(label_text))}</text>'
+            )
+
+    parts.append('</svg>')
+    return '\n'.join(parts)
+
+
+def genome_overview_fig(df, group_col='block_id', org_col='organism', label_col='pfam',
+                         rename_map=None, nucleotide_col='nucleotide', start_col='start',
+                         end_col='end', length_col='nlen', output_file='genome_overview.svg',
+                         custom_colors=None, max_colors=5, ignore_domains=None, **svg_kwargs):
+    """
+    Draw a genome-wide overview: one horizontal track per nucleotide
+    (contig), with every block/neighborhood marked at its position
+    along that contig.
+
+    `df`, `group_col`, `org_col`, `label_col`, `rename_map`,
+    `custom_colors`, `max_colors` and `ignore_domains` mean exactly what
+    they mean in `neighborhood_figure` -- pass the same values to both if
+    you want the two figures to agree on domain colors/renamed names.
+
+    Parameters
+    ----------
+    nucleotide_col, start_col, end_col : str
+        Columns giving each gene's contig name and genomic span.
+    length_col : str
+        Column with the contig's total length, used to scale each
+        track; see `compute_block_extents` for the fallback when it's
+        missing.
+    output_file : str
+        Path to write the SVG to.
+    **svg_kwargs :
+        Forwarded to `build_genome_overview_svg` (layout/color tuning,
+        e.g. `track_width`, `row_height`, `marker_color`).
+
+    Returns
+    -------
+    pandas.DataFrame
+        One row per block; see `compute_block_extents`.
+    """
+    working = prepare_dataframe(
+        df, group_col=group_col, org_col=org_col, label_col=label_col, rename_map=rename_map
+    )
+    color_map = build_color_map(
+        working, max_colors=max_colors, ignore_domains=ignore_domains, custom_colors=custom_colors
+    )
+    extents = compute_block_extents(
+        working, nucleotide_col=nucleotide_col, start_col=start_col,
+        end_col=end_col, length_col=length_col
+    )
+    svg = build_genome_overview_svg(extents, color_map=color_map, **svg_kwargs)
+
+    with open(output_file, 'w') as f:
+        f.write(svg)
+
+    return extents
+
+
+# ---------------------------------------------------------------------------
+# HTML report
+# ---------------------------------------------------------------------------
+
+def render_dataframe_html(df, table_id='data-table', max_rows=None):
+    """
+    Render `df` as a plain HTML `<table>` (every value HTML-escaped),
+    suitable for dropping into a larger page.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+    table_id : str
+        `id` attribute on the `<table>`, so the rest of a page (CSS, a
+        search box's JS) can target it. `build_html_report`'s search
+        box expects the default, 'data-table'.
+    max_rows : int or None
+        If given, only the first `max_rows` rows are rendered, with a
+        note below the table saying how many were left out. `None`
+        (the default) renders every row.
+
+    Returns
+    -------
+    str
+        `<table>...</table>` markup (plus a trailing `<p>` note if
+        `max_rows` truncated anything).
+    """
+    shown = df if max_rows is None else df.head(max_rows)
+
+    header_cells = ''.join(f'<th>{html.escape(str(c))}</th>' for c in shown.columns)
+    body_rows = (
+        '<tr>' + ''.join('<td>' + ('' if pd.isna(v) else html.escape(str(v))) + '</td>' for v in row) + '</tr>'
+        for row in shown.itertuples(index=False, name=None)
+    )
+
+    table_html = (
+        f'<table id="{table_id}">'
+        f'<thead><tr>{header_cells}</tr></thead>'
+        f'<tbody>{"".join(body_rows)}</tbody>'
+        f'</table>'
+    )
+    if max_rows is not None and len(df) > max_rows:
+        table_html += f'<p class="table-note">Showing the first {max_rows:,} of {len(df):,} rows.</p>'
+    return table_html
+
+
+# Kept as a module-level constant (rather than building the string
+# inline inside `build_html_report`) so the template can be read,
+# tweaked, or unit-tested on its own. Uses `string.Template`'s
+# `$placeholder` syntax rather than `str.format`'s `{placeholder}`,
+# since the CSS below is full of literal `{`/`}` braces that would
+# otherwise have to be escaped throughout.
+HTML_REPORT_TEMPLATE = Template(r"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>$title</title>
+<style>
+  :root {
+    --bg: #faf9f6;
+    --panel: #ffffff;
+    --ink: #1f2430;
+    --muted: #6b7280;
+    --line: #e4e1d8;
+    --accent: #2a6f77;
+    --accent-soft: #e4f0f1;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.45;
+  }
+  header {
+    padding: 36px 48px 24px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  header h1 { margin: 0 0 6px; font-size: 26px; letter-spacing: -0.01em; }
+  header .meta { color: var(--muted); font-size: 13px; font-family: Consolas, "SF Mono", Menlo, monospace; }
+  header .meta b { color: var(--accent); }
+  main { max-width: 1180px; margin: 0 auto; padding: 32px 48px 80px; }
+  section { margin-bottom: 56px; }
+  section .eyebrow {
+    font-family: Consolas, "SF Mono", Menlo, monospace;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    margin: 0 0 4px;
+  }
+  section h2 { margin: 0 0 4px; font-size: 19px; }
+  section p.desc { color: var(--muted); margin: 0 0 16px; font-size: 14px; max-width: 720px; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 20px;
+    overflow-x: auto;
+  }
+  .panel svg { display: block; max-width: 100%; height: auto; }
+  .search-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .search-row input {
+    flex: 0 1 320px;
+    padding: 8px 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: Consolas, "SF Mono", Menlo, monospace;
+  }
+  .search-row input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .search-row .count { color: var(--muted); font-size: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; font-family: Consolas, "SF Mono", Menlo, monospace; }
+  thead th {
+    position: sticky;
+    top: 0;
+    background: var(--accent-soft);
+    color: var(--ink);
+    text-align: left;
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  tbody td { padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  tbody tr:nth-child(even) { background: #fbfbf9; }
+  tbody tr.hidden-row { display: none; }
+  .table-note { color: var(--muted); font-size: 12px; margin-top: 10px; }
+  footer { text-align: center; color: var(--muted); font-size: 12px; padding: 24px 0 48px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>$title</h1>
+  <div class="meta"><b>$n_genes</b> genes &middot; <b>$n_blocks</b> neighborhoods</div>
+</header>
+<main>
+
+  <section>
+    <p class="eyebrow">01 &middot; GENOME-WIDE VIEW</p>
+    <h2>Where each neighborhood sits in the genome</h2>
+    <p class="desc">One track per contig, scaled to its own length. Each marker is one neighborhood, positioned at its genomic span.</p>
+    <div class="panel">
+$genome_svg
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">02 &middot; NEIGHBORHOODS</p>
+    <h2>Gene neighborhood detail</h2>
+    <p class="desc">Every query gene is outlined in red. Neighbors always point right; neighbors on the opposite strand from the reference query collapse to small triangles.</p>
+    <div class="panel">
+$operon_svg
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">03 &middot; DATA</p>
+    <h2>Input table</h2>
+    <p class="desc">The raw table this report was built from.</p>
+    <div class="search-row">
+      <input type="text" id="table-search" placeholder="Filter rows...">
+      <span class="count" id="table-count"></span>
+    </div>
+    <div class="panel">
+$table_html
+    </div>
+  </section>
+
+</main>
+<footer>Generated by operon_fig.py</footer>
+<script>
+(function () {
+  var input = document.getElementById('table-search');
+  var table = document.getElementById('data-table');
+  if (!input || !table) return;
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr'));
+  var countEl = document.getElementById('table-count');
+
+  function updateCount() {
+    var visible = rows.filter(function (r) { return !r.classList.contains('hidden-row'); }).length;
+    countEl.textContent = visible + ' of ' + rows.length + ' rows';
+  }
+
+  input.addEventListener('input', function () {
+    var term = input.value.toLowerCase();
+    rows.forEach(function (row) {
+      var match = row.textContent.toLowerCase().indexOf(term) !== -1;
+      row.classList.toggle('hidden-row', !match);
+    });
+    updateCount();
+  });
+
+  updateCount();
+})();
+</script>
+</body>
+</html>
+""")
+
+
+def build_html_report(df, output_file='operon_report.html', title='Gene Neighborhood Report',
+                       operon_svg_file='operon_fig.svg', genome_svg_file='genome_overview.svg',
+                       operon_kwargs=None, genome_kwargs=None, max_table_rows=2000):
+    """
+    Build one self-contained HTML page presenting everything this
+    module can produce for a single input table: the genome-wide
+    overview (`genome_overview_fig`), the per-block neighborhood figure
+    (`neighborhood_figure`), and the original data table with a filter
+    box.
+
+    This is a convenience wrapper -- it calls `neighborhood_figure` and
+    `genome_overview_fig` itself (writing their SVGs to
+    `operon_svg_file`/`genome_svg_file` as a side effect, in case you
+    also want them as standalone files), then inlines both SVGs plus
+    the table into one HTML document.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The raw input table, shown as-is in the "Data" section.
+    output_file : str
+        Path to write the HTML report to.
+    title : str
+    operon_svg_file, genome_svg_file : str
+        Where the two intermediate SVGs are written.
+    operon_kwargs, genome_kwargs : dict or None
+        Extra keyword arguments forwarded to `neighborhood_figure` and
+        `genome_overview_fig` respectively (e.g. `custom_colors`,
+        `rename_map`, `collapse_opposite_strand`). Give both the same
+        `custom_colors`/`rename_map` if you want the two figures to
+        agree on domain colors/renamed names.
+    max_table_rows : int or None
+        Forwarded to `render_dataframe_html`; caps how many data rows
+        get embedded in the page. `None` embeds every row.
+
+    Returns
+    -------
+    str
+        `output_file` (the path that was written).
+    """
+    operon_kwargs = dict(operon_kwargs) if operon_kwargs else {}
+    genome_kwargs = dict(genome_kwargs) if genome_kwargs else {}
+
+    neighborhood_figure(df, output_file=operon_svg_file, **operon_kwargs)
+    genome_overview_fig(df, output_file=genome_svg_file, **genome_kwargs)
+
+    with open(operon_svg_file) as f:
+        operon_svg = f.read()
+    with open(genome_svg_file) as f:
+        genome_svg = f.read()
+
+    group_col = operon_kwargs.get('group_col', 'block_id')
+    n_blocks = df[group_col].nunique() if group_col in df.columns else 'NA'
+
+    html_doc = HTML_REPORT_TEMPLATE.substitute(
+        title=html.escape(title),
+        n_genes=f'{len(df):,}',
+        n_blocks=n_blocks,
+        genome_svg=genome_svg,
+        operon_svg=operon_svg,
+        table_html=render_dataframe_html(df, max_rows=max_table_rows),
+    )
+
+    with open(output_file, 'w') as f:
+        f.write(html_doc)
+
+    return output_file
