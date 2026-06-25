@@ -1784,7 +1784,7 @@ def build_folder_and_panels_html(extents, block_svgs):
     return ''.join(folder_groups), ''.join(panels)
 
 
-def build_html_report(df, output_file='operon_report.html', title='Gene Neighborhood Report',
+def build_html_report(df, output_file='neighborhood_report.html', title='Gene Neighborhood Report',
                        group_col='block_id', org_col='organism', label_col='pfam',
                        rename_map=None, custom_colors=None, max_colors=5, ignore_domains=None,
                        nucleotide_col='nucleotide', start_col='start', end_col='end',

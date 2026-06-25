@@ -1117,7 +1117,7 @@ def fimo_pipeline(meme_file, genomes, gffs, n_jobs=1, filter=True, length=20):
 
 def igem_pipeline(genome_annotation, genome_format, genome_protein_fasta, genome_nucleotide_fasta, models_path=['/databases/pfam/Pfam-A.hmm'], return_hmmscan=False,
     after=10, before=10, run_fimo=True, meme_file='/home/leep/epsoares/projects/igem/2026/data/heptarepeats2.meme', return_fimo=False, make_figure=True,
-    output_figure='neighborhood.svg', color_dict=None, domain_dict=None):
+    output_report='neighborhood_report.html', color_dict=None, domain_dict=None):
     ''' 
     Doc
     '''
@@ -1134,8 +1134,8 @@ def igem_pipeline(genome_annotation, genome_format, genome_protein_fasta, genome
     ndf = gen.neighbors(gen.pid.isin(fimo.sequence_name), after=after, before=before)
     
     if make_figure:
-        rdai.neighborhood_figure(ndf, output_file=output_figure, custom_colors=color_dict, rename_map=domain_dict)
-        print(f'figure saved in {output_figure}')
+        rdai.build_html_report(ndf, output_file=output_report, custom_colors=color_dict, rename_map=domain_dict)
+        print(f'figure saved in {output_report}')
 
     if return_fimo and return_hmmscan:
         return ndf, fimo, hscan
