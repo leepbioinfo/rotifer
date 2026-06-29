@@ -85,12 +85,37 @@ pipeline.
     genome_overview_fig           genome-wide-figure orchestrator
     render_dataframe_html         a dataframe as a plain <table>
     render_neighborhood_svgs_by_block  one SVG per block (per-result views)
+    build_gene_tooltip_html       per-protein hover "info window" body
+    annotate_neighborhood_svg     inject those tooltips into a graphviz SVG
     build_folder_and_panels_html  folder sidebar + per-block panels
     build_html_report             combine everything into one HTML page
+
+How the drawing actually works (no GUI toolkit involved)
+--------------------------------------------------------
+There is no Qt, matplotlib, or other plotting/GUI library here. Two
+very different rendering paths are used:
+
+  * The neighborhood figures (the gene-arrow rows) are laid out by
+    **Graphviz** -- the same C graph-layout engine behind `dot` -- which
+    we drive from Python through the **pygraphviz** binding. Each gene
+    is a Graphviz node (`shape=rarrow`/`larrow`/`triangle`), each row is
+    a same-rank subgraph, and invisible weighted edges nudge things into
+    alignment; Graphviz's `dot` engine does the placement and writes
+    **SVG**. We then do light text surgery on that SVG to attach
+    per-protein hover windows (`annotate_neighborhood_svg`).
+  * The genome overview and the whole report page are just **hand-written
+    SVG/HTML/CSS/JavaScript** strings -- no library. Zoom/pan and the
+    hover tooltips are a small vanilla-JS block embedded in the page.
+
+Supporting libraries are **pandas**/**numpy** (data wrangling) and
+**seaborn** (only to pick color palettes). The output is a static,
+self-contained `.html` file that runs in any browser; nothing runs
+server-side or in a desktop toolkit.
 """
 
 import html
 import os
+import re
 import shutil
 import tempfile
 from string import Template
@@ -595,7 +620,9 @@ def add_block_to_graph(graph, block_df, block_index, label_width, color_map,
     dict
         {'label_node': node id, 'query_node': node id of the reference
          query (see `select_reference_query_index`), or None if this
-         block has no query gene, 'gene_nodes': [node ids, left-to-right]}
+         block has no query gene, 'gene_nodes': [node ids, left-to-right],
+         'gene_meta': {node id -> per-gene info dict (pid, start, end,
+         strand, domain, product, plen, is_query)}}.
     """
     ref_idx = select_reference_query_index(block_df)
     if ref_idx is not None:
@@ -616,6 +643,7 @@ def add_block_to_graph(graph, block_df, block_index, label_width, color_map,
     graph.add_node(label_node_id, label=label_html, shape='none', margin=0.1)
 
     gene_node_ids = []
+    gene_meta = {}
     query_node_id = None
     for row_position, (row_idx, row) in enumerate(block_df.iterrows()):
         node_id = f'gene_{block_index}_{row_position}'
@@ -629,6 +657,18 @@ def add_block_to_graph(graph, block_df, block_index, label_width, color_map,
         )
         graph.add_node(node_id, **style)
         gene_node_ids.append(node_id)
+        # Keep everything a tooltip might want; the report enriches each
+        # gene node in the SVG with this (see annotate_neighborhood_svg).
+        gene_meta[node_id] = dict(
+            pid=row.get('pid'),
+            start=row.get('start'),
+            end=row.get('end'),
+            strand=row.get('strand'),
+            domain=row.get('domain'),
+            product=row.get('product'),
+            plen=row.get('plen'),
+            is_query=bool(row['is_query']),
+        )
         if row_idx == ref_idx:
             query_node_id = node_id
 
@@ -643,7 +683,8 @@ def add_block_to_graph(graph, block_df, block_index, label_width, color_map,
     for a, b in zip(row_node_ids[:-1], row_node_ids[1:]):
         graph.add_edge(a, b, style='invis', penwidth=0)
 
-    return {'label_node': label_node_id, 'query_node': query_node_id, 'gene_nodes': gene_node_ids}
+    return {'label_node': label_node_id, 'query_node': query_node_id,
+            'gene_nodes': gene_node_ids, 'gene_meta': gene_meta}
 
 
 def chain_align_nodes(graph, node_ids, weight=10000):
@@ -681,7 +722,7 @@ def neighborhood_figure(df, group_col='block_id', label_col='pfam', org_col='org
                         highlight_query=True, font_size=10, ignore_domains=None,
                         custom_colors=None, rename_map=None, normalize_orientation=True,
                         align_query_center=True, collapse_opposite_strand=False,
-                        spacer_width=0.6, color_map=None):
+                        spacer_width=0.6, color_map=None, collect_node_meta=False):
     """
     Draw a gene-neighborhood ("operon") figure, one row per block, and
     write it to `output_file`.
@@ -767,10 +808,20 @@ def neighborhood_figure(df, group_col='block_id', label_col='pfam', org_col='org
 
     Returns
     -------
-    pandas.DataFrame
-        The working copy of `df` actually used to build the figure
-        (with 'ID', 'org_name', 'domain', 'is_query', 'pid_order' added),
-        mainly useful for debugging.
+    pandas.DataFrame, or (pandas.DataFrame, dict)
+        Normally the working copy of `df` actually used to build the
+        figure (with 'ID', 'org_name', 'domain', 'is_query', 'pid_order'
+        added), mainly useful for debugging. If `collect_node_meta=True`,
+        returns a `(working, node_meta)` tuple instead, where `node_meta`
+        maps each gene node's id (e.g. 'gene_0_3') to its per-gene info
+        dict -- this is what `build_html_report` uses to attach a
+        hover "info window" to every protein in a neighborhood. The node
+        ids match the `<title>` elements graphviz writes into the SVG.
+
+    Other parameters
+    ----------------
+    collect_node_meta : bool, default False
+        If True, also return the per-gene metadata dict (see Returns).
     """
     working = prepare_dataframe(
         df, group_col=group_col, org_col=org_col, label_col=label_col, rename_map=rename_map
@@ -823,6 +874,12 @@ def neighborhood_figure(df, group_col='block_id', label_col='pfam', org_col='org
         chain_align_nodes(graph, [info['query_node'] for info in blocks_info])
 
     graph.draw(output_file, prog='dot')
+
+    if collect_node_meta:
+        node_meta = {}
+        for info in blocks_info:
+            node_meta.update(info['gene_meta'])
+        return working, node_meta
     return working
 
 
@@ -1261,6 +1318,128 @@ def _strip_svg_prolog(svg):
     return svg[idx:] if idx != -1 else svg
 
 
+def _fmt_int(value):
+    """Format a number with thousands separators, or '?' if missing."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return '?'
+    try:
+        return f'{int(round(float(value))):,}'
+    except (TypeError, ValueError):
+        return html.escape(str(value))
+
+
+def build_gene_tooltip_html(meta):
+    """
+    Build the inner HTML of the hover "info window" for a single protein
+    in a neighborhood figure.
+
+    The title is the protein id. Then a role line:
+
+      * the query gene shows a "query" marker (this is the
+        "change domain for query" behavior -- where a neighbor would
+        list its domain, the query instead announces that it *is* the
+        query);
+      * a neighbor lists its domain/architecture.
+
+    Followed by genomic coordinates, strand, length and product when
+    those fields are available.
+
+    Parameters
+    ----------
+    meta : dict
+        One value from the `node_meta` dict returned by
+        `neighborhood_figure(..., collect_node_meta=True)`.
+
+    Returns
+    -------
+    str
+        HTML for the tooltip body (same shape as the genome-overview
+        tooltips: a bold title plus `.t-row` spans).
+    """
+    pid = meta.get('pid')
+    title = pid if pid is not None and not (isinstance(pid, float) and pd.isna(pid)) else 'protein'
+
+    rows = [f"<b>{html.escape(str(title))}</b>"]
+
+    if meta.get('is_query'):
+        rows.append("<span class='t-row t-query'>&#9733;&nbsp;query</span>")
+    else:
+        domain = meta.get('domain')
+        domain = '-' if domain is None or (isinstance(domain, float) and pd.isna(domain)) else domain
+        rows.append(f"<span class='t-row'>domain&nbsp;&middot;&nbsp;{html.escape(str(domain))}</span>")
+
+    start, end = meta.get('start'), meta.get('end')
+    if start is not None or end is not None:
+        rows.append(
+            f"<span class='t-row'>coords&nbsp;&middot;&nbsp;{_fmt_int(start)}&ndash;{_fmt_int(end)} bp</span>"
+        )
+
+    strand = meta.get('strand')
+    strand_str = '+' if strand == 1 else '&minus;' if strand == -1 else '?'
+    rows.append(f"<span class='t-row'>strand&nbsp;&middot;&nbsp;{strand_str}</span>")
+
+    plen = meta.get('plen')
+    if plen is not None and not (isinstance(plen, float) and pd.isna(plen)):
+        rows.append(f"<span class='t-row'>length&nbsp;&middot;&nbsp;{_fmt_int(plen)} aa</span>")
+
+    product = meta.get('product')
+    if product is not None and not (isinstance(product, float) and pd.isna(product)):
+        rows.append(f"<span class='t-row'>product&nbsp;&middot;&nbsp;{html.escape(str(product))}</span>")
+
+    return ''.join(rows)
+
+
+# Matches one graphviz node group header: `<g id="nodeN" class="node">`
+# immediately followed by `<title>NODE_NAME</title>`. The node name is
+# what `add_block_to_graph` assigned (e.g. 'gene_0_3'); graphviz writes
+# it into the <title>, which is how we map an SVG element back to its
+# gene metadata.
+_NODE_GROUP_RE = re.compile(
+    r'<g id="(?P<gid>[^"]*)" class="node">\s*<title>(?P<name>[^<]+)</title>'
+)
+
+
+def annotate_neighborhood_svg(svg, node_meta):
+    """
+    Enrich each gene node in a rendered neighborhood SVG so the report
+    can show a per-protein info window on hover.
+
+    For every `<g class="node">` whose `<title>` names a gene that has
+    metadata, this adds `class="node nb-gene"` and a `data-tip`
+    attribute (the HTML from `build_gene_tooltip_html`). Label boxes,
+    spacers and any node without metadata are left untouched.
+
+    This is plain text surgery on graphviz's SVG output rather than a
+    graphviz feature: graphviz can attach a `tooltip` (which becomes a
+    slow native browser tooltip) but not arbitrary `data-*` attributes
+    or a styled popup, so the report injects its own.
+
+    Parameters
+    ----------
+    svg : str
+        A rendered neighborhood SVG (ideally prolog-stripped already).
+    node_meta : dict
+        node id -> per-gene info, from
+        `neighborhood_figure(..., collect_node_meta=True)`.
+
+    Returns
+    -------
+    str
+        The SVG with gene nodes annotated.
+    """
+    def repl(match):
+        name = match.group('name')
+        meta = node_meta.get(name)
+        if not meta:
+            return match.group(0)
+        tip = html.escape(build_gene_tooltip_html(meta), quote=True)
+        gid = match.group('gid')
+        new_header = f'<g id="{gid}" class="node nb-gene" data-tip="{tip}">'
+        return match.group(0).replace(f'<g id="{gid}" class="node">', new_header, 1)
+
+    return _NODE_GROUP_RE.sub(repl, svg)
+
+
 def render_neighborhood_svgs_by_block(df, group_col, color_map, operon_kwargs, tmp_dir):
     """
     Render one neighborhood figure per block and return their SVGs.
@@ -1289,21 +1468,24 @@ def render_neighborhood_svgs_by_block(df, group_col, color_map, operon_kwargs, t
     Returns
     -------
     dict[str, str]
-        Maps each block's slug (see `_slug`) to its SVG markup (XML
-        prolog stripped, ready to inline). Insertion order follows the
-        first appearance of each block in `df`.
+        Maps each block's slug (see `_slug`) to its SVG markup, with XML
+        prolog stripped and every protein annotated for hover info
+        windows (see `annotate_neighborhood_svg`). Insertion order
+        follows the first appearance of each block in `df`.
     """
     kw = {k: v for k, v in (operon_kwargs or {}).items()
-          if k not in ('output_file', 'color_map', 'group_col')}
+          if k not in ('output_file', 'color_map', 'group_col', 'collect_node_meta')}
 
     svgs = {}
     for block_id, block_df in df.groupby(group_col, sort=False):
         slug = _slug(block_id)
         path = os.path.join(tmp_dir, f'nb_{slug}.svg')
-        neighborhood_figure(block_df, group_col=group_col, output_file=path,
-                             color_map=color_map, **kw)
+        _working, node_meta = neighborhood_figure(
+            block_df, group_col=group_col, output_file=path,
+            color_map=color_map, collect_node_meta=True, **kw)
         with open(path) as f:
-            svgs[slug] = _strip_svg_prolog(f.read())
+            svg = _strip_svg_prolog(f.read())
+        svgs[slug] = annotate_neighborhood_svg(svg, node_meta)
     return svgs
 
 
@@ -1442,6 +1624,12 @@ HTML_REPORT_TEMPLATE = Template(r"""<!DOCTYPE html>
   }
   .go-tooltip b { display: block; margin-bottom: 3px; font-size: 12.5px; }
   .go-tooltip .t-row { display: block; color: #cdd3da; }
+  .go-tooltip .t-query { color: #ffd28a; font-weight: bold; }
+
+  /* hoverable proteins inside neighborhood figures */
+  .nb-gene { cursor: pointer; }
+  .nb-gene:hover { filter: brightness(0.92); }
+  .nb-gene:hover polygon, .nb-gene:hover ellipse { stroke-width: 2.4px; }
 
   /* ---- neighborhoods: folders + content ---- */
   .nb-layout { display: grid; grid-template-columns: 270px 1fr; gap: 18px; align-items: start; }
@@ -1472,6 +1660,7 @@ HTML_REPORT_TEMPLATE = Template(r"""<!DOCTYPE html>
   .folder-item.selected { background: var(--selected); box-shadow: inset 2px 0 0 var(--selected-line); color: #7a3b12; }
   .folder-item.hidden-row { display: none; }
   .folder-item .fi-sub { color: var(--muted); font-size: 11px; margin-left: 6px; }
+  .folder-item-all { font-weight: bold; color: var(--accent); margin-bottom: 4px; padding-left: 10px; }
 
   .nb-content { min-width: 0; }
   .nb-panel { display: none; }
@@ -1528,7 +1717,7 @@ $genome_overview
   <section>
     <p class="eyebrow">02 &middot; NEIGHBORHOODS</p>
     <h2>Gene neighborhood detail</h2>
-    <p class="desc">Pick a result on the left to see it on its own. Every query gene is outlined in red; neighbors always point right, and opposite-strand neighbors collapse to small triangles.</p>
+    <p class="desc">Open "All neighborhoods" to see every block at once, or pick a single result on the left. Hover any protein for its info window (id, coordinates, strand, length); the query protein is flagged as such. Query genes are outlined in red, neighbors always point right, and opposite-strand neighbors collapse to small triangles.</p>
     <div class="nb-layout">
       <div class="nb-folders">
         <input type="text" id="folder-search" class="folder-search" placeholder="Filter results...">
@@ -1637,17 +1826,6 @@ $table_html
     });
   });
 
-  var markers = Array.prototype.slice.call(document.querySelectorAll('.go-marker'));
-  markers.forEach(function (m) {
-    m.addEventListener('mouseenter', function (e) {
-      tip.innerHTML = m.dataset.tip;
-      tip.style.display = 'block';
-      moveTip(e);
-    });
-    m.addEventListener('mousemove', moveTip);
-    m.addEventListener('mouseleave', function () { tip.style.display = 'none'; });
-    m.addEventListener('click', function () { selectBlock(m.dataset.block); });
-  });
   function moveTip(e) {
     var x = e.clientX + 14, y = e.clientY + 14;
     var r = tip.getBoundingClientRect();
@@ -1656,6 +1834,24 @@ $table_html
     tip.style.left = x + 'px';
     tip.style.top = y + 'px';
   }
+  function attachTip(el) {
+    el.addEventListener('mouseenter', function (e) {
+      tip.innerHTML = el.dataset.tip;
+      tip.style.display = 'block';
+      moveTip(e);
+    });
+    el.addEventListener('mousemove', moveTip);
+    el.addEventListener('mouseleave', function () { tip.style.display = 'none'; });
+  }
+
+  var markers = Array.prototype.slice.call(document.querySelectorAll('.go-marker'));
+  markers.forEach(function (m) {
+    attachTip(m);
+    m.addEventListener('click', function () { selectBlock(m.dataset.block); });
+  });
+
+  // per-protein info windows inside the neighborhood figures
+  Array.prototype.slice.call(document.querySelectorAll('.nb-gene')).forEach(attachTip);
 
   // ---------- neighborhoods: folder navigation ----------
   var panels = Array.prototype.slice.call(document.querySelectorAll('.nb-panel'));
@@ -1718,12 +1914,12 @@ $table_html
 """)
 
 
-def build_folder_and_panels_html(extents, block_svgs):
+def build_folder_and_panels_html(extents, block_svgs, combined_svg=None, default_view='all'):
     """
     Build the two coupled HTML fragments the neighborhoods section needs:
     the left "folders" navigation (results grouped by contig, each item
-    a clickable block) and the right stack of per-block panels (one SVG
-    each, only the selected one shown).
+    a clickable block) and the right stack of panels (one SVG each, only
+    the selected one shown).
 
     Parameters
     ----------
@@ -1731,37 +1927,60 @@ def build_folder_and_panels_html(extents, block_svgs):
         Output of `compute_block_extents`; drives order, grouping and
         the per-item labels.
     block_svgs : dict[str, str]
-        Slug -> SVG markup, from `render_neighborhood_svgs_by_block`.
+        Slug -> annotated SVG markup, from
+        `render_neighborhood_svgs_by_block`.
+    combined_svg : str or None
+        If given, an extra "All neighborhoods" entry (data-block
+        `__all__`) is added at the top showing every block at once.
+    default_view : str
+        Which panel is selected on load: 'all' (the combined view, if
+        present) or 'first' (the first block). Falls back to the first
+        block when 'all' is requested but no `combined_svg` was given.
 
     Returns
     -------
     (str, str)
-        (folders_html, panels_html). The first block found becomes the
-        initially-selected one.
+        (folders_html, panels_html).
     """
     if extents.empty:
         return '<div class="nb-empty">No blocks.</div>', '<div class="nb-empty">No blocks to show.</div>'
 
     nucleotides = list(dict.fromkeys(extents['nucleotide']))
-    first_slug = _slug(extents.iloc[0]['ID'])
+    has_combined = combined_svg is not None
+    selected = '__all__' if (default_view == 'all' and has_combined) else _slug(extents.iloc[0]['ID'])
 
     folder_groups = []
     panels = []
+
+    if has_combined:
+        sel = ' selected' if selected == '__all__' else ''
+        act = ' active' if selected == '__all__' else ''
+        folder_groups.append(
+            f'<div class="folder-item folder-item-all{sel}" data-block="__all__">'
+            f'&#9776;&nbsp;All neighborhoods'
+            f'<span class="fi-sub">{len(extents)} blocks</span></div>'
+        )
+        panels.append(
+            f'<div class="nb-panel{act}" data-block="__all__">'
+            f'<div class="nb-panel-head"><b>All neighborhoods</b> &middot; every block stacked</div>'
+            f'<div class="nb-scroll">{combined_svg}</div></div>'
+        )
+
     for nucleotide in nucleotides:
         rows = extents[extents['nucleotide'] == nucleotide]
         items = []
         for _, block in rows.iterrows():
             slug = _slug(block['ID'])
             label = block['query_pid'] if block['query_pid'] is not None else block['ID']
-            selected = ' selected' if slug == first_slug else ''
+            sel = ' selected' if slug == selected else ''
             items.append(
-                f'<div class="folder-item{selected}" data-block="{slug}">'
+                f'<div class="folder-item{sel}" data-block="{slug}">'
                 f'{html.escape(str(label))}'
                 f'<span class="fi-sub">{int(block["n_genes"])} genes</span></div>'
             )
 
             domain = block['query_domain'] if block['query_domain'] is not None else '-'
-            active = ' active' if slug == first_slug else ''
+            act = ' active' if slug == selected else ''
             head = (
                 f'<div class="nb-panel-head"><b>{html.escape(str(label))}</b> &middot; '
                 f'{html.escape(str(block["ID"]))} &middot; {html.escape(str(domain))} &middot; '
@@ -1769,7 +1988,7 @@ def build_folder_and_panels_html(extents, block_svgs):
                 f'{block["block_start"]:,.0f}&ndash;{block["block_end"]:,.0f} bp</div>'
             )
             panels.append(
-                f'<div class="nb-panel{active}" data-block="{slug}">{head}'
+                f'<div class="nb-panel{act}" data-block="{slug}">{head}'
                 f'<div class="nb-scroll">{block_svgs.get(slug, "")}</div></div>'
             )
 
@@ -1784,17 +2003,22 @@ def build_folder_and_panels_html(extents, block_svgs):
     return ''.join(folder_groups), ''.join(panels)
 
 
-def build_html_report(df, output_file='neighborhood_report.html', title='Gene Neighborhood Report',
+def build_html_report(df, output_file='operon_report.html', title='Gene Neighborhood Report',
                        group_col='block_id', org_col='organism', label_col='pfam',
                        rename_map=None, custom_colors=None, max_colors=5, ignore_domains=None,
                        nucleotide_col='nucleotide', start_col='start', end_col='end',
                        length_col='nlen', operon_kwargs=None, max_table_rows=2000,
-                       work_dir=None):
+                       work_dir=None, include_combined=True, default_view='all'):
     """
     Build one self-contained, interactive HTML page for a single input
     table: a zoomable genome-wide overview with hover tooltips, a
-    "folders" sidebar that opens each neighborhood on its own, and the
-    raw data table with a filter box.
+    "folders" sidebar that opens each neighborhood on its own (plus an
+    "All neighborhoods" view showing every block at once), and the raw
+    data table with a filter box.
+
+    Every protein in every neighborhood figure also gets a hover info
+    window (protein id, coordinates, strand, length, product; the query
+    gene is flagged as the query in place of a domain line).
 
     A single shared domain -> color map is computed once (from the whole
     table, honoring `rename_map`/`custom_colors`/`max_colors`/
@@ -1826,6 +2050,13 @@ def build_html_report(df, output_file='neighborhood_report.html', title='Gene Ne
     work_dir : str or None
         Where intermediate SVGs are written. If None, a temporary
         directory is used and cleaned up afterwards.
+    include_combined : bool, default True
+        Add the "All neighborhoods" view (every block stacked in one
+        figure). Turning this off saves time/size on very large inputs.
+    default_view : str, default 'all'
+        Which neighborhoods panel is open on load: 'all' (the combined
+        view) or 'first' (the first block). Ignored toward 'first' if
+        `include_combined` is False.
 
     Returns
     -------
@@ -1833,10 +2064,6 @@ def build_html_report(df, output_file='neighborhood_report.html', title='Gene Ne
         `output_file` (the path written).
     """
     operon_kwargs = dict(operon_kwargs) if operon_kwargs else {}
-    color_label_kwargs = dict(
-        group_col=group_col, org_col=org_col, label_col=label_col, rename_map=rename_map,
-        custom_colors=custom_colors, max_colors=max_colors, ignore_domains=ignore_domains,
-    )
 
     # One global color map, shared by every figure for consistency.
     working = prepare_dataframe(df, group_col=group_col, org_col=org_col,
@@ -1861,11 +2088,23 @@ def build_html_report(df, output_file='neighborhood_report.html', title='Gene Ne
             df, group_col=group_col, color_map=color_map,
             operon_kwargs=per_block_operon_kwargs, tmp_dir=tmp_dir,
         )
+
+        combined_svg = None
+        if include_combined:
+            combined_path = os.path.join(tmp_dir, 'combined.svg')
+            _working, combined_meta = neighborhood_figure(
+                df, group_col=group_col, output_file=combined_path,
+                color_map=color_map, collect_node_meta=True, **per_block_operon_kwargs,
+            )
+            with open(combined_path) as f:
+                combined_svg = annotate_neighborhood_svg(_strip_svg_prolog(f.read()), combined_meta)
     finally:
         if own_tmp:
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
-    folders_html, panels_html = build_folder_and_panels_html(extents, block_svgs)
+    folders_html, panels_html = build_folder_and_panels_html(
+        extents, block_svgs, combined_svg=combined_svg, default_view=default_view
+    )
 
     n_blocks = df[group_col].nunique() if group_col in df.columns else 'NA'
     html_doc = HTML_REPORT_TEMPLATE.substitute(
