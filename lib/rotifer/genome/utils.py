@@ -19,12 +19,12 @@ def _parse_assembly_from_dbxrefs(column, feature, seqrecord):
     for x in seqrecord.dbxrefs:
         if 'Assembly:' in x:
             return x.split(':')[-1]
-    return np.NaN
+    return np.nan
 
 def _parse_annotations(column, feature, seqrecord):
         if column in seqrecord.annotations:
             return seqrecord.annotations[column]
-        return np.NaN
+        return np.nan
 
 def _parse_qualifiers(column, feature, seqrecord):
     if column in feature.qualifiers:
